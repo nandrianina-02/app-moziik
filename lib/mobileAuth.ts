@@ -112,7 +112,7 @@ export async function getAuthUser(req: Request): Promise<AuthUser | null> {
 
   const session = await getServerSession(authOptions);
   if (session?.user?.id) {
-    return { id: session.user.id, role: session.user.role };
+    return { id: session.user.id, role: session.user.role ?? "member" };
   }
 
   return null;

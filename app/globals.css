@@ -1,0 +1,168 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --font-display: "Sora", ui-sans-serif, system-ui, sans-serif;
+  --font-body: "Plus Jakarta Sans", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, monospace;
+
+  /* Thème sombre (par défaut) — triplets RGB, sans "rgb()", pour
+     fonctionner avec la syntaxe <alpha-value> de Tailwind. */
+  --color-base: 13 15 26;        /* #0D0F1A */
+  --color-surface: 22 25 39;     /* #161927 */
+  --color-border: 36 40 56;      /* #242838 */
+  --color-ink: 242 240 233;      /* #F2F0E9 */
+  --color-ink-muted: 139 143 163; /* #8B8FA3 */
+}
+
+html.light {
+  /* Thème clair — mêmes variables, valeurs différentes. Comme tous
+     les composants utilisent bg-base / bg-surface / text-ink / etc.
+     (jamais de couleur en dur), le thème change partout d'un coup. */
+  --color-base: 251 249 244;     /* #FBF9F4 */
+  --color-surface: 255 255 255;  /* #FFFFFF */
+  --color-border: 231 227 216;   /* #E7E3D8 */
+  --color-ink: 23 26 36;         /* #171A24 */
+  --color-ink-muted: 107 112 134; /* #6B7086 — plus lisible sur fond clair */
+}
+
+@layer base {
+  body {
+    @apply bg-base text-ink font-body antialiased transition-colors duration-300;
+  }
+  h1, h2, h3, h4 {
+    @apply font-display;
+  }
+  /* Focus visible clair pour l'accessibilité clavier */
+  :focus-visible {
+    outline: 2px solid theme("colors.accent.DEFAULT");
+    outline-offset: 2px;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+      animation-duration: 0.01ms !important;
+      transition-duration: 0.01ms !important;
+    }
+  }
+}
+
+/* Barre de défilement discrète, cohérente avec le thème */
+::-webkit-scrollbar { width: 8px; height: 8px; }
+::-webkit-scrollbar-thumb { @apply bg-border rounded-full; }
+::-webkit-scrollbar-track { background: transparent; }
+
+/* --- Animations d'affichage ---
+   Utilitaires réutilisables dans toute l'app. prefers-reduced-motion
+   est déjà neutralisé plus haut (animation-duration: 0.01ms), donc ces
+   classes restent accessibles sans condition supplémentaire. */
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes fadeInUp {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@layer utilities {
+  .animate-fade-in {
+    animation: fadeIn 0.4s ease-out both;
+  }
+  .animate-fade-in-up {
+    animation: fadeInUp 0.45s cubic-bezier(0.16, 1, 0.3, 1) backwards;
+  }
+  /* Échelonnement pour les grilles/listes : appliquer .stagger sur le
+     conteneur et .animate-fade-in-up sur chaque enfant direct — chaque
+     élément apparaît un peu après le précédent. */
+  .stagger > * {
+    animation: fadeInUp 0.45s cubic-bezier(0.16, 1, 0.3, 1) backwards;
+  }
+  .stagger > *:nth-child(1) { animation-delay: 0ms; }
+  .stagger > *:nth-child(2) { animation-delay: 40ms; }
+  .stagger > *:nth-child(3) { animation-delay: 80ms; }
+  .stagger > *:nth-child(4) { animation-delay: 120ms; }
+  .stagger > *:nth-child(5) { animation-delay: 160ms; }
+  .stagger > *:nth-child(6) { animation-delay: 200ms; }
+  .stagger > *:nth-child(7) { animation-delay: 240ms; }
+  .stagger > *:nth-child(8) { animation-delay: 280ms; }
+  .stagger > *:nth-child(n+9) { animation-delay: 320ms; }
+
+  /* Révélation au scroll : état initial caché, transition vers visible
+     quand l'élément entre dans le viewport (voir components/layout/Reveal.tsx).
+     Une transition (pas une keyframe animation) car l'état de départ doit
+     rester stable tant que l'élément n'a pas été révélé. */
+  .reveal {
+    opacity: 0;
+    transform: translateY(20px);
+    transition: opacity 0.45s cubic-bezier(0.16, 1, 0.3, 1), transform 0.45s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+  .reveal.is-visible {
+    opacity: 1;
+    transform: none;
+  }
+
+  /* Skeleton loaders : reflet translucide qui glisse par-dessus
+     bg-surface — fonctionne nativement en light/dark, pas de couleur
+     codée en dur. */
+  .animate-shimmer {
+    position: relative;
+    overflow: hidden;
+  }
+  .animate-shimmer::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    transform: translateX(-100%);
+    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.12), transparent);
+    animation: shimmer 1.6s ease-in-out infinite;
+  }
+}
+
+@keyframes shimmer {
+  from { transform: translateX(-100%); }
+  to { transform: translateX(100%); }
+}
+
+/* Curseurs verticaux de l'égaliseur : un <input type="range"> horizontal
+   pivoté à -90deg, plutôt que "writing-mode: vertical-lr" (mal supporté
+   et sans taille intrinsèque fiable — il pouvait s'étirer sur toute la
+   hauteur de la page). La largeur du <input> = la longueur visuelle du
+   curseur une fois pivoté ; elle est fixée en pixels via l'attribut
+   style de chaque slider (voir EQPanel.tsx), jamais en pourcentage. */
+.eq-slider {
+  -webkit-appearance: none;
+  appearance: none;
+  background: transparent;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+.eq-slider::-webkit-slider-runnable-track {
+  height: 4px;
+  border-radius: 9999px;
+  background: rgb(var(--color-border));
+}
+.eq-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  height: 14px;
+  width: 14px;
+  border-radius: 9999px;
+  background: #ff6b4a;
+  margin-top: -5px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+}
+.eq-slider::-moz-range-track {
+  height: 4px;
+  border-radius: 9999px;
+  background: rgb(var(--color-border));
+}
+.eq-slider::-moz-range-thumb {
+  height: 14px;
+  width: 14px;
+  border: none;
+  border-radius: 9999px;
+  background: #ff6b4a;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+}

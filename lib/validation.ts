@@ -23,6 +23,16 @@ export const registerSchema = z.object({
   password: z.string().min(8, "Le mot de passe doit contenir au moins 8 caractères.").max(200),
 });
 
+export const mobileLoginSchema = z.object({
+  email: z.string().trim().toLowerCase().email("Adresse email invalide.").max(254),
+  password: z.string().min(1, "Mot de passe requis."),
+  device: z.string().trim().max(120).optional(),
+});
+
+export const mobileRefreshSchema = z.object({
+  refreshToken: z.string().min(1, "Refresh token requis."),
+});
+
 export const forgotPasswordSchema = z.object({
   email: z.string().trim().toLowerCase().email("Adresse email invalide.").max(254),
 });

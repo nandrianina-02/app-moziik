@@ -1,6 +1,5 @@
 import { NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
+import { getAuthUser } from "@/lib/mobileAuth";
 import { connectDB } from "@/lib/db";
 import User from "@/models/User";
 import Artist from "@/models/Artist";
@@ -17,13 +16,13 @@ import { ApiError, withApiErrors } from "@/lib/apiError";
  * champ absent (pas de profil artiste, aucun badge) est simplement
  * omis ou renvoyé à 0.
  */
-export const GET = withApiErrors(async () => {
-  const session = await getServerSession(authOptions);
-  if (!session?.user) throw new ApiError("Non authentifié.", 401);
+export const GET = withApiErrors(async (req: Request) => {
+  const authUser = await getAuthUser(req);
+  if (!authUser) throw new ApiError("Non authentifié.", 401);
 
   await connectDB();
 
-  const user = await User.findById(session.user.id);
+  const user = await User.findById(authUser.id);
   if (!user) throw new ApiError("Utilisateur introuvable.", 404);
 
   const [playlistsCount, followedArtistsCount, earnedBadges] = await Promise.all([
@@ -87,11 +86,11 @@ const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
  * ces champs n'existent pas dans le schéma actuel.
  */
 export const PATCH = withApiErrors(async (req: Request) => {
-  const session = await getServerSession(authOptions);
-  if (!session?.user) throw new ApiError("Non authentifié.", 401);
+  const authUser = await getAuthUser(req);
+  if (!authUser) throw new ApiError("Non authentifié.", 401);
 
   await connectDB();
-  const user = await User.findById(session.user.id);
+  const user = await User.findById(authUser.id);
   if (!user) throw new ApiError("Utilisateur introuvable.", 404);
 
   const body = await req.json().catch(() => ({}));

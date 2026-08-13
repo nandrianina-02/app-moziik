@@ -57,6 +57,7 @@ export const GET = withApiErrors(async (req: Request) => {
 
   return NextResponse.json({
     user: {
+      id: user._id.toString(),
       name: user.name,
       email: user.email,
       avatarUrl: user.avatarUrl,

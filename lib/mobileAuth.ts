@@ -7,9 +7,18 @@ import User, { UserRole } from "@/models/User";
 import RefreshToken from "@/models/RefreshToken";
 import { ApiError } from "@/lib/apiError";
 
-const JWT_SECRET = process.env.MOBILE_JWT_SECRET as string;
-if (!JWT_SECRET) {
-  throw new Error("La variable d'environnement MOBILE_JWT_SECRET est manquante.");
+// Volontairement lu paresseusement (pas au chargement du module) : Next.js
+// importe ce fichier pendant "Collecting page data" à la construction,
+// avant que les variables d'environnement d'exécution ne soient
+// nécessairement disponibles. Un throw ici plutôt qu'au premier usage
+// réel ferait échouer tout le build dès que MOBILE_JWT_SECRET manque au
+// moment du build, même si elle est bien définie à l'exécution.
+function getJwtSecret(): string {
+  const secret = process.env.MOBILE_JWT_SECRET;
+  if (!secret) {
+    throw new ApiError("Authentification mobile indisponible (MOBILE_JWT_SECRET manquante).", 500);
+  }
+  return secret;
 }
 
 // Court volontairement : un access token volé (log client, device compromis)
@@ -30,7 +39,7 @@ export type AuthUser = {
 };
 
 export function signAccessToken(payload: MobileTokenPayload): string {
-  return jwt.sign(payload, JWT_SECRET, { expiresIn: ACCESS_TOKEN_TTL });
+  return jwt.sign(payload, getJwtSecret(), { expiresIn: ACCESS_TOKEN_TTL });
 }
 
 function hashToken(token: string): string {
@@ -103,7 +112,7 @@ export async function getAuthUser(req: Request): Promise<AuthUser | null> {
   if (authHeader?.startsWith("Bearer ")) {
     const token = authHeader.slice("Bearer ".length);
     try {
-      const payload = jwt.verify(token, JWT_SECRET) as MobileTokenPayload & jwt.JwtPayload;
+      const payload = jwt.verify(token, getJwtSecret()) as MobileTokenPayload & jwt.JwtPayload;
       return { id: payload.sub, role: payload.role };
     } catch {
       throw new ApiError("Token invalide ou expiré.", 401);

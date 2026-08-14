@@ -1,20 +1,19 @@
 import { NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
 import { connectDB } from "@/lib/db";
 import Song from "@/models/Song";
 import Artist from "@/models/Artist";
 import { ApiError, withApiErrors } from "@/lib/apiError";
+import { parseOrThrow, featuringDecisionSchema } from "@/lib/validation";
+import { requireAuthUser } from "@/lib/mobileAuth";
 
 export const POST = withApiErrors(
   async (req: Request, { params }: { params: { id: string } }) => {
-    const session = await getServerSession(authOptions);
-    if (!session?.user) throw new ApiError("Non authentifié.", 401);
+    const authUser = await requireAuthUser(req);
 
-    const { decision } = await req.json(); // "confirm" | "remove"
+    const { decision } = parseOrThrow(featuringDecisionSchema, await req.json());
 
     await connectDB();
-    const artistProfile = await Artist.findOne({ user: session.user.id });
+    const artistProfile = await Artist.findOne({ user: authUser.id });
     if (!artistProfile) throw new ApiError("Profil artiste introuvable.", 404);
 
     const song = await Song.findById(params.id);

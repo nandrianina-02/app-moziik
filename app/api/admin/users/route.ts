@@ -6,7 +6,7 @@ import { requireAdmin } from "@/lib/requireAdmin";
 import { withApiErrors } from "@/lib/apiError";
 
 export const GET = withApiErrors(async (req: Request) => {
-  await requireAdmin();
+  await requireAdmin(req);
 
   const { searchParams } = new URL(req.url);
   const role = searchParams.get("role");

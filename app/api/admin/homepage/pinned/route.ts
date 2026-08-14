@@ -85,8 +85,8 @@ async function describePinned(pinned: IHomepagePinned & { _id: unknown }) {
   };
 }
 
-export const GET = withApiErrors(async () => {
-  await requireAdmin();
+export const GET = withApiErrors(async (req: Request) => {
+  await requireAdmin(req);
   await connectDB();
   const pinned = await HomepagePinned.find().sort({ section: 1, priority: -1 });
   const described = await Promise.all(pinned.map(describePinned));
@@ -94,7 +94,7 @@ export const GET = withApiErrors(async () => {
 });
 
 export const POST = withApiErrors(async (req: Request) => {
-  const admin = await requireAdmin();
+  const admin = await requireAdmin(req);
   const body = parseOrThrow(pinnedContentSchema, await req.json());
 
   await connectDB();

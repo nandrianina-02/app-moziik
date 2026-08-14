@@ -1,22 +1,20 @@
 import { NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
 import { connectDB } from "@/lib/db";
 import Subscription from "@/models/Subscription";
 import { hasPremiumAccess } from "@/lib/premium";
-import { ApiError, withApiErrors } from "@/lib/apiError";
+import { withApiErrors } from "@/lib/apiError";
+import { requireAuthUser } from "@/lib/mobileAuth";
 
-export const GET = withApiErrors(async () => {
-  const session = await getServerSession(authOptions);
-  if (!session?.user) throw new ApiError("Non authentifié.", 401);
+export const GET = withApiErrors(async (req: Request) => {
+  const authUser = await requireAuthUser(req);
 
   await connectDB();
-  const subscription = await Subscription.findOne({ user: session.user.id }).sort({ startedAt: -1 });
+  const subscription = await Subscription.findOne({ user: authUser.id }).sort({ startedAt: -1 });
 
   const hasPremium = hasPremiumAccess({
-    role: session.user.role,
+    role: authUser.role,
     subscriptionStatus: subscription?.status,
   });
 
-  return NextResponse.json({ subscription, hasPremium, isAdmin: session.user.role === "admin" });
+  return NextResponse.json({ subscription, hasPremium, isAdmin: authUser.role === "admin" });
 });

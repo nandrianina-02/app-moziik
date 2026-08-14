@@ -1,9 +1,9 @@
 import { NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
 import { connectDB } from "@/lib/db";
 import Playlist from "@/models/Playlist";
 import { ApiError, withApiErrors } from "@/lib/apiError";
+import { parseOrThrow, patchPlaylistSchema } from "@/lib/validation";
+import { requireAuthUser } from "@/lib/mobileAuth";
 
 export const GET = withApiErrors(async (_req: Request, { params }: { params: { id: string } }) => {
   await connectDB();
@@ -14,17 +14,16 @@ export const GET = withApiErrors(async (_req: Request, { params }: { params: { i
 
 export const PATCH = withApiErrors(
   async (req: Request, { params }: { params: { id: string } }) => {
-    const session = await getServerSession(authOptions);
-    if (!session?.user) throw new ApiError("Non authentifié.", 401);
+    const authUser = await requireAuthUser(req);
 
     await connectDB();
     const playlist = await Playlist.findById(params.id);
     if (!playlist) throw new ApiError("Playlist introuvable.", 404);
-    if (playlist.owner.toString() !== session.user.id && session.user.role !== "admin") {
+    if (playlist.owner.toString() !== authUser.id && authUser.role !== "admin") {
       throw new ApiError("Tu ne peux modifier que tes propres playlists.", 403);
     }
 
-    const updates = await req.json();
+    const updates = parseOrThrow(patchPlaylistSchema, await req.json()) as Record<string, unknown>;
     const allowed = ["title", "description", "coverUrl", "isPublic"];
     for (const key of allowed) {
       if (key in updates) {
@@ -37,14 +36,13 @@ export const PATCH = withApiErrors(
 );
 
 export const DELETE = withApiErrors(
-  async (_req: Request, { params }: { params: { id: string } }) => {
-    const session = await getServerSession(authOptions);
-    if (!session?.user) throw new ApiError("Non authentifié.", 401);
+  async (req: Request, { params }: { params: { id: string } }) => {
+    const authUser = await requireAuthUser(req);
 
     await connectDB();
     const playlist = await Playlist.findById(params.id);
     if (!playlist) throw new ApiError("Playlist introuvable.", 404);
-    if (playlist.owner.toString() !== session.user.id && session.user.role !== "admin") {
+    if (playlist.owner.toString() !== authUser.id && authUser.role !== "admin") {
       throw new ApiError("Tu ne peux supprimer que tes propres playlists.", 403);
     }
 

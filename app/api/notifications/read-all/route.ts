@@ -1,17 +1,15 @@
 import { NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
 import { connectDB } from "@/lib/db";
 import Notification from "@/models/Notification";
-import { ApiError, withApiErrors } from "@/lib/apiError";
+import { withApiErrors } from "@/lib/apiError";
+import { requireAuthUser } from "@/lib/mobileAuth";
 
-export const POST = withApiErrors(async () => {
-  const session = await getServerSession(authOptions);
-  if (!session?.user) throw new ApiError("Non authentifié.", 401);
+export const POST = withApiErrors(async (req: Request) => {
+  const authUser = await requireAuthUser(req);
 
   await connectDB();
   await Notification.updateMany(
-    { recipient: session.user.id, read: false },
+    { recipient: authUser.id, read: false },
     { read: true }
   );
 

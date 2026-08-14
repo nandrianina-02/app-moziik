@@ -7,15 +7,15 @@ import { parseOrThrow, hubCardSchema, hubCardsReorderSchema } from "@/lib/valida
 import { getHubCards } from "@/lib/homepageHubCards";
 
 /** Liste toutes les cartes (y compris désactivées) pour l'écran d'admin. */
-export const GET = withApiErrors(async () => {
-  await requireAdmin();
+export const GET = withApiErrors(async (req: Request) => {
+  await requireAdmin(req);
   const cards = await getHubCards();
   return NextResponse.json({ cards });
 });
 
 /** Crée une nouvelle carte "Pour vous", ajoutée en dernière position. */
 export const POST = withApiErrors(async (req: Request) => {
-  await requireAdmin();
+  await requireAdmin(req);
   const { title, subtitle, badge, coverUrl, linkHref, enabled } = parseOrThrow(hubCardSchema, await req.json());
 
   await connectDB();
@@ -36,7 +36,7 @@ export const POST = withApiErrors(async (req: Request) => {
 
 /** Réordonne les cartes : body = [{ id, position }, ...] (drag & drop admin). */
 export const PATCH = withApiErrors(async (req: Request) => {
-  await requireAdmin();
+  await requireAdmin(req);
   const { order } = parseOrThrow(hubCardsReorderSchema, await req.json());
 
   await connectDB();

@@ -7,7 +7,7 @@ import { parseOrThrow, hubCardPatchSchema } from "@/lib/validation";
 
 export const PATCH = withApiErrors(
   async (req: Request, { params }: { params: { id: string } }) => {
-    await requireAdmin();
+    await requireAdmin(req);
     const updates = parseOrThrow(hubCardPatchSchema, await req.json());
 
     await connectDB();
@@ -23,8 +23,8 @@ export const PATCH = withApiErrors(
 );
 
 export const DELETE = withApiErrors(
-  async (_req: Request, { params }: { params: { id: string } }) => {
-    await requireAdmin();
+  async (req: Request, { params }: { params: { id: string } }) => {
+    await requireAdmin(req);
 
     await connectDB();
     const card = await HomepageHubCard.findByIdAndDelete(params.id);

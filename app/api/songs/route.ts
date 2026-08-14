@@ -1,12 +1,11 @@
 import { NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
 import { connectDB } from "@/lib/db";
 import Song from "@/models/Song";
 import Artist from "@/models/Artist";
 import { notify } from "@/lib/notify";
 import { ApiError, withApiErrors } from "@/lib/apiError";
 import { parseOrThrow, createSongSchema } from "@/lib/validation";
+import { requireAuthUser } from "@/lib/mobileAuth";
 
 export const GET = withApiErrors(async (req: Request) => {
   const { searchParams } = new URL(req.url);
@@ -39,9 +38,8 @@ export const GET = withApiErrors(async (req: Request) => {
 });
 
 export const POST = withApiErrors(async (req: Request) => {
-  const session = await getServerSession(authOptions);
-  if (!session?.user) throw new ApiError("Non authentifié.", 401);
-  if (session.user.role !== "artist" && session.user.role !== "admin") {
+  const authUser = await requireAuthUser(req);
+  if (authUser.role !== "artist" && authUser.role !== "admin") {
     throw new ApiError("Seuls les artistes peuvent publier un son.", 403);
   }
 
@@ -72,14 +70,14 @@ export const POST = withApiErrors(async (req: Request) => {
   await connectDB();
 
   let artistProfile;
-  if (session.user.role === "admin") {
+  if (authUser.role === "admin") {
     // Un admin n'a pas forcément de profil Artist : il doit préciser
     // pour quel artiste il publie.
     if (!artistId) throw new ApiError("artistId requis pour qu'un admin publie un son.");
     artistProfile = await Artist.findById(artistId);
     if (!artistProfile) throw new ApiError("Artiste introuvable.", 404);
   } else {
-    artistProfile = await Artist.findOne({ user: session.user.id });
+    artistProfile = await Artist.findOne({ user: authUser.id });
     if (!artistProfile) throw new ApiError("Profil artiste introuvable.", 404);
   }
 
@@ -88,7 +86,7 @@ export const POST = withApiErrors(async (req: Request) => {
   // d'être publié ou planifié. Un admin peut publier directement, ou
   // enregistrer en brouillon via saveAsDraft (symétrique avec PATCH).
   const status =
-    session.user.role === "admin"
+    authUser.role === "admin"
       ? saveAsDraft
         ? "draft"
         : release <= new Date()
@@ -124,7 +122,7 @@ export const POST = withApiErrors(async (req: Request) => {
     explicit: !!explicit,
     status,
     releaseDate: release,
-    publishedBy: session.user.id,
+    publishedBy: authUser.id,
   });
 
   for (const credit of featuring) {

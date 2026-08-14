@@ -1,9 +1,9 @@
 import { NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
 import { connectDB } from "@/lib/db";
 import Playlist from "@/models/Playlist";
-import { ApiError, withApiErrors } from "@/lib/apiError";
+import { withApiErrors } from "@/lib/apiError";
+import { parseOrThrow, createPlaylistSchema } from "@/lib/validation";
+import { requireAuthUser } from "@/lib/mobileAuth";
 
 export const GET = withApiErrors(async (req: Request) => {
   const { searchParams } = new URL(req.url);
@@ -11,9 +11,8 @@ export const GET = withApiErrors(async (req: Request) => {
   const publicOnly = searchParams.get("public") === "true";
 
   if (owner === "me") {
-    const session = await getServerSession(authOptions);
-    if (!session?.user) throw new ApiError("Non authentifié.", 401);
-    owner = session.user.id;
+    const authUser = await requireAuthUser(req);
+    owner = authUser.id;
   }
 
   await connectDB();
@@ -26,19 +25,17 @@ export const GET = withApiErrors(async (req: Request) => {
 });
 
 export const POST = withApiErrors(async (req: Request) => {
-  const session = await getServerSession(authOptions);
-  if (!session?.user) throw new ApiError("Non authentifié.", 401);
+  const authUser = await requireAuthUser(req);
 
-  const { title, description, coverUrl, isPublic } = await req.json();
-  if (!title) throw new ApiError("Le titre est requis.");
+  const { title, description, coverUrl, isPublic } = parseOrThrow(createPlaylistSchema, await req.json());
 
   await connectDB();
   const playlist = await Playlist.create({
     title,
     description,
     coverUrl,
-    isPublic: !!isPublic,
-    owner: session.user.id,
+    isPublic,
+    owner: authUser.id,
     songs: [],
   });
 

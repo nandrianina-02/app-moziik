@@ -1,21 +1,17 @@
 import { NextResponse } from "next/server";
 import { randomUUID } from "crypto";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
 import { connectDB } from "@/lib/db";
 import Subscription from "@/models/Subscription";
 import { getSiteConfig } from "@/lib/siteConfig";
 import { initiateMvolaPayment } from "@/lib/mvola";
 import { ApiError, withApiErrors } from "@/lib/apiError";
+import { parseOrThrow, mobileMoneySchema } from "@/lib/validation";
+import { requireAuthUser } from "@/lib/mobileAuth";
 
 export const POST = withApiErrors(async (req: Request) => {
-  const session = await getServerSession(authOptions);
-  if (!session?.user) throw new ApiError("Non authentifié.", 401);
+  const authUser = await requireAuthUser(req);
 
-  const { plan, phoneNumber } = await req.json();
-  if (!["premium", "premium_annual"].includes(plan) || !phoneNumber) {
-    throw new ApiError("Plan et numéro de téléphone requis.");
-  }
+  const { plan, phoneNumber } = parseOrThrow(mobileMoneySchema, await req.json());
 
   const config = await getSiteConfig();
   const pricing = config.plans.find((p) => p.plan === plan);
@@ -36,9 +32,9 @@ export const POST = withApiErrors(async (req: Request) => {
   // En attente de confirmation via le callback MVola (l'utilisateur
   // valide le paiement sur son téléphone).
   await Subscription.findOneAndUpdate(
-    { user: session.user.id },
+    { user: authUser.id },
     {
-      user: session.user.id,
+      user: authUser.id,
       plan,
       amount: pricing.amountMGA,
       currency: "MGA",

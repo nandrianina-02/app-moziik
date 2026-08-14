@@ -6,8 +6,8 @@ import { requireAdmin } from "@/lib/requireAdmin";
 import { withApiErrors } from "@/lib/apiError";
 import { getHomepageViewStats, getEngagementRate } from "@/lib/homepageStats";
 
-export const GET = withApiErrors(async () => {
-  await requireAdmin();
+export const GET = withApiErrors(async (req: Request) => {
+  await requireAdmin(req);
   await connectDB();
 
   const now = new Date();

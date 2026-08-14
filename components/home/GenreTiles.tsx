@@ -17,7 +17,7 @@ export function GenreTiles({ genres }: { genres: { genre: string; count: number 
       {genres.map((g, i) => (
         <Link
           key={g.genre}
-          href={`/recherche?genre=${encodeURIComponent(g.genre)}`}
+          href={`/titres?genre=${encodeURIComponent(g.genre)}`}
           className={`flex aspect-[4/3] flex-col justify-end rounded-xl2 bg-gradient-to-br p-3 text-white transition-transform hover:scale-[1.02] ${
             palette[i % palette.length]
           }`}

@@ -1,20 +1,18 @@
 import { NextResponse } from "next/server";
 import { Types } from "mongoose";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
 import { connectDB } from "@/lib/db";
 import Play from "@/models/Play";
 import Song from "@/models/Song";
-import { ApiError, withApiErrors } from "@/lib/apiError";
+import { withApiErrors } from "@/lib/apiError";
+import { requireAuthUser } from "@/lib/mobileAuth";
 
-export const GET = withApiErrors(async () => {
-  const session = await getServerSession(authOptions);
-  if (!session?.user) throw new ApiError("Non authentifié.", 401);
+export const GET = withApiErrors(async (req: Request) => {
+  const authUser = await requireAuthUser(req);
 
   await connectDB();
 
   const grouped = await Play.aggregate([
-    { $match: { user: new Types.ObjectId(session.user.id) } },
+    { $match: { user: new Types.ObjectId(authUser.id) } },
     { $sort: { playedAt: -1 } },
     { $group: { _id: "$song", lastPlayedAt: { $first: "$playedAt" } } },
     { $sort: { lastPlayedAt: -1 } },

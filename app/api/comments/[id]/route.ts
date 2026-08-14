@@ -1,20 +1,18 @@
 import { NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
 import { connectDB } from "@/lib/db";
 import Comment from "@/models/Comment";
 import { ApiError, withApiErrors } from "@/lib/apiError";
+import { requireAuthUser } from "@/lib/mobileAuth";
 
 export const DELETE = withApiErrors(
-  async (_req: Request, { params }: { params: { id: string } }) => {
-    const session = await getServerSession(authOptions);
-    if (!session?.user) throw new ApiError("Non authentifié.", 401);
+  async (req: Request, { params }: { params: { id: string } }) => {
+    const authUser = await requireAuthUser(req);
 
     await connectDB();
     const comment = await Comment.findById(params.id);
     if (!comment) throw new ApiError("Commentaire introuvable.", 404);
 
-    if (session.user.role !== "admin" && comment.user.toString() !== session.user.id) {
+    if (authUser.role !== "admin" && comment.user.toString() !== authUser.id) {
       throw new ApiError("Tu ne peux supprimer que tes propres commentaires.", 403);
     }
 

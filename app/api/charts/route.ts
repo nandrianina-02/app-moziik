@@ -1,12 +1,11 @@
 import { NextResponse } from "next/server";
 import type { PipelineStage } from "mongoose";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
 import { connectDB } from "@/lib/db";
 import Play from "@/models/Play";
 import Artist from "@/models/Artist";
 import Song from "@/models/Song";
 import { withApiErrors } from "@/lib/apiError";
+import { getAuthUser } from "@/lib/mobileAuth";
 
 type Period = "day" | "week" | "month" | "year" | "all";
 type ChartType = "songs" | "artists" | "albums" | "listeners";
@@ -148,13 +147,13 @@ export const GET = withApiErrors(async (req: Request) => {
 
   // Rang du visiteur connecté dans le classement complet (pas seulement le top 20).
   let viewer: { rank: number; plays: number; evolution: number | null; toNextMilestone: number } | null = null;
-  const session = await getServerSession(authOptions);
-  if (session?.user) {
+  const authUser = await getAuthUser(req);
+  if (authUser) {
     let viewerId: string | null = null;
     if (type === "listeners") {
-      viewerId = session.user.id;
+      viewerId = authUser.id;
     } else if (type === "songs" || type === "albums" || type === "artists") {
-      const artist = await Artist.findOne({ user: session.user.id }).select("_id");
+      const artist = await Artist.findOne({ user: authUser.id }).select("_id");
       if (artist) {
         if (type === "artists") {
           viewerId = artist._id.toString();

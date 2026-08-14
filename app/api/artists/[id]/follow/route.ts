@@ -1,18 +1,16 @@
 import { NextResponse } from "next/server";
 import { Types } from "mongoose";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
 import { connectDB } from "@/lib/db";
 import Artist from "@/models/Artist";
 import User from "@/models/User";
 import { notify } from "@/lib/notify";
 import { ApiError, withApiErrors } from "@/lib/apiError";
+import { requireAuthUser } from "@/lib/mobileAuth";
 
 export const POST = withApiErrors(
-  async (_req: Request, { params }: { params: { id: string } }) => {
-    const session = await getServerSession(authOptions);
-    if (!session?.user) throw new ApiError("Non authentifié.", 401);
-    const userId = session.user.id;
+  async (req: Request, { params }: { params: { id: string } }) => {
+    const authUser = await requireAuthUser(req);
+    const userId = authUser.id;
 
     await connectDB();
     const artist = await Artist.findById(params.id);

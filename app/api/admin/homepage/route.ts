@@ -3,16 +3,17 @@ import { requireAdmin } from "@/lib/requireAdmin";
 import { withApiErrors } from "@/lib/apiError";
 import { getHomepageSections } from "@/lib/homepageSections";
 import { getHomepageSettings } from "@/lib/homepageSettings";
+import { parseOrThrow, adminHomepageSettingsSchema } from "@/lib/validation";
 
-export const GET = withApiErrors(async () => {
-  await requireAdmin();
+export const GET = withApiErrors(async (req: Request) => {
+  await requireAdmin(req);
   const [sections, settings] = await Promise.all([getHomepageSections(), getHomepageSettings()]);
   return NextResponse.json({ sections, settings });
 });
 
 export const PATCH = withApiErrors(async (req: Request) => {
-  await requireAdmin();
-  const updates = await req.json();
+  await requireAdmin(req);
+  const updates = parseOrThrow(adminHomepageSettingsSchema, await req.json());
   const settings = await getHomepageSettings();
 
   const allowed = ["heroMode", "theme", "recommendationMode"] as const;

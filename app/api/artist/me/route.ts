@@ -1,41 +1,34 @@
 import { NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
 import { connectDB } from "@/lib/db";
 import Artist from "@/models/Artist";
 import { ApiError, withApiErrors } from "@/lib/apiError";
+import { parseOrThrow, patchArtistMeSchema } from "@/lib/validation";
+import { requireAuthUser } from "@/lib/mobileAuth";
 
-export const GET = withApiErrors(async () => {
-  const session = await getServerSession(authOptions);
-  if (!session?.user) throw new ApiError("Non authentifié.", 401);
+export const GET = withApiErrors(async (req: Request) => {
+  const authUser = await requireAuthUser(req);
 
   await connectDB();
-  const artist = await Artist.findOne({ user: session.user.id });
+  const artist = await Artist.findOne({ user: authUser.id });
 
   return NextResponse.json({ artist });
 });
 
 export const PATCH = withApiErrors(async (req: Request) => {
-  const session = await getServerSession(authOptions);
-  if (!session?.user) throw new ApiError("Non authentifié.", 401);
-  if (session.user.role !== "artist") throw new ApiError("Réservé aux artistes.", 403);
+  const authUser = await requireAuthUser(req);
+  if (authUser.role !== "artist") throw new ApiError("Réservé aux artistes.", 403);
 
   await connectDB();
-  const artist = await Artist.findOne({ user: session.user.id });
+  const artist = await Artist.findOne({ user: authUser.id });
   if (!artist) throw new ApiError("Profil artiste introuvable.", 404);
 
-  const body = await req.json();
-  const { bio, coverUrl, bannerUrl, genres, socialLinks } = body ?? {};
+  const { bio, coverUrl, bannerUrl, genres, socialLinks } = parseOrThrow(patchArtistMeSchema, await req.json());
 
-  if (typeof bio === "string") artist.bio = bio.slice(0, 2000);
+  if (typeof bio === "string") artist.bio = bio;
   if (typeof coverUrl === "string") artist.coverUrl = coverUrl;
   if (typeof bannerUrl === "string") artist.bannerUrl = bannerUrl;
-  if (Array.isArray(genres)) artist.genres = genres.filter((g) => typeof g === "string").slice(0, 10);
-  if (Array.isArray(socialLinks)) {
-    artist.socialLinks = socialLinks
-      .filter((l) => l && typeof l.platform === "string" && typeof l.url === "string")
-      .slice(0, 8);
-  }
+  if (Array.isArray(genres)) artist.genres = genres;
+  if (Array.isArray(socialLinks)) artist.socialLinks = socialLinks;
 
   await artist.save();
   return NextResponse.json({ artist });

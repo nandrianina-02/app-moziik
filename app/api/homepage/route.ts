@@ -1,26 +1,25 @@
 import { NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
 import { connectDB } from "@/lib/db";
 import Subscription from "@/models/Subscription";
 import { hasPremiumAccess } from "@/lib/premium";
 import { withApiErrors } from "@/lib/apiError";
 import { getHomepageData } from "@/lib/homeContentEngine";
 import { recordHomepageView } from "@/lib/homepageStats";
+import { getAuthUser } from "@/lib/mobileAuth";
 
-export const GET = withApiErrors(async () => {
-  const session = await getServerSession(authOptions);
-  const data = await getHomepageData(session?.user?.id);
+export const GET = withApiErrors(async (req: Request) => {
+  const authUser = await getAuthUser(req);
+  const data = await getHomepageData(authUser?.id);
 
   recordHomepageView().catch(() => {});
 
-  if (session?.user) {
+  if (authUser) {
     const premiumSection = data.sections.find((s) => s.key === "premium");
     if (premiumSection) {
       await connectDB();
-      const subscription = await Subscription.findOne({ user: session.user.id }).sort({ startedAt: -1 });
+      const subscription = await Subscription.findOne({ user: authUser.id }).sort({ startedAt: -1 });
       (premiumSection.data as { isSubscriber?: boolean }).isSubscriber = hasPremiumAccess({
-        role: session.user.role,
+        role: authUser.role,
         subscriptionStatus: subscription?.status,
       });
     }

@@ -44,6 +44,16 @@ self.addEventListener("fetch", (event) => {
     return;
   }
 
+  // Les réponses API ne doivent JAMAIS être mises en cache : elles portent
+  // des données propres au compte connecté (profil, notifications, titres
+  // likés...). Sans cette exclusion, un appareil partagé resservirait les
+  // données du compte précédent hors-ligne après déconnexion. On les laisse
+  // simplement passer au réseau, sans repli cache en cas d'échec.
+  if (url.pathname.startsWith("/api/")) {
+    event.respondWith(fetch(request));
+    return;
+  }
+
   // Reste de l'app : network-first, repli sur le cache si hors-ligne.
   event.respondWith(
     fetch(request)

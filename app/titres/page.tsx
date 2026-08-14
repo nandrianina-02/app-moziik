@@ -1,6 +1,7 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { Suspense, useCallback, useEffect, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { Loader2 } from "lucide-react";
 import { SongCard } from "@/components/home/SongCard";
 import { SkeletonCardGrid } from "@/components/ui/Skeleton";
@@ -10,15 +11,19 @@ import { useSiteConfig } from "@/context/SiteConfigProvider";
 import type { PlayableSong } from "@/context/PlayerProvider";
 
 /**
- * Page de démonstration du scroll infini + skeleton loaders + scroll
- * reveal réunis : parcourt tous les titres publiés, page par page,
- * en préchargeant la suite avant que l'utilisateur n'atteigne le bas
- * (voir hooks/useInfiniteScroll.ts).
+ * Parcourt tous les titres publiés, page par page, en préchargeant la
+ * suite avant que l'utilisateur n'atteigne le bas (scroll infini, voir
+ * hooks/useInfiniteScroll.ts). Destination des tuiles de genre de
+ * l'accueil (`GenreTiles`) : `?genre=` présélectionne le filtre.
  */
-export default function BrowseSongsPage() {
+function BrowseSongsPageContent() {
   const siteConfig = useSiteConfig();
+  const searchParams = useSearchParams();
   const GENRES = ["Tous", ...siteConfig.genres];
-  const [genre, setGenre] = useState("Tous");
+  // Pas besoin de vérifier que le genre existe dans GENRES : un genre
+  // inconnu se traduit simplement par "Aucun titre pour ce genre"
+  // ci-dessous, sans état incohérent.
+  const [genre, setGenre] = useState(searchParams.get("genre") || "Tous");
 
   const fetchPage = useCallback(
     async (page: number) => {
@@ -85,5 +90,13 @@ export default function BrowseSongsPage() {
         </>
       )}
     </div>
+  );
+}
+
+export default function BrowseSongsPage() {
+  return (
+    <Suspense>
+      <BrowseSongsPageContent />
+    </Suspense>
   );
 }

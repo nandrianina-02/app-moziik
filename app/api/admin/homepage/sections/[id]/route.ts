@@ -4,10 +4,11 @@ import HomepageSection from "@/models/HomepageSection";
 import HomepagePinned from "@/models/HomepagePinned";
 import { requireAdmin } from "@/lib/requireAdmin";
 import { ApiError, withApiErrors } from "@/lib/apiError";
+import { parseOrThrow, adminHomepageSectionPatchSchema } from "@/lib/validation";
 
 export const PATCH = withApiErrors(async (req: Request, { params }: { params: { id: string } }) => {
-  await requireAdmin();
-  const updates = await req.json();
+  await requireAdmin(req);
+  const updates = parseOrThrow(adminHomepageSectionPatchSchema, await req.json());
 
   await connectDB();
   const section = await HomepageSection.findById(params.id);
@@ -28,8 +29,8 @@ export const PATCH = withApiErrors(async (req: Request, { params }: { params: { 
 });
 
 /** Supprime une section personnalisée (et son contenu épinglé associé). Les 12 types fixes ne peuvent pas être supprimés, seulement désactivés. */
-export const DELETE = withApiErrors(async (_req: Request, { params }: { params: { id: string } }) => {
-  await requireAdmin();
+export const DELETE = withApiErrors(async (req: Request, { params }: { params: { id: string } }) => {
+  await requireAdmin(req);
   await connectDB();
 
   const section = await HomepageSection.findById(params.id);

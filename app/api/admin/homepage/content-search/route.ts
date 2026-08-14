@@ -16,7 +16,7 @@ import { escapeRegex } from "@/lib/regex";
  * son nom plutôt que de devoir connaître son identifiant MongoDB.
  */
 export const GET = withApiErrors(async (req: Request) => {
-  await requireAdmin();
+  await requireAdmin(req);
 
   const { searchParams } = new URL(req.url);
   const { type, q } = parseOrThrow(contentSearchQuerySchema, {

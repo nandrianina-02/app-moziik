@@ -1,16 +1,14 @@
 import { NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
 import { connectDB } from "@/lib/db";
 import Artist from "@/models/Artist";
-import { ApiError, withApiErrors } from "@/lib/apiError";
+import { withApiErrors } from "@/lib/apiError";
+import { requireAuthUser } from "@/lib/mobileAuth";
 
-export const GET = withApiErrors(async () => {
-  const session = await getServerSession(authOptions);
-  if (!session?.user) throw new ApiError("Non authentifié.", 401);
+export const GET = withApiErrors(async (req: Request) => {
+  const authUser = await requireAuthUser(req);
 
   await connectDB();
-  const artists = await Artist.find({ followers: session.user.id }).select(
+  const artists = await Artist.find({ followers: authUser.id }).select(
     "stageName verified coverUrl followers"
   );
 

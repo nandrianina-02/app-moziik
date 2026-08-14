@@ -1,4 +1,5 @@
 import type { Metadata, Viewport } from "next";
+import Script from "next/script";
 import { Sora, Plus_Jakarta_Sans, JetBrains_Mono } from "next/font/google";
 import "./globals.css";
 import { ThemeProvider } from "@/context/ThemeProvider";
@@ -8,7 +9,7 @@ import { OnlineStatusProvider } from "@/context/OnlineStatusProvider";
 import { PlayerProvider } from "@/context/PlayerProvider";
 import { SiteConfigProvider } from "@/context/SiteConfigProvider";
 import { Sidebar } from "@/components/layout/Sidebar";
-import { PageTransition } from "@/components/layout/PageTransition";
+import { MainContent } from "@/components/layout/MainContent";
 import { NotificationsProvider } from "@/context/NotificationsProvider";
 import { NotificationsDrawer } from "@/components/notifications/NotificationsDrawer";
 import { MobileHeader } from "@/components/layout/MobileHeader";
@@ -54,8 +55,25 @@ export const viewport: Viewport = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="fr" className="dark">
+    <html lang="fr">
       <body className={`${display.variable} ${body.variable} ${mono.variable}`}>
+        {/*
+          Applique le thème stocké AVANT le premier paint, en bloquant
+          (`beforeInteractive`) — sans ça, ThemeProvider ne lit
+          localStorage que dans un useEffect (après hydratation), donc un
+          visiteur en thème clair voyait un flash sombre à chaque
+          chargement de page. Next.js injecte les scripts
+          `beforeInteractive` dans le <head> quel que soit leur
+          emplacement dans l'arbre JSX.
+        */}
+        <Script id="theme-init" strategy="beforeInteractive">
+          {`
+            try {
+              var theme = localStorage.getItem('moziik-theme');
+              if (theme === 'light') document.documentElement.classList.add('light');
+            } catch (e) {}
+          `}
+        </Script>
         <SiteConfigProvider>
           <AuthProvider>
             <ThemeProvider>
@@ -67,9 +85,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                       <OfflineBanner />
                       <div className="flex min-h-screen">
                         <Sidebar />
-                        <main className="min-w-0 flex-1 pt-14 pb-40 md:pt-0 md:pb-24">
-                          <PageTransition>{children}</PageTransition>
-                        </main>
+                        <MainContent>{children}</MainContent>
                       </div>
                       <NotificationsDrawer />
                       <MiniPlayerBar />

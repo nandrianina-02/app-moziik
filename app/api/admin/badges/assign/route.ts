@@ -4,12 +4,12 @@ import User from "@/models/User";
 import { requireAdmin } from "@/lib/requireAdmin";
 import { ApiError, withApiErrors } from "@/lib/apiError";
 import { notify } from "@/lib/notify";
+import { parseOrThrow, assignBadgeSchema } from "@/lib/validation";
 
 export const POST = withApiErrors(async (req: Request) => {
-  await requireAdmin();
+  await requireAdmin(req);
 
-  const { userId, badgeKey, badgeLabel } = await req.json();
-  if (!userId || !badgeKey) throw new ApiError("userId et badgeKey requis.");
+  const { userId, badgeKey, badgeLabel } = parseOrThrow(assignBadgeSchema, await req.json());
 
   await connectDB();
   const user = await User.findById(userId);

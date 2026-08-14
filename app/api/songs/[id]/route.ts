@@ -1,11 +1,11 @@
 import { NextResponse } from "next/server";
 import mongoose from "mongoose";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
 import { connectDB } from "@/lib/db";
 import Song from "@/models/Song";
 import Artist from "@/models/Artist";
 import { ApiError, withApiErrors } from "@/lib/apiError";
+import { parseOrThrow, patchSongSchema } from "@/lib/validation";
+import { requireAuthUser } from "@/lib/mobileAuth";
 
 export const GET = withApiErrors(async (_req: Request, { params }: { params: { id: string } }) => {
   await connectDB();
@@ -19,8 +19,7 @@ export const GET = withApiErrors(async (_req: Request, { params }: { params: { i
 
 export const PATCH = withApiErrors(
   async (req: Request, { params }: { params: { id: string } }) => {
-    const session = await getServerSession(authOptions);
-    if (!session?.user) throw new ApiError("Non authentifié.", 401);
+    const authUser = await requireAuthUser(req);
 
     await connectDB();
     const song = await Song.findById(params.id);
@@ -34,13 +33,14 @@ export const PATCH = withApiErrors(
       throw new ApiError("Ce son n'a pas d'artiste associé et ne peut pas être modifié en l'état.", 500);
     }
 
-    const ownerArtist = await Artist.findOne({ user: session.user.id });
+    const ownerArtist = await Artist.findOne({ user: authUser.id });
     const isOwner = ownerArtist && song.artist.equals(ownerArtist._id);
-    if (!isOwner && session.user.role !== "admin") {
+    if (!isOwner && authUser.role !== "admin") {
       throw new ApiError("Tu ne peux modifier que tes propres sons.", 403);
     }
 
-    const updates = await req.json();
+    const parsedUpdates = parseOrThrow(patchSongSchema, await req.json());
+    const updates = parsedUpdates as Record<string, unknown>;
     const allowed = [
       "title",
       "coverUrl",
@@ -65,7 +65,7 @@ export const PATCH = withApiErrors(
       if (key in updates) {
         // Un admin peut forcer le statut (validation / rejet) ; un
         // artiste ne peut que replanifier sa date de sortie.
-        if (key === "status" && session.user.role !== "admin") continue;
+        if (key === "status" && authUser.role !== "admin") continue;
         (song as unknown as Record<string, unknown>)[key] = updates[key];
       }
     }
@@ -74,36 +74,36 @@ export const PATCH = withApiErrors(
     // exprimer avec la boucle générique ci-dessus (elle ignorerait une
     // valeur falsy en la traitant comme absente).
     if ("albumId" in updates) {
-      song.album = updates.albumId || undefined;
+      song.album = (parsedUpdates.albumId || undefined) as unknown as typeof song.album;
     }
 
     // Featuring : on réconcilie avec les crédits existants pour ne pas
     // perdre les confirmations déjà données par les artistes en featuring.
-    if (Array.isArray(updates.featuringIds)) {
+    if (Array.isArray(parsedUpdates.featuringIds)) {
       const previouslyConfirmed = new Map(
         song.featuring.map((f) => [String(f.artist), f.confirmed])
       );
-      song.featuring = updates.featuringIds
+      song.featuring = parsedUpdates.featuringIds
         .filter((id: string) => id !== song.artist.toString())
         .map((id: string) => ({
           artist: id,
           confirmed: previouslyConfirmed.get(id) ?? false,
-        })) as typeof song.featuring;
+        })) as unknown as typeof song.featuring;
     }
 
     // Réattribution de l'artiste principal : réservée à l'admin, comme à
     // la publication (cf. POST /api/songs). On vérifie que l'id fourni
     // est un ObjectId valide avant assignation : un cast Mongoose raté
     // ici plantait auparavant en 500 sans message exploitable.
-    if (session.user.role === "admin" && typeof updates.artistId === "string" && updates.artistId) {
-      if (!mongoose.Types.ObjectId.isValid(updates.artistId)) {
+    if (authUser.role === "admin" && typeof parsedUpdates.artistId === "string" && parsedUpdates.artistId) {
+      if (!mongoose.Types.ObjectId.isValid(parsedUpdates.artistId)) {
         throw new ApiError("Identifiant d'artiste invalide.");
       }
-      song.artist = updates.artistId as unknown as typeof song.artist;
+      song.artist = parsedUpdates.artistId as unknown as typeof song.artist;
     }
 
-    if (updates.releaseDate) {
-      song.status = new Date(updates.releaseDate) <= new Date() ? "published" : "scheduled";
+    if (parsedUpdates.releaseDate) {
+      song.status = new Date(parsedUpdates.releaseDate) <= new Date() ? "published" : "scheduled";
     }
 
     try {
@@ -127,20 +127,19 @@ export const PATCH = withApiErrors(
 );
 
 export const DELETE = withApiErrors(
-  async (_req: Request, { params }: { params: { id: string } }) => {
-    const session = await getServerSession(authOptions);
-    if (!session?.user) throw new ApiError("Non authentifié.", 401);
+  async (req: Request, { params }: { params: { id: string } }) => {
+    const authUser = await requireAuthUser(req);
 
     await connectDB();
     const song = await Song.findById(params.id);
     if (!song) throw new ApiError("Son introuvable.", 404);
 
     if (!song.artist) {
-      if (session.user.role !== "admin") throw new ApiError("Ce son n'a pas d'artiste associé.", 403);
+      if (authUser.role !== "admin") throw new ApiError("Ce son n'a pas d'artiste associé.", 403);
     } else {
-      const ownerArtist = await Artist.findOne({ user: session.user.id });
+      const ownerArtist = await Artist.findOne({ user: authUser.id });
       const isOwner = ownerArtist && song.artist.equals(ownerArtist._id);
-      if (!isOwner && session.user.role !== "admin") {
+      if (!isOwner && authUser.role !== "admin") {
         throw new ApiError("Tu ne peux supprimer que tes propres sons.", 403);
       }
     }

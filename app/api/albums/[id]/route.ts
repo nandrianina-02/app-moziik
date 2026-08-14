@@ -1,10 +1,10 @@
 import { NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
 import { connectDB } from "@/lib/db";
 import Album from "@/models/Album";
 import Artist from "@/models/Artist";
 import { ApiError, withApiErrors } from "@/lib/apiError";
+import { parseOrThrow, patchAlbumSchema } from "@/lib/validation";
+import { requireAuthUser } from "@/lib/mobileAuth";
 
 export const GET = withApiErrors(async (_req: Request, { params }: { params: { id: string } }) => {
   await connectDB();
@@ -25,15 +25,14 @@ async function assertOwnerOrAdmin(albumArtistId: string, userId: string, role?: 
 
 export const PATCH = withApiErrors(
   async (req: Request, { params }: { params: { id: string } }) => {
-    const session = await getServerSession(authOptions);
-    if (!session?.user) throw new ApiError("Non authentifié.", 401);
+    const authUser = await requireAuthUser(req);
 
     await connectDB();
     const album = await Album.findById(params.id);
     if (!album) throw new ApiError("Album introuvable.", 404);
-    await assertOwnerOrAdmin(album.artist.toString(), session.user.id, session.user.role);
+    await assertOwnerOrAdmin(album.artist.toString(), authUser.id, authUser.role);
 
-    const updates = await req.json();
+    const updates = parseOrThrow(patchAlbumSchema, await req.json()) as Record<string, unknown>;
     const allowed = ["title", "coverUrl", "bannerUrl", "description", "type", "releaseDate", "songs"];
     for (const key of allowed) {
       if (key in updates) {
@@ -46,14 +45,13 @@ export const PATCH = withApiErrors(
 );
 
 export const DELETE = withApiErrors(
-  async (_req: Request, { params }: { params: { id: string } }) => {
-    const session = await getServerSession(authOptions);
-    if (!session?.user) throw new ApiError("Non authentifié.", 401);
+  async (req: Request, { params }: { params: { id: string } }) => {
+    const authUser = await requireAuthUser(req);
 
     await connectDB();
     const album = await Album.findById(params.id);
     if (!album) throw new ApiError("Album introuvable.", 404);
-    await assertOwnerOrAdmin(album.artist.toString(), session.user.id, session.user.role);
+    await assertOwnerOrAdmin(album.artist.toString(), authUser.id, authUser.role);
 
     await album.deleteOne();
     return NextResponse.json({ message: "Album supprimé." });

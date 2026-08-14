@@ -1,9 +1,10 @@
 import { NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
+import { Types } from "mongoose";
 import { connectDB } from "@/lib/db";
 import Playlist from "@/models/Playlist";
 import { ApiError, withApiErrors } from "@/lib/apiError";
+import { parseOrThrow, playlistSongSchema } from "@/lib/validation";
+import { requireAuthUser } from "@/lib/mobileAuth";
 
 async function loadOwnedPlaylist(id: string, userId: string) {
   const playlist = await Playlist.findById(id);
@@ -16,17 +17,15 @@ async function loadOwnedPlaylist(id: string, userId: string) {
 
 export const POST = withApiErrors(
   async (req: Request, { params }: { params: { id: string } }) => {
-    const session = await getServerSession(authOptions);
-    if (!session?.user) throw new ApiError("Non authentifié.", 401);
+    const authUser = await requireAuthUser(req);
 
-    const { songId } = await req.json();
-    if (!songId) throw new ApiError("songId requis.");
+    const { songId } = parseOrThrow(playlistSongSchema, await req.json());
 
     await connectDB();
-    const playlist = await loadOwnedPlaylist(params.id, session.user.id);
+    const playlist = await loadOwnedPlaylist(params.id, authUser.id);
 
     if (!playlist.songs.some((s) => s.toString() === songId)) {
-      playlist.songs.push(songId);
+      playlist.songs.push(new Types.ObjectId(songId));
       await playlist.save();
     }
 
@@ -36,14 +35,12 @@ export const POST = withApiErrors(
 
 export const DELETE = withApiErrors(
   async (req: Request, { params }: { params: { id: string } }) => {
-    const session = await getServerSession(authOptions);
-    if (!session?.user) throw new ApiError("Non authentifié.", 401);
+    const authUser = await requireAuthUser(req);
 
-    const { songId } = await req.json();
-    if (!songId) throw new ApiError("songId requis.");
+    const { songId } = parseOrThrow(playlistSongSchema, await req.json());
 
     await connectDB();
-    const playlist = await loadOwnedPlaylist(params.id, session.user.id);
+    const playlist = await loadOwnedPlaylist(params.id, authUser.id);
 
     playlist.songs = playlist.songs.filter((s) => s.toString() !== songId) as typeof playlist.songs;
     await playlist.save();

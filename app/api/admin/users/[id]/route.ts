@@ -11,7 +11,7 @@ import { parseOrThrow, adminUserPatchSchema } from "@/lib/validation";
 
 export const PATCH = withApiErrors(
   async (req: Request, { params }: { params: { id: string } }) => {
-    await requireAdmin();
+    await requireAdmin(req);
 
     const { role, verifiedArtist, suspended, badges } = parseOrThrow(
       adminUserPatchSchema,
@@ -45,8 +45,8 @@ export const PATCH = withApiErrors(
 );
 
 export const DELETE = withApiErrors(
-  async (_req: Request, { params }: { params: { id: string } }) => {
-    await requireAdmin();
+  async (req: Request, { params }: { params: { id: string } }) => {
+    await requireAdmin(req);
 
     await connectDB();
     const user = await User.findById(params.id);

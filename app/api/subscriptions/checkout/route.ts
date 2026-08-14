@@ -1,25 +1,23 @@
 import { NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
 import { stripe } from "@/lib/stripe";
 import { getSiteConfig } from "@/lib/siteConfig";
 import { connectDB } from "@/lib/db";
 import User from "@/models/User";
 import { ApiError, withApiErrors } from "@/lib/apiError";
+import { parseOrThrow, checkoutSchema } from "@/lib/validation";
+import { requireAuthUser } from "@/lib/mobileAuth";
 
 export const POST = withApiErrors(async (req: Request) => {
-  const session = await getServerSession(authOptions);
-  if (!session?.user) throw new ApiError("Non authentifié.", 401);
+  const authUser = await requireAuthUser(req);
 
-  const { plan } = await req.json(); // "premium" | "premium_annual"
-  if (!["premium", "premium_annual"].includes(plan)) throw new ApiError("Plan invalide.");
+  const { plan } = parseOrThrow(checkoutSchema, await req.json());
 
   const config = await getSiteConfig();
   const pricing = config.plans.find((p) => p.plan === plan);
   if (!pricing) throw new ApiError("Ce plan n'est pas configuré.", 404);
 
   await connectDB();
-  const user = await User.findById(session.user.id);
+  const user = await User.findById(authUser.id);
   if (!user) throw new ApiError("Utilisateur introuvable.", 404);
 
   const checkoutSession = await stripe.checkout.sessions.create({

@@ -1,9 +1,9 @@
 import { NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
 import { connectDB } from "@/lib/db";
 import Event from "@/models/Event";
 import { ApiError, withApiErrors } from "@/lib/apiError";
+import { parseOrThrow, patchEventSchema } from "@/lib/validation";
+import { requireAuthUser } from "@/lib/mobileAuth";
 
 export const GET = withApiErrors(async (_req: Request, { params }: { params: { id: string } }) => {
   await connectDB();
@@ -21,15 +21,15 @@ async function assertCanManage(event: { createdBy: { toString: () => string } },
 
 export const PATCH = withApiErrors(
   async (req: Request, { params }: { params: { id: string } }) => {
-    const session = await getServerSession(authOptions);
-    if (!session?.user) throw new ApiError("Non authentifié.", 401);
+    const authUser = await requireAuthUser(req);
 
     await connectDB();
     const event = await Event.findById(params.id);
     if (!event) throw new ApiError("Évènement introuvable.", 404);
-    await assertCanManage(event, session.user.id, session.user.role);
+    await assertCanManage(event, authUser.id, authUser.role);
 
-    const updates = await req.json();
+    const parsedUpdates = parseOrThrow(patchEventSchema, await req.json());
+    const updates = parsedUpdates as Record<string, unknown>;
     const allowed = ["title", "description", "coverUrl", "location", "date", "ticketUrl", "price"];
     for (const key of allowed) {
       if (key in updates) {
@@ -37,8 +37,8 @@ export const PATCH = withApiErrors(
       }
     }
     // Un admin peut aussi forcer le statut (republier un évènement rejeté, etc.)
-    if (session.user.role === "admin" && updates.status) {
-      event.status = updates.status;
+    if (authUser.role === "admin" && parsedUpdates.status) {
+      event.status = parsedUpdates.status;
     }
 
     await event.save();
@@ -47,14 +47,13 @@ export const PATCH = withApiErrors(
 );
 
 export const DELETE = withApiErrors(
-  async (_req: Request, { params }: { params: { id: string } }) => {
-    const session = await getServerSession(authOptions);
-    if (!session?.user) throw new ApiError("Non authentifié.", 401);
+  async (req: Request, { params }: { params: { id: string } }) => {
+    const authUser = await requireAuthUser(req);
 
     await connectDB();
     const event = await Event.findById(params.id);
     if (!event) throw new ApiError("Évènement introuvable.", 404);
-    await assertCanManage(event, session.user.id, session.user.role);
+    await assertCanManage(event, authUser.id, authUser.role);
 
     await event.deleteOne();
     return NextResponse.json({ message: "Évènement supprimé." });

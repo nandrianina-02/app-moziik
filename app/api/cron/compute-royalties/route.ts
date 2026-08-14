@@ -29,38 +29,65 @@ export const POST = withApiErrors(async (req: Request) => {
   await connectDB();
   const config = await getSiteConfig();
   const periodEnd = new Date();
-  const periodStart = new Date(periodEnd.getTime() - 24 * 60 * 60 * 1000);
 
-  const unmonetizedPlays = await Play.find({
+  // Pas de borne basse sur playedAt : `monetized: false` marque déjà "pas
+  // encore traité par un run précédent" — borner à "depuis 24h" en plus
+  // ferait perdre silencieusement les écoutes plus anciennes si un cron a
+  // été manqué (ex: panne d'un jour). periodStart est donc calculé PAR
+  // ARTISTE comme la date de la plus ancienne écoute réellement traitée
+  // dans ce lot, pour que le relevé reflète la période couverte pour de
+  // vrai plutôt qu'une fenêtre fixe potentiellement fausse.
+  //
+  // .cursor() : on itère sans charger tout le lot en mémoire d'un coup —
+  // un run manqué pendant plusieurs jours peut accumuler un volume élevé
+  // d'écoutes non monétisées.
+  const cursor = Play.find({
     completed: true,
     monetized: false,
     playedAt: { $lte: periodEnd },
-  }).populate({ path: "song", select: "artist" });
+  })
+    .populate({ path: "song", select: "artist" })
+    .cursor();
 
-  const playsByArtist = new Map<string, { count: number; playIds: string[] }>();
-  for (const play of unmonetizedPlays) {
+  const playsByArtist = new Map<
+    string,
+    { count: number; playIds: string[]; earliestPlayedAt: Date }
+  >();
+  for await (const play of cursor) {
     const song = play.song as unknown as { artist: { toString: () => string } } | null;
     if (!song?.artist) continue;
     const artistId = song.artist.toString();
-    const entry = playsByArtist.get(artistId) ?? { count: 0, playIds: [] };
+    const entry = playsByArtist.get(artistId) ?? { count: 0, playIds: [], earliestPlayedAt: play.playedAt };
     entry.count += 1;
     entry.playIds.push(play._id.toString());
+    if (play.playedAt < entry.earliestPlayedAt) entry.earliestPlayedAt = play.playedAt;
     playsByArtist.set(artistId, entry);
   }
 
+  // Les identifiants à marquer "monetized" peuvent être nombreux (tous
+  // artistes confondus) : on les met à jour par lots plutôt qu'en un seul
+  // $in géant, qui pourrait dépasser la taille max d'une requête MongoDB.
+  const UPDATE_BATCH_SIZE = 1000;
+  async function markMonetized(playIds: string[]) {
+    for (let i = 0; i < playIds.length; i += UPDATE_BATCH_SIZE) {
+      const batch = playIds.slice(i, i + UPDATE_BATCH_SIZE);
+      await Play.updateMany({ _id: { $in: batch } }, { monetized: true });
+    }
+  }
+
   let royaltiesCreated = 0;
-  for (const [artistId, { count, playIds }] of playsByArtist) {
+  for (const [artistId, { count, playIds, earliestPlayedAt }] of playsByArtist) {
     const amountUSD = Number((count * config.payPerListenRateUSD).toFixed(4));
 
     await Royalty.create({
       artist: artistId,
-      periodStart,
+      periodStart: earliestPlayedAt,
       periodEnd,
       eligiblePlays: count,
       amountUSD,
     });
 
-    await Play.updateMany({ _id: { $in: playIds } }, { monetized: true });
+    await markMonetized(playIds);
     royaltiesCreated += 1;
 
     const artist = await Artist.findById(artistId);

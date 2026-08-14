@@ -3,13 +3,13 @@ import { connectDB } from "@/lib/db";
 import HomepageSection from "@/models/HomepageSection";
 import { requireAdmin } from "@/lib/requireAdmin";
 import { slugify } from "@/lib/homepageSections";
-import { ApiError, withApiErrors } from "@/lib/apiError";
+import { withApiErrors } from "@/lib/apiError";
+import { parseOrThrow, adminHomepageSectionReorderSchema, adminHomepageSectionCreateSchema } from "@/lib/validation";
 
 /** Réordonne les sections : body = [{ id, position }, ...] (issu du drag & drop admin). */
 export const PATCH = withApiErrors(async (req: Request) => {
-  await requireAdmin();
-  const { order } = (await req.json()) as { order: { id: string; position: number }[] };
-  if (!Array.isArray(order)) throw new ApiError("Ordre invalide.");
+  await requireAdmin(req);
+  const { order } = parseOrThrow(adminHomepageSectionReorderSchema, await req.json());
 
   await connectDB();
   await Promise.all(
@@ -27,9 +27,8 @@ export const PATCH = withApiErrors(async (req: Request) => {
  * s'applique à un contenu arbitraire choisi par l'admin.
  */
 export const POST = withApiErrors(async (req: Request) => {
-  await requireAdmin();
-  const { title, limit } = (await req.json()) as { title?: string; limit?: number };
-  if (!title || !title.trim()) throw new ApiError("Le titre de la section est obligatoire.");
+  await requireAdmin(req);
+  const { title, limit } = parseOrThrow(adminHomepageSectionCreateSchema, await req.json());
 
   await connectDB();
 

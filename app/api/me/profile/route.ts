@@ -7,6 +7,7 @@ import Song from "@/models/Song";
 import Playlist from "@/models/Playlist";
 import Badge from "@/models/Badge";
 import { ApiError, withApiErrors } from "@/lib/apiError";
+import { parseOrThrow, patchMeProfileSchema } from "@/lib/validation";
 
 /**
  * Vue d'ensemble du profil pour la page "Mon compte" : combine les
@@ -78,8 +79,6 @@ export const GET = withApiErrors(async (req: Request) => {
   });
 });
 
-const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-
 /**
  * Met à jour les informations de base du compte connecté (nom, photo,
  * email). Seuls les champs réellement présents dans le modèle User sont
@@ -94,18 +93,14 @@ export const PATCH = withApiErrors(async (req: Request) => {
   const user = await User.findById(authUser.id);
   if (!user) throw new ApiError("Utilisateur introuvable.", 404);
 
-  const body = await req.json().catch(() => ({}));
-  const { name, avatarUrl, email } = body ?? {};
+  const { name, avatarUrl, email } = parseOrThrow(patchMeProfileSchema, await req.json().catch(() => ({})));
 
   if (typeof name === "string") {
-    const trimmed = name.trim();
-    if (!trimmed) throw new ApiError("Le nom ne peut pas être vide.", 400);
-    if (trimmed.length > 80) throw new ApiError("Le nom est trop long (80 caractères max).", 400);
-    user.name = trimmed;
+    user.name = name;
   }
 
-  if (typeof avatarUrl === "string" && avatarUrl.trim()) {
-    user.avatarUrl = avatarUrl.trim();
+  if (typeof avatarUrl === "string") {
+    user.avatarUrl = avatarUrl;
   }
 
   if (typeof email === "string") {
@@ -115,8 +110,7 @@ export const PATCH = withApiErrors(async (req: Request) => {
     if (user.googleId) {
       throw new ApiError("Impossible de modifier l'email d'un compte lié à Google.", 400);
     }
-    const normalized = email.trim().toLowerCase();
-    if (!EMAIL_RE.test(normalized)) throw new ApiError("Adresse email invalide.", 400);
+    const normalized = email;
     if (normalized !== user.email) {
       const existing = await User.findOne({ email: normalized, _id: { $ne: user._id } });
       if (existing) throw new ApiError("Cette adresse email est déjà utilisée.", 409);

@@ -1,18 +1,17 @@
 import { NextResponse } from "next/server";
 import { Types } from "mongoose";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
 import { connectDB } from "@/lib/db";
 import User from "@/models/User";
 import Album from "@/models/Album";
 import { ApiError, withApiErrors } from "@/lib/apiError";
+import { parseOrThrow, toggleSavedAlbumSchema } from "@/lib/validation";
+import { requireAuthUser } from "@/lib/mobileAuth";
 
-export const GET = withApiErrors(async () => {
-  const session = await getServerSession(authOptions);
-  if (!session?.user) throw new ApiError("Non authentifié.", 401);
+export const GET = withApiErrors(async (req: Request) => {
+  const authUser = await requireAuthUser(req);
 
   await connectDB();
-  const user = await User.findById(session.user.id).populate({
+  const user = await User.findById(authUser.id).populate({
     path: "savedAlbums",
     populate: { path: "artist", select: "stageName verified" },
   });
@@ -22,14 +21,12 @@ export const GET = withApiErrors(async () => {
 });
 
 export const POST = withApiErrors(async (req: Request) => {
-  const session = await getServerSession(authOptions);
-  if (!session?.user) throw new ApiError("Non authentifié.", 401);
+  const authUser = await requireAuthUser(req);
 
-  const { albumId } = await req.json();
-  if (!albumId) throw new ApiError("Album manquant.");
+  const { albumId } = parseOrThrow(toggleSavedAlbumSchema, await req.json());
 
   await connectDB();
-  const [user, album] = await Promise.all([User.findById(session.user.id), Album.findById(albumId)]);
+  const [user, album] = await Promise.all([User.findById(authUser.id), Album.findById(albumId)]);
   if (!user) throw new ApiError("Utilisateur introuvable.", 404);
   if (!album) throw new ApiError("Album introuvable.", 404);
 

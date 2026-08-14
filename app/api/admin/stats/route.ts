@@ -50,8 +50,8 @@ async function dailyCounts(
   return series;
 }
 
-export const GET = withApiErrors(async () => {
-  await requireAdmin();
+export const GET = withApiErrors(async (req: Request) => {
+  await requireAdmin(req);
   await connectDB();
 
   const [

@@ -4,8 +4,8 @@ import HomepagePinned from "@/models/HomepagePinned";
 import { requireAdmin } from "@/lib/requireAdmin";
 import { ApiError, withApiErrors } from "@/lib/apiError";
 
-export const DELETE = withApiErrors(async (_req: Request, { params }: { params: { id: string } }) => {
-  await requireAdmin();
+export const DELETE = withApiErrors(async (req: Request, { params }: { params: { id: string } }) => {
+  await requireAdmin(req);
   await connectDB();
   const deleted = await HomepagePinned.findByIdAndDelete(params.id);
   if (!deleted) throw new ApiError("Contenu épinglé introuvable.", 404);

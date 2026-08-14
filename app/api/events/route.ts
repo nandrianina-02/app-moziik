@@ -1,10 +1,10 @@
 import { NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
 import { connectDB } from "@/lib/db";
 import Event from "@/models/Event";
 import Artist from "@/models/Artist";
 import { ApiError, withApiErrors } from "@/lib/apiError";
+import { parseOrThrow, createEventSchema } from "@/lib/validation";
+import { requireAuthUser } from "@/lib/mobileAuth";
 
 export const GET = withApiErrors(async () => {
   await connectDB();
@@ -15,23 +15,22 @@ export const GET = withApiErrors(async () => {
 });
 
 export const POST = withApiErrors(async (req: Request) => {
-  const session = await getServerSession(authOptions);
-  if (!session?.user) throw new ApiError("Non authentifié.", 401);
+  const authUser = await requireAuthUser(req);
 
-  const { title, description, coverUrl, location, date, ticketUrl, price } = await req.json();
-  if (!title || !description || !location || !date) {
-    throw new ApiError("Champs obligatoires manquants.");
-  }
+  const { title, description, coverUrl, location, date, ticketUrl, price } = parseOrThrow(
+    createEventSchema,
+    await req.json()
+  );
 
   await connectDB();
 
   let artistId: string | undefined;
   let status: "pending" | "published" = "pending";
 
-  if (session.user.role === "admin") {
+  if (authUser.role === "admin") {
     status = "published"; // un évènement créé par un admin est publié directement
-  } else if (session.user.role === "artist") {
-    const artist = await Artist.findOne({ user: session.user.id });
+  } else if (authUser.role === "artist") {
+    const artist = await Artist.findOne({ user: authUser.id });
     if (!artist?.eventPublishingAuthorized) {
       throw new ApiError("Tu n'es pas encore autorisé à publier des évènements.", 403);
     }
@@ -50,7 +49,7 @@ export const POST = withApiErrors(async (req: Request) => {
     ticketUrl,
     price,
     artist: artistId,
-    createdBy: session.user.id,
+    createdBy: authUser.id,
     status,
   });
 

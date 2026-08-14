@@ -4,15 +4,13 @@ import { connectDB } from "@/lib/db";
 import Event from "@/models/Event";
 import { requireAdmin } from "@/lib/requireAdmin";
 import { ApiError, withApiErrors } from "@/lib/apiError";
+import { parseOrThrow, moderateDecisionSchema } from "@/lib/validation";
 
 export const POST = withApiErrors(
   async (req: Request, { params }: { params: { id: string } }) => {
-    const session = await requireAdmin();
+    const session = await requireAdmin(req);
 
-    const { decision } = await req.json();
-    if (!["approve", "reject"].includes(decision)) {
-      throw new ApiError("Décision invalide.");
-    }
+    const { decision } = parseOrThrow(moderateDecisionSchema, await req.json());
 
     await connectDB();
     const event = await Event.findById(params.id);

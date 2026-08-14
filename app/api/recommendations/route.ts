@@ -1,10 +1,9 @@
 import { NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
 import { connectDB } from "@/lib/db";
 import Play from "@/models/Play";
 import Song from "@/models/Song";
 import { withApiErrors } from "@/lib/apiError";
+import { getAuthUser } from "@/lib/mobileAuth";
 
 /**
  * Recommandation par contenu : on regarde les genres des sons écoutés
@@ -13,11 +12,11 @@ import { withApiErrors } from "@/lib/apiError";
  * encore écoutés. Pas de ML ici — une base solide, remplaçable plus
  * tard par un moteur de recommandation dédié si besoin.
  */
-export const GET = withApiErrors(async () => {
-  const session = await getServerSession(authOptions);
+export const GET = withApiErrors(async (req: Request) => {
+  const authUser = await getAuthUser(req);
   await connectDB();
 
-  if (!session?.user) {
+  if (!authUser) {
     // Utilisateur anonyme : on renvoie simplement les sons les plus populaires.
     const popular = await Song.find({ status: "published" })
       .populate("artist", "stageName verified")
@@ -27,7 +26,7 @@ export const GET = withApiErrors(async () => {
   }
 
   const since = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
-  const recentPlays = await Play.find({ user: session.user.id, playedAt: { $gte: since } })
+  const recentPlays = await Play.find({ user: authUser.id, playedAt: { $gte: since } })
     .populate({ path: "song", select: "genre" });
 
   const genreCounts = new Map<string, number>();

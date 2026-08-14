@@ -1,10 +1,10 @@
 import { NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
 import { connectDB } from "@/lib/db";
 import Album from "@/models/Album";
 import Artist from "@/models/Artist";
 import { ApiError, withApiErrors } from "@/lib/apiError";
+import { parseOrThrow, createAlbumSchema } from "@/lib/validation";
+import { requireAuthUser } from "@/lib/mobileAuth";
 
 export const GET = withApiErrors(async (req: Request) => {
   const { searchParams } = new URL(req.url);
@@ -18,17 +18,15 @@ export const GET = withApiErrors(async (req: Request) => {
 });
 
 export const POST = withApiErrors(async (req: Request) => {
-  const session = await getServerSession(authOptions);
-  if (!session?.user) throw new ApiError("Non authentifié.", 401);
-  if (session.user.role !== "artist" && session.user.role !== "admin") {
+  const authUser = await requireAuthUser(req);
+  if (authUser.role !== "artist" && authUser.role !== "admin") {
     throw new ApiError("Seuls les artistes peuvent créer un album.", 403);
   }
 
-  const { title, coverUrl, type, releaseDate } = await req.json();
-  if (!title || !coverUrl || !releaseDate) throw new ApiError("Champs obligatoires manquants.");
+  const { title, coverUrl, type, releaseDate } = parseOrThrow(createAlbumSchema, await req.json());
 
   await connectDB();
-  const artistProfile = await Artist.findOne({ user: session.user.id });
+  const artistProfile = await Artist.findOne({ user: authUser.id });
   if (!artistProfile) throw new ApiError("Profil artiste introuvable.", 404);
 
   const album = await Album.create({

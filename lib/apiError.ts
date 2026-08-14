@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { randomUUID } from "crypto";
 import mongoose from "mongoose";
 import { isDatabaseUnavailableError } from "@/lib/db";
 
@@ -48,9 +49,17 @@ export function withApiErrors<T extends unknown[]>(
         return NextResponse.json({ error: `Données invalides : ${err.message}` }, { status: 400 });
       }
 
-      console.error(err);
+      // Dernier recours. Le message reste générique (aucune fuite de
+      // détail interne), mais on joint deux informations sans valeur pour
+      // un attaquant et décisives pour diagnostiquer : le *type* de
+      // l'erreur, et une référence courte que l'on retrouve dans les logs
+      // serveur. Sans elles, un 500 signalé par un utilisateur était
+      // impossible à relier à quoi que ce soit.
+      const ref = randomUUID().slice(0, 8);
+      const code = err instanceof Error ? err.name : typeof err;
+      console.error(`[api:${ref}] ${code}`, err);
       return NextResponse.json(
-        { error: "Une erreur inattendue est survenue." },
+        { error: "Une erreur inattendue est survenue.", code, ref },
         { status: 500 }
       );
     }

@@ -34,6 +34,7 @@ import { SongPreviewSidebar, type ChecklistItem } from "@/components/song/SongPr
 import { FeaturingPicker } from "@/components/modals/FeaturingPicker";
 import { ArtistSinglePicker } from "@/components/modals/ArtistSinglePicker";
 import { uploadToCloudinaryClient } from "@/lib/cloudinaryClient";
+import { readApiError } from "@/lib/readApiError";
 import { useToast } from "@/context/ToastProvider";
 import { useSiteConfig } from "@/context/SiteConfigProvider";
 
@@ -474,10 +475,7 @@ export default function EditSongPage() {
         body: JSON.stringify(payload),
       });
 
-      if (!res.ok) {
-        const data = await res.json().catch(() => ({ error: "Réponse invalide du serveur." }));
-        throw new Error(data.error ?? "La mise à jour a échoué.");
-      }
+      if (!res.ok) throw new Error(await readApiError(res, "La mise à jour a échoué."));
 
       const data = await res.json();
       setSong(data.song);

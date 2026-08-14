@@ -10,7 +10,16 @@ export const GET = withApiErrors(async (req: Request, { params }: { params: { id
   // L'artiste de chaque titre est peuplé : sans lui, les lignes de la
   // playlist affichaient « Artiste supprimé » pour tout le monde.
   const playlist = await Playlist.findById(params.id)
-    .populate({ path: "songs", populate: { path: "artist", select: "stageName verified" } })
+    .populate({
+      path: "songs",
+      populate: [
+        { path: "artist", select: "stageName verified" },
+        // Alimente la colonne « Album » du tableau des titres : sans ce
+        // peuplement, `song.album` n'est qu'un identifiant et la colonne
+        // restait vide.
+        { path: "album", select: "title" },
+      ],
+    })
     .populate("owner", "name avatarUrl");
   if (!playlist) throw new ApiError("Playlist introuvable.", 404);
 
@@ -41,7 +50,7 @@ export const PATCH = withApiErrors(
     }
 
     const updates = parseOrThrow(patchPlaylistSchema, await req.json()) as Record<string, unknown>;
-    const allowed = ["title", "description", "coverUrl", "isPublic"];
+    const allowed = ["title", "description", "coverUrl", "tags", "isPublic"];
     for (const key of allowed) {
       if (key in updates) {
         (playlist as unknown as Record<string, unknown>)[key] = updates[key];

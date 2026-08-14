@@ -5,6 +5,7 @@ import { motion } from "framer-motion";
 import { Disc3, Share2, Check, Link2 } from "lucide-react";
 import { FaFacebook, FaXTwitter, FaWhatsapp } from "react-icons/fa6";
 import { AlbumInfoCard } from "@/components/album/AlbumInfoCard";
+import { AlbumArtistCard } from "@/components/album/AlbumArtistCard";
 import { SidebarSection } from "@/components/song/SidebarSection";
 import { CompactAlbumRow } from "@/components/song/CompactAlbumRow";
 import { useToast } from "@/context/ToastProvider";
@@ -47,6 +48,7 @@ export function AlbumSidebar({
 
   return (
     <div className="space-y-4">
+      <AlbumArtistCard album={album} albumsCount={moreFromArtist.length + 1} />
       <AlbumInfoCard album={album} />
 
       <div className="rounded-xl2 border border-border bg-surface p-4">

@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { Music2, Info, MessageSquare, Users, Pencil } from "lucide-react";
-import { AlbumSongRow } from "@/components/album/AlbumSongRow";
+import { TrackTable } from "@/components/music/TrackTable";
 import { AlbumCommentsTab } from "@/components/album/AlbumCommentsTab";
 import { CompactAlbumRow } from "@/components/song/CompactAlbumRow";
 import type { AlbumDetail, AlbumSummaryLite } from "@/components/album/types";
@@ -89,21 +89,17 @@ function TitresTab({ album, onReload }: { album: AlbumDetail; onReload: () => vo
       </p>
     );
   }
+  // Tableau commun à la page album et à la page playlist (colonnes
+  // pochette / titre / favori / artiste / album / durée), pour que les
+  // deux pages restent identiques. Les titres d'un album ne portent pas
+  // toujours la référence peuplée vers celui-ci : on la fournit.
   return (
-    <div className="rounded-xl2 border border-border bg-surface p-3 sm:p-4">
-      <div className="hidden grid-cols-[28px_1fr_60px_70px_auto] gap-3 px-2.5 pb-2 text-[11px] uppercase tracking-wide text-ink-muted sm:grid">
-        <span>#</span>
-        <span>Titre</span>
-        <span className="text-center">Favoris</span>
-        <span className="text-right">Écoutes</span>
-        <span />
-      </div>
-      <div className="space-y-0.5">
-        {album.songs.map((song, index) => (
-          <AlbumSongRow key={song._id} song={song} queue={album.songs} index={index} onDeleted={onReload} />
-        ))}
-      </div>
-    </div>
+    <TrackTable
+      songs={album.songs}
+      source={{ type: "album", label: album.title }}
+      albumFallback={{ id: album._id, title: album.title }}
+      onReload={onReload}
+    />
   );
 }
 

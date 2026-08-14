@@ -19,6 +19,7 @@ import {
   X,
 } from "lucide-react";
 import { SafeImage } from "@/components/ui/SafeImage";
+import { TagInput } from "@/components/ui/TagInput";
 import { useDominantColor } from "@/components/song/useDominantColor";
 import { formatCompactNumber } from "@/lib/formatNumber";
 import type { PlaylistDetail } from "@/components/playlist/types";
@@ -67,7 +68,7 @@ export function PlaylistHero({
   onOpenMore: (x: number, y: number) => void;
   onToggleEditMode: () => void;
   onEditCover: () => void;
-  onSaveMeta: (updates: { title: string; description: string }) => Promise<void>;
+  onSaveMeta: (updates: { title: string; description: string; tags: string[] }) => Promise<void>;
   onToggleVisibility: () => void;
 }) {
   const color = useDominantColor(playlist.coverUrl);
@@ -77,6 +78,7 @@ export function PlaylistHero({
 
   const [title, setTitle] = useState(playlist.title);
   const [description, setDescription] = useState(playlist.description ?? "");
+  const [tags, setTags] = useState<string[]>(playlist.tags ?? []);
 
   // Resynchronise les champs quand la playlist change sous nos pieds
   // (rechargement, modification depuis le menu contextuel) — sinon le
@@ -84,9 +86,13 @@ export function PlaylistHero({
   useEffect(() => {
     setTitle(playlist.title);
     setDescription(playlist.description ?? "");
-  }, [playlist.title, playlist.description]);
+    setTags(playlist.tags ?? []);
+  }, [playlist.title, playlist.description, playlist.tags]);
 
-  const modifie = title.trim() !== playlist.title || description !== (playlist.description ?? "");
+  const modifie =
+    title.trim() !== playlist.title ||
+    description !== (playlist.description ?? "") ||
+    tags.join("|") !== (playlist.tags ?? []).join("|");
 
   const heures = Math.floor(totalDuration / 3600);
   const minutes = Math.round((totalDuration % 3600) / 60);
@@ -212,9 +218,16 @@ export function PlaylistHero({
                 placeholder="Décris l'ambiance de cette playlist..."
                 className="w-full resize-y rounded-xl border border-border bg-base px-3.5 py-2 text-sm outline-none transition-colors focus:border-accent"
               />
+              <div>
+                <label className="mb-1.5 block text-xs text-ink-muted">
+                  Mots-clés d&apos;ambiance (Chill, Lo-fi, Relax...)
+                </label>
+                <TagInput value={tags} onChange={setTags} preserveCase maxTags={10} placeholder="Ajouter un mot-clé..." />
+              </div>
+
               <div className="flex items-center gap-2">
                 <button
-                  onClick={() => onSaveMeta({ title: title.trim(), description })}
+                  onClick={() => onSaveMeta({ title: title.trim(), description, tags })}
                   disabled={!modifie || !title.trim() || savingMeta}
                   className="flex items-center gap-1.5 rounded-xl bg-accent px-4 py-2 text-sm font-medium text-base transition-colors hover:bg-accent-hover disabled:opacity-50"
                 >
@@ -225,6 +238,7 @@ export function PlaylistHero({
                   onClick={() => {
                     setTitle(playlist.title);
                     setDescription(playlist.description ?? "");
+                    setTags(playlist.tags ?? []);
                   }}
                   disabled={!modifie || savingMeta}
                   className="flex items-center gap-1.5 rounded-xl border border-border px-3.5 py-2 text-sm font-medium text-ink-muted transition-colors hover:text-ink disabled:opacity-50"

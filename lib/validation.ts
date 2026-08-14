@@ -268,6 +268,7 @@ export const patchPlaylistSchema = z.object({
   title: z.string().trim().min(1, "Le titre est requis.").max(150).optional(),
   description: z.string().max(1000).optional(),
   coverUrl: z.string().url("URL de pochette invalide.").optional().or(z.literal("")),
+  tags: z.array(z.string().trim().min(1).max(30)).max(10).optional(),
   isPublic: z.boolean().optional(),
 });
 

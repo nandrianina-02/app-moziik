@@ -14,7 +14,7 @@ import { buildPlaylistSubject } from "@/components/share/shareSubject";
 import { AlbumImageEditModal } from "@/components/album/AlbumImageEditModal";
 import { PlaylistContextMenu, type PlaylistMenuTarget } from "@/components/playlist/PlaylistContextMenu";
 import { PlaylistHero } from "@/components/playlist/PlaylistHero";
-import { PlaylistSongList } from "@/components/playlist/PlaylistSongList";
+import { PlaylistTabs } from "@/components/playlist/PlaylistTabs";
 import { PlaylistSidebar } from "@/components/playlist/PlaylistSidebar";
 import { AddSongsModal } from "@/components/playlist/AddSongsModal";
 import type { PlaylistDetail, PlaylistSummaryLite } from "@/components/playlist/types";
@@ -125,10 +125,18 @@ export default function PlaylistDetailPage() {
     setPlaylist((prev) => (prev ? { ...prev, ...updates } : prev));
   }
 
-  async function handleSaveMeta({ title, description }: { title: string; description: string }) {
+  async function handleSaveMeta({
+    title,
+    description,
+    tags,
+  }: {
+    title: string;
+    description: string;
+    tags: string[];
+  }) {
     setSavingMeta(true);
     try {
-      await patchPlaylist({ title, description });
+      await patchPlaylist({ title, description, tags });
       pushToast("success", "Playlist mise à jour.");
     } catch (err) {
       pushToast("error", err instanceof Error ? err.message : "Échec de l'enregistrement.");
@@ -275,12 +283,13 @@ export default function PlaylistDetailPage() {
           />
 
           <div className="mt-6">
-            <h2 className="mb-3 text-sm font-medium text-ink-muted">Titres</h2>
             {/* `editMode` ne peut être vrai que si `canManage` l'est : toute
                 action d'édition est donc hors de portée d'un visiteur. */}
-            <PlaylistSongList
-              songs={playlist.songs}
-              editMode={canManage && editMode}
+            <PlaylistTabs
+              playlist={playlist}
+              otherPlaylists={otherPlaylists}
+              canManage={canManage}
+              editMode={editMode}
               selection={selection}
               onToggleSelected={(songId) =>
                 setSelection((prev) =>
@@ -293,6 +302,7 @@ export default function PlaylistDetailPage() {
               onRemoveOne={askRemoveOne}
               onRemoveSelected={askRemoveSelected}
               onOpenAddSongs={() => setShowAddSongs(true)}
+              onReload={load}
             />
           </div>
         </div>

@@ -5,6 +5,7 @@ export type PlaylistDetail = {
   title: string;
   description?: string;
   coverUrl?: string;
+  tags?: string[];
   isPublic: boolean;
   // Peut manquer si le compte propriétaire a été supprimé : toujours
   // vérifier avant d'accéder à owner.name (même précaution que

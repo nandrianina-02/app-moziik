@@ -31,7 +31,16 @@ async function loadManagedPlaylist(id: string, user: AuthUser) {
 /** Renvoie la playlist repeuplée : le client remplace son état d'un bloc. */
 async function respondWithPopulated(playlist: { _id: unknown }) {
   const populated = await Playlist.findById(playlist._id)
-    .populate({ path: "songs", populate: { path: "artist", select: "stageName verified" } })
+    .populate({
+      path: "songs",
+      populate: [
+        { path: "artist", select: "stageName verified" },
+        // Alimente la colonne « Album » du tableau des titres : sans ce
+        // peuplement, `song.album` n'est qu'un identifiant et la colonne
+        // restait vide.
+        { path: "album", select: "title" },
+      ],
+    })
     .populate("owner", "name avatarUrl");
   return NextResponse.json({ playlist: populated });
 }

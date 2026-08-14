@@ -4,6 +4,7 @@ export interface IPlaylist {
   title: string;
   description?: string;
   coverUrl?: string;
+  tags?: string[]; // mots-clés d'ambiance (Chill, Lo-fi...), distincts du genre des titres
   owner: Types.ObjectId; // ref User
   songs: Types.ObjectId[]; // ref Song
   isPublic: boolean;
@@ -15,6 +16,7 @@ const PlaylistSchema = new Schema<IPlaylist>({
   title: { type: String, required: true },
   description: { type: String },
   coverUrl: { type: String },
+  tags: { type: [String], default: undefined },
   owner: { type: Schema.Types.ObjectId, ref: "User", required: true, index: true },
   songs: [{ type: Schema.Types.ObjectId, ref: "Song" }],
   isPublic: { type: Boolean, default: false },

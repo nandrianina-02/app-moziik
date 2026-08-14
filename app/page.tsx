@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
 import { Plus, Search } from "lucide-react";
@@ -12,7 +11,6 @@ import { useSiteConfig } from "@/context/SiteConfigProvider";
 import type { PlayableSong } from "@/context/PlayerProvider";
 import { HeroBanner } from "@/components/home/HeroBanner";
 import { SongCard } from "@/components/home/SongCard";
-import { TopTracksList } from "@/components/home/TopTracksList";
 import { GenreTiles } from "@/components/home/GenreTiles";
 import { PlaylistGrid } from "@/components/home/PlaylistGrid";
 import { AlbumGrid } from "@/components/home/AlbumGrid";
@@ -21,6 +19,8 @@ import { ForYouCarousel, type HubCard } from "@/components/home/ForYouCarousel";
 import { RecentlyPlayedRow } from "@/components/home/RecentlyPlayedRow";
 import { EventsCard, RadioCard, FeaturedArtists, ActivityFeed, SupportArtistsCard } from "@/components/home/HomeSidebar";
 import { PremiumBanner } from "@/components/home/PremiumBanner";
+import { SectionHeader } from "@/components/home/SectionHeader";
+import { TrendingList } from "@/components/home/TrendingList";
 
 type Hero = Parameters<typeof HeroBanner>[0]["hero"] | null;
 
@@ -65,9 +65,13 @@ export default function HomePage() {
   const radioSection = homepage?.sections.find((s) => s.key === "radio");
   const artistsSection = homepage?.sections.find((s) => s.key === "trending_artists");
   const activitySection = homepage?.sections.find((s) => s.key === "activity");
+  // Le top des titres part en colonne latérale sous forme de classement
+  // numéroté : format bien plus lisible qu'une grille pour un palmarès,
+  // et cohérent avec les autres plateformes.
+  const topTracksSection = homepage?.sections.find((s) => s.key === "top_tracks");
 
   const mainSections = homepage?.sections.filter(
-    (s) => !["events", "radio", "trending_artists", "activity", "premium"].includes(s.key)
+    (s) => !["events", "radio", "trending_artists", "activity", "premium", "top_tracks"].includes(s.key)
   );
   const premiumSection = homepage?.sections.find((s) => s.key === "premium");
 
@@ -134,7 +138,18 @@ export default function HomePage() {
             )}
           </div>
 
-          <aside className="space-y-4">
+          {/* `lg:sticky` : la colonne latérale suit le défilement de la
+              colonne principale, souvent bien plus longue. */}
+          <aside className="space-y-4 lg:sticky lg:top-6 lg:self-start">
+            {topTracksSection && (topTracksSection.data as PlayableSong[]).length > 0 && (
+              <div className="rounded-xl2 border border-border bg-surface p-4">
+                <SectionHeader title={topTracksSection.title} seeAllHref="/classements" icon={<span>🔥</span>} />
+                <TrendingList
+                  songs={topTracksSection.data as PlayableSong[]}
+                  source={{ type: "chart", label: topTracksSection.title }}
+                />
+              </div>
+            )}
             {eventsSection && <EventsCard upcomingCount={(eventsSection.data as { upcomingCount: number }).upcomingCount} />}
             {radioSection && <RadioCard />}
             {artistsSection && (
@@ -172,12 +187,13 @@ export default function HomePage() {
 }
 
 function SectionBlock({ section }: { section: Section }) {
+  // `top_tracks` n'apparaît pas ici : il est rendu à part, en classement
+  // numéroté dans la colonne latérale (voir TrendingList).
   const seeAllHref: Record<string, string> = {
-    new_releases: "/classements",
-    top_tracks: "/classements",
+    new_releases: "/titres",
     playlists: "/bibliotheque",
     albums: "/classements",
-    recommendations: "/recherche",
+    recommendations: "/titres",
   };
 
   function body() {
@@ -204,11 +220,6 @@ function SectionBlock({ section }: { section: Section }) {
             ))}
           </div>
         );
-      }
-      case "top_tracks": {
-        const songs = section.data as PlayableSong[];
-        if (songs.length === 0) return null;
-        return <TopTracksList songs={songs} source={{ type: "chart", label: section.title }} />;
       }
       case "genres": {
         const genres = section.data as { genre: string; count: number }[];
@@ -246,19 +257,25 @@ function SectionBlock({ section }: { section: Section }) {
     }
   }
 
+  const subtitles: Record<string, string> = {
+    recently_played: "Reprenez là où vous vous êtes arrêté",
+    new_releases: "Les derniers titres ajoutés",
+    recommendations: "Sélectionnés d'après vos écoutes",
+    genres: "Choisissez une ambiance",
+    playlists: "Les playlists les plus écoutées",
+    albums: "À découvrir en ce moment",
+  };
+
   const content = body();
   if (!content) return null;
 
   return (
     <section id={section.key}>
-      <div className="mb-4 flex items-center justify-between">
-        <h3 className="font-display text-lg">{section.title}</h3>
-        {seeAllHref[section.key] && (
-          <Link href={seeAllHref[section.key]} className="text-xs text-ink-muted hover:text-ink">
-            Voir tout
-          </Link>
-        )}
-      </div>
+      <SectionHeader
+        title={section.title}
+        subtitle={subtitles[section.key]}
+        seeAllHref={seeAllHref[section.key]}
+      />
       {content}
     </section>
   );

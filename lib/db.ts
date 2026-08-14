@@ -1,4 +1,8 @@
 import mongoose from "mongoose";
+// Effets de bord uniquement : garantit que tout schéma référencé par un
+// `populate` est enregistré, y compris dans un bundle de route qui ne
+// l'importe pas explicitement. Voir models/registerAll.ts.
+import "@/models/registerAll";
 
 // Volontairement lu paresseusement dans connectDB() plutôt qu'au chargement
 // du module : ce fichier est importé par la quasi-totalité des routes API,

@@ -1,18 +1,31 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { useSession, signOut } from "next-auth/react";
 import { motion, AnimatePresence } from "framer-motion";
 import { X, Mail, FileText, LogOut, User } from "lucide-react";
 import { useSiteConfig } from "@/context/SiteConfigProvider";
+import { useToast } from "@/context/ToastProvider";
 import { primaryLinks, accountLinks, useRoleLinks, isLinkActive, type NavLink } from "@/components/layout/navLinks";
 
 export function MobileDrawer({ onClose }: { onClose: () => void }) {
   const { data: session } = useSession();
   const siteConfig = useSiteConfig();
   const pathname = usePathname();
+  const router = useRouter();
+  const pushToast = useToast();
   const roleLinks = useRoleLinks();
+
+  async function handleLogout() {
+    onClose();
+    // redirect:false + navigation manuelle : voir la note équivalente
+    // dans app/compte/page.tsx.
+    await signOut({ redirect: false });
+    pushToast("success", "Déconnecté avec succès.");
+    router.push("/");
+    router.refresh();
+  }
 
   function renderLink(link: NavLink) {
     const isActive = isLinkActive(pathname, link.href);
@@ -115,7 +128,7 @@ export function MobileDrawer({ onClose }: { onClose: () => void }) {
 
           {session?.user && (
             <button
-              onClick={() => signOut({ callbackUrl: "/" })}
+              onClick={handleLogout}
               className="flex items-center gap-3 border-t border-border px-6 py-4 text-sm text-accent transition-colors hover:bg-accent/5"
             >
               <LogOut size={18} />

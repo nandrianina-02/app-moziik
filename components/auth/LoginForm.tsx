@@ -7,9 +7,11 @@ import Link from "next/link";
 import { Mail, Lock, Eye, EyeOff } from "lucide-react";
 import { FormField } from "@/components/ui/FormField";
 import { GoogleIcon } from "@/components/ui/GoogleIcon";
+import { useToast } from "@/context/ToastProvider";
 
 export function LoginForm() {
   const router = useRouter();
+  const pushToast = useToast();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
@@ -47,6 +49,7 @@ export function LoginForm() {
       }
       return;
     }
+    pushToast("success", "Connecté avec succès.");
     router.push("/");
     router.refresh();
   }

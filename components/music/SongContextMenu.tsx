@@ -166,6 +166,7 @@ export function SongContextMenu({
             label="Ajouter à la file d'attente"
             onClick={() => {
               enqueue(song);
+              pushToast("success", "Ajouté à la file d'attente.");
               onClose();
             }}
           />

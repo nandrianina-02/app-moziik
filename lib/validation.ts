@@ -291,7 +291,13 @@ export const patchSongSchema = z.object({
   title: z.string().trim().min(1).max(200).optional(),
   coverUrl: z.string().url("URL de pochette invalide.").optional(),
   audioUrl: z.string().url("URL audio invalide.").optional(),
-  duration: z.number().positive().optional(),
+  // `min(0)` et non `positive()` : la page de modification renvoie la
+  // durée déjà en base quand on ne remplace pas le fichier audio. Or
+  // Cloudinary ne renvoie pas toujours `duration` à l'upload, donc des
+  // titres existent avec `duration: 0` — les refuser ici rendrait ces
+  // titres définitivement non modifiables. Idem pour bpm, aligné sur
+  // createSongSchema qui ne contraint pas le signe non plus.
+  duration: z.number().min(0).optional(),
   genre: z.string().trim().min(1).max(60).optional(),
   lyrics: z.string().max(20000).optional(),
   description: z.string().max(1000).optional(),
@@ -299,7 +305,7 @@ export const patchSongSchema = z.object({
   language: z.string().max(40).optional(),
   composer: z.string().max(200).optional(),
   producer: z.string().max(200).optional(),
-  bpm: z.number().positive().optional(),
+  bpm: z.number().min(0).optional(),
   musicalKey: z.string().max(20).optional(),
   isrc: z.string().max(20).optional(),
   copyright: z.string().max(300).optional(),

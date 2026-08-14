@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { Play, ListPlus, Share2, UserPlus, UserCheck } from "lucide-react";
 import { usePlayer, type PlayableSong } from "@/context/PlayerProvider";
+import { useToast } from "@/context/ToastProvider";
 import { ContextMenuShell, MenuItem, MenuSeparator } from "@/components/ui/ContextMenuShell";
 import { ShareModal } from "@/components/share/ShareModal";
 import { buildArtistSubject } from "@/components/share/shareSubject";
@@ -34,6 +35,7 @@ export function ArtistContextMenu({
   onToggleFollow?: () => void;
   onClose: () => void;
 }) {
+  const pushToast = useToast();
   const { playQueue, enqueue } = usePlayer();
   const [showShareModal, setShowShareModal] = useState(false);
   const hasSongs = (songs?.length ?? 0) > 0;
@@ -57,6 +59,10 @@ export function ArtistContextMenu({
                 label="Ajouter à la file d'attente"
                 onClick={() => {
                   songs!.forEach((s) => enqueue(s));
+                  pushToast(
+                    "success",
+                    songs!.length > 1 ? `${songs!.length} titres ajoutés à la file d'attente.` : "Ajouté à la file d'attente."
+                  );
                   onClose();
                 }}
               />

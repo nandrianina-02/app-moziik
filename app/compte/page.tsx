@@ -2,12 +2,14 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useSession, signOut } from "next-auth/react";
 import { LogOut, Wallet, Shield, Mic2, Crown, ChevronRight, Pencil, Share2 } from "lucide-react";
 import { EqualizerLoader } from "@/components/ui/EqualizerLoader";
 import { SafeImage } from "@/components/ui/SafeImage";
 import { ShareModal } from "@/components/share/ShareModal";
 import { buildArtistSubject } from "@/components/share/shareSubject";
+import { useToast } from "@/context/ToastProvider";
 import { EditProfileModal, type EditableProfile } from "@/components/account/EditProfileModal";
 
 type MyArtistProfile = {
@@ -24,6 +26,8 @@ const roleLabels: Record<string, string> = { member: "Membre", artist: "Artiste"
 
 export default function AccountPage() {
   const { data: session, status } = useSession();
+  const router = useRouter();
+  const pushToast = useToast();
   const [subscription, setSubscription] = useState<Subscription>(null);
   const [hasPremium, setHasPremium] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -230,7 +234,16 @@ export default function AccountPage() {
 
       {/* Déconnexion */}
       <button
-        onClick={() => signOut({ callbackUrl: "/" })}
+        onClick={async () => {
+          // redirect:false + navigation manuelle (au lieu du comportement
+          // par défaut de signOut, qui recharge la page en dur) : sinon le
+          // toast de confirmation n'a jamais le temps de s'afficher, la
+          // page étant déchargée avant son rendu.
+          await signOut({ redirect: false });
+          pushToast("success", "Déconnecté avec succès.");
+          router.push("/");
+          router.refresh();
+        }}
         className="mb-8 flex w-full items-center justify-center gap-2 rounded-xl2 border border-accent/30 bg-accent/5 px-4 py-4 text-sm font-medium text-accent transition-colors hover:bg-accent/10"
       >
         <LogOut size={16} /> Se déconnecter

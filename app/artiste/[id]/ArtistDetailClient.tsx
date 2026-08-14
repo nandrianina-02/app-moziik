@@ -177,10 +177,17 @@ export function ArtistDetailClient() {
       return;
     }
     const res = await fetch(`/api/artists/${id}/follow`, { method: "POST" });
-    if (!res.ok) return;
+    if (!res.ok) {
+      pushToast("error", "Une erreur est survenue.");
+      return;
+    }
     const json = await res.json();
     setFollowing(json.following);
     setData((prev) => (prev ? { ...prev, artist: { ...prev.artist, followersCount: json.followersCount } } : prev));
+    pushToast(
+      "success",
+      json.following ? `Tu suis maintenant ${data?.artist.stageName ?? "cet artiste"}.` : "Tu ne suis plus cet artiste."
+    );
   }
 
   async function handleBannerFile(file: File) {

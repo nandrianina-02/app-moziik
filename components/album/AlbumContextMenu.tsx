@@ -69,6 +69,10 @@ export function AlbumContextMenu({
                 label="Ajouter à la file d'attente"
                 onClick={() => {
                   songs.forEach((s) => enqueue(s));
+                  pushToast(
+                    "success",
+                    songs.length > 1 ? `${songs.length} titres ajoutés à la file d'attente.` : "Ajouté à la file d'attente."
+                  );
                   onClose();
                 }}
               />

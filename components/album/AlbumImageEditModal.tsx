@@ -6,6 +6,7 @@ import { X, Upload, Trash2, Loader2, ImageIcon } from "lucide-react";
 import { SafeImage } from "@/components/ui/SafeImage";
 import { useToast } from "@/context/ToastProvider";
 import { uploadToCloudinaryClient } from "@/lib/cloudinaryClient";
+import { useEscapeClose } from "@/hooks/useEscapeClose";
 
 /**
  * `title` permet de réutiliser cette modale hors des albums (pochette de
@@ -25,6 +26,7 @@ export function AlbumImageEditModal({
   onClose: () => void;
   onSaved: (url: string | null) => void;
 }) {
+  useEscapeClose(onClose);
   const pushToast = useToast();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [preview, setPreview] = useState<string | null>(currentUrl ?? null);

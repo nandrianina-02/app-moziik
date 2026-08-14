@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { X, Plus, Trash2 } from "lucide-react";
 import { useToast } from "@/context/ToastProvider";
+import { useEscapeClose } from "@/hooks/useEscapeClose";
 
 type SocialLink = { platform: string; url: string };
 
@@ -19,6 +20,7 @@ export function EditArtistProfileModal({
   onClose: () => void;
   onSaved: (data: { bio: string; genres: string[]; socialLinks: SocialLink[] }) => void;
 }) {
+  useEscapeClose(onClose);
   const pushToast = useToast();
   const [bioValue, setBioValue] = useState(bio ?? "");
   const [genresValue, setGenresValue] = useState(genres.join(", "));

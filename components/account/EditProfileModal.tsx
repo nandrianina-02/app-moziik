@@ -8,6 +8,7 @@ import { SafeImage } from "@/components/ui/SafeImage";
 import { FormField } from "@/components/ui/FormField";
 import { useToast } from "@/context/ToastProvider";
 import { uploadToCloudinaryClient } from "@/lib/cloudinaryClient";
+import { useEscapeClose } from "@/hooks/useEscapeClose";
 
 export type EditableProfile = {
   name: string;
@@ -31,6 +32,7 @@ export function EditProfileModal({
   onClose: () => void;
   onUpdated: (profile: EditableProfile) => void;
 }) {
+  useEscapeClose(onClose);
   const { update } = useSession();
   const pushToast = useToast();
   const fileInputRef = useRef<HTMLInputElement>(null);

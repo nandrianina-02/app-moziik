@@ -1,6 +1,7 @@
 "use client";
 
 import { X, Mic2 } from "lucide-react";
+import { useEscapeClose } from "@/hooks/useEscapeClose";
 
 export function LyricsSheet({
   title,
@@ -13,6 +14,7 @@ export function LyricsSheet({
   lyrics: string;
   onClose: () => void;
 }) {
+  useEscapeClose(onClose);
   return (
     <div className="fixed inset-0 z-[60] flex items-end justify-center bg-black/60" onClick={onClose}>
       <div

@@ -5,8 +5,10 @@ import { X } from "lucide-react";
 import { FormField } from "@/components/ui/FormField";
 import { useToast } from "@/context/ToastProvider";
 import { uploadToCloudinaryClient } from "@/lib/cloudinaryClient";
+import { useEscapeClose } from "@/hooks/useEscapeClose";
 
 export function CreateAlbumModal({ onClose, onCreated }: { onClose: () => void; onCreated: () => void }) {
+  useEscapeClose(onClose);
   const pushToast = useToast();
   const [title, setTitle] = useState("");
   const [type, setType] = useState<"album" | "ep" | "single">("album");

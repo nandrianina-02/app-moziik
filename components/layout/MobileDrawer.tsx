@@ -8,8 +8,10 @@ import { X, Mail, FileText, LogOut, User } from "lucide-react";
 import { useSiteConfig } from "@/context/SiteConfigProvider";
 import { useToast } from "@/context/ToastProvider";
 import { primaryLinks, accountLinks, useRoleLinks, isLinkActive, type NavLink } from "@/components/layout/navLinks";
+import { useEscapeClose } from "@/hooks/useEscapeClose";
 
 export function MobileDrawer({ onClose }: { onClose: () => void }) {
+  useEscapeClose(onClose);
   const { data: session } = useSession();
   const siteConfig = useSiteConfig();
   const pathname = usePathname();

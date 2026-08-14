@@ -2,6 +2,7 @@
 
 import { AlertTriangle } from "lucide-react";
 import { Portal } from "@/components/ui/Portal";
+import { useEscapeClose } from "@/hooks/useEscapeClose";
 
 /**
  * Petite modale de confirmation générique, utilisée avant toute action
@@ -25,6 +26,7 @@ export function ConfirmDialog({
   onConfirm: () => void;
   onCancel: () => void;
 }) {
+  useEscapeClose(onCancel);
   return (
     // Portail : cette confirmation peut être ouverte depuis un menu
     // contextuel ou le mini-lecteur, dont le parent `fixed` piégerait la

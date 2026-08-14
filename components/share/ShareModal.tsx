@@ -19,6 +19,7 @@ import { SafeImage } from "@/components/ui/SafeImage";
 import { useToast } from "@/context/ToastProvider";
 import { Portal } from "@/components/ui/Portal";
 import type { ShareSubject } from "@/components/share/shareSubject";
+import { useEscapeClose } from "@/hooks/useEscapeClose";
 
 // Réseaux pour lesquels il n'existe pas d'URL de partage web fiable sans
 // identifiant d'application (Messenger, Discord) ou pas du tout
@@ -50,6 +51,7 @@ export function ShareModal({
   /** Uniquement pertinent pour une playlist (subject.type === "playlist"). */
   privacy?: { isPublic: boolean; isOwner: boolean; busy?: boolean; onTogglePublic: () => void };
 }) {
+  useEscapeClose(onClose);
   const pushToast = useToast();
   const [copied, setCopied] = useState(false);
   const [qrDataUrl, setQrDataUrl] = useState<string | null>(null);

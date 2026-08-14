@@ -6,6 +6,7 @@ import { SafeImage } from "@/components/ui/SafeImage";
 import { Toggle } from "@/components/admin/Toggle";
 import { uploadToCloudinaryClient } from "@/lib/cloudinaryClient";
 import { useToast } from "@/context/ToastProvider";
+import { useEscapeClose } from "@/hooks/useEscapeClose";
 
 type HubCard = {
   _id: string;
@@ -19,6 +20,7 @@ type HubCard = {
 };
 
 export function HubCardsManager({ onClose }: { onClose: () => void }) {
+  useEscapeClose(onClose);
   const pushToast = useToast();
   const [cards, setCards] = useState<HubCard[]>([]);
   const [loading, setLoading] = useState(true);

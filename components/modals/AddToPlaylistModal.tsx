@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { X, Plus, ListMusic } from "lucide-react";
 import { useToast } from "@/context/ToastProvider";
 import { Portal } from "@/components/ui/Portal";
+import { useEscapeClose } from "@/hooks/useEscapeClose";
 
 type Playlist = { _id: string; title: string; coverUrl?: string };
 
@@ -14,6 +15,7 @@ export function AddToPlaylistModal({
   songId: string;
   onClose: () => void;
 }) {
+  useEscapeClose(onClose);
   const pushToast = useToast();
   const [playlists, setPlaylists] = useState<Playlist[]>([]);
   const [newTitle, setNewTitle] = useState("");

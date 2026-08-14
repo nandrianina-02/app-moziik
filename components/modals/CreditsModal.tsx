@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { X, BadgeCheck, Clock, Disc3, Tag } from "lucide-react";
 import type { PlayableSong } from "@/context/PlayerProvider";
+import { useEscapeClose } from "@/hooks/useEscapeClose";
 
 function formatTime(seconds: number) {
   const m = Math.floor(seconds / 60);
@@ -11,6 +12,7 @@ function formatTime(seconds: number) {
 }
 
 export function CreditsModal({ song, onClose }: { song: PlayableSong; onClose: () => void }) {
+  useEscapeClose(onClose);
   const album = typeof song.album === "object" ? song.album : null;
 
   return (

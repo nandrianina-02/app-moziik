@@ -6,6 +6,7 @@ import { SafeImage } from "@/components/ui/SafeImage";
 import { FormField } from "@/components/ui/FormField";
 import { uploadToCloudinaryClient } from "@/lib/cloudinaryClient";
 import { useToast } from "@/context/ToastProvider";
+import { useEscapeClose } from "@/hooks/useEscapeClose";
 
 type ContentType = "song" | "album" | "artist" | "playlist" | "event";
 
@@ -38,6 +39,7 @@ export function PinnedContentManager({
   helpText?: string;
   onClose: () => void;
 }) {
+  useEscapeClose(onClose);
   const pushToast = useToast();
   const [pinnedItems, setPinnedItems] = useState<PinnedItem[]>([]);
   const [loading, setLoading] = useState(true);

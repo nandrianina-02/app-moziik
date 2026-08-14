@@ -14,6 +14,7 @@ import { MainContent } from "@/components/layout/MainContent";
 import { NotificationsProvider } from "@/context/NotificationsProvider";
 import { NotificationsDrawer } from "@/components/notifications/NotificationsDrawer";
 import { MobileHeader } from "@/components/layout/MobileHeader";
+import { DesktopHeader } from "@/components/layout/DesktopHeader";
 import { MobileNav } from "@/components/layout/MobileNav";
 import { MiniPlayerBar } from "@/components/player/MiniPlayerBar";
 import { FullPlayerPage } from "@/components/player/FullPlayerPage";
@@ -87,7 +88,12 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                         <OfflineBanner />
                         <div className="flex min-h-screen">
                           <Sidebar />
-                          <MainContent>{children}</MainContent>
+                          {/* Colonne de contenu : la barre supérieure doit
+                              rester à droite de la sidebar, jamais par-dessus. */}
+                          <div className="flex min-w-0 flex-1 flex-col">
+                            <DesktopHeader />
+                            <MainContent>{children}</MainContent>
+                          </div>
                         </div>
                         <NotificationsDrawer />
                         <MiniPlayerBar />

@@ -22,6 +22,10 @@ export function CreatePlaylistTile({ onCreated }: { onCreated: (playlist: { _id:
       if (!res.ok) throw new Error();
       const data = await res.json();
       onCreated(data.playlist);
+      // Prévient la section « Mes playlists » du menu latéral
+      // (components/layout/SidebarPlaylists.tsx) pour qu'elle se mette à
+      // jour sans rechargement.
+      window.dispatchEvent(new Event("moziik-playlists-change"));
       pushToast("success", "Playlist créée.");
       setTitle("");
       setOpen(false);

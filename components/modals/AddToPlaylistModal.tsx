@@ -65,6 +65,7 @@ export function AddToPlaylistModal({
       return;
     }
     const data = await res.json();
+    window.dispatchEvent(new Event("moziik-playlists-change"));
     await addTo(data.playlist._id);
   }
 

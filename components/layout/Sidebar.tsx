@@ -7,9 +7,9 @@ import { ChevronsLeft, Mail, FileText } from "lucide-react";
 import { useSiteConfig } from "@/context/SiteConfigProvider";
 import { useSidebar } from "@/context/SidebarProvider";
 import { EqualizerLoader } from "@/components/ui/EqualizerLoader";
-import { NotificationBell } from "@/components/ui/NotificationBell";
 import { ThemeToggle } from "@/components/ui/ThemeToggle";
 import { Tooltip } from "@/components/layout/Tooltip";
+import { SidebarPlaylists } from "@/components/layout/SidebarPlaylists";
 import { primaryLinks, accountLinks, useRoleLinks, isLinkActive, type NavLink } from "@/components/layout/navLinks";
 
 export function Sidebar() {
@@ -72,21 +72,16 @@ export function Sidebar() {
             <span className="truncate font-display text-lg tracking-tight">{siteConfig.siteName}</span>
           )}
         </div>
-        {!collapsed && (
-          <div className="flex shrink-0 items-center gap-1">
-            <ThemeToggle />
-            <NotificationBell variant="desktop" />
-          </div>
-        )}
-        {collapsed && (
-          <div className="flex flex-col items-center gap-1">
-            <ThemeToggle />
-            <NotificationBell variant="desktop" />
-          </div>
-        )}
+        {/* La cloche vit désormais dans la barre supérieure
+            (DesktopHeader) : la garder ici ferait doublon. */}
+        <div className={`flex items-center gap-1 ${collapsed ? "flex-col" : "shrink-0"}`}>
+          <ThemeToggle />
+        </div>
       </div>
 
       <nav className="flex flex-col gap-1">{primaryLinks.map(renderLink)}</nav>
+
+      <SidebarPlaylists collapsed={collapsed} />
 
       <div className={`my-4 h-px bg-border ${collapsed ? "mx-1" : ""}`} />
       <nav className="flex flex-col gap-1">{accountLinks.map(renderLink)}</nav>

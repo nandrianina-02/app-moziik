@@ -27,7 +27,7 @@ export function MainContent({ children }: { children: React.ReactNode }) {
     // toujours affichée) — cf. le décalage bottom-16 qu'utilise déjà
     // MiniPlayerBar pour se caler juste au-dessus d'elle. md:pb-0 sur
     // desktop, qui n'a pas de nav basse fixe.
-    <main className={`min-w-0 flex-1 ${topPad} ${currentSong ? "pb-40 md:pb-24" : "pb-16 md:pb-0"}`}>
+    <main className={`min-w-0 flex-1 ${topPad} ${currentSong ? "pb-40 md:pb-20" : "pb-16 md:pb-0"}`}>
       <PageTransition>{children}</PageTransition>
     </main>
   );

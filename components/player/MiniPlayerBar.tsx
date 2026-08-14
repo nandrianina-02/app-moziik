@@ -27,6 +27,7 @@ import {
 import { usePlayer } from "@/context/PlayerProvider";
 import { useToast } from "@/context/ToastProvider";
 import { useOnlineStatus } from "@/context/OnlineStatusProvider";
+import { useSidebar } from "@/context/SidebarProvider";
 import { useSession } from "next-auth/react";
 import { SeekBar } from "@/components/player/SeekBar";
 import { SongContextMenu } from "@/components/music/SongContextMenu";
@@ -45,6 +46,42 @@ function formatTime(seconds: number) {
 }
 
 const bitrateLabel = { low: "64 kbps", medium: "128 kbps", high: "320 kbps" } as const;
+
+/** Bouton d'action icône seule de la barre droite (desktop). */
+function IconAction({
+  icon: Icon,
+  label,
+  active,
+  disabled,
+  badge,
+  onClick,
+}: {
+  icon: typeof Play;
+  label: string;
+  active?: boolean;
+  disabled?: boolean;
+  badge?: number;
+  onClick: (e: React.MouseEvent) => void;
+}) {
+  return (
+    <button
+      onClick={onClick}
+      disabled={disabled}
+      title={label}
+      aria-label={label}
+      className={`relative grid h-8 w-8 shrink-0 place-items-center rounded-lg transition-colors disabled:opacity-50 ${
+        active ? "text-accent hover:bg-accent/10" : "text-ink-muted hover:bg-base hover:text-ink"
+      }`}
+    >
+      <Icon size={17} />
+      {badge !== undefined && badge > 0 && (
+        <span className="absolute -right-0.5 -top-0.5 grid h-4 min-w-4 place-items-center rounded-full bg-accent px-1 text-[9px] font-semibold leading-none text-base">
+          {badge > 9 ? "9+" : badge}
+        </span>
+      )}
+    </button>
+  );
+}
 
 export function MiniPlayerBar() {
   const {
@@ -67,6 +104,7 @@ export function MiniPlayerBar() {
   const { status: authStatus } = useSession();
   const pushToast = useToast();
   const { isOnline } = useOnlineStatus();
+  const { collapsed } = useSidebar();
 
   const [offlineState, setOfflineState] = useState<"idle" | "saving" | "saved">("idle");
   const [menuPosition, setMenuPosition] = useState<{ x: number; y: number } | null>(null);
@@ -168,246 +206,248 @@ export function MiniPlayerBar() {
 
   const RepeatIcon = repeatMode === "one" ? Repeat1 : Repeat;
   const VolumeIcon = volume === 0 ? VolumeX : volume < 0.5 ? Volume1 : Volume2;
+  const OfflineIcon = offlineState === "saving" ? Loader2 : offlineState === "saved" ? Check : Download;
+
+  // Ouvre le menu contextuel ancré au bouton plutôt qu'au curseur : le
+  // lecteur est collé en bas de l'écran, un menu ancré au clic sortirait
+  // du cadre visible.
+  function openMenuFromButton(e: React.MouseEvent) {
+    const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+    setMenuPosition({ x: rect.left, y: rect.top });
+  }
 
   return (
-    <div className="fixed inset-x-0 bottom-16 z-30 border-t border-border bg-surface shadow-[0_-8px_32px_-16px_rgba(0,0,0,0.25)] md:bottom-0">
-      {/* Ligne 1 : piste + actions */}
-      <div className="flex items-center gap-3 px-3 py-2.5 md:gap-4 md:px-5 md:py-3">
-        {/* Piste en cours */}
-        <button
-          onClick={openFullPlayer}
-          onContextMenu={(e) => {
-            e.preventDefault();
-            setMenuPosition({ x: e.clientX, y: e.clientY });
-          }}
-          onTouchStart={longPress.onTouchStart}
-          onTouchEnd={(e) => {
-            longPress.onTouchEnd();
-            if (longPress.wasLongPress()) e.preventDefault();
-          }}
-          onTouchMove={longPress.onTouchMove}
-          className="flex min-w-0 flex-1 items-center gap-3 text-left md:w-80 md:flex-none"
-        >
-          <SafeImage
-            src={currentSong.coverUrl}
-            alt={currentSong.title}
-            width={56}
-            height={56}
-            className="h-11 w-11 shrink-0 rounded-xl object-cover md:h-14 md:w-14"
-          />
-          <span className="min-w-0">
-            <span className="block truncate text-sm font-semibold text-ink">{currentSong.title}</span>
-            <span className="flex items-center gap-1 truncate text-xs text-ink-muted">
-              {currentSong.artist?.stageName ?? "Artiste supprimé"}
-              {currentSong.artist?.verified && <BadgeCheck size={12} className="shrink-0 text-verified" />}
-            </span>
-            <span className="mt-1.5 hidden items-center gap-1.5 md:flex">
-              <span className="rounded-md bg-base px-2 py-0.5 text-[10px] font-medium text-ink-muted">MP3</span>
-              <span className="rounded-md bg-base px-2 py-0.5 text-[10px] font-medium text-ink-muted">{bitrate}</span>
-              <span className="rounded-md bg-base px-2 py-0.5 text-[10px] font-medium text-ink-muted">44.1 kHz</span>
-            </span>
-          </span>
-        </button>
-
-        {/* Coeur — desktop uniquement */}
-        <button
-          onClick={handleToggleLike}
-          aria-label={liked ? "Ne plus aimer" : "J'aime"}
-          className={`hidden shrink-0 transition-colors md:block ${liked ? "text-accent" : "text-ink-muted hover:text-ink"}`}
-        >
-          <Heart size={20} fill={liked ? "currentColor" : "none"} />
-        </button>
-
-        <div className="hidden h-6 w-px shrink-0 bg-border md:block" />
-
-        {/* Mobile : télécharger, suivant, pause (grand) — dans cet ordre */}
-        <div className="flex shrink-0 items-center gap-3 md:hidden">
-          <button
-            onClick={handleToggleOffline}
-            disabled={offlineState === "saving"}
-            aria-label={offlineState === "saved" ? "Retirer du hors-ligne" : "Télécharger"}
-            className={`shrink-0 transition-colors ${
-              offlineState === "saved" ? "text-accent" : "text-ink-muted hover:text-ink"
-            }`}
-          >
-            {offlineState === "saving" ? (
-              <Loader2 size={19} className="animate-spin" />
-            ) : offlineState === "saved" ? (
-              <Check size={19} />
-            ) : (
-              <Download size={19} />
-            )}
-          </button>
-          <button onClick={playNext} aria-label="Suivant" className="shrink-0 text-ink transition-colors hover:text-accent">
-            <SkipForward size={22} fill="currentColor" />
-          </button>
-          <button
-            onClick={togglePlay}
-            aria-label={isPlaying ? "Pause" : "Lecture"}
-            className="grid h-12 w-12 shrink-0 place-items-center rounded-full bg-accent text-base transition-colors hover:bg-accent-hover"
-          >
-            {isPlaying ? <Pause size={20} fill="currentColor" /> : <Play size={20} fill="currentColor" className="ml-0.5" />}
-          </button>
-        </div>
-
-        {/* Desktop : cluster central — transport */}
-        <div className="hidden md:flex md:items-center md:gap-5 md:px-2">
-          <button
-            onClick={toggleShuffle}
-            aria-label="Lecture aléatoire"
-            aria-pressed={isShuffled}
-            className={`transition-colors ${isShuffled ? "text-accent" : "text-ink-muted hover:text-ink"}`}
-          >
-            <Shuffle size={17} />
-          </button>
-          <button onClick={playPrevious} aria-label="Précédent" className="text-ink transition-colors hover:text-accent">
-            <SkipBack size={20} fill="currentColor" />
-          </button>
-          <button
-            onClick={togglePlay}
-            aria-label={isPlaying ? "Pause" : "Lecture"}
-            className="grid h-10 w-10 place-items-center rounded-full bg-ink text-base transition-transform hover:scale-105"
-          >
-            {isPlaying ? <Pause size={17} fill="currentColor" /> : <Play size={17} fill="currentColor" className="ml-0.5" />}
-          </button>
-          <button onClick={playNext} aria-label="Suivant" className="text-ink transition-colors hover:text-accent">
-            <SkipForward size={20} fill="currentColor" />
-          </button>
-          <button
-            onClick={cycleRepeatMode}
-            aria-label="Répéter"
-            aria-pressed={repeatMode !== "off"}
-            className={`transition-colors ${repeatMode !== "off" ? "text-accent" : "text-ink-muted hover:text-ink"}`}
-          >
-            <RepeatIcon size={17} />
-          </button>
-        </div>
-
-        <div className="hidden h-6 w-px shrink-0 bg-border md:block" />
-
-        {/* Droite : actions avec libellés, desktop uniquement */}
-        <div className="hidden md:flex md:flex-1 md:items-start md:justify-end md:gap-6">
+    <div
+      className={`fixed bottom-16 left-0 right-0 z-30 border-t border-border bg-surface/95 backdrop-blur-md shadow-[0_-8px_32px_-16px_rgba(0,0,0,0.35)] transition-[left] duration-300 ease-out md:bottom-0 print:hidden ${
+        // Décalage exact sur la largeur de la sidebar pour que le lecteur
+        // reste dans la zone de contenu et ne passe jamais dessous.
+        collapsed ? "md:left-20" : "md:left-64"
+      }`}
+    >
+      {/* ---------- MOBILE ---------- */}
+      <div className="md:hidden">
+        <div className="flex items-center gap-3 px-3 pt-2.5">
           <button
             onClick={openFullPlayer}
-            className="flex flex-col items-center gap-1 text-ink-muted transition-colors hover:text-ink"
+            onContextMenu={(e) => {
+              e.preventDefault();
+              setMenuPosition({ x: e.clientX, y: e.clientY });
+            }}
+            onTouchStart={longPress.onTouchStart}
+            onTouchEnd={(e) => {
+              longPress.onTouchEnd();
+              if (longPress.wasLongPress()) e.preventDefault();
+            }}
+            onTouchMove={longPress.onTouchMove}
+            className="flex min-w-0 flex-1 items-center gap-3 text-left"
           >
-            <span className="relative inline-flex">
-              <ListMusic size={18} />
-              {queue.length > 0 && (
-                <span
-                  className="absolute grid place-items-center rounded-full bg-accent font-semibold text-base"
-                  style={{
-                    top: -6,
-                    right: -8,
-                    height: 16,
-                    minWidth: 16,
-                    padding: "0 4px",
-                    fontSize: 9,
-                    lineHeight: 1,
-                  }}
-                >
-                  {queue.length > 9 ? "9+" : queue.length}
-                </span>
-              )}
+            <SafeImage
+              src={currentSong.coverUrl}
+              alt={currentSong.title}
+              width={44}
+              height={44}
+              className="h-11 w-11 shrink-0 rounded-lg object-cover"
+            />
+            <span className="min-w-0">
+              <span className="block truncate text-sm font-semibold text-ink">{currentSong.title}</span>
+              <span className="flex items-center gap-1 truncate text-xs text-ink-muted">
+                {currentSong.artist?.stageName ?? "Artiste supprimé"}
+                {currentSong.artist?.verified && <BadgeCheck size={12} className="shrink-0 text-verified" />}
+              </span>
             </span>
-            <span className="text-[11px]">File d&apos;attente</span>
           </button>
 
+          <div className="flex shrink-0 items-center gap-2.5">
+            <button
+              onClick={handleToggleLike}
+              aria-label={liked ? "Ne plus aimer" : "J'aime"}
+              className={`shrink-0 transition-colors ${liked ? "text-accent" : "text-ink-muted"}`}
+            >
+              <Heart size={19} fill={liked ? "currentColor" : "none"} />
+            </button>
+            <button
+              onClick={handleToggleOffline}
+              disabled={offlineState === "saving"}
+              aria-label={offlineState === "saved" ? "Retirer du hors-ligne" : "Télécharger"}
+              className={`shrink-0 transition-colors ${offlineState === "saved" ? "text-accent" : "text-ink-muted"}`}
+            >
+              <OfflineIcon size={19} className={offlineState === "saving" ? "animate-spin" : ""} />
+            </button>
+            <button onClick={playNext} aria-label="Suivant" className="shrink-0 text-ink">
+              <SkipForward size={21} fill="currentColor" />
+            </button>
+            <button
+              onClick={togglePlay}
+              aria-label={isPlaying ? "Pause" : "Lecture"}
+              className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-accent text-base transition-colors hover:bg-accent-hover"
+            >
+              {isPlaying ? <Pause size={19} fill="currentColor" /> : <Play size={19} fill="currentColor" className="ml-0.5" />}
+            </button>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-2 px-3 pb-2 pt-1.5">
+          <span className="w-8 shrink-0 text-right text-[10px] tabular-nums text-ink-muted">{formatTime(progress)}</span>
+          <SeekBar progress={progress} duration={currentSong.duration} onSeek={seek} variant="pill" className="min-w-0 flex-1" />
+          <span className="w-8 shrink-0 text-[10px] tabular-nums text-ink-muted">{formatTime(currentSong.duration)}</span>
+        </div>
+      </div>
+
+      {/* ---------- DESKTOP : 3 colonnes ---------- */}
+      <div className="hidden h-[74px] items-center gap-4 px-4 md:flex lg:px-6">
+        {/* Colonne 1 — piste en cours */}
+        <div className="flex min-w-0 items-center gap-3 md:w-[26%] lg:w-[30%]">
           <button
-            onClick={() => setShowAddToPlaylist(true)}
-            className="flex flex-col items-center gap-1 text-ink-muted transition-colors hover:text-ink"
+            onClick={openFullPlayer}
+            onContextMenu={(e) => {
+              e.preventDefault();
+              setMenuPosition({ x: e.clientX, y: e.clientY });
+            }}
+            title="Ouvrir le lecteur"
+            className="flex min-w-0 items-center gap-3 text-left"
           >
-            <ListPlus size={18} />
-            <span className="text-[11px]">Ajouter</span>
+            <SafeImage
+              src={currentSong.coverUrl}
+              alt={currentSong.title}
+              width={52}
+              height={52}
+              className="h-[52px] w-[52px] shrink-0 rounded-lg object-cover shadow-sm"
+            />
+            <span className="min-w-0">
+              <span className="block truncate text-sm font-semibold leading-tight text-ink">{currentSong.title}</span>
+              <span className="mt-0.5 flex items-center gap-1 truncate text-xs text-ink-muted">
+                <span className="truncate">{currentSong.artist?.stageName ?? "Artiste supprimé"}</span>
+                {currentSong.artist?.verified && <BadgeCheck size={12} className="shrink-0 text-verified" />}
+              </span>
+              {/* Qualité audio : reflète le réglage hors-ligne courant.
+                  Masqué sous xl pour ne pas tasser la colonne. */}
+              <span className="mt-1 hidden items-center gap-1 xl:flex">
+                <span className="rounded bg-base px-1.5 py-px text-[9px] font-medium uppercase tracking-wide text-ink-muted">
+                  MP3
+                </span>
+                <span className="rounded bg-base px-1.5 py-px text-[9px] font-medium text-ink-muted">{bitrate}</span>
+                <span className="rounded bg-base px-1.5 py-px text-[9px] font-medium text-ink-muted">44.1 kHz</span>
+              </span>
+            </span>
           </button>
 
           <button
-            onClick={handleToggleOffline}
-            disabled={offlineState === "saving"}
-            className={`flex flex-col items-center gap-1 transition-colors ${
-              offlineState === "saved" ? "text-accent" : "text-ink-muted hover:text-ink"
+            onClick={handleToggleLike}
+            title={liked ? "Ne plus aimer" : "J'aime"}
+            aria-label={liked ? "Ne plus aimer" : "J'aime"}
+            className={`grid h-8 w-8 shrink-0 place-items-center rounded-lg transition-colors ${
+              liked ? "text-accent hover:bg-accent/10" : "text-ink-muted hover:bg-base hover:text-ink"
             }`}
           >
-            {offlineState === "saving" ? (
-              <Loader2 size={18} className="animate-spin" />
-            ) : offlineState === "saved" ? (
-              <Check size={18} />
-            ) : (
-              <Download size={18} />
-            )}
-            <span className="text-[11px]">Télécharger</span>
-          </button>
-
-          <button onClick={handleShare} className="flex flex-col items-center gap-1 text-ink-muted transition-colors hover:text-ink">
-            <Share2 size={18} />
-            <span className="text-[11px]">Partager</span>
-          </button>
-
-          <button
-            onClick={(e) => setMenuPosition({ x: e.clientX, y: e.clientY })}
-            className="flex flex-col items-center gap-1 text-ink-muted transition-colors hover:text-ink"
-          >
-            <MoreHorizontal size={18} />
-            <span className="text-[11px]">Plus</span>
+            <Heart size={17} fill={liked ? "currentColor" : "none"} />
           </button>
         </div>
-      </div>
 
-      {/* Ligne 2, mobile uniquement : la durée reste collée aux commandes, pas isolée en haut de barre */}
-      <div className="flex items-center gap-2 px-3 pb-2.5 md:hidden">
-        <span className="w-8 shrink-0 text-right text-[10px] tabular-nums text-ink-muted">
-          {formatTime(progress)}
-        </span>
-        <SeekBar progress={progress} duration={currentSong.duration} onSeek={seek} variant="pill" className="min-w-0 flex-1" />
-        <span className="w-8 shrink-0 text-[10px] tabular-nums text-ink-muted">
-          {formatTime(currentSong.duration)}
-        </span>
-      </div>
+        {/* Colonne 2 — transport + progression (centrée, largeur fluide) */}
+        <div className="flex min-w-0 flex-1 flex-col items-center justify-center gap-1">
+          <div className="flex items-center gap-4">
+            <button
+              onClick={toggleShuffle}
+              title="Lecture aléatoire"
+              aria-label="Lecture aléatoire"
+              aria-pressed={isShuffled}
+              className={`transition-colors ${isShuffled ? "text-accent" : "text-ink-muted hover:text-ink"}`}
+            >
+              <Shuffle size={16} />
+            </button>
+            <button
+              onClick={playPrevious}
+              title="Précédent"
+              aria-label="Précédent"
+              className="text-ink transition-colors hover:text-accent"
+            >
+              <SkipBack size={19} fill="currentColor" />
+            </button>
+            <button
+              onClick={togglePlay}
+              title={isPlaying ? "Pause" : "Lecture"}
+              aria-label={isPlaying ? "Pause" : "Lecture"}
+              className="grid h-9 w-9 place-items-center rounded-full bg-ink text-base transition-transform hover:scale-105 active:scale-95"
+            >
+              {isPlaying ? <Pause size={16} fill="currentColor" /> : <Play size={16} fill="currentColor" className="ml-0.5" />}
+            </button>
+            <button
+              onClick={playNext}
+              title="Suivant"
+              aria-label="Suivant"
+              className="text-ink transition-colors hover:text-accent"
+            >
+              <SkipForward size={19} fill="currentColor" />
+            </button>
+            <button
+              onClick={cycleRepeatMode}
+              title={repeatMode === "one" ? "Répéter le titre" : repeatMode === "all" ? "Répéter la file" : "Répéter"}
+              aria-label="Répéter"
+              aria-pressed={repeatMode !== "off"}
+              className={`transition-colors ${repeatMode !== "off" ? "text-accent" : "text-ink-muted hover:text-ink"}`}
+            >
+              <RepeatIcon size={16} />
+            </button>
+          </div>
 
-      {/* Ligne 2, desktop uniquement : progression + volume + agrandir */}
-      <div className="hidden items-center gap-4 px-5 pb-3 md:flex">
-        <span className="w-9 shrink-0 text-right text-[11px] tabular-nums text-ink-muted">
-          {formatTime(progress)}
-        </span>
-        <SeekBar progress={progress} duration={currentSong.duration} onSeek={seek} variant="pill" className="flex-1" />
-        <span className="w-9 shrink-0 text-[11px] tabular-nums text-ink-muted">
-          {formatTime(currentSong.duration)}
-        </span>
-
-        <div className="mx-1 h-4 w-px bg-border" />
-
-        <div className="flex w-36 shrink-0 items-center gap-2">
-          <button
-            onClick={() => setVolume(volume > 0 ? 0 : 1)}
-            aria-label={volume === 0 ? "Réactiver le son" : "Couper le son"}
-            className="shrink-0 text-ink-muted hover:text-ink"
-          >
-            <VolumeIcon size={17} />
-          </button>
-          <SeekBar progress={volume} duration={1} onSeek={setVolume} variant="pill" />
+          <div className="flex w-full items-center gap-2">
+            <span className="w-9 shrink-0 text-right text-[10px] tabular-nums text-ink-muted">{formatTime(progress)}</span>
+            <SeekBar progress={progress} duration={currentSong.duration} onSeek={seek} variant="pill" className="min-w-0 flex-1" />
+            <span className="w-9 shrink-0 text-[10px] tabular-nums text-ink-muted">{formatTime(currentSong.duration)}</span>
+          </div>
         </div>
 
-        <button
-          onClick={openFullPlayer}
-          aria-label="Lecteur plein écran"
-          className="shrink-0 text-ink-muted hover:text-ink"
-        >
-          <Maximize2 size={16} />
-        </button>
+        {/* Colonne 3 — actions + volume */}
+        <div className="flex shrink-0 items-center justify-end gap-0.5 md:w-[26%] lg:w-[30%]">
+          <IconAction icon={ListMusic} label="File d'attente" badge={queue.length} onClick={openFullPlayer} />
+          <IconAction icon={ListPlus} label="Ajouter à une playlist" onClick={() => setShowAddToPlaylist(true)} />
+          <IconAction
+            icon={OfflineIcon}
+            label={offlineState === "saved" ? "Retirer du hors-ligne" : "Écouter hors-ligne"}
+            active={offlineState === "saved"}
+            disabled={offlineState === "saving"}
+            onClick={handleToggleOffline}
+          />
+          <IconAction icon={Share2} label="Partager" onClick={handleShare} />
+          <IconAction icon={MoreHorizontal} label="Plus d'options" onClick={openMenuFromButton} />
+
+          <div className="mx-1.5 h-5 w-px shrink-0 bg-border" />
+
+          <div className="flex shrink-0 items-center gap-1.5">
+            <button
+              onClick={() => setVolume(volume > 0 ? 0 : 1)}
+              title={volume === 0 ? "Réactiver le son" : "Couper le son"}
+              aria-label={volume === 0 ? "Réactiver le son" : "Couper le son"}
+              className="grid h-8 w-8 shrink-0 place-items-center rounded-lg text-ink-muted transition-colors hover:bg-base hover:text-ink"
+            >
+              <VolumeIcon size={17} />
+            </button>
+            {/* Largeur portée par ce conteneur, pas par SeekBar : SeekBar
+                applique `w-full` en dur, une classe de largeur passée en
+                `className` entrerait en conflit avec. Masqué sous lg où la
+                colonne est trop étroite — le bouton muet reste disponible. */}
+            <div className="hidden w-20 lg:block">
+              <SeekBar progress={volume} duration={1} onSeek={setVolume} variant="pill" />
+            </div>
+          </div>
+
+          <IconAction icon={Maximize2} label="Lecteur plein écran" onClick={openFullPlayer} />
+        </div>
       </div>
 
       {menuPosition && (
-        <SongContextMenu
-          song={currentSong}
-          position={menuPosition}
-          hideOffline
-          onClose={() => setMenuPosition(null)}
-        />
+        <SongContextMenu song={currentSong} position={menuPosition} hideOffline onClose={() => setMenuPosition(null)} />
       )}
       {showAddToPlaylist && (
         <AddToPlaylistModal songId={currentSong._id} onClose={() => setShowAddToPlaylist(false)} />
       )}
-      {showShareModal && <ShareModal subject={buildSongSubject(currentSong)} onClose={() => setShowShareModal(false)} onOpenAddToPlaylist={() => setShowAddToPlaylist(true)} />}
+      {showShareModal && (
+        <ShareModal
+          subject={buildSongSubject(currentSong)}
+          onClose={() => setShowShareModal(false)}
+          onOpenAddToPlaylist={() => setShowAddToPlaylist(true)}
+        />
+      )}
     </div>
   );
 }

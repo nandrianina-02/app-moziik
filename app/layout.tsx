@@ -8,6 +8,7 @@ import { ToastProvider } from "@/context/ToastProvider";
 import { OnlineStatusProvider } from "@/context/OnlineStatusProvider";
 import { PlayerProvider } from "@/context/PlayerProvider";
 import { SiteConfigProvider } from "@/context/SiteConfigProvider";
+import { SidebarProvider } from "@/context/SidebarProvider";
 import { Sidebar } from "@/components/layout/Sidebar";
 import { MainContent } from "@/components/layout/MainContent";
 import { NotificationsProvider } from "@/context/NotificationsProvider";
@@ -81,17 +82,19 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                 <OnlineStatusProvider>
                   <PlayerProvider>
                     <NotificationsProvider>
-                      <MobileHeader />
-                      <OfflineBanner />
-                      <div className="flex min-h-screen">
-                        <Sidebar />
-                        <MainContent>{children}</MainContent>
-                      </div>
-                      <NotificationsDrawer />
-                      <MiniPlayerBar />
-                      <FullPlayerPage />
-                      <FloatingInstallButton />
-                      <MobileNav />
+                      <SidebarProvider>
+                        <MobileHeader />
+                        <OfflineBanner />
+                        <div className="flex min-h-screen">
+                          <Sidebar />
+                          <MainContent>{children}</MainContent>
+                        </div>
+                        <NotificationsDrawer />
+                        <MiniPlayerBar />
+                        <FullPlayerPage />
+                        <FloatingInstallButton />
+                        <MobileNav />
+                      </SidebarProvider>
                     </NotificationsProvider>
                   </PlayerProvider>
                 </OnlineStatusProvider>

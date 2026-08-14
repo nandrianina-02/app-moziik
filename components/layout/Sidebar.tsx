@@ -1,40 +1,24 @@
 "use client";
 
-import { useEffect, useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { usePathname } from "next/navigation";
 import { ChevronsLeft, Mail, FileText } from "lucide-react";
 import { useSiteConfig } from "@/context/SiteConfigProvider";
+import { useSidebar } from "@/context/SidebarProvider";
 import { EqualizerLoader } from "@/components/ui/EqualizerLoader";
 import { NotificationBell } from "@/components/ui/NotificationBell";
 import { ThemeToggle } from "@/components/ui/ThemeToggle";
 import { Tooltip } from "@/components/layout/Tooltip";
 import { primaryLinks, accountLinks, useRoleLinks, isLinkActive, type NavLink } from "@/components/layout/navLinks";
 
-const COLLAPSE_KEY = "moziik:sidebar-collapsed";
-
 export function Sidebar() {
   const siteConfig = useSiteConfig();
   const pathname = usePathname();
   const roleLinks = useRoleLinks();
-
-  // Démarre "déplié" (valeur par défaut identique côté serveur et client,
-  // donc aucun risque de désynchronisation d'hydratation), puis se
-  // synchronise avec la préférence enregistrée juste après le montage.
-  const [collapsed, setCollapsed] = useState(false);
-
-  useEffect(() => {
-    setCollapsed(localStorage.getItem(COLLAPSE_KEY) === "1");
-  }, []);
-
-  function toggleCollapsed() {
-    setCollapsed((prev) => {
-      const next = !prev;
-      localStorage.setItem(COLLAPSE_KEY, next ? "1" : "0");
-      return next;
-    });
-  }
+  // État partagé (voir context/SidebarProvider.tsx) : le mini-lecteur en
+  // a besoin pour se caler exactement sur la largeur de la sidebar.
+  const { collapsed, toggleCollapsed } = useSidebar();
 
   function renderLink(link: NavLink) {
     const isActive = isLinkActive(pathname, link.href);

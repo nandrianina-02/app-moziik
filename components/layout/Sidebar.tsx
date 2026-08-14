@@ -52,7 +52,12 @@ export function Sidebar() {
 
   return (
     <aside
-      className={`sticky top-0 print:hidden hidden h-screen shrink-0 flex-col border-r border-border pb-28 pt-6 transition-all duration-300 ease-out md:flex ${
+      // `overflow-y-auto` : avec beaucoup de liens (artiste + admin), la
+      // navigation dépassait la hauteur d'écran et le pied de sidebar
+      // devenait inatteignable. Le pb-6 suffit désormais : le lecteur ne
+      // chevauche plus la sidebar (il est décalé de sa largeur), l'ancien
+      // pb-28 ne réservait donc plus que du vide.
+      className={`sticky top-0 print:hidden hidden h-screen shrink-0 flex-col overflow-y-auto border-r border-border pb-6 pt-6 transition-all duration-300 ease-out md:flex ${
         collapsed ? "md:w-20 md:px-2" : "md:w-64 md:px-4"
       }`}
     >

@@ -17,6 +17,7 @@ import {
 import { MdEmail } from "react-icons/md";
 import { SafeImage } from "@/components/ui/SafeImage";
 import { useToast } from "@/context/ToastProvider";
+import { Portal } from "@/components/ui/Portal";
 import type { ShareSubject } from "@/components/share/shareSubject";
 
 // Réseaux pour lesquels il n'existe pas d'URL de partage web fiable sans
@@ -145,7 +146,10 @@ export function ShareModal({
   const isCircular = subject.type === "artist" || subject.type === "profile";
 
   return (
-    <div className="fixed inset-0 z-50 grid place-items-center overflow-y-auto bg-black/60 px-4 py-8 backdrop-blur-sm" onClick={onClose}>
+    // Portail : ouverte depuis le mini-lecteur (parent fixed + z-30),
+    // cette modale restait sinon confinée sous la navigation mobile.
+    <Portal>
+    <div className="fixed inset-0 z-[70] grid place-items-center overflow-y-auto bg-black/60 px-4 py-8 backdrop-blur-sm" onClick={onClose}>
       <motion.div
         initial={{ opacity: 0, scale: 0.95, y: 8 }}
         animate={{ opacity: 1, scale: 1, y: 0 }}
@@ -298,5 +302,6 @@ export function ShareModal({
         </div>
       </motion.div>
     </div>
+    </Portal>
   );
 }

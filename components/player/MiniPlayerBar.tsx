@@ -47,13 +47,19 @@ function formatTime(seconds: number) {
 
 const bitrateLabel = { low: "64 kbps", medium: "128 kbps", high: "320 kbps" } as const;
 
-/** Bouton d'action icône seule de la barre droite (desktop). */
-function IconAction({
+/**
+ * Action de la zone droite (desktop) : icône surmontant son libellé.
+ * Le libellé rend chaque action identifiable sans survol — plus lisible
+ * qu'une rangée d'icônes seules pour des fonctions peu fréquentes
+ * (file d'attente, partage, téléchargement).
+ */
+function LabelledAction({
   icon: Icon,
   label,
   active,
   disabled,
   badge,
+  spin,
   onClick,
 }: {
   icon: typeof Play;
@@ -61,6 +67,48 @@ function IconAction({
   active?: boolean;
   disabled?: boolean;
   badge?: number;
+  spin?: boolean;
+  onClick: (e: React.MouseEvent) => void;
+}) {
+  return (
+    <button
+      onClick={onClick}
+      disabled={disabled}
+      title={label}
+      aria-label={label}
+      className={`group flex w-[62px] shrink-0 flex-col items-center gap-1 rounded-lg py-1 transition-colors disabled:opacity-50 ${
+        active ? "text-accent" : "text-ink-muted hover:text-ink"
+      }`}
+    >
+      <span className="relative inline-flex">
+        <Icon size={19} className={spin ? "animate-spin" : ""} />
+        {badge !== undefined && badge > 0 && (
+          <span className="absolute -right-2 -top-1.5 grid h-4 min-w-4 place-items-center rounded-full bg-accent px-1 text-[9px] font-semibold leading-none text-base">
+            {badge > 9 ? "9+" : badge}
+          </span>
+        )}
+      </span>
+      <span className="text-[10px] font-medium leading-none">{label}</span>
+    </button>
+  );
+}
+
+/** Même action, en icône seule : utilisé sous `lg`, où les libellés ne tiennent pas. */
+function CompactAction({
+  icon: Icon,
+  label,
+  active,
+  disabled,
+  badge,
+  spin,
+  onClick,
+}: {
+  icon: typeof Play;
+  label: string;
+  active?: boolean;
+  disabled?: boolean;
+  badge?: number;
+  spin?: boolean;
   onClick: (e: React.MouseEvent) => void;
 }) {
   return (
@@ -73,7 +121,7 @@ function IconAction({
         active ? "text-accent hover:bg-accent/10" : "text-ink-muted hover:bg-base hover:text-ink"
       }`}
     >
-      <Icon size={17} />
+      <Icon size={18} className={spin ? "animate-spin" : ""} />
       {badge !== undefined && badge > 0 && (
         <span className="absolute -right-0.5 -top-0.5 grid h-4 min-w-4 place-items-center rounded-full bg-accent px-1 text-[9px] font-semibold leading-none text-base">
           {badge > 9 ? "9+" : badge}
@@ -218,12 +266,16 @@ export function MiniPlayerBar() {
 
   return (
     <div
-      className={`fixed bottom-16 left-0 right-0 z-30 border-t border-border bg-surface/95 backdrop-blur-md shadow-[0_-8px_32px_-16px_rgba(0,0,0,0.35)] transition-[left] duration-300 ease-out md:bottom-0 print:hidden ${
+      className={`fixed bottom-16 left-0 right-0 z-30 transition-[left] duration-300 ease-out md:bottom-0 md:px-4 md:pb-4 print:hidden ${
         // Décalage exact sur la largeur de la sidebar pour que le lecteur
         // reste dans la zone de contenu et ne passe jamais dessous.
         collapsed ? "md:left-20" : "md:left-64"
       }`}
     >
+      {/* Carte flottante sur desktop (bords arrondis + ombre portée),
+          barre pleine largeur collée au bas sur mobile où l'espace
+          horizontal est trop précieux pour des marges. */}
+      <div className="border-t border-border bg-surface/95 backdrop-blur-md shadow-[0_-8px_32px_-16px_rgba(0,0,0,0.35)] md:rounded-2xl md:border md:shadow-[0_8px_40px_-12px_rgba(0,0,0,0.3)]">
       {/* ---------- MOBILE ---------- */}
       <div className="md:hidden">
         <div className="flex items-center gap-3 px-3 pt-2.5">
@@ -294,9 +346,9 @@ export function MiniPlayerBar() {
       </div>
 
       {/* ---------- DESKTOP : 3 colonnes ---------- */}
-      <div className="hidden h-[74px] items-center gap-4 px-4 md:flex lg:px-6">
+      <div className="hidden h-[86px] items-center gap-3 px-4 md:flex lg:gap-5 lg:px-6">
         {/* Colonne 1 — piste en cours */}
-        <div className="flex min-w-0 items-center gap-3 md:w-[26%] lg:w-[30%]">
+        <div className="flex min-w-0 items-center gap-3 md:w-[26%] lg:w-[28%]">
           <button
             onClick={openFullPlayer}
             onContextMenu={(e) => {
@@ -321,12 +373,12 @@ export function MiniPlayerBar() {
               </span>
               {/* Qualité audio : reflète le réglage hors-ligne courant.
                   Masqué sous xl pour ne pas tasser la colonne. */}
-              <span className="mt-1 hidden items-center gap-1 xl:flex">
-                <span className="rounded bg-base px-1.5 py-px text-[9px] font-medium uppercase tracking-wide text-ink-muted">
+              <span className="mt-1.5 hidden items-center gap-1 xl:flex">
+                <span className="rounded-md bg-base px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wide text-ink-muted">
                   MP3
                 </span>
-                <span className="rounded bg-base px-1.5 py-px text-[9px] font-medium text-ink-muted">{bitrate}</span>
-                <span className="rounded bg-base px-1.5 py-px text-[9px] font-medium text-ink-muted">44.1 kHz</span>
+                <span className="rounded-md bg-base px-1.5 py-0.5 text-[9px] font-semibold text-ink-muted">{bitrate}</span>
+                <span className="rounded-md bg-base px-1.5 py-0.5 text-[9px] font-semibold text-ink-muted">44.1 kHz</span>
               </span>
             </span>
           </button>
@@ -335,17 +387,19 @@ export function MiniPlayerBar() {
             onClick={handleToggleLike}
             title={liked ? "Ne plus aimer" : "J'aime"}
             aria-label={liked ? "Ne plus aimer" : "J'aime"}
-            className={`grid h-8 w-8 shrink-0 place-items-center rounded-lg transition-colors ${
-              liked ? "text-accent hover:bg-accent/10" : "text-ink-muted hover:bg-base hover:text-ink"
+            className={`grid h-9 w-9 shrink-0 place-items-center rounded-full transition-all hover:scale-110 ${
+              liked ? "text-accent" : "text-ink-muted hover:text-accent"
             }`}
           >
-            <Heart size={17} fill={liked ? "currentColor" : "none"} />
+            <Heart size={20} fill={liked ? "currentColor" : "none"} />
           </button>
         </div>
 
+        <div className="hidden h-11 w-px shrink-0 bg-border lg:block" />
+
         {/* Colonne 2 — transport + progression (centrée, largeur fluide) */}
-        <div className="flex min-w-0 flex-1 flex-col items-center justify-center gap-1">
-          <div className="flex items-center gap-4">
+        <div className="flex min-w-0 flex-1 flex-col items-center justify-center gap-1.5">
+          <div className="flex items-center gap-5">
             <button
               onClick={toggleShuffle}
               title="Lecture aléatoire"
@@ -353,7 +407,7 @@ export function MiniPlayerBar() {
               aria-pressed={isShuffled}
               className={`transition-colors ${isShuffled ? "text-accent" : "text-ink-muted hover:text-ink"}`}
             >
-              <Shuffle size={16} />
+              <Shuffle size={17} />
             </button>
             <button
               onClick={playPrevious}
@@ -361,15 +415,15 @@ export function MiniPlayerBar() {
               aria-label="Précédent"
               className="text-ink transition-colors hover:text-accent"
             >
-              <SkipBack size={19} fill="currentColor" />
+              <SkipBack size={21} fill="currentColor" />
             </button>
             <button
               onClick={togglePlay}
               title={isPlaying ? "Pause" : "Lecture"}
               aria-label={isPlaying ? "Pause" : "Lecture"}
-              className="grid h-9 w-9 place-items-center rounded-full bg-ink text-base transition-transform hover:scale-105 active:scale-95"
+              className="grid h-12 w-12 place-items-center rounded-full bg-accent text-base shadow-lg shadow-accent/25 transition-transform hover:scale-105 active:scale-95"
             >
-              {isPlaying ? <Pause size={16} fill="currentColor" /> : <Play size={16} fill="currentColor" className="ml-0.5" />}
+              {isPlaying ? <Pause size={20} fill="currentColor" /> : <Play size={20} fill="currentColor" className="ml-0.5" />}
             </button>
             <button
               onClick={playNext}
@@ -377,7 +431,7 @@ export function MiniPlayerBar() {
               aria-label="Suivant"
               className="text-ink transition-colors hover:text-accent"
             >
-              <SkipForward size={19} fill="currentColor" />
+              <SkipForward size={21} fill="currentColor" />
             </button>
             <button
               onClick={cycleRepeatMode}
@@ -386,32 +440,54 @@ export function MiniPlayerBar() {
               aria-pressed={repeatMode !== "off"}
               className={`transition-colors ${repeatMode !== "off" ? "text-accent" : "text-ink-muted hover:text-ink"}`}
             >
-              <RepeatIcon size={16} />
+              <RepeatIcon size={17} />
             </button>
           </div>
 
-          <div className="flex w-full items-center gap-2">
-            <span className="w-9 shrink-0 text-right text-[10px] tabular-nums text-ink-muted">{formatTime(progress)}</span>
+          <div className="flex w-full items-center gap-2.5">
+            <span className="w-9 shrink-0 text-right text-[11px] tabular-nums text-ink-muted">{formatTime(progress)}</span>
             <SeekBar progress={progress} duration={currentSong.duration} onSeek={seek} variant="pill" className="min-w-0 flex-1" />
-            <span className="w-9 shrink-0 text-[10px] tabular-nums text-ink-muted">{formatTime(currentSong.duration)}</span>
+            <span className="w-9 shrink-0 text-[11px] tabular-nums text-ink-muted">{formatTime(currentSong.duration)}</span>
           </div>
         </div>
 
-        {/* Colonne 3 — actions + volume */}
-        <div className="flex shrink-0 items-center justify-end gap-0.5 md:w-[26%] lg:w-[30%]">
-          <IconAction icon={ListMusic} label="File d'attente" badge={queue.length} onClick={openFullPlayer} />
-          <IconAction icon={ListPlus} label="Ajouter à une playlist" onClick={() => setShowAddToPlaylist(true)} />
-          <IconAction
-            icon={OfflineIcon}
-            label={offlineState === "saved" ? "Retirer du hors-ligne" : "Écouter hors-ligne"}
-            active={offlineState === "saved"}
-            disabled={offlineState === "saving"}
-            onClick={handleToggleOffline}
-          />
-          <IconAction icon={Share2} label="Partager" onClick={handleShare} />
-          <IconAction icon={MoreHorizontal} label="Plus d'options" onClick={openMenuFromButton} />
+        <div className="hidden h-11 w-px shrink-0 bg-border lg:block" />
 
-          <div className="mx-1.5 h-5 w-px shrink-0 bg-border" />
+        {/* Colonne 3 — actions + volume */}
+        <div className="flex shrink-0 items-center justify-end gap-1 md:w-[26%] lg:w-[34%]">
+          {/* Les libellés ne tiennent qu'à partir de lg ; en dessous la
+              colonne repasse en icônes seules (titre au survol). */}
+          <div className="hidden items-center gap-0.5 lg:flex">
+            <LabelledAction icon={ListMusic} label="File d'attente" badge={queue.length} onClick={openFullPlayer} />
+            <LabelledAction icon={ListPlus} label="Ajouter" onClick={() => setShowAddToPlaylist(true)} />
+            <LabelledAction
+              icon={OfflineIcon}
+              label={offlineState === "saved" ? "Hors-ligne" : "Télécharger"}
+              active={offlineState === "saved"}
+              disabled={offlineState === "saving"}
+              spin={offlineState === "saving"}
+              onClick={handleToggleOffline}
+            />
+            <LabelledAction icon={Share2} label="Partager" onClick={handleShare} />
+            <LabelledAction icon={MoreHorizontal} label="Plus" onClick={openMenuFromButton} />
+          </div>
+
+          <div className="flex items-center gap-0.5 lg:hidden">
+            <CompactAction icon={ListMusic} label="File d'attente" badge={queue.length} onClick={openFullPlayer} />
+            <CompactAction icon={ListPlus} label="Ajouter à une playlist" onClick={() => setShowAddToPlaylist(true)} />
+            <CompactAction
+              icon={OfflineIcon}
+              label={offlineState === "saved" ? "Retirer du hors-ligne" : "Écouter hors-ligne"}
+              active={offlineState === "saved"}
+              disabled={offlineState === "saving"}
+              spin={offlineState === "saving"}
+              onClick={handleToggleOffline}
+            />
+            <CompactAction icon={Share2} label="Partager" onClick={handleShare} />
+            <CompactAction icon={MoreHorizontal} label="Plus d'options" onClick={openMenuFromButton} />
+          </div>
+
+          <div className="mx-1 h-9 w-px shrink-0 bg-border" />
 
           <div className="flex shrink-0 items-center gap-1.5">
             <button
@@ -420,7 +496,7 @@ export function MiniPlayerBar() {
               aria-label={volume === 0 ? "Réactiver le son" : "Couper le son"}
               className="grid h-8 w-8 shrink-0 place-items-center rounded-lg text-ink-muted transition-colors hover:bg-base hover:text-ink"
             >
-              <VolumeIcon size={17} />
+              <VolumeIcon size={18} />
             </button>
             {/* Largeur portée par ce conteneur, pas par SeekBar : SeekBar
                 applique `w-full` en dur, une classe de largeur passée en
@@ -431,8 +507,16 @@ export function MiniPlayerBar() {
             </div>
           </div>
 
-          <IconAction icon={Maximize2} label="Lecteur plein écran" onClick={openFullPlayer} />
+          <button
+            onClick={openFullPlayer}
+            title="Lecteur plein écran"
+            aria-label="Lecteur plein écran"
+            className="grid h-8 w-8 shrink-0 place-items-center rounded-lg text-ink-muted transition-colors hover:bg-base hover:text-ink"
+          >
+            <Maximize2 size={17} />
+          </button>
         </div>
+      </div>
       </div>
 
       {menuPosition && (

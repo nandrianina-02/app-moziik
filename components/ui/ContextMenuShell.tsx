@@ -3,6 +3,7 @@
 import { useEffect, type ReactNode } from "react";
 import type { LucideIcon } from "lucide-react";
 import { useClampedMenuPosition, type MenuAnchor } from "@/components/ui/useClampedMenuPosition";
+import { Portal } from "@/components/ui/Portal";
 
 /**
  * Coquille commune à tous les menus contextuels (musique, évènement,
@@ -43,13 +44,18 @@ export function ContextMenuShell({
   }, [onClose]);
 
   return (
-    <div
-      ref={ref}
-      style={{ ...style, width }}
-      className="z-50 rounded-xl2 border border-border bg-surface py-1.5 shadow-2xl"
-    >
-      {children}
-    </div>
+    // Portail obligatoire : un menu ouvert depuis le mini-lecteur (parent
+    // fixed + z-30) serait sinon confiné à cette couche et passerait sous
+    // la navigation mobile. Voir components/ui/Portal.tsx.
+    <Portal>
+      <div
+        ref={ref}
+        style={{ ...style, width }}
+        className="z-[60] rounded-xl2 border border-border bg-surface py-1.5 shadow-2xl"
+      >
+        {children}
+      </div>
+    </Portal>
   );
 }
 

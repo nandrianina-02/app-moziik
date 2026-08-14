@@ -5,10 +5,10 @@ import { useOnlineStatus } from "@/context/OnlineStatusProvider";
 import { PageTransition } from "@/components/layout/PageTransition";
 
 /**
- * `<main>` réserve en permanence l'espace du mini-lecteur (pb-40/pb-24)
- * même quand rien ne joue — MiniPlayerBar renvoie `null` dans ce cas
- * (voir components/player/MiniPlayerBar.tsx), ce qui laissait un bandeau
- * vide en bas de chaque page tant qu'aucun titre n'avait été lancé.
+ * Réserve en bas de page exactement la place occupée par les éléments
+ * fixes (mini-lecteur, navigation mobile), et seulement quand ils sont
+ * réellement affichés : MiniPlayerBar renvoie `null` tant qu'aucun titre
+ * n'est lancé, sans quoi un bandeau vide subsistait en bas de chaque page.
  * Composant client dédié pour pouvoir lire `usePlayer()`/`useOnlineStatus()`
  * sans transformer tout app/layout.tsx (racine, server component) en
  * client component.
@@ -27,7 +27,9 @@ export function MainContent({ children }: { children: React.ReactNode }) {
     // toujours affichée) — cf. le décalage bottom-16 qu'utilise déjà
     // MiniPlayerBar pour se caler juste au-dessus d'elle. md:pb-0 sur
     // desktop, qui n'a pas de nav basse fixe.
-    <main className={`min-w-0 flex-1 ${topPad} ${currentSong ? "pb-40 md:pb-20" : "pb-16 md:pb-0"}`}>
+    // md:pb-28 = hauteur de la carte du lecteur (86px) + sa marge basse
+    // (16px), arrondi au cran Tailwind supérieur (112px).
+    <main className={`min-w-0 flex-1 ${topPad} ${currentSong ? "pb-40 md:pb-28" : "pb-16 md:pb-0"}`}>
       <PageTransition>{children}</PageTransition>
     </main>
   );

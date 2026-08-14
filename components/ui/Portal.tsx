@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { createPortal } from "react-dom";
 
 /**
@@ -14,15 +14,22 @@ import { createPortal } from "react-dom";
  * ainsi SOUS la navigation mobile (z-40) et le lecteur plein écran
  * (z-50). Le portail sort l'élément de ce piège.
  *
- * Le rendu est différé au montage : `document` n'existe pas côté serveur.
+ * Le conteneur est résolu à l'initialisation de l'état, pas dans un
+ * `useEffect` : côté serveur `document` n'existe pas et on ne rend rien,
+ * mais côté client le contenu doit être présent DÈS le premier rendu.
+ * Le différer d'une frame laissait un premier rendu à vide pendant
+ * lequel les surcouches qui se mesurent elles-mêmes ne trouvaient aucun
+ * élément — les menus contextuels restaient alors invisibles.
+ *
+ * N'utiliser que pour des éléments montés à la suite d'une interaction :
+ * un contenu rendu dès l'hydratation provoquerait une différence entre
+ * le rendu serveur (vide) et le rendu client.
  */
 export function Portal({ children }: { children: React.ReactNode }) {
-  const [mounted, setMounted] = useState(false);
+  const [container] = useState<HTMLElement | null>(() =>
+    typeof document === "undefined" ? null : document.body
+  );
 
-  useEffect(() => {
-    setMounted(true);
-  }, []);
-
-  if (!mounted) return null;
-  return createPortal(children, document.body);
+  if (!container) return null;
+  return createPortal(children, container);
 }

@@ -23,10 +23,21 @@ export function ContextMenuShell({
   width?: number;
   children: ReactNode;
 }) {
-  const { ref, style } = useClampedMenuPosition(anchor);
+  // `setRef` déclenche la mesure dès l'attachement du noeud ; `ref` sert
+  // au test de clic extérieur ci-dessous.
+  const { ref, setRef, style } = useClampedMenuPosition(anchor);
 
   useEffect(() => {
+    // Seconde protection contre les évènements souris de compatibilité
+    // émis après un `touchend` (la première est le preventDefault de
+    // useLongPress, que tous les navigateurs mobiles n'honorent pas) :
+    // ils arrivent dans la foulée de l'ouverture et refermaient le menu
+    // instantanément. Un menu ouvert volontairement n'est jamais refermé
+    // par l'utilisateur en moins de 300 ms.
+    const openedAt = Date.now();
+
     function handlePointerDown(e: MouseEvent) {
+      if (Date.now() - openedAt < 300) return;
       if (ref.current && !ref.current.contains(e.target as Node)) onClose();
     }
     function handleKeyDown(e: KeyboardEvent) {
@@ -49,7 +60,7 @@ export function ContextMenuShell({
     // la navigation mobile. Voir components/ui/Portal.tsx.
     <Portal>
       <div
-        ref={ref}
+        ref={setRef}
         style={{ ...style, width }}
         className="z-[60] rounded-xl2 border border-border bg-surface py-1.5 shadow-2xl"
       >

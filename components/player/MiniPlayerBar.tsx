@@ -291,10 +291,7 @@ export function MiniPlayerBar() {
               setMenuPosition({ x: e.clientX, y: e.clientY });
             }}
             onTouchStart={longPress.onTouchStart}
-            onTouchEnd={(e) => {
-              longPress.onTouchEnd();
-              if (longPress.wasLongPress()) e.preventDefault();
-            }}
+            onTouchEnd={longPress.onTouchEnd}
             onTouchMove={longPress.onTouchMove}
             className="flex min-w-0 flex-1 items-center gap-3 text-left"
           >

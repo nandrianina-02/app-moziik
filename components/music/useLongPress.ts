@@ -24,9 +24,20 @@ export function useLongPress(onLongPress: (x: number, y: number) => void, delay 
     if (timerRef.current) clearTimeout(timerRef.current);
   }
 
+  function end(e: React.TouchEvent) {
+    clear();
+    // Après un `touchend`, le navigateur émet des évènements souris de
+    // compatibilité (mousedown, mouseup, click). Sans ce garde-fou, un
+    // appui long ouvrait bien le menu... que le `mousedown` suivant
+    // refermait aussitôt en le prenant pour un clic extérieur — et le
+    // `click` lançait en prime la lecture du titre. Résultat visible :
+    // l'appui long ne « marchait pas » sur mobile.
+    if (triggeredRef.current) e.preventDefault();
+  }
+
   return {
     onTouchStart: start,
-    onTouchEnd: clear,
+    onTouchEnd: end,
     onTouchMove: clear,
     wasLongPress: () => triggeredRef.current,
   };

@@ -7,14 +7,21 @@ import { SafeImage } from "@/components/ui/SafeImage";
 import { useToast } from "@/context/ToastProvider";
 import { uploadToCloudinaryClient } from "@/lib/cloudinaryClient";
 
+/**
+ * `title` permet de réutiliser cette modale hors des albums (pochette de
+ * playlist...) sans dupliquer la logique d'envoi Cloudinary ni les
+ * contrôles de format. Sans lui, le libellé reste celui des albums.
+ */
 export function AlbumImageEditModal({
   kind,
   currentUrl,
+  title: titleProp,
   onClose,
   onSaved,
 }: {
   kind: "banner" | "cover";
   currentUrl?: string | null;
+  title?: string;
   onClose: () => void;
   onSaved: (url: string | null) => void;
 }) {
@@ -26,7 +33,7 @@ export function AlbumImageEditModal({
   const [progress, setProgress] = useState(0);
   const [removed, setRemoved] = useState(false);
 
-  const title = kind === "banner" ? "Modifier la bannière" : "Modifier la photo de l'album";
+  const title = titleProp ?? (kind === "banner" ? "Modifier la bannière" : "Modifier la photo de l'album");
 
   function handlePick(file: File | null) {
     if (!file) return;

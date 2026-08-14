@@ -1,41 +1,103 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import Image from "next/image";
 import { useParams } from "next/navigation";
 import { useSession } from "next-auth/react";
-import { Play, ListMusic, Globe, Lock, DownloadCloud, Loader2, Share2, MoreVertical } from "lucide-react";
-import { SongRow } from "@/components/music/SongRow";
-import { EqualizerLoader } from "@/components/ui/EqualizerLoader";
-import { usePlayer, type PlayableSong } from "@/context/PlayerProvider";
+import { usePlayer } from "@/context/PlayerProvider";
 import { useToast } from "@/context/ToastProvider";
+import { readApiError } from "@/lib/readApiError";
 import { downloadPlaylistForOffline } from "@/lib/offlineCache";
-import { useLongPress } from "@/components/music/useLongPress";
-import { PlaylistContextMenu } from "@/components/playlist/PlaylistContextMenu";
+import { EqualizerLoader } from "@/components/ui/EqualizerLoader";
+import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { ShareModal } from "@/components/share/ShareModal";
 import { buildPlaylistSubject } from "@/components/share/shareSubject";
+import { AlbumImageEditModal } from "@/components/album/AlbumImageEditModal";
+import { PlaylistContextMenu, type PlaylistMenuTarget } from "@/components/playlist/PlaylistContextMenu";
+import { PlaylistHero } from "@/components/playlist/PlaylistHero";
+import { PlaylistSongList } from "@/components/playlist/PlaylistSongList";
+import { PlaylistSidebar } from "@/components/playlist/PlaylistSidebar";
+import { AddSongsModal } from "@/components/playlist/AddSongsModal";
+import type { PlaylistDetail, PlaylistSummaryLite } from "@/components/playlist/types";
+import type { PlayableSong } from "@/context/PlayerProvider";
 
-type PlaylistDetail = {
-  _id: string;
+type Confirmation = {
   title: string;
-  description?: string;
-  coverUrl?: string;
-  isPublic: boolean;
-  owner: { _id: string; name: string };
-  songs: PlayableSong[];
+  description: string;
+  confirmLabel: string;
+  action: () => Promise<void>;
 };
 
 export default function PlaylistDetailPage() {
   const { id } = useParams<{ id: string }>();
   const { data: session } = useSession();
   const pushToast = useToast();
-  const { playQueue } = usePlayer();
+  const { currentSong, isPlaying, playQueue } = usePlayer();
+
   const [playlist, setPlaylist] = useState<PlaylistDetail | null>(null);
   const [loading, setLoading] = useState(true);
+  const [notFound, setNotFound] = useState(false);
+
+  const [editMode, setEditMode] = useState(false);
+  const [savingMeta, setSavingMeta] = useState(false);
+  const [selection, setSelection] = useState<string[]>([]);
+  const [editingCover, setEditingCover] = useState(false);
+  const [showAddSongs, setShowAddSongs] = useState(false);
+  const [confirmation, setConfirmation] = useState<Confirmation | null>(null);
+  const [confirmBusy, setConfirmBusy] = useState(false);
+
   const [downloading, setDownloading] = useState(false);
   const [downloadProgress, setDownloadProgress] = useState({ done: 0, total: 0 });
   const [showShareModal, setShowShareModal] = useState(false);
   const [menuPosition, setMenuPosition] = useState<{ x: number; y: number } | null>(null);
+  const [otherPlaylists, setOtherPlaylists] = useState<PlaylistSummaryLite[]>([]);
+
+  async function load() {
+    try {
+      const res = await fetch(`/api/playlists/${id}`);
+      if (!res.ok) {
+        setNotFound(true);
+        return;
+      }
+      const data = await res.json();
+      setPlaylist(data.playlist);
+    } catch {
+      pushToast("error", "Impossible de charger cette playlist.");
+      setNotFound(true);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  useEffect(() => {
+    load();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [id]);
+
+  useEffect(() => {
+    fetch("/api/playlists?public=true")
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        if (!data) return;
+        setOtherPlaylists(
+          (data.playlists as PlaylistSummaryLite[]).filter((p) => p._id !== id).slice(0, 4)
+        );
+      })
+      .catch(() => {});
+  }, [id]);
+
+  const isOwner = !!playlist?.owner && session?.user?.id === playlist.owner._id;
+  const canManage = isOwner || session?.user?.role === "admin";
+
+  // Sortir du mode édition sans laisser une sélection fantôme derrière.
+  useEffect(() => {
+    if (!editMode) setSelection([]);
+  }, [editMode]);
+
+  // Si les droits tombent (déconnexion pendant la visite), le mode
+  // édition ne doit pas rester ouvert.
+  useEffect(() => {
+    if (!canManage) setEditMode(false);
+  }, [canManage]);
 
   async function handleDownloadPlaylist() {
     if (!playlist) return;
@@ -50,143 +112,211 @@ export default function PlaylistDetailPage() {
     }
   }
 
-  async function load() {
+  /** PATCH des métadonnées. La réponse ne repeuple pas `songs`/`owner` : on
+   *  ne fusionne donc que les champs envoyés, jamais la playlist entière. */
+  async function patchPlaylist(updates: Partial<PlaylistDetail>) {
+    if (!playlist) return;
+    const res = await fetch(`/api/playlists/${playlist._id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(updates),
+    });
+    if (!res.ok) throw new Error(await readApiError(res, "Échec de l'enregistrement."));
+    setPlaylist((prev) => (prev ? { ...prev, ...updates } : prev));
+  }
+
+  async function handleSaveMeta({ title, description }: { title: string; description: string }) {
+    setSavingMeta(true);
     try {
-      const res = await fetch(`/api/playlists/${id}`);
-      if (!res.ok) throw new Error();
-      const data = await res.json();
-      setPlaylist(data.playlist);
-    } catch {
-      pushToast("error", "Impossible de charger cette playlist.");
+      await patchPlaylist({ title, description });
+      pushToast("success", "Playlist mise à jour.");
+    } catch (err) {
+      pushToast("error", err instanceof Error ? err.message : "Échec de l'enregistrement.");
     } finally {
-      setLoading(false);
+      setSavingMeta(false);
     }
   }
 
-  useEffect(() => {
-    load();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [id]);
-
-  function openMenuAt(x: number, y: number) {
-    setMenuPosition({ x, y });
+  async function handleToggleVisibility() {
+    if (!playlist) return;
+    try {
+      await patchPlaylist({ isPublic: !playlist.isPublic });
+      pushToast("success", playlist.isPublic ? "Playlist passée en privée." : "Playlist rendue publique.");
+    } catch (err) {
+      pushToast("error", err instanceof Error ? err.message : "Échec du changement de visibilité.");
+    }
   }
-  const longPress = useLongPress((x, y) => openMenuAt(x, y));
 
-  if (loading || !playlist) {
+  async function handleCoverSaved(url: string | null) {
+    setEditingCover(false);
+    if (!url) return;
+    try {
+      await patchPlaylist({ coverUrl: url });
+      pushToast("success", "Pochette mise à jour.");
+    } catch (err) {
+      pushToast("error", err instanceof Error ? err.message : "Échec de l'enregistrement de la pochette.");
+    }
+  }
+
+  /**
+   * Réorganisation optimiste : l'ordre s'applique immédiatement à
+   * l'écran, sinon chaque déplacement attendrait un aller-retour réseau
+   * et le glisser-déposer paraîtrait cassé. En cas d'échec, l'ordre
+   * précédent est restauré et l'erreur affichée — on ne laisse jamais
+   * l'écran mentir sur l'état réel.
+   */
+  async function handleReorder(songIds: string[]) {
+    if (!playlist) return;
+    const precedent = playlist.songs;
+    const parId = new Map(precedent.map((s) => [s._id, s]));
+    const reordonne = songIds.map((sid) => parId.get(sid)).filter(Boolean) as PlayableSong[];
+    setPlaylist({ ...playlist, songs: reordonne });
+
+    try {
+      const res = await fetch(`/api/playlists/${playlist._id}/songs`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ songIds }),
+      });
+      if (!res.ok) throw new Error(await readApiError(res, "Échec de la réorganisation."));
+    } catch (err) {
+      setPlaylist((prev) => (prev ? { ...prev, songs: precedent } : prev));
+      pushToast("error", err instanceof Error ? err.message : "Échec de la réorganisation.");
+    }
+  }
+
+  async function removeSongs(songIds: string[]) {
+    if (!playlist) return;
+    const res = await fetch(`/api/playlists/${playlist._id}/songs`, {
+      method: "DELETE",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ songIds }),
+    });
+    if (!res.ok) throw new Error(await readApiError(res, "Échec de la suppression."));
+    const data = await res.json();
+    setPlaylist(data.playlist);
+    setSelection((prev) => prev.filter((sid) => !songIds.includes(sid)));
+  }
+
+  function askRemoveOne(song: PlayableSong) {
+    setConfirmation({
+      title: "Retirer ce titre ?",
+      description: `« ${song.title} » sera retiré de la playlist. Le titre reste disponible sur Moziik.`,
+      confirmLabel: "Retirer",
+      action: () => removeSongs([song._id]),
+    });
+  }
+
+  function askRemoveSelected() {
+    const n = selection.length;
+    setConfirmation({
+      title: `Retirer ${n} titre${n > 1 ? "s" : ""} ?`,
+      description: `${n} titre${n > 1 ? "s seront retirés" : " sera retiré"} de la playlist. ${
+        n > 1 ? "Ils restent disponibles" : "Il reste disponible"
+      } sur Moziik.`,
+      confirmLabel: "Retirer",
+      action: () => removeSongs([...selection]),
+    });
+  }
+
+  async function runConfirmation() {
+    if (!confirmation) return;
+    setConfirmBusy(true);
+    try {
+      await confirmation.action();
+      pushToast("success", "Playlist mise à jour.");
+      setConfirmation(null);
+    } catch (err) {
+      pushToast("error", err instanceof Error ? err.message : "Action impossible.");
+    } finally {
+      setConfirmBusy(false);
+    }
+  }
+
+  if (loading) {
     return (
-      <div className="py-16 grid place-items-center">
+      <div className="grid place-items-center py-16">
         <EqualizerLoader />
       </div>
     );
   }
 
-  const isOwner = session?.user?.id === playlist.owner._id;
-  const canManage = isOwner || session?.user?.role === "admin";
+  if (notFound || !playlist) {
+    return <p className="px-6 py-16 text-center text-sm text-ink-muted">Cette playlist est introuvable.</p>;
+  }
+
+  const isCurrentPlaylistPlaying = isPlaying && playlist.songs.some((s) => s._id === currentSong?._id);
+  const totalPlays = playlist.songs.reduce((sum, s) => sum + (s.playsCount ?? 0), 0);
+  const totalLikes = playlist.songs.reduce((sum, s) => sum + (s.likesCount ?? 0), 0);
+  const totalDuration = playlist.songs.reduce((sum, s) => sum + (s.duration ?? 0), 0);
 
   return (
-    <div className="px-6 py-8 md:px-10 md:py-10 max-w-4xl">
-      <div className="flex items-center gap-5 mb-8">
-        <div
-          onContextMenu={(e) => {
-            e.preventDefault();
-            openMenuAt(e.clientX, e.clientY);
-          }}
-          onTouchStart={longPress.onTouchStart}
-          onTouchEnd={longPress.onTouchEnd}
-          onTouchMove={longPress.onTouchMove}
-        >
-          {playlist.coverUrl ? (
-            <Image src={playlist.coverUrl} alt={playlist.title} width={120} height={120} className="rounded-xl2 object-cover shadow-lg" />
-          ) : (
-            <div className="h-[120px] w-[120px] rounded-xl2 bg-surface grid place-items-center shrink-0">
-              <ListMusic size={28} className="text-ink-muted" />
-            </div>
-          )}
-        </div>
-        <div>
-          <p className="flex items-center gap-1 text-xs text-ink-muted mb-1">
-            {playlist.isPublic ? <Globe size={11} /> : <Lock size={11} />}
-            {playlist.isPublic ? "Playlist publique" : "Playlist privée"}
-          </p>
-          <h1 className="text-xl font-display mb-1">{playlist.title}</h1>
-          {playlist.description && <p className="text-sm text-ink-muted mb-1">{playlist.description}</p>}
-          <p className="text-xs text-ink-muted mb-4">
-            Par {isOwner ? "toi" : playlist.owner.name} · {playlist.songs.length} son(s)
-          </p>
+    <div className="px-4 py-6 sm:px-6 md:px-10 md:py-10">
+      <div className="grid gap-6 lg:grid-cols-[1fr_320px]">
+        <div className="min-w-0">
+          <PlaylistHero
+            playlist={playlist}
+            totalPlays={totalPlays}
+            totalDuration={totalDuration}
+            isCurrentPlaylistPlaying={isCurrentPlaylistPlaying}
+            downloading={downloading}
+            downloadProgress={downloadProgress}
+            canManage={canManage}
+            editMode={editMode}
+            savingMeta={savingMeta}
+            onTogglePlayAll={() => playQueue(playlist.songs, 0, { type: "playlist", label: playlist.title })}
+            onDownloadAll={handleDownloadPlaylist}
+            onShare={() => setShowShareModal(true)}
+            onOpenMore={(x, y) => setMenuPosition({ x, y })}
+            onToggleEditMode={() => setEditMode((v) => !v)}
+            onEditCover={() => setEditingCover(true)}
+            onSaveMeta={handleSaveMeta}
+            onToggleVisibility={handleToggleVisibility}
+          />
 
-          <div className="flex items-center gap-2">
-            {playlist.songs.length > 0 && (
-              <>
-                <button
-                  onClick={() => playQueue(playlist.songs, 0)}
-                  className="flex items-center gap-2 rounded-full bg-accent px-5 py-2 text-sm font-medium text-base hover:bg-accent-hover"
-                >
-                  <Play size={14} fill="currentColor" /> Écouter tout
-                </button>
-                <button
-                  onClick={handleDownloadPlaylist}
-                  disabled={downloading}
-                  className="flex items-center gap-2 rounded-full border border-border px-5 py-2 text-sm font-medium text-ink-muted hover:border-accent hover:text-accent disabled:opacity-60"
-                >
-                  {downloading ? (
-                    <>
-                      <Loader2 size={14} className="animate-spin" />
-                      {downloadProgress.total > 0 && `${downloadProgress.done}/${downloadProgress.total}`}
-                    </>
-                  ) : (
-                    <>
-                      <DownloadCloud size={14} /> Télécharger tout
-                    </>
-                  )}
-                </button>
-              </>
-            )}
-            {(playlist.isPublic || isOwner) && (
-              <button
-                onClick={() => setShowShareModal(true)}
-                className="flex items-center gap-2 rounded-full border border-border px-5 py-2 text-sm font-medium text-ink-muted hover:border-accent hover:text-accent"
-              >
-                <Share2 size={14} /> Partager
-              </button>
-            )}
-            <button
-              onClick={(e) => openMenuAt(e.clientX, e.clientY)}
-              aria-label="Plus d'options"
-              className="grid h-9 w-9 shrink-0 place-items-center rounded-full border border-border text-ink-muted transition-colors hover:border-accent hover:text-accent"
-            >
-              <MoreVertical size={15} />
-            </button>
+          <div className="mt-6">
+            <h2 className="mb-3 text-sm font-medium text-ink-muted">Titres</h2>
+            {/* `editMode` ne peut être vrai que si `canManage` l'est : toute
+                action d'édition est donc hors de portée d'un visiteur. */}
+            <PlaylistSongList
+              songs={playlist.songs}
+              editMode={canManage && editMode}
+              selection={selection}
+              onToggleSelected={(songId) =>
+                setSelection((prev) =>
+                  prev.includes(songId) ? prev.filter((s) => s !== songId) : [...prev, songId]
+                )
+              }
+              onSelectAll={() => setSelection(playlist.songs.map((s) => s._id))}
+              onClearSelection={() => setSelection([])}
+              onReorder={handleReorder}
+              onRemoveOne={askRemoveOne}
+              onRemoveSelected={askRemoveSelected}
+              onOpenAddSongs={() => setShowAddSongs(true)}
+            />
           </div>
         </div>
-      </div>
 
-      <div className="space-y-1">
-        {playlist.songs.map((song, index) => (
-          <SongRow key={song._id} song={song} queue={playlist.songs} index={index} onDeleted={load} />
-        ))}
-        {playlist.songs.length === 0 && (
-          <p className="text-sm text-ink-muted">Cette playlist est vide pour l&apos;instant.</p>
-        )}
+        <PlaylistSidebar
+          playlist={playlist}
+          totalPlays={totalPlays}
+          totalLikes={totalLikes}
+          otherPlaylists={otherPlaylists}
+        />
       </div>
 
       {showShareModal && (
         <ShareModal
-          subject={buildPlaylistSubject(playlist)}
+          // `owner` normalisé : il peut être absent en base (compte
+          // supprimé) alors que le sujet de partage attend un nom.
+          subject={buildPlaylistSubject({
+            ...playlist,
+            owner: playlist.owner ? { name: playlist.owner.name ?? "Utilisateur supprimé" } : undefined,
+          })}
           privacy={{
             isPublic: playlist.isPublic,
             isOwner,
-            onTogglePublic: async () => {
-              const res = await fetch(`/api/playlists/${playlist._id}`, {
-                method: "PATCH",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ isPublic: !playlist.isPublic }),
-              });
-              if (res.ok) {
-                const data = await res.json();
-                setPlaylist((prev) => (prev ? { ...prev, isPublic: data.playlist.isPublic } : prev));
-              }
-            },
+            onTogglePublic: handleToggleVisibility,
           }}
           onClose={() => setShowShareModal(false)}
         />
@@ -194,12 +324,43 @@ export default function PlaylistDetailPage() {
 
       {menuPosition && (
         <PlaylistContextMenu
-          playlist={playlist}
+          playlist={playlist as unknown as PlaylistMenuTarget}
           position={menuPosition}
           isOwner={isOwner}
           canManage={canManage}
           onClose={() => setMenuPosition(null)}
+          onDeleted={() => setNotFound(true)}
           onUpdated={(updated) => setPlaylist((prev) => (prev ? { ...prev, isPublic: updated.isPublic } : prev))}
+        />
+      )}
+
+      {canManage && editingCover && (
+        <AlbumImageEditModal
+          kind="cover"
+          currentUrl={playlist.coverUrl}
+          title="Modifier la pochette de la playlist"
+          onClose={() => setEditingCover(false)}
+          onSaved={handleCoverSaved}
+        />
+      )}
+
+      {canManage && showAddSongs && (
+        <AddSongsModal
+          playlistId={playlist._id}
+          existingIds={playlist.songs.map((s) => s._id)}
+          onClose={() => setShowAddSongs(false)}
+          onAdded={(updated) => setPlaylist(updated as PlaylistDetail)}
+        />
+      )}
+
+      {confirmation && (
+        <ConfirmDialog
+          title={confirmation.title}
+          description={confirmation.description}
+          confirmLabel={confirmation.confirmLabel}
+          busy={confirmBusy}
+          onConfirm={runConfirmation}
+          onCancel={() => setConfirmation(null)}
         />
       )}
     </div>

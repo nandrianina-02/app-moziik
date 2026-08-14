@@ -3,12 +3,29 @@ import { connectDB } from "@/lib/db";
 import Playlist from "@/models/Playlist";
 import { ApiError, withApiErrors } from "@/lib/apiError";
 import { parseOrThrow, patchPlaylistSchema } from "@/lib/validation";
-import { requireAuthUser } from "@/lib/mobileAuth";
+import { getAuthUser, requireAuthUser } from "@/lib/mobileAuth";
 
-export const GET = withApiErrors(async (_req: Request, { params }: { params: { id: string } }) => {
+export const GET = withApiErrors(async (req: Request, { params }: { params: { id: string } }) => {
   await connectDB();
-  const playlist = await Playlist.findById(params.id).populate("songs").populate("owner", "name avatarUrl");
+  // L'artiste de chaque titre est peuplé : sans lui, les lignes de la
+  // playlist affichaient « Artiste supprimé » pour tout le monde.
+  const playlist = await Playlist.findById(params.id)
+    .populate({ path: "songs", populate: { path: "artist", select: "stageName verified" } })
+    .populate("owner", "name avatarUrl");
   if (!playlist) throw new ApiError("Playlist introuvable.", 404);
+
+  // Une playlist privée n'était consultable par personne d'autre que son
+  // propriétaire... en théorie : la route la renvoyait en réalité à
+  // quiconque connaissait son identifiant. On répond « introuvable »
+  // plutôt que 403, pour ne pas confirmer son existence.
+  if (!playlist.isPublic) {
+    const authUser = await getAuthUser(req);
+    const proprietaire = authUser && playlist.owner?._id?.toString() === authUser.id;
+    if (!proprietaire && authUser?.role !== "admin") {
+      throw new ApiError("Playlist introuvable.", 404);
+    }
+  }
+
   return NextResponse.json({ playlist });
 });
 

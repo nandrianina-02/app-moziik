@@ -1,6 +1,7 @@
 "use client";
 
 import { AlertTriangle } from "lucide-react";
+import { Portal } from "@/components/ui/Portal";
 
 /**
  * Petite modale de confirmation générique, utilisée avant toute action
@@ -25,8 +26,12 @@ export function ConfirmDialog({
   onCancel: () => void;
 }) {
   return (
+    // Portail : cette confirmation peut être ouverte depuis un menu
+    // contextuel ou le mini-lecteur, dont le parent `fixed` piégerait la
+    // surcouche dans sa propre couche. Voir components/ui/Portal.tsx.
+    <Portal>
     <div
-      className="fixed inset-0 z-[60] grid place-items-center bg-black/60 px-4 backdrop-blur-sm"
+      className="fixed inset-0 z-[80] grid place-items-center bg-black/60 px-4 backdrop-blur-sm"
       onClick={onCancel}
     >
       <div
@@ -62,5 +67,6 @@ export function ConfirmDialog({
         </div>
       </div>
     </div>
+    </Portal>
   );
 }

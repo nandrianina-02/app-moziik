@@ -275,6 +275,25 @@ export const playlistSongSchema = z.object({
   songId: z.string().min(1, "songId requis."),
 });
 
+// Ajout et retrait acceptent un morceau seul ou un lot : la page playlist
+// permet de cocher plusieurs titres puis de les traiter en une action.
+// `songId` reste accepté pour ne pas casser les appels existants
+// (menu contextuel, modale « Ajouter à une playlist », application mobile).
+export const playlistSongsSchema = z
+  .object({
+    songId: z.string().min(1).optional(),
+    songIds: z.array(z.string().min(1)).min(1).max(500).optional(),
+  })
+  .refine((data) => data.songId || data.songIds?.length, {
+    message: "songId ou songIds requis.",
+  });
+
+// L'ordre de lecture est la position dans le tableau `songs` : le
+// glisser-déposer renvoie donc la liste complète, réordonnée.
+export const playlistReorderSchema = z.object({
+  songIds: z.array(z.string().min(1)).max(1000),
+});
+
 // ---- Commentaires ---------------------------------------------------------------
 
 export const createCommentSchema = z.object({

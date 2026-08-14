@@ -131,7 +131,7 @@ export default function RadioPage() {
   const upNext: PlayableSong[] = currentIndex >= 0 ? queue.slice(currentIndex + 1) : [];
 
   return (
-    <div className="px-6 py-8 md:px-10 md:py-10 space-y-8">
+    <div className="mx-auto w-full max-w-[1600px] px-6 py-8 md:px-10 md:py-10 space-y-8">
       <div className="flex flex-wrap items-center justify-between gap-6">
         <div className="max-w-lg">
           <h1 className="text-2xl font-display md:text-3xl">Radio Moziik</h1>

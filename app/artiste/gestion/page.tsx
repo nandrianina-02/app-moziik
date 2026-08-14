@@ -291,14 +291,14 @@ export default function ArtistManagementPage() {
 
   if (status !== "authenticated") {
     return (
-      <div className="px-6 py-8 md:px-10 md:py-10">
+      <div className="mx-auto w-full max-w-[1600px] px-6 py-8 md:px-10 md:py-10">
         <p className="text-sm text-ink-muted">Connecte-toi avec ton compte artiste pour accéder à cet espace.</p>
       </div>
     );
   }
 
   return (
-    <div className="px-6 py-8 md:px-10 md:py-10">
+    <div className="mx-auto w-full max-w-[1600px] px-6 py-8 md:px-10 md:py-10">
       {/* En-tête */}
       <div className="mb-6 flex flex-wrap items-center justify-between gap-4">
         <div className="flex items-center gap-4">

@@ -226,7 +226,7 @@ export default function LegalPage() {
   }
 
   return (
-    <div className="px-6 py-8 md:px-10 md:py-10 max-w-6xl">
+    <div className="mx-auto w-full max-w-6xl px-6 py-8 md:px-10 md:py-10">
       {/* Fil d'Ariane */}
       <nav className="mb-6 flex items-center gap-1.5 text-sm text-ink-muted print:hidden">
         <Link href="/" className="hover:text-ink">

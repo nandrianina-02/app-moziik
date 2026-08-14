@@ -87,7 +87,7 @@ export default function AccountPage() {
 
   if (status === "unauthenticated" || !session?.user) {
     return (
-      <div className="px-6 py-8 md:px-10 md:py-10">
+      <div className="mx-auto w-full max-w-[1600px] px-6 py-8 md:px-10 md:py-10">
         <p className="text-sm text-ink-muted">
           <Link href="/connexion" className="text-accent hover:underline">Connecte-toi</Link> pour accéder à ton compte.
         </p>
@@ -96,7 +96,7 @@ export default function AccountPage() {
   }
 
   return (
-    <div className="px-6 py-8 md:px-10 md:py-10 max-w-3xl">
+    <div className="mx-auto w-full max-w-3xl px-6 py-8 md:px-10 md:py-10">
       {/* Fil d'Ariane */}
       <nav className="mb-6 flex items-center gap-1.5 text-sm text-ink-muted">
         <Link href="/" className="hover:text-ink">Accueil</Link>

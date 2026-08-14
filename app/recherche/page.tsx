@@ -174,7 +174,7 @@ function SearchPageContent() {
   const showDefaultState = query.trim().length < 2;
 
   return (
-    <div className="px-6 py-8 md:px-10 md:py-10 max-w-6xl">
+    <div className="mx-auto w-full max-w-6xl px-6 py-8 md:px-10 md:py-10">
       <h1 className="text-2xl font-display mb-6">Recherche</h1>
 
       {!isOnline && (

@@ -102,7 +102,7 @@ export default function EditEventPage() {
   }
 
   return (
-    <div className="px-6 py-8 md:px-10 md:py-10 max-w-md">
+    <div className="mx-auto w-full max-w-md px-6 py-8 md:px-10 md:py-10">
       <h1 className="text-2xl font-display mb-6">Modifier l&apos;évènement</h1>
 
       <form onSubmit={handleSubmit} className="space-y-4">

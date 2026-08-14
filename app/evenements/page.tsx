@@ -93,7 +93,7 @@ export default function EventsPage() {
   }
 
   return (
-    <div className="px-6 py-8 md:px-10 md:py-10">
+    <div className="mx-auto w-full max-w-[1600px] px-6 py-8 md:px-10 md:py-10">
       <header className="mb-7 flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
         <div>
           <h1 className="text-2xl font-display md:text-3xl">Évènements</h1>

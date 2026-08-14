@@ -203,7 +203,7 @@ export function AlbumDetailClient() {
   );
 
   return (
-    <div className="px-4 py-6 sm:px-6 md:px-10 md:py-10">
+    <div className="mx-auto w-full max-w-[1600px] px-4 py-6 sm:px-6 md:px-10 md:py-10">
       <div className="grid gap-6 lg:grid-cols-[1fr_320px]">
         <div className="min-w-0">
           <AlbumHero

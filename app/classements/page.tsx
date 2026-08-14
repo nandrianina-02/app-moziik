@@ -141,7 +141,7 @@ export default function ChartsPage() {
   const rest = ranking.slice(3);
 
   return (
-    <div className="px-6 py-8 md:px-10 md:py-10">
+    <div className="mx-auto w-full max-w-[1600px] px-6 py-8 md:px-10 md:py-10">
       <div className="mb-6 flex flex-wrap items-start justify-between gap-4">
         <div>
           <h1 className="text-2xl font-display">Classements</h1>

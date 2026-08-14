@@ -255,7 +255,7 @@ export function ArtistDetailClient() {
   }
 
   return (
-    <div className="pb-16">
+    <div className="mx-auto w-full max-w-[1600px] pb-16">
       {fromCache && <p className="px-6 pt-4 text-xs text-accent md:px-10">Affiché depuis la version enregistrée (hors-ligne).</p>}
 
       {/* --- Bannière --- */}

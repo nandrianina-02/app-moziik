@@ -40,7 +40,7 @@ function BrowseSongsPageContent() {
   const { items: songs, loading, initialLoading, hasMore, sentinelRef } = useInfiniteList(fetchPage, genre);
 
   return (
-    <div className="px-6 py-8 md:px-10 md:py-10">
+    <div className="mx-auto w-full max-w-[1600px] px-6 py-8 md:px-10 md:py-10">
       <h1 className="mb-1 text-2xl font-display">Découvrir</h1>
       <p className="mb-6 text-sm text-ink-muted">Tous les titres publiés sur Moziik.</p>
 

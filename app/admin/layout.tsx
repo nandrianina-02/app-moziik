@@ -21,7 +21,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   const pathname = usePathname();
 
   return (
-    <div className="px-4 py-6 sm:px-6 sm:py-8 md:px-10 md:py-10">
+    <div className="mx-auto w-full max-w-[1600px] px-4 py-6 sm:px-6 sm:py-8 md:px-10 md:py-10">
       <div className="mb-6">
         <h1 className="text-2xl font-display">Administration</h1>
         <p className="mt-1 text-sm text-ink-muted">Gérez, analysez et développez votre univers musical.</p>

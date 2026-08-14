@@ -76,7 +76,7 @@ export default function HomePage() {
   const premiumSection = homepage?.sections.find((s) => s.key === "premium");
 
   return (
-    <div className="px-6 py-8 md:px-10 md:py-10">
+    <div className="mx-auto w-full max-w-[1600px] px-6 py-8 md:px-10 md:py-10">
       <header className="mb-6 flex items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-display md:text-3xl">Bon retour sur {siteConfig.siteName}</h1>

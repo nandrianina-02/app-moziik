@@ -33,7 +33,7 @@ export default function ArtistRevenuePage() {
 
   if (!data) {
     return (
-      <div className="px-6 py-8 md:px-10 md:py-10">
+      <div className="mx-auto w-full max-w-[1600px] px-6 py-8 md:px-10 md:py-10">
         <div className="py-10 grid place-items-center">
           <EqualizerLoader />
         </div>
@@ -42,7 +42,7 @@ export default function ArtistRevenuePage() {
   }
 
   return (
-    <div className="px-6 py-8 md:px-10 md:py-10 max-w-2xl">
+    <div className="mx-auto w-full max-w-2xl px-6 py-8 md:px-10 md:py-10">
       <h1 className="text-2xl font-display mb-6">Mes revenus</h1>
 
       <div className="grid grid-cols-2 gap-4 mb-8">

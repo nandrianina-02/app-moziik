@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, type ReactNode } from "react";
+import { useEffect, useRef, type ReactNode } from "react";
 import type { LucideIcon } from "lucide-react";
 import { useClampedMenuPosition, type MenuAnchor } from "@/components/ui/useClampedMenuPosition";
 import { Portal } from "@/components/ui/Portal";
@@ -27,17 +27,27 @@ export function ContextMenuShell({
   // au test de clic extérieur ci-dessous.
   const { ref, setRef, style } = useClampedMenuPosition(anchor);
 
-  useEffect(() => {
-    // Seconde protection contre les évènements souris de compatibilité
-    // émis après un `touchend` (la première est le preventDefault de
-    // useLongPress, que tous les navigateurs mobiles n'honorent pas) :
-    // ils arrivent dans la foulée de l'ouverture et refermaient le menu
-    // instantanément. Un menu ouvert volontairement n'est jamais refermé
-    // par l'utilisateur en moins de 300 ms.
-    const openedAt = Date.now();
+  // Instant d'ouverture, figé au montage.
+  //
+  // Il DOIT vivre dans une ref, pas dans l'effet : celui-ci dépend de
+  // `onClose`, que chaque appelant passe en fonction fléchée — donc de
+  // nouvelle identité à chaque rendu du parent. Or PlayerProvider publie
+  // la progression de lecture ~4 fois par seconde, ce qui fait re-rendre
+  // tous les composants qui l'écoutent (lignes de titre, cartes,
+  // mini-lecteur). Placé dans l'effet, le délai ci-dessous se réarmait
+  // à chaque re-rendu et n'expirait jamais : le menu devenait
+  // impossible à fermer d'un clic extérieur pendant la lecture.
+  const openedAtRef = useRef(Date.now());
 
+  useEffect(() => {
     function handlePointerDown(e: MouseEvent) {
-      if (Date.now() - openedAt < 300) return;
+      // Neutralise les évènements souris de compatibilité émis juste
+      // après un `touchend` (la première protection est le
+      // preventDefault de useLongPress, que tous les navigateurs
+      // mobiles n'honorent pas) : ils refermaient le menu à l'instant
+      // même où l'appui long venait de l'ouvrir. Personne ne referme un
+      // menu volontairement en moins de 300 ms.
+      if (Date.now() - openedAtRef.current < 300) return;
       if (ref.current && !ref.current.contains(e.target as Node)) onClose();
     }
     function handleKeyDown(e: KeyboardEvent) {

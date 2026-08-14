@@ -106,18 +106,9 @@ export const PATCH = withApiErrors(
       song.status = new Date(parsedUpdates.releaseDate) <= new Date() ? "published" : "scheduled";
     }
 
-    try {
-      await song.save();
-    } catch (err) {
-      // Une erreur de validation/cast Mongoose est un vrai problème de
-      // saisie (ex: champ trop long, type incompatible) — elle doit
-      // remonter avec son message réel, pas comme un 500 générique
-      // impossible à diagnostiquer depuis le navigateur.
-      if (err instanceof mongoose.Error.ValidationError || err instanceof mongoose.Error.CastError) {
-        throw new ApiError(`Données invalides : ${err.message}`, 400);
-      }
-      throw err;
-    }
+    // Les erreurs de validation/cast Mongoose sont traduites en 400 avec
+    // leur message réel par withApiErrors (voir lib/apiError.ts).
+    await song.save();
 
     await song.populate("artist", "stageName verified coverUrl");
     await song.populate("featuring.artist", "stageName verified");

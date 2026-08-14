@@ -66,7 +66,11 @@ export const createSongSchema = z.object({
   title: z.string().trim().min(1, "Titre requis.").max(200),
   audioUrl: z.string().url("URL audio invalide."),
   coverUrl: z.string().url("URL de pochette invalide."),
-  duration: z.number().positive("Durée invalide."),
+  // Message orienté action : la durée n'est pas saisie à la main, elle
+  // vient de Cloudinary ou, à défaut, des métadonnées lues par le
+  // navigateur. Quand les deux échouent, le formulaire envoie 0 et
+  // « Durée invalide » ne disait pas quoi faire.
+  duration: z.number().positive("Durée du fichier audio introuvable — relance l'envoi du fichier."),
   genre: z.string().trim().min(1, "Genre requis.").max(60),
   albumId: z.string().optional(),
   releaseDate: z.coerce.date(),

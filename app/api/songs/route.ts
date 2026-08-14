@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import mongoose from "mongoose";
 import { connectDB } from "@/lib/db";
 import Song from "@/models/Song";
 import Artist from "@/models/Artist";
@@ -69,11 +70,23 @@ export const POST = withApiErrors(async (req: Request) => {
 
   await connectDB();
 
+  // Identifiants contrôlés avant tout appel Mongoose : une chaîne qui
+  // n'est pas un ObjectId y déclenche une CastError, rendue autrefois en
+  // 500 opaque au lieu d'indiquer le champ fautif.
+  if (albumId && !mongoose.Types.ObjectId.isValid(albumId)) {
+    throw new ApiError("Identifiant d'album invalide.");
+  }
+  const invalidFeaturing = featuringIds.find((id) => !mongoose.Types.ObjectId.isValid(id));
+  if (invalidFeaturing) throw new ApiError("Identifiant d'artiste en featuring invalide.");
+
   let artistProfile;
   if (authUser.role === "admin") {
     // Un admin n'a pas forcément de profil Artist : il doit préciser
     // pour quel artiste il publie.
     if (!artistId) throw new ApiError("artistId requis pour qu'un admin publie un son.");
+    if (!mongoose.Types.ObjectId.isValid(artistId)) {
+      throw new ApiError("Identifiant d'artiste invalide.");
+    }
     artistProfile = await Artist.findById(artistId);
     if (!artistProfile) throw new ApiError("Artiste introuvable.", 404);
   } else {
@@ -125,9 +138,14 @@ export const POST = withApiErrors(async (req: Request) => {
     publishedBy: authUser.id,
   });
 
+  // Le son est créé : plus rien ici ne doit faire échouer la requête. Une
+  // notification qui plante renverrait un 500 alors que la publication a
+  // réussi — le formulaire afficherait une erreur et l'artiste
+  // republierait, créant un doublon.
   for (const credit of featuring) {
-    const featuredArtist = await Artist.findById(credit.artist);
-    if (featuredArtist) {
+    try {
+      const featuredArtist = await Artist.findById(credit.artist);
+      if (!featuredArtist?.user) continue;
       await notify({
         recipient: featuredArtist.user.toString(),
         type: "system",
@@ -135,6 +153,8 @@ export const POST = withApiErrors(async (req: Request) => {
         message: `${artistProfile.stageName} t'a ajouté en featuring sur "${title}".`,
         link: `/son/${song._id}`,
       });
+    } catch (err) {
+      console.error("Notification de featuring non envoyée :", err);
     }
   }
 

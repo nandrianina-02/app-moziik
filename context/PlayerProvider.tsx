@@ -65,6 +65,13 @@ type PlayerContextValue = {
   repeatMode: RepeatMode;
   volume: number;
   setVolume: (value: number) => void;
+  // Sortie audio (haut-parleurs, casque, sortie HDMI...). `""` = aucune
+  // sélection explicite, on suit la sortie par défaut du système.
+  outputDeviceId: string;
+  // Rejette si le périphérique refuse d'être ouvert : l'appelant affiche
+  // l'erreur plutôt que de laisser croire à un changement effectif.
+  setOutputDevice: (deviceId: string) => Promise<void>;
+  outputSwitchSupported: boolean;
   // `source` documente d'où vient cette playlist (recherche, classement,
   // album, playlist, artiste, favoris, historique...). Si la liste passée
   // est déjà celle en cours de lecture, on se contente de sauter au bon
@@ -88,6 +95,7 @@ type PlayerContextValue = {
 const PlayerContext = createContext<PlayerContextValue | null>(null);
 
 const PLAY_RECORD_THRESHOLD_SECONDS = 30;
+const OUTPUT_DEVICE_KEY = "moziik-audio-output";
 
 // Mélange de Fisher-Yates, en gardant `keepFirst` (l'index en cours de
 // lecture) en toute première position pour ne pas couper la piste actuelle.
@@ -113,7 +121,15 @@ function isSameSongList(a: PlayableSong[], b: PlayableSong[]) {
 
 export function PlayerProvider({ children }: { children: React.ReactNode }) {
   const siteConfig = useSiteConfig();
-  const { audioRef, ensureAudioGraph, setBandGain, applyPreset, setBassBoost: setEngineBassBoost } = useAudioEngine();
+  const {
+    audioRef,
+    ensureAudioGraph,
+    setBandGain,
+    applyPreset,
+    setBassBoost: setEngineBassBoost,
+    setOutputDevice: setEngineOutputDevice,
+    isOutputSwitchSupported,
+  } = useAudioEngine();
   const [bassBoostPercent, setBassBoostPercent] = useState(0);
   function setBassBoost(percent: number) {
     setBassBoostPercent(percent);
@@ -132,6 +148,8 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
   const [isShuffled, setIsShuffled] = useState(false);
   const [repeatMode, setRepeatMode] = useState<RepeatMode>("off");
   const [volume, setVolumeState] = useState(1);
+  const [outputDeviceId, setOutputDeviceId] = useState("");
+  const [outputSwitchSupported, setOutputSwitchSupported] = useState(false);
   const hasRecordedPlay = useRef(false);
 
   // Volume persisté d'une session à l'autre.
@@ -151,6 +169,39 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
     const clamped = Math.min(1, Math.max(0, value));
     setVolumeState(clamped);
     localStorage.setItem("moziik-volume", String(clamped));
+  }
+
+  // Support calculé après montage : `window` n'existe pas au rendu serveur.
+  useEffect(() => {
+    setOutputSwitchSupported(isOutputSwitchSupported());
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Sortie mémorisée d'une session à l'autre. Aucun AudioContext n'existe
+  // encore à ce stade : le moteur retient la valeur et l'applique au
+  // démarrage de la première lecture (voir ensureAudioGraph).
+  useEffect(() => {
+    const stored = localStorage.getItem(OUTPUT_DEVICE_KEY);
+    if (!stored) return;
+    setOutputDeviceId(stored);
+    setEngineOutputDevice(stored).catch(() => {
+      // Périphérique disparu depuis : on revient à la sortie système.
+      setOutputDeviceId("");
+      localStorage.removeItem(OUTPUT_DEVICE_KEY);
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  async function setOutputDevice(deviceId: string) {
+    if (!isOutputSwitchSupported()) {
+      throw new Error("Ce navigateur ne permet pas de choisir la sortie audio.");
+    }
+    // L'état n'est mis à jour qu'après l'acceptation réelle du
+    // périphérique : en cas d'échec, l'UI continue de désigner la sortie
+    // qui joue effectivement.
+    await setEngineOutputDevice(deviceId);
+    setOutputDeviceId(deviceId);
+    localStorage.setItem(OUTPUT_DEVICE_KEY, deviceId);
   }
 
   const currentIndex = order[position] ?? 0;
@@ -379,6 +430,9 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
         repeatMode,
         volume,
         setVolume,
+        outputDeviceId,
+        setOutputDevice,
+        outputSwitchSupported,
         playQueue,
         enqueue,
         togglePlay,

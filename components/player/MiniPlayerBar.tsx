@@ -23,6 +23,7 @@ import {
   Volume1,
   VolumeX,
   Maximize2,
+  MonitorSpeaker,
 } from "lucide-react";
 import { usePlayer } from "@/context/PlayerProvider";
 import { useToast } from "@/context/ToastProvider";
@@ -32,6 +33,7 @@ import { useSession } from "next-auth/react";
 import { SeekBar } from "@/components/player/SeekBar";
 import { SongContextMenu } from "@/components/music/SongContextMenu";
 import { useLongPress } from "@/components/music/useLongPress";
+import { DeviceMenu } from "@/components/player/DeviceMenu";
 import { AddToPlaylistModal } from "@/components/modals/AddToPlaylistModal";
 import { ShareModal } from "@/components/share/ShareModal";
 import { buildSongSubject } from "@/components/share/shareSubject";
@@ -148,6 +150,8 @@ export function MiniPlayerBar() {
     toggleShuffle,
     repeatMode,
     cycleRepeatMode,
+    outputDeviceId,
+    outputSwitchSupported,
   } = usePlayer();
   const { status: authStatus } = useSession();
   const pushToast = useToast();
@@ -160,6 +164,7 @@ export function MiniPlayerBar() {
   const longPress = useLongPress((x, y) => setMenuPosition({ x, y }));
   const [showAddToPlaylist, setShowAddToPlaylist] = useState(false);
   const [showShareModal, setShowShareModal] = useState(false);
+  const [devicePosition, setDevicePosition] = useState<{ x: number; y: number } | null>(null);
   const [bitrate, setBitrate] = useState<string>(bitrateLabel.high);
 
   useEffect(() => {
@@ -256,12 +261,12 @@ export function MiniPlayerBar() {
   const VolumeIcon = volume === 0 ? VolumeX : volume < 0.5 ? Volume1 : Volume2;
   const OfflineIcon = offlineState === "saving" ? Loader2 : offlineState === "saved" ? Check : Download;
 
-  // Ouvre le menu contextuel ancré au bouton plutôt qu'au curseur : le
-  // lecteur est collé en bas de l'écran, un menu ancré au clic sortirait
-  // du cadre visible.
-  function openMenuFromButton(e: React.MouseEvent) {
+  // Ancre les menus au bouton plutôt qu'au curseur : le lecteur est collé
+  // en bas de l'écran, un menu ancré au clic sortirait du cadre visible.
+  // ContextMenuShell le recale ensuite au-dessus du bouton.
+  function anchorToButton(e: React.MouseEvent) {
     const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
-    setMenuPosition({ x: rect.left, y: rect.top });
+    return { x: rect.left, y: rect.top };
   }
 
   return (
@@ -469,7 +474,7 @@ export function MiniPlayerBar() {
               onClick={handleToggleOffline}
             />
             <LabelledAction icon={Share2} label="Partager" onClick={handleShare} />
-            <LabelledAction icon={MoreHorizontal} label="Plus" onClick={openMenuFromButton} />
+            <LabelledAction icon={MoreHorizontal} label="Plus" onClick={(e) => setMenuPosition(anchorToButton(e))} />
           </div>
 
           <div className="flex items-center gap-0.5 lg:hidden">
@@ -484,10 +489,35 @@ export function MiniPlayerBar() {
               onClick={handleToggleOffline}
             />
             <CompactAction icon={Share2} label="Partager" onClick={handleShare} />
-            <CompactAction icon={MoreHorizontal} label="Plus d'options" onClick={openMenuFromButton} />
+            <CompactAction icon={MoreHorizontal} label="Plus d'options" onClick={(e) => setMenuPosition(anchorToButton(e))} />
           </div>
 
           <div className="mx-1 h-9 w-px shrink-0 bg-border" />
+
+          {/* Sélecteur de sortie audio. Masqué — plutôt qu'affiché inerte —
+              là où l'API n'existe pas : seuls Chrome/Edge 110+ savent
+              rediriger un AudioContext (Firefox et Safari, non). Voir
+              types/audio-output.d.ts. En icône seule à toutes les tailles :
+              c'est un réglage occasionnel, et il se lit naturellement à
+              côté du volume, comme sur les lecteurs de bureau. */}
+          {outputSwitchSupported && (
+            <button
+              onClick={(e) => setDevicePosition(anchorToButton(e))}
+              title="Appareils — choisir la sortie audio"
+              aria-label="Appareils — choisir la sortie audio"
+              aria-haspopup="menu"
+              aria-expanded={devicePosition !== null}
+              className={`grid h-8 w-8 shrink-0 place-items-center rounded-lg transition-colors ${
+                // Accentué dès qu'on n'est plus sur la sortie système, pour
+                // que le son "qui sort ailleurs" ne soit jamais une surprise.
+                outputDeviceId && outputDeviceId !== "default"
+                  ? "text-accent hover:bg-accent/10"
+                  : "text-ink-muted hover:bg-base hover:text-ink"
+              }`}
+            >
+              <MonitorSpeaker size={17} />
+            </button>
+          )}
 
           <div className="flex shrink-0 items-center gap-1.5">
             <button
@@ -522,6 +552,7 @@ export function MiniPlayerBar() {
       {menuPosition && (
         <SongContextMenu song={currentSong} position={menuPosition} hideOffline onClose={() => setMenuPosition(null)} />
       )}
+      {devicePosition && <DeviceMenu anchor={devicePosition} onClose={() => setDevicePosition(null)} />}
       {showAddToPlaylist && (
         <AddToPlaylistModal songId={currentSong._id} onClose={() => setShowAddToPlaylist(false)} />
       )}

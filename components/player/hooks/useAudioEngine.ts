@@ -25,6 +25,11 @@ export function useAudioEngine() {
   const makeupGainRef = useRef<GainNode | null>(null);
   const limiterRef = useRef<DynamicsCompressorNode | null>(null);
   const sourceRef = useRef<MediaElementAudioSourceNode | null>(null);
+  // Sortie choisie, mémorisée hors du graphe : elle peut être demandée
+  // (restaurée depuis localStorage) avant même la première lecture, donc
+  // avant l'existence de l'AudioContext. Elle est alors appliquée à sa
+  // création. `null` = jamais choisie, on laisse la sortie système.
+  const outputDeviceIdRef = useRef<string | null>(null);
 
   useEffect(() => {
     if (!audioRef.current) {
@@ -86,6 +91,38 @@ export function useAudioEngine() {
     makeupGainRef.current = makeupGain;
     limiterRef.current = limiter;
     sourceRef.current = source;
+
+    // Sortie mémorisée d'une session à l'autre : les identifiants de
+    // périphériques peuvent avoir expiré (matériel débranché, permissions
+    // réinitialisées). Dans ce cas on retombe silencieusement sur la sortie
+    // système plutôt que d'empêcher la lecture de démarrer.
+    if (outputDeviceIdRef.current !== null) {
+      ctx.setSinkId?.(outputDeviceIdRef.current).catch(() => {
+        outputDeviceIdRef.current = null;
+      });
+    }
+  }
+
+  /**
+   * Redirige le son vers un autre périphérique de sortie.
+   * `deviceId` vient de `navigator.mediaDevices.enumerateDevices()`.
+   */
+  async function setOutputDevice(deviceId: string) {
+    outputDeviceIdRef.current = deviceId;
+    const ctx = audioContextRef.current;
+    // Pas encore de graphe (aucune lecture lancée) : la valeur est retenue
+    // et appliquée par ensureAudioGraph().
+    if (!ctx) return;
+    if (typeof ctx.setSinkId !== "function") {
+      throw new Error("Ce navigateur ne permet pas de choisir la sortie audio.");
+    }
+    await ctx.setSinkId(deviceId);
+  }
+
+  /** Testable dès le montage, sans avoir à instancier un AudioContext. */
+  function isOutputSwitchSupported() {
+    if (typeof window === "undefined" || !window.AudioContext) return false;
+    return typeof window.AudioContext.prototype.setSinkId === "function";
   }
 
   function setBandGain(index: number, gainDb: number) {
@@ -111,5 +148,13 @@ export function useAudioEngine() {
     }
   }
 
-  return { audioRef, ensureAudioGraph, setBandGain, applyPreset, setBassBoost };
+  return {
+    audioRef,
+    ensureAudioGraph,
+    setBandGain,
+    applyPreset,
+    setBassBoost,
+    setOutputDevice,
+    isOutputSwitchSupported,
+  };
 }

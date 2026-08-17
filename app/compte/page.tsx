@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useSession, signOut } from "next-auth/react";
 import { LogOut, Wallet, Shield, Mic2, Crown, ChevronRight, Pencil, Share2 } from "lucide-react";
-import { EqualizerLoader } from "@/components/ui/EqualizerLoader";
+import { Skeleton } from "@/components/ui/Skeleton";
 import { SafeImage } from "@/components/ui/SafeImage";
 import { ShareModal } from "@/components/share/ShareModal";
 import { buildArtistSubject } from "@/components/share/shareSubject";
@@ -79,8 +79,11 @@ export default function AccountPage() {
 
   if (status === "loading" || loading) {
     return (
-      <div className="py-16 grid place-items-center">
-        <EqualizerLoader />
+      <div aria-busy="true" className="mx-auto w-full max-w-3xl space-y-4 px-6 py-8 md:px-10 md:py-10">
+        <Skeleton className="h-4 w-40" />
+        <Skeleton className="h-32 w-full rounded-xl2" />
+        <Skeleton className="h-64 w-full rounded-xl2" />
+        <Skeleton className="h-48 w-full rounded-xl2" />
       </div>
     );
   }

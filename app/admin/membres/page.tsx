@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { Search, BadgeCheck, ShieldOff, ShieldCheck, CalendarClock } from "lucide-react";
-import { EqualizerLoader } from "@/components/ui/EqualizerLoader";
+import { AdminCardsSkeleton } from "@/components/admin/AdminSkeleton";
 import { useToast } from "@/context/ToastProvider";
 
 type AdminUser = {
@@ -104,11 +104,7 @@ export default function AdminMembersPage() {
         </select>
       </div>
 
-      {loading && (
-        <div className="py-10 grid place-items-center">
-          <EqualizerLoader />
-        </div>
-      )}
+      {loading && <AdminCardsSkeleton count={8} cols={1} />}
 
       <div className="space-y-2">
         {users.map((user) => (

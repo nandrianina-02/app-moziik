@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { Search, Trash2, Globe, Lock, ListMusic } from "lucide-react";
-import { EqualizerLoader } from "@/components/ui/EqualizerLoader";
+import { AdminCardsSkeleton } from "@/components/admin/AdminSkeleton";
 import { IconActionButton, IconActionLink } from "@/components/admin/IconActionButton";
 import { AdminItemGrid } from "@/components/admin/AdminItemGrid";
 import { useToast } from "@/context/ToastProvider";
@@ -64,11 +64,7 @@ export default function AdminPlaylistsPage() {
         />
       </label>
 
-      {loading && (
-        <div className="py-10 grid place-items-center">
-          <EqualizerLoader />
-        </div>
-      )}
+      {loading && <AdminCardsSkeleton count={6} cols={3} />}
 
       <div>
         {!loading && playlists.length === 0 && (

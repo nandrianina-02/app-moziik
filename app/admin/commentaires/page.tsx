@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { Search, Trash2, Smile, Meh, Frown, Music } from "lucide-react";
 import { SafeImage } from "@/components/ui/SafeImage";
-import { EqualizerLoader } from "@/components/ui/EqualizerLoader";
+import { AdminCardsSkeleton } from "@/components/admin/AdminSkeleton";
 import { useToast } from "@/context/ToastProvider";
 
 type AdminComment = {
@@ -96,11 +96,7 @@ export default function AdminCommentsPage() {
         ))}
       </div>
 
-      {loading && (
-        <div className="py-10 grid place-items-center">
-          <EqualizerLoader />
-        </div>
-      )}
+      {loading && <AdminCardsSkeleton count={6} cols={1} />}
 
       <div className="space-y-2">
         {!loading && comments.length === 0 && (

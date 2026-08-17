@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
 import { FormField } from "@/components/ui/FormField";
-import { EqualizerLoader } from "@/components/ui/EqualizerLoader";
+import { SkeletonForm } from "@/components/ui/Skeleton";
 import { useToast } from "@/context/ToastProvider";
 
 type EventDetail = {
@@ -85,13 +85,7 @@ export default function EditEventPage() {
     }
   }
 
-  if (status === "loading" || loading) {
-    return (
-      <div className="py-16 grid place-items-center">
-        <EqualizerLoader />
-      </div>
-    );
-  }
+  if (status === "loading" || loading) return <SkeletonForm fields={5} />;
 
   if (!event) {
     return <p className="px-6 py-10 text-sm text-ink-muted">Cet évènement est introuvable.</p>;

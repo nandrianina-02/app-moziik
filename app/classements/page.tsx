@@ -3,7 +3,8 @@
 import { useEffect, useState } from "react";
 import { BadgeCheck, Trophy, TrendingUp, TrendingDown, Minus, Play, Pause, MoreVertical, ChevronDown } from "lucide-react";
 import { SafeImage } from "@/components/ui/SafeImage";
-import { EqualizerLoader } from "@/components/ui/EqualizerLoader";
+import { Skeleton, SkeletonRows } from "@/components/ui/Skeleton";
+import { PageSections } from "@/components/home/PageSections";
 import { Reveal } from "@/components/layout/Reveal";
 import { useToast } from "@/context/ToastProvider";
 import { useSession } from "next-auth/react";
@@ -192,11 +193,7 @@ export default function ChartsPage() {
         ))}
       </div>
 
-      {loading && (
-        <div className="py-16 grid place-items-center">
-          <EqualizerLoader />
-        </div>
-      )}
+      {loading && <ChartsSkeleton />}
 
       {!loading && (
         <>
@@ -304,6 +301,29 @@ export default function ChartsPage() {
           )}
         </>
       )}
+
+      {/* Sections éditoriales pilotées depuis l'administration. */}
+      <PageSections page="radio" className="mt-10" />
+    </div>
+  );
+}
+
+/**
+ * Même gabarit que le classement réel : la rangée de trois cartes puis le
+ * tableau. Les filtres au-dessus restent cliquables pendant le calcul —
+ * ils ne dépendent d'aucune donnée distante.
+ */
+function ChartsSkeleton() {
+  return (
+    <div aria-busy="true">
+      <div className="mb-6 grid grid-cols-1 gap-4 lg:grid-cols-[320px_1fr_260px]">
+        <Skeleton className="h-40 rounded-xl2" />
+        <Skeleton className="h-40 rounded-xl2" />
+        <Skeleton className="h-40 rounded-xl2" />
+      </div>
+      <div className="rounded-xl2 border border-border bg-surface p-4">
+        <SkeletonRows count={8} />
+      </div>
     </div>
   );
 }

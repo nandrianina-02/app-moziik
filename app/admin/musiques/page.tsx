@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { Check, X, Pencil, Trash2, BadgeCheck } from "lucide-react";
 import { SafeImage } from "@/components/ui/SafeImage";
-import { EqualizerLoader } from "@/components/ui/EqualizerLoader";
+import { AdminCardsSkeleton } from "@/components/admin/AdminSkeleton";
 import { IconActionButton, IconActionLink } from "@/components/admin/IconActionButton";
 import { AdminItemGrid } from "@/components/admin/AdminItemGrid";
 import { useToast } from "@/context/ToastProvider";
@@ -110,11 +110,7 @@ export default function AdminSongsPage() {
         ))}
       </div>
 
-      {loading && (
-        <div className="py-10 grid place-items-center">
-          <EqualizerLoader />
-        </div>
-      )}
+      {loading && <AdminCardsSkeleton count={8} cols={2} />}
 
       <div>
         {!loading && songs.length === 0 && (

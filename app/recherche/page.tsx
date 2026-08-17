@@ -16,6 +16,8 @@ import {
 import { SongRow } from "@/components/music/SongRow";
 import { SafeImage } from "@/components/ui/SafeImage";
 import { EqualizerLoader } from "@/components/ui/EqualizerLoader";
+import { SkeletonRows } from "@/components/ui/Skeleton";
+import { PageSections } from "@/components/home/PageSections";
 import { useOnlineStatus } from "@/context/OnlineStatusProvider";
 import { listOfflineSongs } from "@/lib/offlineCache";
 import {
@@ -194,11 +196,7 @@ function SearchPageContent() {
         />
       </label>
 
-      {loading && (
-        <div className="py-10 grid place-items-center">
-          <EqualizerLoader />
-        </div>
-      )}
+      {loading && <SkeletonRows count={6} />}
 
       {!showDefaultState && !loading && artists.length === 0 && songs.length === 0 && (
         <p className="text-sm text-ink-muted">Aucun résultat pour &quot;{query}&quot;.</p>
@@ -334,6 +332,11 @@ function SearchPageContent() {
               ))}
             </div>
           </section>
+
+          {/* Sections éditoriales de l'admin. Uniquement dans l'état par
+              défaut : pendant une recherche, l'écran appartient aux
+              résultats. */}
+          <PageSections page="discover" className="mb-10" />
 
           <section className="flex flex-col sm:flex-row items-start sm:items-center gap-4 rounded-xl2 bg-accent/10 border border-accent/20 p-5 sm:p-6">
             <span className="grid h-12 w-12 shrink-0 place-items-center rounded-full bg-accent/15 text-accent">

@@ -25,6 +25,8 @@ import {
 import { usePlayer, type PlayableSong } from "@/context/PlayerProvider";
 import { SafeImage } from "@/components/ui/SafeImage";
 import { EqualizerLoader } from "@/components/ui/EqualizerLoader";
+import { Skeleton } from "@/components/ui/Skeleton";
+import { PageSections } from "@/components/home/PageSections";
 import { Reveal } from "@/components/layout/Reveal";
 import { useToast } from "@/context/ToastProvider";
 import { SongContextMenu } from "@/components/music/SongContextMenu";
@@ -74,13 +76,20 @@ export default function RadioPage() {
   const { playQueue, currentSong, queue, isPlaying, togglePlay, progress } = usePlayer();
   const [loadingStation, setLoadingStation] = useState<string | null>(null);
   const [data, setData] = useState<RadioData | null>(null);
+  // Distingue « pas encore arrivé » (squelettes) de « ne viendra pas »
+  // (rien à afficher) : sans ce drapeau, un échec laisserait des
+  // squelettes tourner indéfiniment.
+  const [recoFailed, setRecoFailed] = useState(false);
   const [following, setFollowing] = useState<Record<string, boolean>>({});
 
   useEffect(() => {
     fetch("/api/radio")
       .then((res) => (res.ok ? res.json() : Promise.reject()))
       .then(setData)
-      .catch(() => pushToast("error", "Impossible de charger les recommandations radio."));
+      .catch(() => {
+        setRecoFailed(true);
+        pushToast("error", "Impossible de charger les recommandations radio.");
+      });
   }, [pushToast]);
 
   async function launchStation(station: Station | null) {
@@ -221,6 +230,18 @@ export default function RadioPage() {
         </section>
       </Reveal>
 
+      {/* Les recommandations viennent d'un second appel : le haut de page
+          (lancement de la radio, stations, file d'attente) est utilisable
+          sans attendre, et ces blocs se remplissent ensuite. */}
+      {!data && !recoFailed && (
+        <div aria-busy="true" className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+          <Skeleton className="h-44 rounded-xl2" />
+          <Skeleton className="h-44 rounded-xl2" />
+          <Skeleton className="h-52 rounded-xl2" />
+          <Skeleton className="h-52 rounded-xl2" />
+        </div>
+      )}
+
       {data && (
         <>
           <Reveal className="grid grid-cols-1 gap-6 lg:grid-cols-2">
@@ -302,6 +323,9 @@ export default function RadioPage() {
           </Reveal>
         </>
       )}
+
+      {/* Sections éditoriales pilotées depuis l'administration. */}
+      <PageSections page="radio" />
     </div>
   );
 }

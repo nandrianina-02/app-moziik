@@ -21,6 +21,17 @@ export function SkeletonRow() {
   );
 }
 
+/** Plusieurs SkeletonRow d'affilée, pour une liste dont on ignore encore le contenu. */
+export function SkeletonRows({ count = 5 }: { count?: number }) {
+  return (
+    <div className="space-y-1" aria-busy="true">
+      {Array.from({ length: count }).map((_, i) => (
+        <SkeletonRow key={i} />
+      ))}
+    </div>
+  );
+}
+
 /** Carte carrée type SongCard/AlbumGrid/PlaylistGrid. */
 export function SkeletonCard() {
   return (
@@ -39,6 +50,22 @@ export function SkeletonCardGrid({ count = 6 }: { count?: number }) {
       {Array.from({ length: count }).map((_, i) => (
         <SkeletonCard key={i} />
       ))}
+    </div>
+  );
+}
+
+/** Formulaire en cours de chargement : titre, champs étiquetés, bouton d'envoi. */
+export function SkeletonForm({ fields = 5 }: { fields?: number }) {
+  return (
+    <div aria-busy="true" className="mx-auto w-full max-w-2xl space-y-5 px-6 py-8 md:px-10 md:py-10">
+      <Skeleton className="h-7 w-1/3 min-w-[160px]" />
+      {Array.from({ length: fields }).map((_, i) => (
+        <div key={i} className="space-y-2">
+          <Skeleton className="h-3 w-24" />
+          <Skeleton className="h-11 w-full rounded-xl" />
+        </div>
+      ))}
+      <Skeleton className="h-11 w-40 rounded-xl" />
     </div>
   );
 }

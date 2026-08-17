@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { Plus, Search, Award, BadgeCheck, Star } from "lucide-react";
-import { EqualizerLoader } from "@/components/ui/EqualizerLoader";
+import { AdminCardsSkeleton } from "@/components/admin/AdminSkeleton";
 import { FormField } from "@/components/ui/FormField";
 import { useToast } from "@/context/ToastProvider";
 
@@ -93,8 +93,9 @@ export default function AdminBadgesPage() {
 
   if (loading) {
     return (
-      <div className="py-10 grid place-items-center">
-        <EqualizerLoader />
+      <div className="grid gap-8 md:grid-cols-2">
+        <AdminCardsSkeleton count={5} cols={1} />
+        <AdminCardsSkeleton count={5} cols={1} />
       </div>
     );
   }

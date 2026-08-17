@@ -13,6 +13,7 @@ import { AlbumHero } from "@/components/album/AlbumHero";
 import { AlbumTabs } from "@/components/album/AlbumTabs";
 import { AlbumSidebar } from "@/components/album/AlbumSidebar";
 import { AlbumDetailSkeleton } from "@/components/album/AlbumDetailSkeleton";
+import { PageSections } from "@/components/home/PageSections";
 import { AlbumImageEditModal } from "@/components/album/AlbumImageEditModal";
 import type { AlbumDetail, AlbumSummaryLite } from "@/components/album/types";
 
@@ -260,6 +261,9 @@ export function AlbumDetailClient() {
           onDeleted={() => setNotFound(true)}
         />
       )}
+
+      {/* Sections éditoriales pilotées depuis l'administration. */}
+      <PageSections page="detail" className="mt-12" />
 
       {editingImage && (
         <AlbumImageEditModal

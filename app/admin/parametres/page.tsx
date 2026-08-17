@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import Image from "next/image";
 import { UploadCloud, Link2, Check } from "lucide-react";
-import { EqualizerLoader } from "@/components/ui/EqualizerLoader";
+import { AdminPanelSkeleton } from "@/components/admin/AdminSkeleton";
 import { FormField } from "@/components/ui/FormField";
 import { TagInput } from "@/components/ui/TagInput";
 import { useToast } from "@/context/ToastProvider";
@@ -122,8 +122,10 @@ export default function AdminSettingsPage() {
 
   if (!config) {
     return (
-      <div className="py-10 grid place-items-center">
-        <EqualizerLoader />
+      <div className="space-y-4">
+        <AdminPanelSkeleton height="h-40" />
+        <AdminPanelSkeleton height="h-64" />
+        <AdminPanelSkeleton height="h-48" />
       </div>
     );
   }

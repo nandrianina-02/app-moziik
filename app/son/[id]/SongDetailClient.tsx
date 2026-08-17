@@ -20,6 +20,7 @@ import { SongHero } from "@/components/song/SongHero";
 import { SongTabs } from "@/components/song/SongTabs";
 import { SongSidebar } from "@/components/song/SongSidebar";
 import { SongDetailSkeleton } from "@/components/song/SongDetailSkeleton";
+import { PageSections } from "@/components/home/PageSections";
 import type {
   SongDetail,
   AlbumSummary,
@@ -329,6 +330,9 @@ export function SongDetailClient() {
           onOpenAddToPlaylist={() => setShowAddToPlaylist(true)}
         />
       )}
+
+      {/* Sections éditoriales pilotées depuis l'administration. */}
+      <PageSections page="detail" className="mt-12" />
 
       {menuPosition && (
         <SongContextMenu

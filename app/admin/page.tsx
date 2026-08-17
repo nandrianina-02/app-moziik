@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { Users, Mic2, Music, Crown, UserPlus, Disc3, CalendarPlus, TrendingUp, TrendingDown, LucideIcon } from "lucide-react";
-import { EqualizerLoader } from "@/components/ui/EqualizerLoader";
+import { AdminStatsSkeleton, AdminPanelSkeleton } from "@/components/admin/AdminSkeleton";
 import { Sparkline } from "@/components/admin/Sparkline";
 import { AreaChart } from "@/components/admin/AreaChart";
 import { DonutChart } from "@/components/admin/DonutChart";
@@ -73,8 +73,12 @@ export default function AdminDashboardPage() {
 
   if (!stats) {
     return (
-      <div className="py-10 grid place-items-center">
-        <EqualizerLoader />
+      <div className="space-y-6">
+        <AdminStatsSkeleton count={4} />
+        <div className="grid gap-4 lg:grid-cols-2">
+          <AdminPanelSkeleton />
+          <AdminPanelSkeleton />
+        </div>
       </div>
     );
   }

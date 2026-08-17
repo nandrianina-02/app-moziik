@@ -386,6 +386,8 @@ export const adminHomepageSectionReorderSchema = z.object({
 export const adminHomepageSectionCreateSchema = z.object({
   title: z.string().trim().min(1, "Le titre de la section est obligatoire.").max(80),
   limit: z.number().int().positive().max(100).optional(),
+  // Groupe de pages destinataire ; absent = accueil.
+  page: z.enum(["home", "discover", "radio", "library", "detail"]).optional(),
 });
 
 export const adminSiteConfigPatchSchema = z.object({

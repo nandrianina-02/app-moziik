@@ -26,7 +26,7 @@ import {
 import { FormField } from "@/components/ui/FormField";
 import { Switch } from "@/components/ui/Switch";
 import { TagInput } from "@/components/ui/TagInput";
-import { EqualizerLoader } from "@/components/ui/EqualizerLoader";
+import { SkeletonForm } from "@/components/ui/Skeleton";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { CoverDropzone } from "@/components/song/CoverDropzone";
 import { AudioDropzone, formatBytes } from "@/components/song/AudioDropzone";
@@ -511,13 +511,7 @@ export default function EditSongPage() {
   }
 
   // --- États de garde ----------------------------------------------------
-  if (status === "loading" || loading) {
-    return (
-      <div className="grid min-h-[60vh] place-items-center">
-        <EqualizerLoader />
-      </div>
-    );
-  }
+  if (status === "loading" || loading) return <SkeletonForm fields={6} />;
 
   if (notFound || !song) {
     return (

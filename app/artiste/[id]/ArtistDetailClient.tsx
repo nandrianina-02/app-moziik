@@ -26,12 +26,13 @@ import {
   MessageCircle,
 } from "lucide-react";
 import { usePlayer, type PlayableSong } from "@/context/PlayerProvider";
-import { EqualizerLoader } from "@/components/ui/EqualizerLoader";
 import { SafeImage } from "@/components/ui/SafeImage";
 import { useToast } from "@/context/ToastProvider";
 import { idbGet, idbPut, STORES } from "@/lib/offlineDb";
 import { useLongPress } from "@/components/music/useLongPress";
 import { ArtistContextMenu } from "@/components/artist/ArtistContextMenu";
+import { ArtistDetailSkeleton } from "@/components/artist/ArtistDetailSkeleton";
+import { PageSections } from "@/components/home/PageSections";
 import { ArtistSongList } from "@/components/artist/ArtistSongList";
 import { EditArtistProfileModal } from "@/components/artist/EditArtistProfileModal";
 import { ShareModal } from "@/components/share/ShareModal";
@@ -233,13 +234,7 @@ export function ArtistDetailClient() {
   }
   const longPress = useLongPress((x, y) => openMenuAt(x, y));
 
-  if (loading || !data) {
-    return (
-      <div className="py-16 grid place-items-center">
-        <EqualizerLoader />
-      </div>
-    );
-  }
+  if (loading || !data) return <ArtistDetailSkeleton />;
 
   const { artist, songs, topSongs, albums, singles, recentReleases, playlistsFeaturing, similarArtists, recentComments } = data;
   const isCurrentArtistPlaying = isPlaying && !!currentSong && songs.some((s) => s._id === currentSong._id);
@@ -778,6 +773,9 @@ export function ArtistDetailClient() {
           onSaved={(updated) => setData((prev) => (prev ? { ...prev, artist: { ...prev.artist, ...updated } } : prev))}
         />
       )}
+
+      {/* Sections éditoriales pilotées depuis l'administration. */}
+      <PageSections page="detail" className="mt-12 px-6 md:px-10" />
 
       {menuPosition && (
         <ArtistContextMenu

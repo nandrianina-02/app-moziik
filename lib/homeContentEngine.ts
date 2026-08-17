@@ -1,4 +1,4 @@
-import { connectDB } from "@/lib/db";
+import { connectDB, isDatabaseUnavailableError } from "@/lib/db";
 import Song from "@/models/Song";
 import Album from "@/models/Album";
 import Artist from "@/models/Artist";
@@ -6,12 +6,14 @@ import Playlist from "@/models/Playlist";
 import Event from "@/models/Event";
 import Comment from "@/models/Comment";
 import Play from "@/models/Play";
+import Subscription from "@/models/Subscription";
 import HomepagePinnedModel, { IHomepagePinned } from "@/models/HomepagePinned";
 import { getHomepageSections } from "@/lib/homepageSections";
 import { getHomepageSettings } from "@/lib/homepageSettings";
 import { getSiteConfig } from "@/lib/siteConfig";
 import { getForYouCards } from "@/lib/homepageHubCards";
-import { IHomepageSection } from "@/models/HomepageSection";
+import { hasPremiumAccess } from "@/lib/premium";
+import { IHomepageSection, SectionPage } from "@/models/HomepageSection";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
@@ -566,121 +568,162 @@ export type HomepageSectionPayload = {
   data: unknown;
 };
 
-/** Construit l'intégralité du payload /api/homepage à partir de la config admin et des données live. */
-export async function getHomepageData(userId?: string) {
+/** Visiteur courant, ou null pour un anonyme. Le rôle sert à évaluer l'accès Premium. */
+export type HomepageViewer = { id: string; role?: string } | null;
+
+// Le mode manuel n'a de sens que pour les sections qui listent du contenu
+// identifiable (titres, playlists, albums, artistes, évènements) : on
+// reformate le contenu épinglé pour qu'il ait exactement la même forme que
+// la sortie de l'algorithme, sinon le frontend ne saurait pas l'afficher.
+// Les autres sections (genres, radio, activité, premium) n'ont pas de
+// notion de contenu épinglé et restent pilotées par leur calcul habituel.
+const MANUAL_CAPABLE_KEYS: IHomepageSection["key"][] = [
+  "new_releases",
+  "top_tracks",
+  "recommendations",
+  "playlists",
+  "albums",
+  "trending_artists",
+  "events",
+  "custom",
+];
+
+type SectionContext = {
+  viewer: HomepageViewer;
+  settings: Awaited<ReturnType<typeof getHomepageSettings>>;
+  siteConfig: Awaited<ReturnType<typeof getSiteConfig>>;
+};
+
+/** L'abonnement du visiteur, lu une seule fois même si plusieurs sections en dépendent. */
+async function isSubscriber(viewer: HomepageViewer) {
+  if (!viewer) return false;
+  const subscription = await Subscription.findOne({ user: viewer.id }).sort({ startedAt: -1 });
+  return hasPremiumAccess({ role: viewer.role, subscriptionStatus: subscription?.status });
+}
+
+/** Calcule les données d'une seule section. Ne rejette jamais pour une panne isolée : voir buildSection. */
+async function computeSection(section: IHomepageSection, ctx: SectionContext): Promise<unknown> {
+  const userId = ctx.viewer?.id;
+
+  if (section.mode === "manual" && MANUAL_CAPABLE_KEYS.includes(section.key)) {
+    const pinned = await activePinnedForSection(section.slug ?? section.key);
+    const resolved = (await Promise.all(pinned.slice(0, section.limit).map(resolvePinnedContent))).filter(
+      (r): r is NonNullable<typeof r> => Boolean(r)
+    );
+    return formatManualSection(section.key, resolved);
+  }
+
+  switch (section.key) {
+    case "for_you":
+      return getForYouCards(section.limit, userId);
+    case "recently_played":
+      return getRecentlyPlayed(userId, section.limit);
+    case "new_releases":
+      return getNewReleases(section.limit, section.filters.verifiedOnly);
+    case "top_tracks":
+      return getTopTracks(section.limit, section.filters.verifiedOnly);
+    case "albums":
+      return getPopularAlbums(section.limit);
+    case "trending_artists":
+      return getTrendingArtists(section.limit, section.filters.verifiedOnly);
+    case "recommendations":
+      return ctx.settings.recommendationMode === "auto" ? getRecommendations(userId, section.limit) : [];
+    case "playlists":
+      return getPopularPlaylists(section.limit);
+    case "genres":
+      return getGenreTiles(section.limit);
+    case "events":
+      return getEventsSummary(section.limit);
+    case "radio":
+      return { active: true };
+    case "activity":
+      return getRecentActivity(section.limit);
+    case "premium":
+      return { plans: ctx.siteConfig.plans, isSubscriber: await isSubscriber(ctx.viewer) };
+    default:
+      return null;
+  }
+}
+
+/**
+ * Enveloppe `computeSection` pour qu'une section en échec n'emporte pas
+ * toute la page : elle est simplement omise, et l'incident est journalisé.
+ * Une base injoignable reste propagée — ce n'est pas un contenu manquant
+ * mais une panne, et l'appelant doit pouvoir répondre 503 (voir
+ * lib/apiError.ts) plutôt que servir une page vide qui ressemble à un site
+ * sans contenu.
+ */
+async function buildSection(section: IHomepageSection, ctx: SectionContext): Promise<HomepageSectionPayload | null> {
+  try {
+    const data = await computeSection(section, ctx);
+    if (data === null) return null;
+    return { key: section.key, title: section.title, data };
+  } catch (err) {
+    if (isDatabaseUnavailableError(err)) throw err;
+    console.error(`[homepage] section "${section.slug ?? section.key}" en échec`, err);
+    return null;
+  }
+}
+
+/**
+ * Lance le calcul de toutes les sections **en parallèle** et rend la main
+ * immédiatement, sans rien attendre.
+ *
+ * Le moteur enchaînait auparavant les sections dans une boucle `for await` :
+ * la page d'accueil coûtait donc la *somme* des ~14 sections, chacune valant
+ * de un à cinq aller-retours vers MongoDB. Comme aucune section ne dépend
+ * d'une autre, cette mise en série était pure attente.
+ *
+ * Renvoyer les promesses plutôt que les résultats permet à l'appelant de
+ * diffuser chaque section dès qu'elle est prête (voir
+ * app/api/homepage/stream/route.ts) au lieu d'attendre la plus lente.
+ */
+export async function preparePageSections(page: SectionPage, viewer: HomepageViewer) {
   await connectDB();
 
   const [sections, settings, siteConfig] = await Promise.all([
-    getHomepageSections(),
+    getHomepageSections(page),
     getHomepageSettings(),
     getSiteConfig(),
   ]);
 
-  const enabledSections = sections.filter((s) => s.enabled);
-  const hero = enabledSections.some((s) => s.key === "hero") ? await getHero(settings.heroMode) : null;
+  const ctx: SectionContext = { viewer, settings, siteConfig };
+  const enabled = sections.filter((s) => s.enabled);
 
-  const payload: HomepageSectionPayload[] = [];
+  return {
+    // La bannière est propre à l'accueil : ailleurs, la page a déjà son
+    // propre en-tête et une seconde bannière ferait doublon.
+    hero:
+      page === "home" && enabled.some((s) => s.key === "hero")
+        ? getHero(settings.heroMode)
+        : Promise.resolve(null),
+    sections: enabled
+      .filter((s) => s.key !== "hero")
+      .map((section) => ({
+        key: section.key,
+        title: section.title,
+        payload: buildSection(section, ctx),
+      })),
+  };
+}
 
-  for (const section of enabledSections) {
-    if (section.key === "hero") continue;
+/** Raccourci pour l'accueil. */
+export function prepareHomepage(viewer: HomepageViewer) {
+  return preparePageSections("home", viewer);
+}
 
-    // Le mode manuel n'a de sens que pour les sections qui listent du
-    // contenu identifiable (titres, playlists, albums, artistes,
-    // évènements) : on reformate le contenu épinglé pour qu'il ait
-    // exactement la même forme que la sortie de l'algorithme, sinon le
-    // frontend ne saurait pas l'afficher. Les autres sections (genres,
-    // radio, activité, premium) n'ont pas de notion de contenu épinglé
-    // et restent pilotées par leur calcul habituel.
-    const manualCapableKeys: (typeof section.key)[] = [
-      "new_releases",
-      "top_tracks",
-      "recommendations",
-      "playlists",
-      "albums",
-      "trending_artists",
-      "events",
-      "custom",
-    ];
+/** Construit l'intégralité du payload d'une page à partir de la config admin et des données live. */
+export async function getPageSectionsData(page: SectionPage, viewer: HomepageViewer) {
+  const prepared = await preparePageSections(page, viewer);
+  const [hero, sections] = await Promise.all([
+    prepared.hero,
+    Promise.all(prepared.sections.map((s) => s.payload)),
+  ]);
 
-    if (section.mode === "manual" && manualCapableKeys.includes(section.key)) {
-      const pinned = await activePinnedForSection(section.slug ?? section.key);
-      const resolved = (await Promise.all(pinned.slice(0, section.limit).map(resolvePinnedContent))).filter(
-        (r): r is NonNullable<typeof r> => Boolean(r)
-      );
-      payload.push({ key: section.key, title: section.title, data: formatManualSection(section.key, resolved) });
-      continue;
-    }
+  return { hero, sections: sections.filter((s): s is HomepageSectionPayload => s !== null) };
+}
 
-    switch (section.key) {
-      case "for_you":
-        payload.push({
-          key: section.key,
-          title: section.title,
-          data: await getForYouCards(section.limit, userId),
-        });
-        break;
-      case "recently_played":
-        payload.push({
-          key: section.key,
-          title: section.title,
-          data: await getRecentlyPlayed(userId, section.limit),
-        });
-        break;
-      case "new_releases":
-        payload.push({
-          key: section.key,
-          title: section.title,
-          data: await getNewReleases(section.limit, section.filters.verifiedOnly),
-        });
-        break;
-      case "top_tracks":
-        payload.push({
-          key: section.key,
-          title: section.title,
-          data: await getTopTracks(section.limit, section.filters.verifiedOnly),
-        });
-        break;
-      case "albums":
-        payload.push({ key: section.key, title: section.title, data: await getPopularAlbums(section.limit) });
-        break;
-      case "trending_artists":
-        payload.push({
-          key: section.key,
-          title: section.title,
-          data: await getTrendingArtists(section.limit, section.filters.verifiedOnly),
-        });
-        break;
-      case "recommendations":
-        payload.push({
-          key: section.key,
-          title: section.title,
-          data: settings.recommendationMode === "auto" ? await getRecommendations(userId, section.limit) : [],
-        });
-        break;
-      case "playlists":
-        payload.push({ key: section.key, title: section.title, data: await getPopularPlaylists(section.limit) });
-        break;
-      case "genres":
-        payload.push({ key: section.key, title: section.title, data: await getGenreTiles(section.limit) });
-        break;
-      case "events":
-        payload.push({ key: section.key, title: section.title, data: await getEventsSummary(section.limit) });
-        break;
-      case "radio":
-        payload.push({ key: section.key, title: section.title, data: { active: true } });
-        break;
-      case "activity":
-        payload.push({ key: section.key, title: section.title, data: await getRecentActivity(section.limit) });
-        break;
-      case "premium":
-        payload.push({
-          key: section.key,
-          title: section.title,
-          data: { plans: siteConfig.plans, isSubscriber: false },
-        });
-        break;
-    }
-  }
-
-  return { hero, sections: payload };
+/** Construit l'intégralité du payload /api/homepage. */
+export function getHomepageData(viewer: HomepageViewer) {
+  return getPageSectionsData("home", viewer);
 }

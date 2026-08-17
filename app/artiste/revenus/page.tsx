@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { Wallet, PlayCircle } from "lucide-react";
-import { EqualizerLoader } from "@/components/ui/EqualizerLoader";
+import { Skeleton, SkeletonRows } from "@/components/ui/Skeleton";
 import { StatCard } from "@/components/admin/StatCard";
 import { useToast } from "@/context/ToastProvider";
 
@@ -33,10 +33,14 @@ export default function ArtistRevenuePage() {
 
   if (!data) {
     return (
-      <div className="mx-auto w-full max-w-[1600px] px-6 py-8 md:px-10 md:py-10">
-        <div className="py-10 grid place-items-center">
-          <EqualizerLoader />
+      <div aria-busy="true" className="mx-auto w-full max-w-2xl px-6 py-8 md:px-10 md:py-10">
+        <Skeleton className="mb-6 h-7 w-48" />
+        <div className="mb-8 grid grid-cols-2 gap-4">
+          <Skeleton className="h-24 rounded-xl2" />
+          <Skeleton className="h-24 rounded-xl2" />
         </div>
+        <Skeleton className="mb-4 h-4 w-56" />
+        <SkeletonRows count={4} />
       </div>
     );
   }

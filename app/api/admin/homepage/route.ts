@@ -3,11 +3,15 @@ import { requireAdmin } from "@/lib/requireAdmin";
 import { withApiErrors } from "@/lib/apiError";
 import { getHomepageSections } from "@/lib/homepageSections";
 import { getHomepageSettings } from "@/lib/homepageSettings";
+import { parseSectionPage } from "@/lib/sectionPage";
 import { parseOrThrow, adminHomepageSettingsSchema } from "@/lib/validation";
 
 export const GET = withApiErrors(async (req: Request) => {
   await requireAdmin(req);
-  const [sections, settings] = await Promise.all([getHomepageSections(), getHomepageSettings()]);
+  // `?page=` cible un groupe de pages (accueil par défaut, pour les
+  // appelants antérieurs à l'ouverture aux autres pages).
+  const page = parseSectionPage(new URL(req.url).searchParams.get("page"));
+  const [sections, settings] = await Promise.all([getHomepageSections(page), getHomepageSettings()]);
   return NextResponse.json({ sections, settings });
 });
 

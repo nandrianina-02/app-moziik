@@ -14,7 +14,7 @@ import {
   TrendingDown,
   ListChecks,
 } from "lucide-react";
-import { EqualizerLoader } from "@/components/ui/EqualizerLoader";
+import { AdminStatsSkeleton, AdminPanelSkeleton } from "@/components/admin/AdminSkeleton";
 import { FormField } from "@/components/ui/FormField";
 import { SafeImage } from "@/components/ui/SafeImage";
 import { StatCard } from "@/components/admin/StatCard";
@@ -23,6 +23,12 @@ import { IconActionButton } from "@/components/admin/IconActionButton";
 import { HubCardsManager } from "@/components/admin/HubCardsManager";
 import { PinnedContentManager } from "@/components/admin/PinnedContentManager";
 import { useToast } from "@/context/ToastProvider";
+import {
+  SECTION_PAGES,
+  SECTION_PAGE_LABEL,
+  SECTION_PAGE_PREVIEW,
+  type SectionPage,
+} from "@/lib/sectionPages";
 
 type SectionFilters = { publicOnly: boolean; verifiedOnly: boolean; premiumOnly: boolean };
 
@@ -142,6 +148,10 @@ function formatDateRange(start?: string, end?: string) {
 
 export default function AdminHomepagePage() {
   const pushToast = useToast();
+  // Groupe de pages en cours d'édition. L'accueil reste l'onglet d'entrée :
+  // c'est la page la plus configurée, et la seule dont les statistiques de
+  // fréquentation sont mesurées.
+  const [page, setPage] = useState<SectionPage>("home");
   const [sections, setSections] = useState<Section[]>([]);
   const [settings, setSettings] = useState<Settings | null>(null);
   const [pinned, setPinned] = useState<Pinned[]>([]);
@@ -163,9 +173,9 @@ export default function AdminHomepagePage() {
     setLoading(true);
     try {
       const [homeRes, pinnedRes, statsRes] = await Promise.all([
-        fetch("/api/admin/homepage"),
+        fetch(`/api/admin/homepage?page=${page}`),
         fetch("/api/admin/homepage/pinned"),
-        fetch("/api/admin/homepage/stats"),
+        fetch(`/api/admin/homepage/stats?page=${page}`),
       ]);
       if (!homeRes.ok || !pinnedRes.ok || !statsRes.ok) throw new Error();
       const homeData = await homeRes.json();
@@ -186,7 +196,7 @@ export default function AdminHomepagePage() {
   useEffect(() => {
     load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [page]);
 
   function updateSectionLocal(id: string, updates: Partial<Section>) {
     setSections((prev) => prev.map((s) => (s._id === id ? { ...s, ...updates } : s)));
@@ -211,7 +221,7 @@ export default function AdminHomepagePage() {
     setSaving(true);
     try {
       const order = sections.map((s, i) => ({ id: s._id, position: i }));
-      await fetch("/api/admin/homepage/sections", {
+      await fetch(`/api/admin/homepage/sections?page=${page}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ order }),
@@ -266,7 +276,7 @@ export default function AdminHomepagePage() {
       const res = await fetch("/api/admin/homepage/sections", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ title: newSectionTitle.trim(), limit: newSectionLimit }),
+        body: JSON.stringify({ title: newSectionTitle.trim(), limit: newSectionLimit, page }),
       });
       if (!res.ok) {
         const data = await res.json();
@@ -312,8 +322,15 @@ export default function AdminHomepagePage() {
 
   if (loading || !settings || !stats) {
     return (
-      <div className="py-10 grid place-items-center">
-        <EqualizerLoader />
+      <div className="space-y-6">
+        <AdminStatsSkeleton count={4} />
+        <div className="grid grid-cols-1 gap-6 lg:grid-cols-[1fr_320px]">
+          <AdminPanelSkeleton height="h-96" />
+          <div className="space-y-6">
+            <AdminPanelSkeleton height="h-56" />
+            <AdminPanelSkeleton height="h-64" />
+          </div>
+        </div>
       </div>
     );
   }
@@ -322,18 +339,24 @@ export default function AdminHomepagePage() {
     <div className="space-y-6">
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
-          <h1 className="font-display text-2xl">Gestion de la page d&apos;accueil</h1>
-          <p className="mt-1 text-sm text-ink-muted">Configurez et gérez tous les contenus affichés sur la page d&apos;accueil</p>
+          <h1 className="font-display text-2xl">Gestion des sections</h1>
+          <p className="mt-1 text-sm text-ink-muted">
+            Configurez les contenus affichés sur {SECTION_PAGE_LABEL[page].toLowerCase()}
+          </p>
         </div>
         <div className="flex items-center gap-2">
-          <a
-            href="/"
-            target="_blank"
-            rel="noreferrer"
-            className="flex items-center gap-2 rounded-xl border border-border bg-surface px-4 py-2 text-sm font-medium hover:border-accent"
-          >
-            <Eye size={16} /> Prévisualiser la page d&apos;accueil
-          </a>
+          {/* Les pages détail dépendent d'un contenu précis : aucune URL
+              fixe à ouvrir, donc pas de bouton de prévisualisation. */}
+          {SECTION_PAGE_PREVIEW[page] && (
+            <a
+              href={SECTION_PAGE_PREVIEW[page] as string}
+              target="_blank"
+              rel="noreferrer"
+              className="flex items-center gap-2 rounded-xl border border-border bg-surface px-4 py-2 text-sm font-medium hover:border-accent"
+            >
+              <Eye size={16} /> Prévisualiser
+            </a>
+          )}
           <button
             onClick={saveAll}
             disabled={saving || !dirty}
@@ -343,6 +366,32 @@ export default function AdminHomepagePage() {
           </button>
         </div>
       </div>
+
+      {/* Chaque groupe rassemble des pages jumelles : configurer
+          « Radio & Classements » alimente les deux d'un coup. */}
+      <div className="flex flex-wrap gap-2 border-b border-border pb-4">
+        {SECTION_PAGES.map((value) => (
+          <button
+            key={value}
+            onClick={() => {
+              if (dirty && !confirm("Des modifications ne sont pas enregistrées. Changer de page les abandonnera.")) return;
+              setPage(value);
+            }}
+            className={`rounded-full border px-3.5 py-1.5 text-xs font-medium transition-colors ${
+              page === value ? "border-accent bg-accent text-base" : "border-border text-ink-muted hover:border-accent"
+            }`}
+          >
+            {SECTION_PAGE_LABEL[value]}
+          </button>
+        ))}
+      </div>
+
+      {page !== "home" && (
+        <p className="rounded-xl2 border border-dashed border-border px-4 py-3 text-xs text-ink-muted">
+          Ces sections arrivent désactivées : rien ne change sur le site tant que vous n&apos;en activez pas une.
+          Une fois active, elle s&apos;affiche sur toutes les pages du groupe.
+        </p>
+      )}
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <StatCard
@@ -393,7 +442,7 @@ export default function AdminHomepagePage() {
         <div className="min-w-0 rounded-xl2 border border-border bg-surface p-5">
           <div className="mb-4 flex items-center justify-between">
             <div>
-              <h2 className="text-sm font-medium">Sections de la page d&apos;accueil</h2>
+              <h2 className="text-sm font-medium">Sections — {SECTION_PAGE_LABEL[page]}</h2>
               <p className="text-xs text-ink-muted">Gérez l&apos;affichage, l&apos;ordre et les paramètres de chaque section</p>
             </div>
             <button

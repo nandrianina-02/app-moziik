@@ -9,6 +9,7 @@ import { EventCard, type EventItem } from "@/components/events/EventCard";
 import { EventCardSkeleton } from "@/components/events/EventCardSkeleton";
 import { EventStatCard } from "@/components/events/EventStatCard";
 import { getEventTimeStatus } from "@/components/events/eventStatus";
+import { PageSections } from "@/components/home/PageSections";
 
 type TabValue = "all" | "upcoming" | "live" | "past";
 
@@ -197,6 +198,9 @@ export default function EventsPage() {
           })}
         </div>
       )}
+
+      {/* Sections éditoriales pilotées depuis l'administration. */}
+      <PageSections page="library" className="mt-12" />
 
       {showCreate && <CreateEventModal onClose={() => setShowCreate(false)} onCreated={load} />}
     </div>

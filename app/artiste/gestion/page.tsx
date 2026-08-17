@@ -33,7 +33,7 @@ import {
   Inbox,
 } from "lucide-react";
 import { SafeImage } from "@/components/ui/SafeImage";
-import { EqualizerLoader } from "@/components/ui/EqualizerLoader";
+import { Skeleton, SkeletonRows } from "@/components/ui/Skeleton";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { CreateAlbumModal } from "@/components/modals/CreateAlbumModal";
 import { EditArtistProfileModal } from "@/components/artist/EditArtistProfileModal";
@@ -357,8 +357,13 @@ export default function ArtistManagementPage() {
       </nav>
 
       {loading && (
-        <div className="py-16 grid place-items-center">
-          <EqualizerLoader />
+        <div aria-busy="true" className="space-y-4">
+          <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+            {Array.from({ length: 4 }).map((_, i) => (
+              <Skeleton key={i} className="h-24 rounded-xl2" />
+            ))}
+          </div>
+          <SkeletonRows count={6} />
         </div>
       )}
 

@@ -21,7 +21,8 @@ import {
 } from "lucide-react";
 import { SongTable } from "@/components/music/SongTable";
 import { SongCard } from "@/components/home/SongCard";
-import { EqualizerLoader } from "@/components/ui/EqualizerLoader";
+import { SkeletonCard, SkeletonRows } from "@/components/ui/Skeleton";
+import { PageSections } from "@/components/home/PageSections";
 import { SafeImage } from "@/components/ui/SafeImage";
 import { LibraryTabs, type LibraryTabKey } from "@/components/library/LibraryTabs";
 import { LibraryStatCard } from "@/components/library/LibraryStatCard";
@@ -42,10 +43,11 @@ import {
   type OfflineSettings,
   type AudioQuality,
 } from "@/lib/offlineSettings";
+import { useAsyncData, getJson } from "@/hooks/useAsyncData";
 import { useToast } from "@/context/ToastProvider";
 import type { PlayableSong } from "@/context/PlayerProvider";
 
-type Playlist = { _id: string; title: string; coverUrl?: string; songs: string[] };
+type Playlist ={ _id: string; title: string; coverUrl?: string; songs: string[] };
 type LibraryAlbum = {
   _id: string;
   title: string;
@@ -69,12 +71,38 @@ export default function LibraryPage() {
   const pushToast = useToast();
   const [tab, setTab] = useState<LibraryTabKey>("tout");
 
-  const [playlists, setPlaylists] = useState<Playlist[]>([]);
-  const [likedSongs, setLikedSongs] = useState<PlayableSong[]>([]);
-  const [savedAlbums, setSavedAlbums] = useState<LibraryAlbum[]>([]);
-  const [followedArtists, setFollowedArtists] = useState<FollowedArtist[]>([]);
-  const [recentSongs, setRecentSongs] = useState<PlayableSong[]>([]);
-  const [loading, setLoading] = useState(true);
+  const isAuthed = status === "authenticated";
+
+  // Cinq ressources indépendantes, chacune affichée dès son arrivée.
+  // Elles étaient auparavant regroupées dans un `Promise.all` : la
+  // bibliothèque restait vide le temps de la plus lente des cinq, alors
+  // que les playlists — la requête la plus courte — sont prêtes bien avant
+  // l'historique d'écoute.
+  const { data: playlists, setData: setPlaylists, loading: playlistsLoading } = useAsyncData<Playlist[]>(
+    isAuthed ? () => getJson("/api/playlists?owner=me", (d) => d.playlists as Playlist[], []) : null,
+    [],
+    status
+  );
+  const { data: likedSongs, loading: likedLoading } = useAsyncData<PlayableSong[]>(
+    isAuthed ? () => getJson("/api/me/liked-songs", (d) => d.songs as PlayableSong[], []) : null,
+    [],
+    status
+  );
+  const { data: savedAlbums, setData: setSavedAlbums, loading: albumsLoading } = useAsyncData<LibraryAlbum[]>(
+    isAuthed ? () => getJson("/api/me/saved-albums", (d) => d.albums as LibraryAlbum[], []) : null,
+    [],
+    status
+  );
+  const { data: followedArtists, setData: setFollowedArtists, loading: artistsLoading } = useAsyncData<FollowedArtist[]>(
+    isAuthed ? () => getJson("/api/me/followed-artists", (d) => d.artists as FollowedArtist[], []) : null,
+    [],
+    status
+  );
+  const { data: recentSongs, loading: recentLoading } = useAsyncData<PlayableSong[]>(
+    isAuthed ? () => getJson("/api/me/recent", (d) => d.songs as PlayableSong[], []) : null,
+    [],
+    status
+  );
 
   const [offlineSongs, setOfflineSongs] = useState<OfflineSongMeta[]>([]);
   const [usage, setUsage] = useState<{ usedMB: number; quotaMB: number } | null>(null);
@@ -91,32 +119,6 @@ export default function LibraryPage() {
     window.addEventListener("moziik-offline-change", loadOfflineSongs);
     return () => window.removeEventListener("moziik-offline-change", loadOfflineSongs);
   }, []);
-
-  useEffect(() => {
-    if (status !== "authenticated") {
-      setLoading(false);
-      return;
-    }
-    async function load() {
-      try {
-        const [playlistsRes, likedRes, albumsRes, artistsRes, recentRes] = await Promise.all([
-          fetch("/api/playlists?owner=me"),
-          fetch("/api/me/liked-songs"),
-          fetch("/api/me/saved-albums"),
-          fetch("/api/me/followed-artists"),
-          fetch("/api/me/recent"),
-        ]);
-        if (playlistsRes.ok) setPlaylists((await playlistsRes.json()).playlists);
-        if (likedRes.ok) setLikedSongs((await likedRes.json()).songs);
-        if (albumsRes.ok) setSavedAlbums((await albumsRes.json()).albums);
-        if (artistsRes.ok) setFollowedArtists((await artistsRes.json()).artists);
-        if (recentRes.ok) setRecentSongs((await recentRes.json()).songs);
-      } finally {
-        setLoading(false);
-      }
-    }
-    load();
-  }, [status]);
 
   async function updateSetting<K extends keyof OfflineSettings>(key: K, value: OfflineSettings[K]) {
     const next = await setOfflineSettings({ [key]: value });
@@ -162,10 +164,6 @@ export default function LibraryPage() {
   function handlePlaylistCreated(playlist: Playlist) {
     setPlaylists((prev) => [playlist, ...prev]);
   }
-
-  const isAuthed = status === "authenticated";
-  const showLoader =
-    loading && (tab === "tout" || tab === "playlists" || tab === "titres" || tab === "albums" || tab === "artistes");
 
   const activeTabs = useMemo(() => TABS, []);
 
@@ -219,30 +217,32 @@ export default function LibraryPage() {
 
         {!isAuthed && <p className="text-sm text-ink-muted">Connecte-toi pour retrouver ta bibliothèque.</p>}
 
-        {isAuthed && showLoader && (
-          <div className="grid place-items-center py-10">
-            <EqualizerLoader />
-          </div>
-        )}
-
-        {isAuthed && !loading && tab === "tout" && (
+        {isAuthed && tab === "tout" && (
           <div className="space-y-10">
-            {recentSongs.length > 0 && (
+            {(recentLoading || recentSongs.length > 0) && (
               <section>
                 <LibrarySectionHeader title="Récemment écoutés" />
                 <div className="-mx-1 flex gap-4 overflow-x-auto px-1 pb-2">
-                  {recentSongs.map((song, index) => (
-                    <div key={song._id} className="w-32 shrink-0 sm:w-40">
-                      <SongCard song={song} queue={recentSongs} index={index} source={{ type: "history", label: "Récemment écouté" }} />
-                    </div>
-                  ))}
+                  {recentLoading
+                    ? Array.from({ length: 6 }).map((_, i) => (
+                        <div key={i} className="w-32 shrink-0 sm:w-40">
+                          <SkeletonCard />
+                        </div>
+                      ))
+                    : recentSongs.map((song, index) => (
+                        <div key={song._id} className="w-32 shrink-0 sm:w-40">
+                          <SongCard song={song} queue={recentSongs} index={index} source={{ type: "history", label: "Récemment écouté" }} />
+                        </div>
+                      ))}
                 </div>
               </section>
             )}
 
             <section>
               <LibrarySectionHeader title="Titres" onSeeAll={() => setTab("titres")} />
-              {likedSongs.length === 0 ? (
+              {likedLoading ? (
+                <SkeletonRows count={5} />
+              ) : likedSongs.length === 0 ? (
                 <p className="text-sm text-ink-muted">Aucun son aimé pour l&apos;instant.</p>
               ) : (
                 <SongTable songs={likedSongs.slice(0, 5)} source={{ type: "favorites", label: "Titres likés" }} />
@@ -260,7 +260,9 @@ export default function LibraryPage() {
                     <Plus size={12} /> Créer
                   </button>
                 </div>
-                {playlists.length === 0 ? (
+                {playlistsLoading ? (
+                  <SkeletonRows count={3} />
+                ) : playlists.length === 0 ? (
                   <p className="text-xs text-ink-muted">Pas encore de playlist.</p>
                 ) : (
                   <div className="space-y-1">
@@ -304,7 +306,9 @@ export default function LibraryPage() {
                     </button>
                   )}
                 </div>
-                {savedAlbums.length === 0 ? (
+                {albumsLoading ? (
+                  <SkeletonRows count={3} />
+                ) : savedAlbums.length === 0 ? (
                   <p className="text-xs text-ink-muted">
                     Aucun album enregistré — utilise l&apos;icône marque-page sur la page d&apos;un album.
                   </p>
@@ -344,7 +348,9 @@ export default function LibraryPage() {
                     </button>
                   )}
                 </div>
-                {followedArtists.length === 0 ? (
+                {artistsLoading ? (
+                  <SkeletonRows count={3} />
+                ) : followedArtists.length === 0 ? (
                   <p className="text-xs text-ink-muted">Tu ne suis encore aucun artiste.</p>
                 ) : (
                   <div className="space-y-1">
@@ -383,9 +389,12 @@ export default function LibraryPage() {
           </div>
         )}
 
-        {isAuthed && !loading && tab === "playlists" && (
+        {isAuthed && tab === "playlists" && (
           <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
+            {/* La tuile de création reste utilisable pendant le chargement :
+                elle ne dépend d'aucune donnée distante. */}
             <CreatePlaylistTile onCreated={handlePlaylistCreated} />
+            {playlistsLoading && Array.from({ length: 4 }).map((_, i) => <SkeletonCard key={i} />)}
             {playlists.map((playlist) => (
               <Link key={playlist._id} href={`/playlist/${playlist._id}`}>
                 <SafeImage
@@ -402,9 +411,11 @@ export default function LibraryPage() {
           </div>
         )}
 
-        {isAuthed && !loading && tab === "titres" && (
+        {isAuthed && tab === "titres" && (
           <div>
-            {likedSongs.length === 0 ? (
+            {likedLoading ? (
+              <SkeletonRows count={8} />
+            ) : likedSongs.length === 0 ? (
               <p className="text-sm text-ink-muted">Aucun son aimé pour l&apos;instant.</p>
             ) : (
               <SongTable songs={likedSongs} source={{ type: "favorites", label: "Titres likés" }} />
@@ -412,9 +423,15 @@ export default function LibraryPage() {
           </div>
         )}
 
-        {isAuthed && !loading && tab === "albums" && (
+        {isAuthed && tab === "albums" && (
           <div>
-            {savedAlbums.length === 0 ? (
+            {albumsLoading ? (
+              <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
+                {Array.from({ length: 5 }).map((_, i) => (
+                  <SkeletonCard key={i} />
+                ))}
+              </div>
+            ) : savedAlbums.length === 0 ? (
               <p className="text-sm text-ink-muted">
                 Aucun album enregistré — utilise l&apos;icône marque-page sur la page d&apos;un album pour l&apos;ajouter ici.
               </p>
@@ -428,9 +445,11 @@ export default function LibraryPage() {
           </div>
         )}
 
-        {isAuthed && !loading && tab === "artistes" && (
+        {isAuthed && tab === "artistes" && (
           <div className="max-w-lg space-y-1">
-            {followedArtists.length === 0 ? (
+            {artistsLoading ? (
+              <SkeletonRows count={6} />
+            ) : followedArtists.length === 0 ? (
               <p className="text-sm text-ink-muted">
                 Tu ne suis encore aucun artiste — retrouve-les depuis la recherche ou leur page.
               </p>
@@ -553,6 +572,9 @@ export default function LibraryPage() {
             )}
           </div>
         )}
+
+        {/* Sections éditoriales pilotées depuis l'administration. */}
+        <PageSections page="library" className="mt-12" />
       </div>
     </div>
   );

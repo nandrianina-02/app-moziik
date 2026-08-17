@@ -5,6 +5,7 @@ import { useSearchParams } from "next/navigation";
 import { Loader2 } from "lucide-react";
 import { SongCard } from "@/components/home/SongCard";
 import { SkeletonCardGrid } from "@/components/ui/Skeleton";
+import { PageSections } from "@/components/home/PageSections";
 import { Reveal } from "@/components/layout/Reveal";
 import { useInfiniteList } from "@/hooks/useInfiniteScroll";
 import { useSiteConfig } from "@/context/SiteConfigProvider";
@@ -57,6 +58,12 @@ function BrowseSongsPageContent() {
           </button>
         ))}
       </div>
+
+      {/* Sections éditoriales de l'admin : placées **avant** la liste, car
+          celle-ci défile à l'infini — au-dessous, personne ne les
+          atteindrait jamais. Rien ne s'affiche tant qu'aucune n'est
+          activée dans l'administration. */}
+      <PageSections page="discover" className="mb-10" />
 
       {initialLoading ? (
         <SkeletonCardGrid count={12} />

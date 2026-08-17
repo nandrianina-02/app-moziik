@@ -7,7 +7,6 @@ import { usePlayer } from "@/context/PlayerProvider";
 import { useToast } from "@/context/ToastProvider";
 import { readApiError } from "@/lib/readApiError";
 import { downloadPlaylistForOffline } from "@/lib/offlineCache";
-import { EqualizerLoader } from "@/components/ui/EqualizerLoader";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { ShareModal } from "@/components/share/ShareModal";
 import { buildPlaylistSubject } from "@/components/share/shareSubject";
@@ -16,6 +15,7 @@ import { PlaylistContextMenu, type PlaylistMenuTarget } from "@/components/playl
 import { PlaylistHero } from "@/components/playlist/PlaylistHero";
 import { PlaylistTabs } from "@/components/playlist/PlaylistTabs";
 import { PlaylistSidebar } from "@/components/playlist/PlaylistSidebar";
+import { PlaylistDetailSkeleton } from "@/components/playlist/PlaylistDetailSkeleton";
 import { AddSongsModal } from "@/components/playlist/AddSongsModal";
 import type { PlaylistDetail, PlaylistSummaryLite } from "@/components/playlist/types";
 import type { PlayableSong } from "@/context/PlayerProvider";
@@ -241,13 +241,7 @@ export default function PlaylistDetailPage() {
     }
   }
 
-  if (loading) {
-    return (
-      <div className="grid place-items-center py-16">
-        <EqualizerLoader />
-      </div>
-    );
-  }
+  if (loading) return <PlaylistDetailSkeleton />;
 
   if (notFound || !playlist) {
     return <p className="px-6 py-16 text-center text-sm text-ink-muted">Cette playlist est introuvable.</p>;

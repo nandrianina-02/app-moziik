@@ -42,7 +42,13 @@ export function NotificationsDrawer() {
 
   return (
     <div
-      className={`fixed inset-0 z-50 hidden md:block ${drawerOpen ? "" : "pointer-events-none"}`}
+      // `overflow-hidden` : fermé, le panneau est décalé de sa propre
+      // largeur (`translate-x-full`) et dépasse donc de 384 px à droite du
+      // cadre. Le clipping est ici la bonne réponse — le panneau est
+      // *censé* être hors écran — mais il doit être explicite, sinon le
+      // dépassement se voit au zoom et sur les navigateurs qui comptent
+      // les éléments fixes dans la zone défilante.
+      className={`fixed inset-0 z-50 hidden overflow-hidden md:block ${drawerOpen ? "" : "pointer-events-none"}`}
       aria-hidden={!drawerOpen}
     >
       <div

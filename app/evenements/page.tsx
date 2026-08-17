@@ -95,20 +95,24 @@ export default function EventsPage() {
 
   return (
     <div className="mx-auto w-full max-w-[1600px] px-6 py-8 md:px-10 md:py-10">
-      <header className="mb-7 flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
-        <div>
+      {/* `flex-wrap` + `min-w-0` : à 768 px, le titre refusait de se
+          comprimer et le bouton « Créer un évènement » (shrink-0) poussait
+          la page à 953 px de large. Les deux blocs passent maintenant à la
+          ligne au lieu de déborder. */}
+      <header className="mb-7 flex flex-col gap-4 md:flex-row md:flex-wrap md:items-start md:justify-between">
+        <div className="min-w-0">
           <h1 className="text-2xl font-display md:text-3xl">Évènements</h1>
           <p className="mt-1 text-sm text-ink-muted">Découvre et gère les évènements de la plateforme.</p>
         </div>
 
-        <div className="flex flex-col gap-2.5 sm:flex-row sm:items-center">
-          <div className="relative">
+        <div className="flex min-w-0 flex-col gap-2.5 sm:flex-row sm:items-center">
+          <div className="relative min-w-0">
             <Search size={16} className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-ink-muted" />
             <input
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               placeholder="Rechercher un évènement..."
-              className="w-full rounded-xl border border-border bg-surface py-2.5 pl-10 pr-4 text-sm outline-none transition-colors focus:border-accent sm:w-64"
+              className="w-full rounded-xl border border-border bg-surface py-2.5 pl-10 pr-4 text-sm outline-none transition-colors focus:border-accent sm:w-56 lg:w-64"
             />
           </div>
 

@@ -113,7 +113,11 @@ export default function AccountPage() {
       <div className="mb-6 rounded-xl2 border border-border bg-surface p-6">
         <p className="mb-4 text-base font-semibold text-ink">Profil</p>
         <div className="flex flex-wrap items-center justify-between gap-4">
-          <div className="flex items-center gap-4">
+          {/* `min-w-0` sur le conteneur ET sur le bloc texte : sans lui, un
+              enfant flex garde la largeur de son contenu comme minimum, et
+              une adresse e-mail longue (aucune césure possible) poussait la
+              page à 365 px de large sur un écran de 320. */}
+          <div className="flex min-w-0 items-center gap-4">
             <SafeImage
               src={profile?.avatarUrl ?? session.user.image}
               alt={profile?.name ?? session.user.name ?? "Profil"}
@@ -121,9 +125,11 @@ export default function AccountPage() {
               height={64}
               className="h-16 w-16 shrink-0 rounded-full object-cover"
             />
-            <div>
-              <p className="text-base font-semibold text-ink">{profile?.name ?? session.user.name}</p>
-              <p className="text-sm text-ink-muted">{profile?.email ?? session.user.email}</p>
+            <div className="min-w-0">
+              <p className="truncate text-base font-semibold text-ink">{profile?.name ?? session.user.name}</p>
+              <p className="truncate text-sm text-ink-muted" title={profile?.email ?? session.user.email ?? undefined}>
+                {profile?.email ?? session.user.email}
+              </p>
               <span className="mt-2 inline-block rounded-full bg-accent/10 px-3 py-1 text-xs font-medium text-accent">
                 {roleLabels[session.user.role ?? "member"]}
               </span>

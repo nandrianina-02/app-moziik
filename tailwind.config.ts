@@ -12,6 +12,12 @@ const config: Config = {
   ],
   theme: {
     extend: {
+      screens: {
+        // Les plus petits téléphones encore courants font 320 px. Ce
+        // palier laisse masquer les commandes secondaires là, sans
+        // pénaliser un 375 px qui a la place de les afficher.
+        xs: "360px",
+      },
       colors: {
         // Chaque token pointe vers une variable CSS définie dans
         // globals.css (valeurs sombres par défaut, redéfinies sous

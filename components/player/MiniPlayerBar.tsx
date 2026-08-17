@@ -281,9 +281,15 @@ export function MiniPlayerBar() {
           barre pleine largeur collée au bas sur mobile où l'espace
           horizontal est trop précieux pour des marges. */}
       <div className="border-t border-border bg-surface/95 backdrop-blur-md shadow-[0_-8px_32px_-16px_rgba(0,0,0,0.35)] md:rounded-2xl md:border md:shadow-[0_8px_40px_-12px_rgba(0,0,0,0.3)]">
-      {/* ---------- MOBILE ---------- */}
-      <div className="md:hidden">
-        <div className="flex items-center gap-3 px-3 pt-2.5">
+      {/* ---------- COMPACT : mobile et tablette ----------
+          Jusqu'à `lg`, la sidebar occupe déjà 256 px : à 768 px il ne
+          reste que 480 px au lecteur. La disposition en trois colonnes y
+          réduisait le titre du morceau à 4 px de large. Cette disposition
+          compacte s'y tient sans rien tronquer ; les commandes secondaires
+          (aléatoire, répétition, volume) restent accessibles dans le
+          lecteur plein écran, à un appui sur la pochette. */}
+      <div className="lg:hidden">
+        <div className="flex items-center gap-3 px-3 pt-2.5 sm:gap-4 sm:px-4">
           <button
             onClick={openFullPlayer}
             onContextMenu={(e) => {
@@ -311,11 +317,14 @@ export function MiniPlayerBar() {
             </span>
           </button>
 
-          <div className="flex shrink-0 items-center gap-2.5">
+          {/* Les commandes secondaires n'apparaissent qu'une fois la place
+              disponible : à 320 px, seuls « suivant » et « lecture »
+              tiennent à côté du titre sans le comprimer. */}
+          <div className="flex shrink-0 items-center gap-2.5 sm:gap-3">
             <button
               onClick={handleToggleLike}
               aria-label={liked ? "Ne plus aimer" : "J'aime"}
-              className={`shrink-0 transition-colors ${liked ? "text-accent" : "text-ink-muted"}`}
+              className={`hidden shrink-0 transition-colors xs:block ${liked ? "text-accent" : "text-ink-muted"}`}
             >
               <Heart size={19} fill={liked ? "currentColor" : "none"} />
             </button>
@@ -323,9 +332,18 @@ export function MiniPlayerBar() {
               onClick={handleToggleOffline}
               disabled={offlineState === "saving"}
               aria-label={offlineState === "saved" ? "Retirer du hors-ligne" : "Télécharger"}
-              className={`shrink-0 transition-colors ${offlineState === "saved" ? "text-accent" : "text-ink-muted"}`}
+              className={`hidden shrink-0 transition-colors sm:block ${offlineState === "saved" ? "text-accent" : "text-ink-muted"}`}
             >
               <OfflineIcon size={19} className={offlineState === "saving" ? "animate-spin" : ""} />
+            </button>
+            {/* « Précédent » dès 360 px : c'est une commande de transport,
+                elle prime sur le téléchargement, qui attend 640 px. */}
+            <button
+              onClick={playPrevious}
+              aria-label="Précédent"
+              className="hidden shrink-0 text-ink xs:block"
+            >
+              <SkipBack size={21} fill="currentColor" />
             </button>
             <button onClick={playNext} aria-label="Suivant" className="shrink-0 text-ink">
               <SkipForward size={21} fill="currentColor" />
@@ -337,20 +355,37 @@ export function MiniPlayerBar() {
             >
               {isPlaying ? <Pause size={19} fill="currentColor" /> : <Play size={19} fill="currentColor" className="ml-0.5" />}
             </button>
+            <button
+              onClick={openFullPlayer}
+              aria-label="Lecteur plein écran"
+              className="hidden h-9 w-9 shrink-0 place-items-center rounded-lg text-ink-muted transition-colors hover:bg-base hover:text-ink md:grid"
+            >
+              <Maximize2 size={17} />
+            </button>
           </div>
         </div>
 
-        <div className="flex items-center gap-2 px-3 pb-2 pt-1.5">
+        <div className="flex items-center gap-2 px-3 pb-2 pt-1.5 sm:px-4">
           <span className="w-8 shrink-0 text-right text-[10px] tabular-nums text-ink-muted">{formatTime(progress)}</span>
           <SeekBar progress={progress} duration={currentSong.duration} onSeek={seek} variant="pill" className="min-w-0 flex-1" />
           <span className="w-8 shrink-0 text-[10px] tabular-nums text-ink-muted">{formatTime(currentSong.duration)}</span>
         </div>
       </div>
 
-      {/* ---------- DESKTOP : 3 colonnes ---------- */}
-      <div className="hidden h-[86px] items-center gap-3 px-4 md:flex lg:gap-5 lg:px-6">
-        {/* Colonne 1 — piste en cours */}
-        <div className="flex min-w-0 items-center gap-3 md:w-[26%] lg:w-[28%]">
+      {/* ---------- BUREAU : 3 colonnes, à partir de lg ----------
+          Aucune colonne n'a de largeur en pourcentage. Les pourcentages
+          étaient la cause des chevauchements : la colonne d'actions a une
+          largeur minimale imposée par ses boutons (plus de 500 px avec les
+          libellés), donc `w-34%` ne la contenait qu'au-delà de ~1900 px —
+          en dessous, son contenu débordait par-dessus la colonne centrale
+          et écrasait la barre de progression. Elle se dimensionne
+          désormais sur son contenu (`shrink-0`, largeur automatique), et
+          les deux autres se partagent ce qui reste. */}
+      <div className="hidden h-[86px] items-center gap-4 px-4 lg:flex xl:gap-6 xl:px-6">
+        {/* Colonne 1 — piste en cours. Tronque au lieu d'imposer sa largeur,
+            mais garde un plancher : sans lui, le titre tombait à 44 px de
+            large à 1280, illisible. */}
+        <div className="flex min-w-[11rem] flex-1 items-center gap-3 xl:max-w-[24rem]">
           <button
             onClick={openFullPlayer}
             onContextMenu={(e) => {
@@ -385,11 +420,15 @@ export function MiniPlayerBar() {
             </span>
           </button>
 
+          {/* Ces 48 px sont pris au titre du morceau : on ne les réclame
+              qu'à partir de 2xl, avec les actions libellées. En dessous,
+              « J'aime » reste accessible par « Plus d'options » (voir
+              SongContextMenu) — et sur la barre compacte, sous lg. */}
           <button
             onClick={handleToggleLike}
             title={liked ? "Ne plus aimer" : "J'aime"}
             aria-label={liked ? "Ne plus aimer" : "J'aime"}
-            className={`grid h-9 w-9 shrink-0 place-items-center rounded-full transition-all hover:scale-110 ${
+            className={`hidden h-9 w-9 shrink-0 place-items-center rounded-full transition-all hover:scale-110 2xl:grid ${
               liked ? "text-accent" : "text-ink-muted hover:text-accent"
             }`}
           >
@@ -397,11 +436,14 @@ export function MiniPlayerBar() {
           </button>
         </div>
 
-        <div className="hidden h-11 w-px shrink-0 bg-border lg:block" />
+        <div className="hidden h-11 w-px shrink-0 bg-border xl:block" />
 
-        {/* Colonne 2 — transport + progression (centrée, largeur fluide) */}
-        <div className="flex min-w-0 flex-1 flex-col items-center justify-center gap-1.5">
-          <div className="flex items-center gap-5">
+        {/* Colonne 2 — transport + progression. `flex-[2]` : elle reçoit
+            deux fois la part de la colonne 1 sur l'espace laissé libre par
+            la colonne d'actions, et ne descend jamais sous la largeur de
+            ses boutons de transport. */}
+        <div className="flex min-w-[15rem] flex-[2] flex-col items-center justify-center gap-1.5 2xl:max-w-[44rem]">
+          <div className="flex items-center gap-4 xl:gap-5">
             <button
               onClick={toggleShuffle}
               title="Lecture aléatoire"
@@ -453,13 +495,15 @@ export function MiniPlayerBar() {
           </div>
         </div>
 
-        <div className="hidden h-11 w-px shrink-0 bg-border lg:block" />
+        <div className="hidden h-11 w-px shrink-0 bg-border xl:block" />
 
-        {/* Colonne 3 — actions + volume */}
-        <div className="flex shrink-0 items-center justify-end gap-1 md:w-[26%] lg:w-[34%]">
-          {/* Les libellés ne tiennent qu'à partir de lg ; en dessous la
-              colonne repasse en icônes seules (titre au survol). */}
-          <div className="hidden items-center gap-0.5 lg:flex">
+        {/* Colonne 3 — actions + volume. Largeur automatique : elle prend
+            exactement ce que ses boutons demandent, jamais plus. */}
+        <div className="flex shrink-0 items-center justify-end gap-1">
+          {/* Les cinq libellés font à eux seuls plus de 310 px : ils ne
+              tiennent qu'à partir de 2xl. En dessous, mêmes actions en
+              icônes seules (libellé au survol). */}
+          <div className="hidden items-center gap-0.5 2xl:flex">
             <LabelledAction icon={ListMusic} label="File d'attente" badge={queue.length} onClick={openFullPlayer} />
             <LabelledAction icon={ListPlus} label="Ajouter" onClick={() => setShowAddToPlaylist(true)} />
             <LabelledAction
@@ -474,22 +518,27 @@ export function MiniPlayerBar() {
             <LabelledAction icon={MoreHorizontal} label="Plus" onClick={(e) => setMenuPosition(anchorToButton(e))} />
           </div>
 
-          <div className="flex items-center gap-0.5 lg:hidden">
+          <div className="flex items-center gap-0.5 2xl:hidden">
             <CompactAction icon={ListMusic} label="File d'attente" badge={queue.length} onClick={openFullPlayer} />
-            <CompactAction icon={ListPlus} label="Ajouter à une playlist" onClick={() => setShowAddToPlaylist(true)} />
-            <CompactAction
-              icon={OfflineIcon}
-              label={offlineState === "saved" ? "Retirer du hors-ligne" : "Écouter hors-ligne"}
-              active={offlineState === "saved"}
-              disabled={offlineState === "saving"}
-              spin={offlineState === "saving"}
-              onClick={handleToggleOffline}
-            />
-            <CompactAction icon={Share2} label="Partager" onClick={handleShare} />
+            {/* Ajouter, télécharger et partager restent joignables par
+                « Plus d'options » : on ne les répète ici qu'une fois la
+                largeur disponible. */}
+            <span className="hidden items-center gap-0.5 xl:flex">
+              <CompactAction icon={ListPlus} label="Ajouter à une playlist" onClick={() => setShowAddToPlaylist(true)} />
+              <CompactAction
+                icon={OfflineIcon}
+                label={offlineState === "saved" ? "Retirer du hors-ligne" : "Écouter hors-ligne"}
+                active={offlineState === "saved"}
+                disabled={offlineState === "saving"}
+                spin={offlineState === "saving"}
+                onClick={handleToggleOffline}
+              />
+              <CompactAction icon={Share2} label="Partager" onClick={handleShare} />
+            </span>
             <CompactAction icon={MoreHorizontal} label="Plus d'options" onClick={(e) => setMenuPosition(anchorToButton(e))} />
           </div>
 
-          <div className="mx-1 h-9 w-px shrink-0 bg-border" />
+          <div className="mx-1 hidden h-9 w-px shrink-0 bg-border xl:block" />
 
           {/* Sélecteur de sortie audio. Masqué — plutôt qu'affiché inerte —
               là où l'API n'existe pas : seuls Chrome/Edge 110+ savent
@@ -527,9 +576,11 @@ export function MiniPlayerBar() {
             </button>
             {/* Largeur portée par ce conteneur, pas par SeekBar : SeekBar
                 applique `w-full` en dur, une classe de largeur passée en
-                `className` entrerait en conflit avec. Masqué sous lg où la
-                colonne est trop étroite — le bouton muet reste disponible. */}
-            <div className="hidden w-20 lg:block">
+                `className` entrerait en conflit avec. Ces 80 px sont pris
+                à la barre de progression : on ne les réclame qu'à partir
+                de xl, où elle reste confortable. Le bouton muet, lui,
+                reste disponible partout. */}
+            <div className="hidden w-20 xl:block">
               <SeekBar progress={volume} duration={1} onSeek={setVolume} variant="pill" />
             </div>
           </div>

@@ -95,7 +95,7 @@ export function SidebarPlaylists({ collapsed }: { collapsed: boolean }) {
   // 20 px sans libellé n'aiderait personne à s'y retrouver.
   if (collapsed) {
     return (
-      <>
+      <div className="shrink-0">
         <div className="my-4 mx-1 h-px bg-border" />
         <Tooltip label="Ma bibliothèque" show>
           <Link
@@ -105,15 +105,19 @@ export function SidebarPlaylists({ collapsed }: { collapsed: boolean }) {
             <ListMusic size={18} />
           </Link>
         </Tooltip>
-      </>
+      </div>
     );
   }
 
   return (
-    <>
-      <div className="my-4 h-px bg-border" />
+    // `min-h-0` + absence de `flex-grow` : le bloc garde la hauteur de son
+    // contenu tant qu'il y a la place, et se comprime en premier quand
+    // l'écran raccourcit — c'est lui qui absorbe le manque de hauteur, à la
+    // place du reste de la sidebar.
+    <div className="flex min-h-0 shrink flex-col">
+      <div className="my-4 h-px shrink-0 bg-border" />
 
-      <div className="mb-1 flex items-center justify-between px-3">
+      <div className="mb-1 flex shrink-0 items-center justify-between px-3">
         <span className="text-[11px] font-semibold uppercase tracking-wide text-ink-muted">Mes playlists</span>
         <button
           onClick={() => setCreation((v) => !v)}
@@ -126,7 +130,7 @@ export function SidebarPlaylists({ collapsed }: { collapsed: boolean }) {
       </div>
 
       {creation && (
-        <div className="mb-1.5 flex items-center gap-1 px-2">
+        <div className="mb-1.5 flex shrink-0 items-center gap-1 px-2">
           <input
             autoFocus
             value={titre}
@@ -164,15 +168,19 @@ export function SidebarPlaylists({ collapsed }: { collapsed: boolean }) {
         </div>
       )}
 
-      {chargement && <p className="px-3 py-1.5 text-xs text-ink-muted">Chargement...</p>}
+      {chargement && <p className="shrink-0 px-3 py-1.5 text-xs text-ink-muted">Chargement...</p>}
 
       {!chargement && playlists.length === 0 && !creation && (
-        <p className="px-3 py-1.5 text-xs text-ink-muted">Aucune playlist pour l&apos;instant.</p>
+        <p className="shrink-0 px-3 py-1.5 text-xs text-ink-muted">Aucune playlist pour l&apos;instant.</p>
       )}
 
-      {/* Liste bornée en hauteur : au-delà, elle repousserait les liens de
-          pied de sidebar hors de l'écran. */}
-      <nav className="max-h-64 space-y-0.5 overflow-y-auto">
+      {/* La liste défile pour elle-même. `min-h-` (et non `max-h-`) est ce
+          qui compte : il autorise la compression sous la taille du contenu
+          — un enfant flex a sinon `min-height: auto`, refuse de rétrécir,
+          et repousse tout le reste hors de l'écran. La borne haute vient
+          maintenant de la place réellement disponible, pas d'un `max-h-64`
+          arbitraire qui masquait les playlists au-delà de la quatrième. */}
+      <nav className="min-h-[3.25rem] space-y-0.5 overflow-y-auto">
         {playlists.map((p) => {
           const actif = pathname === `/playlist/${p._id}`;
           return (
@@ -201,6 +209,6 @@ export function SidebarPlaylists({ collapsed }: { collapsed: boolean }) {
           );
         })}
       </nav>
-    </>
+    </div>
   );
 }

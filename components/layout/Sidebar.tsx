@@ -52,16 +52,16 @@ export function Sidebar() {
 
   return (
     <aside
-      // `overflow-y-auto` : avec beaucoup de liens (artiste + admin), la
-      // navigation dépassait la hauteur d'écran et le pied de sidebar
-      // devenait inatteignable. Le pb-6 suffit désormais : le lecteur ne
-      // chevauche plus la sidebar (il est décalé de sa largeur), l'ancien
-      // pb-28 ne réservait donc plus que du vide.
-      className={`sticky top-0 print:hidden hidden h-screen shrink-0 flex-col overflow-y-auto border-r border-border pb-6 pt-6 transition-all duration-300 ease-out md:flex ${
+      // Colonne à trois étages : en-tête et pied restent en place, seul le
+      // corps peut défiler. Auparavant la sidebar entière défilait
+      // (`overflow-y-auto` ici) : sous 640 px de haut, le pied de page
+      // sortait de l'écran et il fallait faire défiler toute la colonne
+      // pour atteindre les playlists.
+      className={`sticky top-0 print:hidden hidden h-screen shrink-0 flex-col overflow-hidden border-r border-border transition-all duration-300 ease-out md:flex ${
         collapsed ? "md:w-20 md:px-2" : "md:w-64 md:px-4"
       }`}
     >
-      <div className={`mb-8 flex items-center px-2 ${collapsed ? "flex-col gap-3" : "justify-between"}`}>
+      <div className={`mb-6 flex shrink-0 items-center px-2 pt-6 ${collapsed ? "flex-col gap-3" : "justify-between"}`}>
         <div className={`flex min-w-0 items-center gap-2 ${collapsed ? "justify-center" : ""}`}>
           {siteConfig.logoUrl ? (
             <Image src={siteConfig.logoUrl} alt="" width={24} height={24} className="h-6 w-6 shrink-0 object-contain" priority />
@@ -79,33 +79,42 @@ export function Sidebar() {
         </div>
       </div>
 
-      <nav className="flex flex-col gap-1">{primaryLinks.map(renderLink)}</nav>
+      {/* Corps. `min-h-0` est indispensable : sans lui un enfant flex garde
+          sa taille de contenu comme hauteur minimale et rien ne peut se
+          comprimer. `overflow-y-auto` n'est ici qu'un filet de sécurité
+          pour les écrans très courts — en usage normal, c'est la liste des
+          playlists qui absorbe le manque de place. */}
+      <div className="flex min-h-0 flex-1 flex-col overflow-y-auto">
+        <nav className="flex shrink-0 flex-col gap-1">{primaryLinks.map(renderLink)}</nav>
 
-      <SidebarPlaylists collapsed={collapsed} />
+        <SidebarPlaylists collapsed={collapsed} />
 
-      <div className={`my-4 h-px bg-border ${collapsed ? "mx-1" : ""}`} />
-      <nav className="flex flex-col gap-1">{accountLinks.map(renderLink)}</nav>
+        <div className={`my-4 h-px shrink-0 bg-border ${collapsed ? "mx-1" : ""}`} />
+        <nav className="flex shrink-0 flex-col gap-1">{accountLinks.map(renderLink)}</nav>
 
-      {roleLinks.length > 0 && (
-        <>
-          <div className={`my-4 h-px bg-border ${collapsed ? "mx-1" : ""}`} />
-          <nav className="flex flex-col gap-1">{roleLinks.map(renderLink)}</nav>
-        </>
-      )}
+        {roleLinks.length > 0 && (
+          <>
+            <div className={`my-4 h-px shrink-0 bg-border ${collapsed ? "mx-1" : ""}`} />
+            <nav className="flex shrink-0 flex-col gap-1">{roleLinks.map(renderLink)}</nav>
+          </>
+        )}
+      </div>
 
-      {/* Bouton de repli / dépli — toujours accessible, même replié. */}
-      <button
-        onClick={toggleCollapsed}
-        aria-label={collapsed ? "Déplier le menu" : "Replier le menu"}
-        className={`mt-4 flex items-center gap-2 rounded-xl px-3 py-2 text-xs text-ink-muted transition-colors hover:bg-surface hover:text-ink ${
-          collapsed ? "justify-center px-0" : ""
-        }`}
-      >
-        <ChevronsLeft size={16} className={`shrink-0 transition-transform duration-300 ${collapsed ? "rotate-180" : ""}`} />
-        {!collapsed && "Replier"}
-      </button>
+      {/* Pied fixe : le repli et les liens légaux restent joignables quelle
+          que soit la hauteur d'écran. */}
+      <div className={`shrink-0 border-t border-border pb-6 pt-3 ${collapsed ? "px-0" : ""}`}>
+        <button
+          onClick={toggleCollapsed}
+          aria-label={collapsed ? "Déplier le menu" : "Replier le menu"}
+          className={`flex w-full items-center gap-2 rounded-xl px-3 py-2 text-xs text-ink-muted transition-colors hover:bg-surface hover:text-ink ${
+            collapsed ? "justify-center px-0" : ""
+          }`}
+        >
+          <ChevronsLeft size={16} className={`shrink-0 transition-transform duration-300 ${collapsed ? "rotate-180" : ""}`} />
+          {!collapsed && "Replier"}
+        </button>
 
-      <div className={`mt-auto flex flex-col gap-1 pt-6 text-xs text-ink-muted ${collapsed ? "items-center px-0" : "px-3"}`}>
+        <div className={`flex flex-col gap-1 pt-3 text-xs text-ink-muted ${collapsed ? "items-center px-0" : "px-3"}`}>
         {collapsed ? (
           <div className="flex flex-col items-center gap-3">
             <Tooltip label="Contact" show>
@@ -128,6 +137,7 @@ export function Sidebar() {
             <p>© {new Date().getFullYear()} {siteConfig.siteName}</p>
           </>
         )}
+        </div>
       </div>
     </aside>
   );

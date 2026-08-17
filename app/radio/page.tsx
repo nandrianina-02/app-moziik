@@ -54,7 +54,10 @@ function formatTime(seconds: number) {
 type Station = { key: string; label: string; icon: typeof Flame; bg: string; fetchUrl: string };
 
 const stations: Station[] = [
-  { key: "tendances", label: "Tendances", icon: Flame, bg: "bg-[#FF6B4A]", fetchUrl: "/api/songs?limit=50&sort=popular" },
+  // Les huit tuiles gardent une couleur fixe, indépendante du thème : du
+  // blanc sur un aplat saturé sombre se lit sur les deux fonds. Le corail
+  // clair faisait exception (2,8:1) — il est repris ici en corail profond.
+  { key: "tendances", label: "Tendances", icon: Flame, bg: "bg-[#C63F1C]", fetchUrl: "/api/songs?limit=50&sort=popular" },
   { key: "favoris", label: "Mes favoris", icon: Heart, bg: "bg-[#C0356B]", fetchUrl: "/api/me/liked-songs" },
   { key: "nouveautes", label: "Nouveautés", icon: Sparkles, bg: "bg-[#2E5AAC]", fetchUrl: "/api/songs?limit=50" },
   { key: "afro", label: "Afro", icon: Mic2, bg: "bg-[#1B2A4A]", fetchUrl: "/api/songs?limit=50&genre=Afro" },

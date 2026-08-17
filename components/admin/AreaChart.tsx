@@ -6,7 +6,7 @@ import { useId, useState } from "react";
 export function AreaChart({
   values,
   labels,
-  color = "#ff6b4a",
+  color = "rgb(var(--color-accent))",
 }: {
   /** Valeurs du plus ancien au plus récent. */
   values: number[];
@@ -84,7 +84,9 @@ export function AreaChart({
           {hover === i && (
             <>
               <line x1={p.x} x2={p.x} y1={padding} y2={height - padding} stroke="currentColor" className="text-border" strokeDasharray="3 3" />
-              <circle cx={p.x} cy={p.y} r={4} fill={color} stroke="white" strokeWidth={1.5} />
+              {/* Le liseré détache le point de la courbe : il doit valoir
+                  le fond de la carte, pas un blanc figé. */}
+              <circle cx={p.x} cy={p.y} r={4} fill={color} stroke="rgb(var(--color-surface))" strokeWidth={1.5} />
               <g transform={`translate(${Math.min(Math.max(p.x, padding + 20), width - padding - 20)}, ${Math.max(p.y - 14, 12)})`}>
                 <rect x={-16} y={-12} width={32} height={18} rx={5} className="fill-ink" />
                 <text x={0} y={1} textAnchor="middle" fontSize={11} className="fill-base font-medium">

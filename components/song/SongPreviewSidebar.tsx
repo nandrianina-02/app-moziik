@@ -60,7 +60,7 @@ export function SongPreviewSidebar({
         </div>
 
         <div className="mt-3.5">
-          <p className="truncate text-base font-display leading-tight">{title || "Titre du morceau"}</p>
+          <p className="truncate text-base text-ink font-display leading-tight">{title || "Titre du morceau"}</p>
           <p className="truncate text-sm text-ink-muted">{artistName || "Artiste"}</p>
           <p className="mt-1 flex items-center gap-1.5 text-xs text-ink-muted">
             {genre && <span>{genre}</span>}

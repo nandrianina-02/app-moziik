@@ -13,9 +13,9 @@ export function StatCard({
   icon: LucideIcon;
   /** Ligne secondaire optionnelle (tendance, précision sur le chiffre...). */
   hint?: React.ReactNode;
-  /** Couleur Tailwind de l'icône, ex: "text-emerald-600". Par défaut la couleur d'accent du thème. */
+  /** Couleur Tailwind de l'icône, ex: "text-tint-emerald". Par défaut la couleur d'accent du thème. */
   color?: string;
-  /** Fond du badge d'icône, ex: "bg-emerald-500/10". Si omis, l'icône est affichée seule comme avant. */
+  /** Fond du badge d'icône, ex: "bg-tint-emerald/10". Si omis, l'icône est affichée seule comme avant. */
   bg?: string;
 }) {
   return (

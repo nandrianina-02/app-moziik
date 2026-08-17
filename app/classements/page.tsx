@@ -241,7 +241,10 @@ export default function ChartsPage() {
 
             <div className="rounded-xl2 border border-border bg-surface p-5">
               <div className="mb-4 flex items-center gap-1.5 text-sm font-medium">
-                <Trophy size={16} className="text-[#F5C542]" /> Top 3
+                {/* L'or des médailles (#F5C542) ne donne que 1,6:1 sur le
+                    fond crème : cette icône isolée suit le token, les
+                    pastilles du podium gardent leur couleur de métal. */}
+                <Trophy size={16} className="text-warning" /> Top 3
               </div>
               {podium.length === 0 ? (
                 <p className="text-sm text-ink-muted">Pas encore assez d&apos;écoutes sur cette période.</p>

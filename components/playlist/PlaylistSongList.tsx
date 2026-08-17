@@ -170,12 +170,15 @@ export function PlaylistSongList({
                 <GripVertical size={16} />
               </span>
 
+              {/* accent-accent, et non var(--accent) : cette variable-là
+                  n'a jamais existé (elle s'appelle --color-accent), la case
+                  retombait donc toujours sur le corail figé du repli. */}
               <input
                 type="checkbox"
                 checked={selectionne}
                 onChange={() => onToggleSelected(song._id)}
                 aria-label={`Sélectionner ${song.title}`}
-                className="h-4 w-4 shrink-0 accent-[color:var(--accent,#FF6B4A)]"
+                className="h-4 w-4 shrink-0 accent-accent"
               />
 
               <span className="w-5 shrink-0 text-center text-xs tabular-nums text-ink-muted">{index + 1}</span>

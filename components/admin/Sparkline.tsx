@@ -1,5 +1,5 @@
 /** Mini courbe SVG sans axes, utilisée dans les cartes de stats du dashboard admin. */
-export function Sparkline({ values, color = "#ff6b4a" }: { values: number[]; color?: string }) {
+export function Sparkline({ values, color = "rgb(var(--color-accent))" }: { values: number[]; color?: string }) {
   if (values.length < 2) return null;
 
   const width = 100;

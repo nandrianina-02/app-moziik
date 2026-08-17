@@ -28,8 +28,12 @@ export function Switch({
         checked ? "bg-accent" : "bg-border"
       }`}
     >
+      {/* Pastille en bg-ink, pas en blanc : blanche, elle se confondait
+          avec le rail bg-border du thème clair (#FFF sur #E7E3D8, soit
+          1,1:1). En bg-ink elle reste blanc cassé sur fond sombre — aspect
+          inchangé — et devient encre sur fond clair. */}
       <span
-        className={`inline-block h-4.5 w-4.5 transform rounded-full bg-white shadow-sm transition-transform duration-200 ${
+        className={`inline-block h-4.5 w-4.5 transform rounded-full bg-ink shadow-sm transition-transform duration-200 ${
           checked ? "translate-x-[22px]" : "translate-x-1"
         }`}
       />

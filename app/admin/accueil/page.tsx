@@ -108,21 +108,21 @@ const sortLabel: Record<string, string> = {
 };
 
 const typeBadgeColor: Record<string, string> = {
-  hero: "bg-violet-500/15 text-violet-600",
-  for_you: "bg-cyan-500/15 text-cyan-600",
-  recently_played: "bg-lime-500/15 text-lime-600",
-  new_releases: "bg-sky-500/15 text-sky-600",
-  top_tracks: "bg-teal-500/15 text-teal-600",
-  albums: "bg-orange-500/15 text-orange-600",
-  trending_artists: "bg-pink-500/15 text-pink-600",
-  recommendations: "bg-indigo-500/15 text-indigo-600",
-  playlists: "bg-emerald-500/15 text-emerald-600",
-  genres: "bg-fuchsia-500/15 text-fuchsia-600",
-  events: "bg-amber-500/15 text-amber-600",
-  radio: "bg-rose-500/15 text-rose-600",
-  premium: "bg-orange-500/15 text-orange-600",
-  activity: "bg-blue-500/15 text-blue-600",
-  custom: "bg-slate-500/15 text-slate-600",
+  hero: "bg-tint-violet/15 text-tint-violet",
+  for_you: "bg-tint-cyan/15 text-tint-cyan",
+  recently_played: "bg-tint-lime/15 text-tint-lime",
+  new_releases: "bg-tint-sky/15 text-tint-sky",
+  top_tracks: "bg-tint-teal/15 text-tint-teal",
+  albums: "bg-tint-orange/15 text-tint-orange",
+  trending_artists: "bg-tint-pink/15 text-tint-pink",
+  recommendations: "bg-tint-indigo/15 text-tint-indigo",
+  playlists: "bg-tint-emerald/15 text-tint-emerald",
+  genres: "bg-tint-fuchsia/15 text-tint-fuchsia",
+  events: "bg-tint-amber/15 text-tint-amber",
+  radio: "bg-tint-rose/15 text-tint-rose",
+  premium: "bg-tint-orange/15 text-tint-orange",
+  activity: "bg-tint-blue/15 text-tint-blue",
+  custom: "bg-tint-slate/15 text-tint-slate",
 };
 
 const contentLabel: Record<Pinned["contentType"], string> = {
@@ -396,37 +396,37 @@ export default function AdminHomepagePage() {
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <StatCard
           icon={ListChecks}
-          bg="bg-emerald-500/10"
-          color="text-emerald-600"
+          bg="bg-tint-emerald/10"
+          color="text-tint-emerald"
           label="Sections actives"
           value={`${stats.sectionsActive} / ${stats.sectionsTotal}`}
           hint="Sections affichées"
         />
         <StatCard
           icon={Pin}
-          bg="bg-orange-500/10"
-          color="text-orange-600"
+          bg="bg-tint-orange/10"
+          color="text-tint-orange"
           label="Contenus épinglés"
           value={String(stats.pinnedActive)}
           hint={`${stats.pinnedTotal} au total, actuellement en avant`}
         />
         <StatCard
           icon={TrendingUp}
-          bg="bg-sky-500/10"
-          color="text-sky-600"
+          bg="bg-tint-sky/10"
+          color="text-tint-sky"
           label="Taux d'engagement"
           value={stats.engagementRatePct !== null ? `${stats.engagementRatePct.toFixed(1)}%` : "—"}
           hint="Écoutes / vues (30 derniers jours)"
         />
         <StatCard
           icon={Eye}
-          bg="bg-violet-500/10"
-          color="text-violet-600"
+          bg="bg-tint-violet/10"
+          color="text-tint-violet"
           label="Vues de la page d'accueil"
           value={formatNumber(stats.totalViews)}
           hint={
             stats.viewsTrendPct !== null ? (
-              <span className={`flex items-center gap-1 ${stats.viewsTrendPct >= 0 ? "text-emerald-600" : "text-accent"}`}>
+              <span className={`flex items-center gap-1 ${stats.viewsTrendPct >= 0 ? "text-tint-emerald" : "text-accent"}`}>
                 {stats.viewsTrendPct >= 0 ? <TrendingUp size={12} /> : <TrendingDown size={12} />}
                 {stats.viewsTrendPct >= 0 ? "+" : ""}
                 {stats.viewsTrendPct.toFixed(1)}% vs mois dernier
@@ -536,7 +536,7 @@ export default function AdminHomepagePage() {
                         </span>
                       </td>
                       <td className="py-3 pr-4 text-xs">
-                        <span className={section.mode === "auto" ? "text-sky-600" : "text-orange-600"}>
+                        <span className={section.mode === "auto" ? "text-tint-sky" : "text-tint-orange"}>
                           {section.mode === "auto" ? "Automatique" : "Manuel"}
                         </span>
                       </td>

@@ -87,8 +87,8 @@ export function ForYouCarousel({ title, cards }: { title: string; cards: HubCard
               {card.subtitle && <p className="max-w-[80%] text-xs text-white/80">{card.subtitle}</p>}
             </div>
 
-            <span className="absolute bottom-3 right-3 grid h-9 w-9 place-items-center rounded-full bg-white text-base shadow-lg">
-              <Play size={15} className="text-black" fill="currentColor" />
+            <span className="absolute bottom-3 right-3 grid h-9 w-9 place-items-center rounded-full bg-ink text-base shadow-lg">
+              <Play size={15} fill="currentColor" />
             </span>
           </Link>
         ))}

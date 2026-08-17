@@ -179,7 +179,7 @@ export function ShareModal({
             className={`shrink-0 object-cover ${isCircular ? "rounded-full" : "rounded-xl"}`}
           />
           <div className="min-w-0 flex-1">
-            <p className="truncate text-base font-semibold">{subject.title}</p>
+            <p className="truncate text-base text-ink font-semibold">{subject.title}</p>
             {subject.subtitle && (
               <p className="mt-0.5 flex items-center gap-1 truncate text-sm text-ink-muted">
                 {subject.subtitle}

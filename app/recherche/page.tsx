@@ -185,7 +185,10 @@ function SearchPageContent() {
         </p>
       )}
 
-      <label className="flex items-center gap-2 rounded-xl border border-border bg-surface px-4 py-3 mb-8">
+      {/* focus-within sur l'enveloppe : le champ est nu (outline-none,
+          bg-transparent), c'est la bordure du conteneur qui doit signaler
+          le focus — comme sur tous les autres champs de l'application. */}
+      <label className="flex items-center gap-2 rounded-xl border border-border bg-surface px-4 py-3 mb-8 transition-colors focus-within:border-accent">
         <SearchIcon size={18} className="text-ink-muted shrink-0" />
         <input
           value={query}

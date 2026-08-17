@@ -3,10 +3,10 @@
 import type { LucideIcon } from "lucide-react";
 
 const TINTS = {
-  rose: "bg-rose-500/15 text-rose-500",
+  rose: "bg-tint-rose/15 text-tint-rose",
   emerald: "bg-verified/15 text-verified",
-  indigo: "bg-indigo-500/15 text-indigo-500",
-  amber: "bg-amber-500/15 text-amber-500",
+  indigo: "bg-tint-indigo/15 text-tint-indigo",
+  amber: "bg-tint-amber/15 text-tint-amber",
 } as const;
 
 export function LibraryStatCard({

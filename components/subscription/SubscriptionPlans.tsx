@@ -29,10 +29,10 @@ const perks = [
 ] as const;
 
 const perkColors: Record<string, string> = {
-  emerald: "bg-emerald-500/15 text-emerald-500",
-  sky: "bg-sky-500/15 text-sky-500",
-  violet: "bg-violet-500/15 text-violet-500",
-  rose: "bg-rose-500/15 text-rose-500",
+  emerald: "bg-tint-emerald/15 text-tint-emerald",
+  sky: "bg-tint-sky/15 text-tint-sky",
+  violet: "bg-tint-violet/15 text-tint-violet",
+  rose: "bg-tint-rose/15 text-tint-rose",
 };
 
 function formatPrice(plan: Plan, method: PaymentMethod) {
@@ -218,7 +218,7 @@ export function SubscriptionPlans() {
           {method === "mobile_money" && (
             <div className="mb-5">
               <label className="text-sm text-ink-muted mb-1.5 block">Numéro Mobile Money</label>
-              <label className="flex items-center gap-2.5 rounded-xl border border-border bg-base px-4 py-3">
+              <label className="flex items-center gap-2.5 rounded-xl border border-border bg-base px-4 py-3 transition-colors focus-within:border-accent">
                 <Smartphone size={16} className="text-ink-muted shrink-0" />
                 <input
                   value={phoneNumber}
@@ -250,7 +250,7 @@ export function SubscriptionPlans() {
       {/* Colonne latérale : résumé */}
       <div className="lg:sticky lg:top-8 space-y-5">
         <div className="rounded-xl2 border border-border bg-surface p-5 md:p-6">
-          <h2 className="font-display text-base mb-4">Résumé de la commande</h2>
+          <h2 className="font-display text-base text-ink mb-4">Résumé de la commande</h2>
           <dl className="space-y-3 text-sm">
             <div className="flex items-center justify-between">
               <dt className="text-ink-muted">Formule</dt>

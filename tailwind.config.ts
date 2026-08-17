@@ -37,12 +37,45 @@ const config: Config = {
           DEFAULT: "rgb(var(--color-ink) / <alpha-value>)",
           muted: "rgb(var(--color-ink-muted) / <alpha-value>)",
         },
+        // L'accent et l'émeraude étaient les deux seuls tokens figés :
+        // même valeur dans les deux thèmes, donc illisibles en clair.
+        // Ils suivent désormais le même mécanisme que le reste.
         accent: {
-          DEFAULT: "#FF6B4A", // corail — actions primaires, lecture
-          hover: "#FF8267",
+          DEFAULT: "rgb(var(--color-accent) / <alpha-value>)", // corail — actions primaires, lecture
+          hover: "rgb(var(--color-accent-hover) / <alpha-value>)",
         },
         verified: {
-          DEFAULT: "#3DDC97", // émeraude — badges vérifiés, succès
+          DEFAULT: "rgb(var(--color-verified) / <alpha-value>)", // émeraude — badges vérifiés, succès
+        },
+        // États sémantiques, à préférer aux nuances Tailwind brutes
+        // (text-red-500 & co. ne conviennent qu'à un seul des deux fonds).
+        danger: {
+          DEFAULT: "rgb(var(--color-danger) / <alpha-value>)",
+        },
+        warning: {
+          DEFAULT: "rgb(var(--color-warning) / <alpha-value>)",
+        },
+        info: {
+          DEFAULT: "rgb(var(--color-info) / <alpha-value>)",
+        },
+        // Teintes catégorielles des pastilles d'icônes (tableaux de bord,
+        // cartes de statistiques) — décoratives, mais qui doivent rester
+        // visibles sur les deux fonds.
+        tint: {
+          violet: "rgb(var(--tint-violet) / <alpha-value>)",
+          cyan: "rgb(var(--tint-cyan) / <alpha-value>)",
+          lime: "rgb(var(--tint-lime) / <alpha-value>)",
+          sky: "rgb(var(--tint-sky) / <alpha-value>)",
+          teal: "rgb(var(--tint-teal) / <alpha-value>)",
+          orange: "rgb(var(--tint-orange) / <alpha-value>)",
+          pink: "rgb(var(--tint-pink) / <alpha-value>)",
+          indigo: "rgb(var(--tint-indigo) / <alpha-value>)",
+          emerald: "rgb(var(--tint-emerald) / <alpha-value>)",
+          fuchsia: "rgb(var(--tint-fuchsia) / <alpha-value>)",
+          amber: "rgb(var(--tint-amber) / <alpha-value>)",
+          rose: "rgb(var(--tint-rose) / <alpha-value>)",
+          blue: "rgb(var(--tint-blue) / <alpha-value>)",
+          slate: "rgb(var(--tint-slate) / <alpha-value>)",
         },
       },
       fontFamily: {

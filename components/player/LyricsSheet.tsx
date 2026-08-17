@@ -34,7 +34,7 @@ export function LyricsSheet({
             {title}
             {artist ? ` — ${artist}` : ""}
           </p>
-          <p className="whitespace-pre-line text-base leading-relaxed">{lyrics}</p>
+          <p className="whitespace-pre-line text-base text-ink leading-relaxed">{lyrics}</p>
         </div>
       </div>
     </div>

@@ -177,7 +177,7 @@ function ArtistTab({
           {song.artist.stageName.charAt(0).toUpperCase()}
         </span>
         <span>
-          <span className="flex items-center gap-1.5 text-base font-medium">
+          <span className="flex items-center gap-1.5 text-base text-ink font-medium">
             {song.artist.stageName}
             {song.artist.verified && (
               <BadgeCheck size={15} className="text-verified" />
@@ -215,7 +215,7 @@ function AlbumTab({ album }: { album: AlbumSummary }) {
         <div>
           <Link
             href={`/album/${album._id}`}
-            className="text-base font-medium hover:text-accent"
+            className="text-base text-ink font-medium hover:text-accent"
           >
             {album.title}
           </Link>

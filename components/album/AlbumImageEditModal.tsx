@@ -94,7 +94,7 @@ export function AlbumImageEditModal({
           className="w-full max-w-md rounded-xl2 border border-border bg-surface p-5"
         >
           <div className="mb-4 flex items-center justify-between">
-            <h2 className="text-base font-semibold">{title}</h2>
+            <h2 className="text-base text-ink font-semibold">{title}</h2>
             <button onClick={onClose} aria-label="Fermer" className="text-ink-muted hover:text-ink">
               <X size={18} />
             </button>

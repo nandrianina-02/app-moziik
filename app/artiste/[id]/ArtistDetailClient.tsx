@@ -410,7 +410,7 @@ export function ArtistDetailClient() {
             <div className="space-y-10">
               <section>
                 <div className="mb-3 flex items-center justify-between">
-                  <h2 className="text-base font-display">Morceaux populaires</h2>
+                  <h2 className="text-base text-ink font-display">Morceaux populaires</h2>
                   {songs.length > 5 && (
                     <button onClick={() => setTab("morceaux")} className="text-xs font-medium text-accent hover:underline">
                       Voir tout
@@ -434,7 +434,7 @@ export function ArtistDetailClient() {
                   {albums.length > 0 && (
                     <section>
                       <div className="mb-3 flex items-center justify-between">
-                        <h2 className="text-base font-display">Albums</h2>
+                        <h2 className="text-base text-ink font-display">Albums</h2>
                         <button onClick={() => setTab("albums")} className="text-xs font-medium text-accent hover:underline">
                           Voir tout
                         </button>
@@ -481,7 +481,7 @@ export function ArtistDetailClient() {
 
                   {recentComments.length > 0 && (
                     <section>
-                      <h2 className="mb-3 flex items-center gap-1.5 text-base font-display">
+                      <h2 className="mb-3 flex items-center gap-1.5 text-base text-ink font-display">
                         <MessageCircle size={16} /> Commentaires récents
                       </h2>
                       <div className="space-y-3">
@@ -590,7 +590,7 @@ export function ArtistDetailClient() {
 
               {similarArtists.length > 0 && (
                 <section>
-                  <h2 className="mb-3 text-base font-display">Vous aimerez aussi</h2>
+                  <h2 className="mb-3 text-base text-ink font-display">Vous aimerez aussi</h2>
                   <div className="-mx-1 flex gap-5 overflow-x-auto px-1 pb-2">
                     {similarArtists.map((a) => (
                       <Link key={a._id} href={`/artiste/${a._id}`} className="w-24 shrink-0 text-center sm:w-28">

@@ -23,11 +23,14 @@ export function RecentlyPlayedRow({ songs }: { songs: PlayableSong[] }) {
           <button key={song._id} onClick={handleClick} className="w-28 shrink-0 text-left sm:w-32">
             <div className="relative aspect-square w-full overflow-hidden rounded-xl2 bg-surface">
               <SafeImage src={song.coverUrl} alt={song.title} width={140} height={140} className="h-full w-full object-cover" />
-              <span className="absolute -bottom-2 -right-2 grid h-9 w-9 place-items-center rounded-full bg-white shadow-lg">
+              {/* La pastille déborde de la pochette, donc sur le fond de
+                  page : en blanc sur blanc elle disparaissait en thème
+                  clair. bg-ink / text-base s'inverse avec le thème. */}
+              <span className="absolute -bottom-2 -right-2 grid h-9 w-9 place-items-center rounded-full bg-ink text-base shadow-lg">
                 {isCurrent && isPlaying ? (
-                  <Pause size={15} className="text-black" fill="currentColor" />
+                  <Pause size={15} fill="currentColor" />
                 ) : (
-                  <Play size={15} className="text-black" fill="currentColor" />
+                  <Play size={15} fill="currentColor" />
                 )}
               </span>
             </div>

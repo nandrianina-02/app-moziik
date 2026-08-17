@@ -365,7 +365,7 @@ export function FullPlayerPage() {
                   }`}
                 >
                   <span
-                    className={`inline-block h-[18px] w-[18px] transform rounded-full bg-white transition-transform ${
+                    className={`inline-block h-[18px] w-[18px] transform rounded-full bg-ink transition-transform ${
                       bassBoostOn ? "translate-x-[22px]" : "translate-x-[3px]"
                     }`}
                   />

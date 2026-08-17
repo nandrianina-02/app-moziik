@@ -82,7 +82,7 @@ export function SeekBar({ progress, duration, onSeek, variant = "pill", classNam
           style={{ width: `${pct}%`, transition: dragRatio !== null ? "none" : "width 0.15s linear, background-color 0.15s" }}
         />
         <div
-          className={`absolute top-1/2 -translate-y-1/2 -translate-x-1/2 rounded-full bg-white shadow transition-opacity duration-150 ${thumbSize} ${
+          className={`absolute top-1/2 -translate-y-1/2 -translate-x-1/2 rounded-full bg-ink shadow transition-opacity duration-150 ${thumbSize} ${
             active ? "opacity-100" : "opacity-0"
           }`}
           style={{ left: `${pct}%` }}

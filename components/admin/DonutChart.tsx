@@ -1,4 +1,13 @@
-const palette = ["#ff6b4a", "#8b5cf6", "#22c55e", "#eab308", "#0ea5e9", "#ec4899"];
+// Teintes du thème plutôt que des hexadécimaux : les nuances vives
+// choisies pour le fond indigo passaient mal sur le fond crème.
+const palette = [
+  "rgb(var(--color-accent))",
+  "rgb(var(--tint-violet))",
+  "rgb(var(--tint-emerald))",
+  "rgb(var(--tint-amber))",
+  "rgb(var(--tint-sky))",
+  "rgb(var(--tint-pink))",
+];
 
 export function DonutChart({ segments }: { segments: { label: string; count: number }[] }) {
   const total = segments.reduce((sum, s) => sum + s.count, 0);

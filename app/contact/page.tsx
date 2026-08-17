@@ -252,7 +252,7 @@ export default function ContactPage() {
                       placeholder="Votre nom complet"
                       className={`w-full rounded-xl border bg-base py-2.5 pl-11 pr-10 text-sm outline-none transition-colors ${
                         fieldState("name") === "invalid"
-                          ? "border-red-500/70 focus:border-red-500"
+                          ? "border-danger/70 focus:border-danger"
                           : "border-border focus:border-accent"
                       }`}
                     />
@@ -260,11 +260,11 @@ export default function ContactPage() {
                       <CheckCircle2 size={16} className="absolute right-3.5 text-verified" />
                     )}
                     {fieldState("name") === "invalid" && (
-                      <AlertCircle size={16} className="absolute right-3.5 text-red-500" />
+                      <AlertCircle size={16} className="absolute right-3.5 text-danger" />
                     )}
                   </span>
                   {fieldState("name") === "invalid" && (
-                    <span className="mt-1.5 block text-xs text-red-500">{errors.name}</span>
+                    <span className="mt-1.5 block text-xs text-danger">{errors.name}</span>
                   )}
                 </label>
 
@@ -281,7 +281,7 @@ export default function ContactPage() {
                       placeholder="Votre adresse email"
                       className={`w-full rounded-xl border bg-base py-2.5 pl-11 pr-10 text-sm outline-none transition-colors ${
                         fieldState("email") === "invalid"
-                          ? "border-red-500/70 focus:border-red-500"
+                          ? "border-danger/70 focus:border-danger"
                           : "border-border focus:border-accent"
                       }`}
                     />
@@ -289,11 +289,11 @@ export default function ContactPage() {
                       <CheckCircle2 size={16} className="absolute right-3.5 text-verified" />
                     )}
                     {fieldState("email") === "invalid" && (
-                      <AlertCircle size={16} className="absolute right-3.5 text-red-500" />
+                      <AlertCircle size={16} className="absolute right-3.5 text-danger" />
                     )}
                   </span>
                   {fieldState("email") === "invalid" && (
-                    <span className="mt-1.5 block text-xs text-red-500">{errors.email}</span>
+                    <span className="mt-1.5 block text-xs text-danger">{errors.email}</span>
                   )}
                 </label>
 
@@ -322,7 +322,7 @@ export default function ContactPage() {
                   <span className="mb-1.5 block text-sm font-medium text-ink">Message</span>
                   <div className={`relative rounded-xl border bg-base transition-colors ${
                     fieldState("message") === "invalid"
-                      ? "border-red-500/70 focus-within:border-red-500"
+                      ? "border-danger/70 focus-within:border-danger"
                       : "border-border focus-within:border-accent"
                   }`}>
                     <textarea
@@ -339,7 +339,7 @@ export default function ContactPage() {
                     </span>
                   </div>
                   {fieldState("message") === "invalid" && (
-                    <span className="mt-1.5 block text-xs text-red-500">{errors.message}</span>
+                    <span className="mt-1.5 block text-xs text-danger">{errors.message}</span>
                   )}
                 </label>
 

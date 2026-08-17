@@ -27,9 +27,9 @@ type Stats = {
 
 const quickActions = [
   { href: "/admin/membres", label: "Gérer les membres", icon: UserPlus, bg: "bg-accent/10", color: "text-accent" },
-  { href: "/admin/musiques", label: "Modérer les musiques", icon: Music, bg: "bg-violet-500/10", color: "text-violet-600" },
-  { href: "/admin/albums", label: "Gérer les albums", icon: Disc3, bg: "bg-emerald-500/10", color: "text-emerald-600" },
-  { href: "/admin/evenements", label: "Modérer les évènements", icon: CalendarPlus, bg: "bg-amber-500/10", color: "text-amber-600" },
+  { href: "/admin/musiques", label: "Modérer les musiques", icon: Music, bg: "bg-tint-violet/10", color: "text-tint-violet" },
+  { href: "/admin/albums", label: "Gérer les albums", icon: Disc3, bg: "bg-tint-emerald/10", color: "text-tint-emerald" },
+  { href: "/admin/evenements", label: "Modérer les évènements", icon: CalendarPlus, bg: "bg-tint-amber/10", color: "text-tint-amber" },
 ];
 
 function timeAgo(iso: string) {
@@ -46,7 +46,7 @@ function TrendLabel({ pct }: { pct: number | null }) {
   if (pct === null) return <span className="text-ink-muted">Pas de données le mois dernier</span>;
   const positive = pct >= 0;
   return (
-    <span className={`flex items-center gap-1 ${positive ? "text-emerald-600" : "text-accent"}`}>
+    <span className={`flex items-center gap-1 ${positive ? "text-tint-emerald" : "text-accent"}`}>
       {positive ? <TrendingUp size={12} /> : <TrendingDown size={12} />}
       {positive ? "+" : ""}
       {pct.toFixed(0)}% ce mois
@@ -95,7 +95,7 @@ export default function AdminDashboardPage() {
           icon={Users}
           bg="bg-accent/10"
           color="text-accent"
-          sparkColor="#ff6b4a"
+          sparkColor="rgb(var(--color-accent))"
           label="Membres"
           value={stats.members}
           trend={stats.trends.members}
@@ -103,9 +103,9 @@ export default function AdminDashboardPage() {
         />
         <TopStatCard
           icon={Mic2}
-          bg="bg-violet-500/10"
-          color="text-violet-600"
-          sparkColor="#8b5cf6"
+          bg="bg-tint-violet/10"
+          color="text-tint-violet"
+          sparkColor="rgb(var(--tint-violet))"
           label="Artistes"
           value={stats.artists}
           trend={stats.trends.artists}
@@ -113,9 +113,9 @@ export default function AdminDashboardPage() {
         />
         <TopStatCard
           icon={Music}
-          bg="bg-emerald-500/10"
-          color="text-emerald-600"
-          sparkColor="#22c55e"
+          bg="bg-tint-emerald/10"
+          color="text-tint-emerald"
+          sparkColor="rgb(var(--tint-emerald))"
           label="Musiques"
           value={stats.publishedSongs}
           trend={stats.trends.songs}
@@ -123,9 +123,9 @@ export default function AdminDashboardPage() {
         />
         <TopStatCard
           icon={Crown}
-          bg="bg-amber-500/10"
-          color="text-amber-600"
-          sparkColor="#eab308"
+          bg="bg-tint-amber/10"
+          color="text-tint-amber"
+          sparkColor="rgb(var(--tint-amber))"
           label="Abonnements Premium"
           value={stats.activeSubscriptions}
           trend={stats.trends.subscriptions}

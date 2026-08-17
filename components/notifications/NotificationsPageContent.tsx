@@ -195,7 +195,7 @@ export function NotificationsPageContent() {
                       }`}
                     >
                       <span
-                        className="absolute top-0.5 h-4 w-4 rounded-full bg-white shadow transition-all"
+                        className="absolute top-0.5 h-4 w-4 rounded-full bg-ink shadow transition-all"
                         style={{ left: hideRead ? "18px" : "2px" }}
                       />
                     </button>

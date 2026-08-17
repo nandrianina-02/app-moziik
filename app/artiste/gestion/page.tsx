@@ -79,9 +79,9 @@ type ArtistDoc = {
 
 const statusMeta: Record<OwnSong["status"], { label: string; dot: string; text: string; bg: string }> = {
   draft: { label: "Brouillon", dot: "bg-ink-muted", text: "text-ink-muted", bg: "bg-ink-muted/10" },
-  scheduled: { label: "Planifié", dot: "bg-blue-500", text: "text-blue-500", bg: "bg-blue-500/10" },
+  scheduled: { label: "Planifié", dot: "bg-tint-blue", text: "text-tint-blue", bg: "bg-tint-blue/10" },
   published: { label: "Publié", dot: "bg-verified", text: "text-verified", bg: "bg-verified/10" },
-  rejected: { label: "Refusé", dot: "bg-red-500", text: "text-red-500", bg: "bg-red-500/10" },
+  rejected: { label: "Refusé", dot: "bg-danger", text: "text-danger", bg: "bg-danger/10" },
 };
 
 type CategoryFilter = "all" | "published" | "draft" | "album" | "single" | "featuring";
@@ -699,7 +699,7 @@ function StatTile({ icon: Icon, label, value }: { icon: typeof Headphones; label
   return (
     <div className="rounded-xl border border-border p-3">
       <Icon size={16} className="mb-2 text-accent" />
-      <p className="text-base font-semibold">{formatCompactNumber(value)}</p>
+      <p className="text-base text-ink font-semibold">{formatCompactNumber(value)}</p>
       <p className="text-[11px] text-ink-muted">{label}</p>
     </div>
   );
@@ -746,11 +746,14 @@ function QuickAction({
 
 function StatusDonut({ counts }: { counts: Record<OwnSong["status"], number> }) {
   const total = counts.published + counts.draft + counts.scheduled + counts.rejected;
+  // Les couleurs des arcs suivent les mêmes variables que les pastilles
+  // de statut au-dessus : figées en hexadécimal, elles restaient calées
+  // sur le thème sombre.
   const segments: { key: OwnSong["status"]; color: string }[] = [
-    { key: "published", color: "#3DDC97" },
-    { key: "draft", color: "#8B8FA3" },
-    { key: "scheduled", color: "#3B82F6" },
-    { key: "rejected", color: "#EF4444" },
+    { key: "published", color: "rgb(var(--color-verified))" },
+    { key: "draft", color: "rgb(var(--color-ink-muted))" },
+    { key: "scheduled", color: "rgb(var(--tint-blue))" },
+    { key: "rejected", color: "rgb(var(--color-danger))" },
   ];
 
   const circumference = 2 * Math.PI * 40;

@@ -107,7 +107,7 @@ export function AddSongsModal({
           onClick={(e) => e.stopPropagation()}
         >
           <div className="flex items-center justify-between border-b border-border px-5 py-4">
-            <h2 className="text-base font-display">Ajouter des morceaux</h2>
+            <h2 className="text-base text-ink font-display">Ajouter des morceaux</h2>
             <button onClick={onClose} aria-label="Fermer" className="text-ink-muted transition-colors hover:text-ink">
               <X size={18} />
             </button>

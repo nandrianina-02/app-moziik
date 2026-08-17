@@ -14,6 +14,42 @@
   --color-border: 36 40 56;      /* #242838 */
   --color-ink: 242 240 233;      /* #F2F0E9 */
   --color-ink-muted: 139 143 163; /* #8B8FA3 */
+
+  /* Accents. Ils étaient figés dans tailwind.config.ts, donc identiques
+     dans les deux thèmes — ce qui les rendait illisibles en clair : le
+     corail #FF6B4A ne donne que 2,7:1 sur le fond crème, et « bg-accent
+     text-base » (le motif de tous les boutons primaires) revenait à
+     écrire en blanc cassé sur du corail, soit 2,8:1.
+     Les passer en variables règle les deux d'un coup : la teinte assez
+     sombre pour être lue SUR le fond clair est aussi, par symétrie du
+     rapport de contraste, assez sombre pour porter du texte clair. */
+  --color-accent: 255 107 74;      /* #FF6B4A — 6,8:1 sur le fond sombre */
+  --color-accent-hover: 255 130 103; /* #FF8267 */
+  --color-verified: 61 220 151;    /* #3DDC97 — 10,8:1 */
+
+  /* États sémantiques : erreur, avertissement, information. Ils étaient
+     écrits en dur (text-red-500, text-amber-600, text-sky-600…) avec une
+     seule nuance, forcément fausse dans l'un des deux thèmes. */
+  --color-danger: 248 113 113;   /* red-400 */
+  --color-warning: 251 191 36;   /* amber-400 */
+  --color-info: 56 189 248;      /* sky-400 */
+
+  /* Teintes catégorielles — pastilles d'icônes des tableaux de bord et
+     des cartes de statistiques. Nuance 400 sur fond sombre. */
+  --tint-violet: 167 139 250;
+  --tint-cyan: 34 211 238;
+  --tint-lime: 163 230 53;
+  --tint-sky: 56 189 248;
+  --tint-teal: 45 212 191;
+  --tint-orange: 251 146 60;
+  --tint-pink: 244 114 182;
+  --tint-indigo: 129 140 248;
+  --tint-emerald: 52 211 153;
+  --tint-fuchsia: 232 121 249;
+  --tint-amber: 251 191 36;
+  --tint-rose: 251 113 133;
+  --tint-blue: 96 165 250;
+  --tint-slate: 148 163 184;
 }
 
 html.light {
@@ -24,7 +60,36 @@ html.light {
   --color-surface: 255 255 255;  /* #FFFFFF */
   --color-border: 231 227 216;   /* #E7E3D8 */
   --color-ink: 23 26 36;         /* #171A24 */
-  --color-ink-muted: 107 112 134; /* #6B7086 — plus lisible sur fond clair */
+  --color-ink-muted: 91 96 118;  /* #5B6076 — assombri : sur les encarts
+                                    teintés d'accent, #6B7086 tombait à 4:1 */
+
+  /* Corail et émeraude assombris : même famille de teinte, mais posés
+     sur du crème au lieu de l'indigo. Le cas dimensionnant n'est pas le
+     fond de page mais « text-accent sur bg-accent/15 » — de la couleur
+     sur sa propre teinte, mesuré à 3,9:1 avec un corail plus clair. */
+  --color-accent: 178 58 25;     /* #B23A19 */
+  --color-accent-hover: 142 46 20; /* #8E2E14 */
+  --color-verified: 4 120 87;    /* #047857 */
+
+  --color-danger: 185 28 28;     /* red-700 */
+  --color-warning: 180 83 9;     /* amber-700 */
+  --color-info: 3 105 161;       /* sky-700 */
+
+  /* Nuance 700 sur fond clair — même rôle, même reconnaissance. */
+  --tint-violet: 109 40 217;
+  --tint-cyan: 14 116 144;
+  --tint-lime: 77 124 15;
+  --tint-sky: 3 105 161;
+  --tint-teal: 15 118 110;
+  --tint-orange: 194 65 12;
+  --tint-pink: 190 24 93;
+  --tint-indigo: 67 56 202;
+  --tint-emerald: 4 120 87;
+  --tint-fuchsia: 162 28 175;
+  --tint-amber: 180 83 9;
+  --tint-rose: 190 18 60;
+  --tint-blue: 29 78 216;
+  --tint-slate: 51 65 85;
 }
 
 @layer base {
@@ -34,9 +99,12 @@ html.light {
   h1, h2, h3, h4 {
     @apply font-display;
   }
-  /* Focus visible clair pour l'accessibilité clavier */
+  /* Focus visible clair pour l'accessibilité clavier.
+     theme() est résolu à la compilation : maintenant que l'accent est une
+     variable, il rendrait le littéral « <alpha-value> » et la règle serait
+     invalide — d'où l'appel direct à la variable. */
   :focus-visible {
-    outline: 2px solid theme("colors.accent.DEFAULT");
+    outline: 2px solid rgb(var(--color-accent));
     outline-offset: 2px;
   }
   @media (prefers-reduced-motion: reduce) {
@@ -47,9 +115,15 @@ html.light {
   }
 }
 
-/* Barre de défilement discrète, cohérente avec le thème */
+/* Barre de défilement discrète, cohérente avec le thème.
+   --color-border (#E7E3D8 en clair) disparaissait sur le blanc des zones
+   défilantes : le curseur se distingue mieux d'une encre atténuée. */
 ::-webkit-scrollbar { width: 8px; height: 8px; }
-::-webkit-scrollbar-thumb { @apply bg-border rounded-full; }
+::-webkit-scrollbar-thumb {
+  background: rgb(var(--color-ink-muted) / 0.35);
+  border-radius: 9999px;
+}
+::-webkit-scrollbar-thumb:hover { background: rgb(var(--color-ink-muted) / 0.55); }
 ::-webkit-scrollbar-track { background: transparent; }
 
 /* --- Animations d'affichage ---
@@ -103,9 +177,10 @@ html.light {
     transform: none;
   }
 
-  /* Skeleton loaders : reflet translucide qui glisse par-dessus
-     bg-surface — fonctionne nativement en light/dark, pas de couleur
-     codée en dur. */
+  /* Skeleton loaders : reflet qui glisse par-dessus bg-surface.
+     Le reflet était blanc en dur — invisible en thème clair, où la
+     surface est déjà blanche. Le calquer sur --color-ink l'inverse avec
+     le thème : clair sur fond sombre, sombre sur fond clair. */
   .animate-shimmer {
     position: relative;
     overflow: hidden;
@@ -115,7 +190,7 @@ html.light {
     position: absolute;
     inset: 0;
     transform: translateX(-100%);
-    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.12), transparent);
+    background: linear-gradient(90deg, transparent, rgb(var(--color-ink) / 0.1), transparent);
     animation: shimmer 1.6s ease-in-out infinite;
   }
 }
@@ -149,7 +224,7 @@ html.light {
   height: 14px;
   width: 14px;
   border-radius: 9999px;
-  background: #ff6b4a;
+  background: rgb(var(--color-accent));
   margin-top: -5px;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
 }
@@ -163,6 +238,6 @@ html.light {
   width: 14px;
   border: none;
   border-radius: 9999px;
-  background: #ff6b4a;
+  background: rgb(var(--color-accent));
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
 }

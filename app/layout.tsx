@@ -18,6 +18,7 @@ import { DesktopHeader } from "@/components/layout/DesktopHeader";
 import { MobileNav } from "@/components/layout/MobileNav";
 import { MiniPlayerBar } from "@/components/player/MiniPlayerBar";
 import { FullPlayerPage } from "@/components/player/FullPlayerPage";
+import { PlayerShortcuts } from "@/components/player/PlayerShortcuts";
 import { FloatingInstallButton } from "@/components/ui/FloatingInstallButton";
 import { OfflineBanner } from "@/components/ui/OfflineBanner";
 import { getSiteConfig } from "@/lib/siteConfig";
@@ -98,6 +99,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                         <NotificationsDrawer />
                         <MiniPlayerBar />
                         <FullPlayerPage />
+                        <PlayerShortcuts />
                         <FloatingInstallButton />
                         <MobileNav />
                       </SidebarProvider>

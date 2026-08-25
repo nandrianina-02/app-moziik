@@ -2,9 +2,20 @@
 
 import { createContext, useContext, useEffect, useRef, useState } from "react";
 import { useAudioEngine } from "@/components/player/hooks/useAudioEngine";
+import {
+  NIVEAU_BASS_PAR_DEFAUT,
+  NIVEAUX_BASS,
+  type NiveauBass,
+} from "@/components/player/constants/bassBoost";
 import { markOfflineSongPlayed } from "@/lib/offlineCache";
 import { idbPut, STORES } from "@/lib/offlineDb";
 import { enqueueSyncAction } from "@/lib/syncQueue";
+import {
+  applyAudioQuality,
+  getOfflineSettings,
+  setOfflineSettings,
+  type AudioQuality,
+} from "@/lib/offlineSettings";
 import { useSiteConfig } from "@/context/SiteConfigProvider";
 
 export type PlayableSong = {
@@ -26,6 +37,12 @@ export type PlayableSong = {
 };
 
 export type RepeatMode = "off" | "all" | "one";
+
+/** Minuteur de veille : durée en minutes, ou arrêt à la fin du morceau. */
+export type SleepOption = number | "track" | null;
+
+/** Vitesses proposées par le lecteur. */
+export const VITESSES = [0.5, 0.75, 1, 1.25, 1.5, 1.75, 2] as const;
 
 // D'où vient la playlist actuellement active — permet à l'UI (file
 // d'attente, etc.) d'afficher "Lecture depuis : Recherche « ... »" et
@@ -60,6 +77,8 @@ type PlayerContextValue = {
   playSource: PlaySource;
   isPlaying: boolean;
   progress: number; // secondes
+  /** Durée réelle du flux si elle est connue, sinon celle enregistrée en base. */
+  duration: number;
   isFullPlayerOpen: boolean;
   isShuffled: boolean;
   repeatMode: RepeatMode;
@@ -78,16 +97,31 @@ type PlayerContextValue = {
   // morceau sans reconstruire la file (voir corps de la fonction).
   playQueue: (songs: PlayableSong[], startIndex?: number, source?: PlaySource) => void;
   enqueue: (song: PlayableSong) => void;
+  /** Insère juste après le morceau en cours, sans toucher au reste de la file. */
+  playNextInQueue: (song: PlayableSong) => void;
+  /** Déplace un morceau dans la file (glisser-déposer). Indices dans `queue`. */
+  reorderQueue: (from: number, to: number) => void;
+  /** Retire un morceau de la file. La lecture en cours n'est interrompue que s'il s'agit du morceau joué. */
+  removeFromQueue: (index: number) => void;
+  clearQueue: () => void;
   togglePlay: () => void;
   playNext: () => void;
   playPrevious: () => void;
   seek: (seconds: number) => void;
   toggleShuffle: () => void;
   cycleRepeatMode: () => void;
-  setBandGain: (index: number, gainDb: number) => void;
-  applyPreset: (gains: number[]) => void;
-  bassBoostPercent: number;
-  setBassBoost: (percent: number) => void;
+  /** Bass Boost — cinq niveaux, vrai traitement Web Audio (voir constants/bassBoost.ts). */
+  bassBoost: NiveauBass;
+  setBassBoost: (niveau: NiveauBass) => void;
+  playbackRate: number;
+  setPlaybackRate: (rate: number) => void;
+  audioQuality: AudioQuality;
+  setAudioQuality: (quality: AudioQuality) => void;
+  /** Minuteur de veille : millisecondes restantes, ou null si inactif. */
+  sleepRemainingMs: number | null;
+  /** Vrai quand la lecture doit s'arrêter à la fin du morceau en cours. */
+  sleepAfterTrack: boolean;
+  setSleepTimer: (option: SleepOption) => void;
   openFullPlayer: () => void;
   closeFullPlayer: () => void;
 };
@@ -96,6 +130,8 @@ const PlayerContext = createContext<PlayerContextValue | null>(null);
 
 const PLAY_RECORD_THRESHOLD_SECONDS = 30;
 const OUTPUT_DEVICE_KEY = "moziik-audio-output";
+const BASS_BOOST_KEY = "moziik-bass-boost";
+const PLAYBACK_RATE_KEY = "moziik-playback-rate";
 
 // Mélange de Fisher-Yates, en gardant `keepFirst` (l'index en cours de
 // lecture) en toute première position pour ne pas couper la piste actuelle.
@@ -119,22 +155,43 @@ function isSameSongList(a: PlayableSong[], b: PlayableSong[]) {
   return true;
 }
 
+function deplacer<T>(liste: T[], de: number, vers: number): T[] {
+  const copie = [...liste];
+  const [item] = copie.splice(de, 1);
+  copie.splice(vers, 0, item);
+  return copie;
+}
+
+/**
+ * Table « ancien index -> nouvel index » après un déplacement dans la
+ * file. Nécessaire parce que l'ordre de lecture (`order`) est une
+ * permutation d'index : déplacer un morceau dans `queue` sans remapper
+ * `order` ferait sauter la lecture sur un autre titre.
+ */
+function tableDeplacement(taille: number, de: number, vers: number): number[] {
+  const apres = deplacer(Array.from({ length: taille }, (_, i) => i), de, vers);
+  const table = new Array<number>(taille);
+  apres.forEach((ancien, nouveau) => {
+    table[ancien] = nouveau;
+  });
+  return table;
+}
+
+function estNiveauBass(valeur: string | null): valeur is NiveauBass {
+  return !!valeur && NIVEAUX_BASS.some((n) => n.id === valeur);
+}
+
 export function PlayerProvider({ children }: { children: React.ReactNode }) {
   const siteConfig = useSiteConfig();
   const {
     audioRef,
     ensureAudioGraph,
-    setBandGain,
-    applyPreset,
     setBassBoost: setEngineBassBoost,
+    setPlaybackRate: setEnginePlaybackRate,
     setOutputDevice: setEngineOutputDevice,
     isOutputSwitchSupported,
   } = useAudioEngine();
-  const [bassBoostPercent, setBassBoostPercent] = useState(0);
-  function setBassBoost(percent: number) {
-    setBassBoostPercent(percent);
-    setEngineBassBoost(percent);
-  }
+
   const [queue, setQueue] = useState<PlayableSong[]>([]);
   // `order` est une permutation des index de `queue` représentant l'ordre de
   // lecture réel (identité quand la lecture aléatoire est désactivée).
@@ -144,13 +201,27 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
   const [playSource, setPlaySource] = useState<PlaySource>(null);
   const [isPlaying, setIsPlaying] = useState(false);
   const [progress, setProgress] = useState(0);
+  const [streamDuration, setStreamDuration] = useState(0);
   const [isFullPlayerOpen, setFullPlayerOpen] = useState(false);
   const [isShuffled, setIsShuffled] = useState(false);
   const [repeatMode, setRepeatMode] = useState<RepeatMode>("off");
   const [volume, setVolumeState] = useState(1);
   const [outputDeviceId, setOutputDeviceId] = useState("");
   const [outputSwitchSupported, setOutputSwitchSupported] = useState(false);
+  const [bassBoost, setBassBoostState] = useState<NiveauBass>(NIVEAU_BASS_PAR_DEFAUT);
+  const [playbackRate, setPlaybackRateState] = useState(1);
+  const [audioQuality, setAudioQualityState] = useState<AudioQuality>("high");
+  const [sleepEndsAt, setSleepEndsAt] = useState<number | null>(null);
+  const [sleepRemainingMs, setSleepRemainingMs] = useState<number | null>(null);
+  const [sleepAfterTrack, setSleepAfterTrack] = useState(false);
   const hasRecordedPlay = useRef(false);
+  // Lu depuis le gestionnaire « ended », qui est posé une fois : sans ref,
+  // il verrait toujours la valeur du premier rendu.
+  const sleepAfterTrackRef = useRef(false);
+  // Vraie durée du flux : celle enregistrée en base peut être fausse
+  // (import automatique, conteneur sans en-tête de durée fiable).
+  const currentIndex = order[position] ?? 0;
+  const currentSong = queue[currentIndex] ?? null;
 
   // Volume persisté d'une session à l'autre.
   useEffect(() => {
@@ -171,15 +242,45 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
     localStorage.setItem("moziik-volume", String(clamped));
   }
 
+  // Bass Boost et vitesse, restaurés au montage. Aucun AudioContext
+  // n'existe encore : le moteur retient la valeur et l'applique au
+  // démarrage de la première lecture (voir ensureAudioGraph).
+  useEffect(() => {
+    const niveau = localStorage.getItem(BASS_BOOST_KEY);
+    if (estNiveauBass(niveau)) {
+      setBassBoostState(niveau);
+      setEngineBassBoost(niveau);
+    }
+    const rate = Number(localStorage.getItem(PLAYBACK_RATE_KEY));
+    if (rate && rate >= 0.5 && rate <= 2) {
+      setPlaybackRateState(rate);
+      setEnginePlaybackRate(rate);
+    }
+    getOfflineSettings()
+      .then((s) => setAudioQualityState(s.audioQuality))
+      .catch(() => undefined);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  function setBassBoost(niveau: NiveauBass) {
+    setBassBoostState(niveau);
+    setEngineBassBoost(niveau);
+    localStorage.setItem(BASS_BOOST_KEY, niveau);
+  }
+
+  function setPlaybackRate(rate: number) {
+    setPlaybackRateState(rate);
+    setEnginePlaybackRate(rate);
+    localStorage.setItem(PLAYBACK_RATE_KEY, String(rate));
+  }
+
   // Support calculé après montage : `window` n'existe pas au rendu serveur.
   useEffect(() => {
     setOutputSwitchSupported(isOutputSwitchSupported());
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Sortie mémorisée d'une session à l'autre. Aucun AudioContext n'existe
-  // encore à ce stade : le moteur retient la valeur et l'applique au
-  // démarrage de la première lecture (voir ensureAudioGraph).
+  // Sortie mémorisée d'une session à l'autre.
   useEffect(() => {
     const stored = localStorage.getItem(OUTPUT_DEVICE_KEY);
     if (!stored) return;
@@ -204,20 +305,69 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
     localStorage.setItem(OUTPUT_DEVICE_KEY, deviceId);
   }
 
-  const currentIndex = order[position] ?? 0;
-  const currentSong = queue[currentIndex] ?? null;
+  /**
+   * URL réellement lue.
+   *
+   * La qualité choisie est une transformation Cloudinary appliquée à la
+   * volée. Elle n'est PAS appliquée hors-ligne : le service worker range
+   * les morceaux téléchargés sous l'URL exacte demandée au moment du
+   * téléchargement — changer l'URL ferait manquer le cache et rendrait
+   * muet un morceau pourtant disponible.
+   */
+  function sourceAudio(song: PlayableSong, quality: AudioQuality) {
+    if (typeof navigator !== "undefined" && !navigator.onLine) return song.audioUrl;
+    return applyAudioQuality(song.audioUrl, quality);
+  }
+
+  async function setAudioQuality(quality: AudioQuality) {
+    setAudioQualityState(quality);
+    await setOfflineSettings({ audioQuality: quality }).catch(() => undefined);
+
+    // Recharge le flux à la nouvelle qualité sans perdre la position ni
+    // l'état de lecture : sinon le morceau repart de zéro à chaque
+    // changement de réglage.
+    const audio = audioRef.current;
+    if (!audio || !currentSong) return;
+    const instant = audio.currentTime;
+    const jouait = !audio.paused;
+    audio.src = sourceAudio(currentSong, quality);
+    audio.addEventListener(
+      "loadedmetadata",
+      () => {
+        audio.currentTime = instant;
+        if (jouait) audio.play().catch(() => undefined);
+      },
+      { once: true }
+    );
+  }
 
   useEffect(() => {
     const audio = audioRef.current;
     if (!audio) return;
 
     const onTimeUpdate = () => setProgress(audio.currentTime);
-    const onEnded = () => playNext();
+    const onLoaded = () => {
+      if (Number.isFinite(audio.duration) && audio.duration > 0) setStreamDuration(audio.duration);
+    };
+    const onEnded = () => {
+      // Minuteur « fin du morceau » : on s'arrête ici, sans enchaîner.
+      if (sleepAfterTrackRef.current) {
+        sleepAfterTrackRef.current = false;
+        setSleepAfterTrack(false);
+        setIsPlaying(false);
+        return;
+      }
+      playNext();
+    };
 
     audio.addEventListener("timeupdate", onTimeUpdate);
+    audio.addEventListener("loadedmetadata", onLoaded);
+    audio.addEventListener("durationchange", onLoaded);
     audio.addEventListener("ended", onEnded);
     return () => {
       audio.removeEventListener("timeupdate", onTimeUpdate);
+      audio.removeEventListener("loadedmetadata", onLoaded);
+      audio.removeEventListener("durationchange", onLoaded);
       audio.removeEventListener("ended", onEnded);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -226,9 +376,25 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     const audio = audioRef.current;
     if (!audio || !currentSong) return;
-    audio.src = currentSong.audioUrl;
+    const voulue = sourceAudio(currentSong, audioQuality);
+    audio.src = voulue;
+    audio.playbackRate = playbackRate;
+    setStreamDuration(0);
     hasRecordedPlay.current = false;
-    if (isPlaying) audio.play();
+
+    // La transformation de qualité peut échouer (Cloudinary indisponible,
+    // format non transcodable) : on retombe alors une fois sur l'URL
+    // d'origine plutôt que de laisser un morceau muet.
+    const onError = () => {
+      if (audio.src !== currentSong.audioUrl) {
+        audio.src = currentSong.audioUrl;
+        if (isPlaying) audio.play().catch(() => undefined);
+      }
+    };
+    audio.addEventListener("error", onError);
+
+    if (isPlaying) audio.play().catch(() => undefined);
+    return () => audio.removeEventListener("error", onError);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentSong?._id]);
 
@@ -242,6 +408,10 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
         songId: currentSong._id,
         title: currentSong.title,
         artistName: currentSong.artist?.stageName ?? "Artiste supprimé",
+        coverUrl: currentSong.coverUrl,
+        audioUrl: currentSong.audioUrl,
+        duration: currentSong.duration,
+        artistId: currentSong.artist?._id ?? "",
         playedAt: Date.now(),
       }).catch(() => {});
       markOfflineSongPlayed(currentSong._id).catch(() => {});
@@ -261,6 +431,52 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
       });
     }
   }, [progress, currentSong]);
+
+  // ---------- Minuteur de veille ----------
+
+  useEffect(() => {
+    if (sleepEndsAt === null) {
+      setSleepRemainingMs(null);
+      return;
+    }
+    function tick() {
+      const restant = (sleepEndsAt as number) - Date.now();
+      if (restant <= 0) {
+        // Arrêt net, mais on garde la file et la position : reprendre la
+        // lecture au réveil ne doit rien redemander à l'utilisateur.
+        audioRef.current?.pause();
+        setIsPlaying(false);
+        setSleepEndsAt(null);
+        setSleepRemainingMs(null);
+        return;
+      }
+      setSleepRemainingMs(restant);
+    }
+    tick();
+    const id = setInterval(tick, 1000);
+    return () => clearInterval(id);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sleepEndsAt]);
+
+  function setSleepTimer(option: SleepOption) {
+    if (option === null) {
+      setSleepEndsAt(null);
+      setSleepAfterTrack(false);
+      sleepAfterTrackRef.current = false;
+      return;
+    }
+    if (option === "track") {
+      setSleepEndsAt(null);
+      setSleepAfterTrack(true);
+      sleepAfterTrackRef.current = true;
+      return;
+    }
+    setSleepAfterTrack(false);
+    sleepAfterTrackRef.current = false;
+    setSleepEndsAt(Date.now() + option * 60_000);
+  }
+
+  // ---------- File d'attente ----------
 
   function playQueue(songs: PlayableSong[], startIndex = 0, source: PlaySource = null) {
     ensureAudioGraph();
@@ -297,6 +513,69 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
     setOrder((prev) => [...prev, queue.length]);
   }
 
+  function playNextInQueue(song: PlayableSong) {
+    if (queue.length === 0) {
+      playQueue([song], 0, { type: "queue" });
+      return;
+    }
+    const insertion = currentIndex + 1;
+    setQueue((prev) => {
+      const copie = [...prev];
+      copie.splice(insertion, 0, song);
+      return copie;
+    });
+    // Tous les index >= insertion se décalent d'un cran ; le nouveau
+    // morceau prend la place juste après celle en cours dans l'ordre.
+    setOrder((prev) => {
+      const remappe = prev.map((i) => (i >= insertion ? i + 1 : i));
+      const apres = [...remappe];
+      apres.splice(position + 1, 0, insertion);
+      return apres;
+    });
+  }
+
+  function reorderQueue(from: number, to: number) {
+    if (from === to || from < 0 || to < 0 || from >= queue.length || to >= queue.length) return;
+    const table = tableDeplacement(queue.length, from, to);
+    setQueue((prev) => deplacer(prev, from, to));
+    setOrder((prev) => prev.map((i) => table[i]));
+  }
+
+  function removeFromQueue(index: number) {
+    if (index < 0 || index >= queue.length) return;
+    if (queue.length === 1) {
+      clearQueue();
+      return;
+    }
+    const positionDansOrdre = order.indexOf(index);
+    const etaitCourant = index === currentIndex;
+
+    const nouvelOrdre = order
+      .filter((i) => i !== index)
+      .map((i) => (i > index ? i - 1 : i));
+
+    setQueue((prev) => prev.filter((_, i) => i !== index));
+    setOrder(nouvelOrdre);
+
+    // La position doit continuer de désigner le même morceau — sauf si
+    // c'est lui qu'on vient de retirer, auquel cas on enchaîne sur le
+    // suivant (donc la même place dans l'ordre, ramenée dans les bornes).
+    setPosition((prev) => {
+      if (etaitCourant) return Math.min(prev, nouvelOrdre.length - 1);
+      return positionDansOrdre < prev ? prev - 1 : prev;
+    });
+  }
+
+  function clearQueue() {
+    audioRef.current?.pause();
+    setQueue([]);
+    setOrder([]);
+    setPosition(0);
+    setIsPlaying(false);
+    setProgress(0);
+    setPlaySource(null);
+  }
+
   function togglePlay() {
     ensureAudioGraph();
     const audio = audioRef.current;
@@ -304,7 +583,7 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
     if (isPlaying) {
       audio.pause();
     } else {
-      audio.play();
+      audio.play().catch(() => undefined);
     }
     setIsPlaying(!isPlaying);
   }
@@ -314,7 +593,7 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
     if (repeatMode === "one" && audio) {
       audio.currentTime = 0;
       setProgress(0);
-      audio.play();
+      audio.play().catch(() => undefined);
       setIsPlaying(true);
       return;
     }
@@ -414,6 +693,8 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentSong, isPlaying]);
 
+  const duration = streamDuration || currentSong?.duration || 0;
+
   return (
     <PlayerContext.Provider
       value={{
@@ -425,6 +706,7 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
         playSource,
         isPlaying,
         progress,
+        duration,
         isFullPlayerOpen,
         isShuffled,
         repeatMode,
@@ -435,16 +717,25 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
         outputSwitchSupported,
         playQueue,
         enqueue,
+        playNextInQueue,
+        reorderQueue,
+        removeFromQueue,
+        clearQueue,
         togglePlay,
         playNext,
         playPrevious,
         seek,
         toggleShuffle,
         cycleRepeatMode,
-        setBandGain,
-        applyPreset,
-        bassBoostPercent,
+        bassBoost,
         setBassBoost,
+        playbackRate,
+        setPlaybackRate,
+        audioQuality,
+        setAudioQuality,
+        sleepRemainingMs,
+        sleepAfterTrack,
+        setSleepTimer,
         openFullPlayer: () => setFullPlayerOpen(true),
         closeFullPlayer: () => setFullPlayerOpen(false),
       }}

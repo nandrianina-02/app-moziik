@@ -1,164 +1,252 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { SafeImage } from "@/components/ui/SafeImage";
+import Link from "next/link";
+import { AnimatePresence, motion } from "framer-motion";
 import {
-  ChevronDown,
-  Play,
-  Pause,
-  SkipBack,
-  SkipForward,
   BadgeCheck,
+  Check,
+  ChevronDown,
+  Download,
+  Flame,
+  Gauge,
+  Heart,
+  Info,
   ListMusic,
   ListPlus,
-  Shuffle,
+  Loader2,
+  Maximize2,
+  MessageCircle,
+  Mic2,
+  Minimize2,
+  Moon,
+  MoreHorizontal,
+  Pause,
+  Play,
   Repeat,
   Repeat1,
-  Download,
-  Check,
-  Loader2,
-  MoreHorizontal,
-  Heart,
-  Mic2,
-  Flame,
   Share2,
-  Info,
-  Volume2,
+  Shuffle,
+  SignalHigh,
+  SkipBack,
+  SkipForward,
+  Sparkles,
+  Users,
   Volume1,
+  Volume2,
   VolumeX,
   X,
 } from "lucide-react";
-import Link from "next/link";
+import { SafeImage } from "@/components/ui/SafeImage";
 import { usePlayer } from "@/context/PlayerProvider";
 import { useToast } from "@/context/ToastProvider";
 import { useOnlineStatus } from "@/context/OnlineStatusProvider";
 import { SeekBar } from "@/components/player/SeekBar";
-import { EQPanel } from "@/components/player/panels/EQPanel";
 import { QueuePanel } from "@/components/player/panels/QueuePanel";
-import { LyricsSheet } from "@/components/player/LyricsSheet";
+import { LyricsPanel } from "@/components/player/panels/LyricsPanel";
+import { InfoPanel } from "@/components/player/panels/InfoPanel";
+import { CreditsPanel } from "@/components/player/panels/CreditsPanel";
+import { SimilarPanel } from "@/components/player/panels/SimilarPanel";
+import { BassBoostMenu, QualityMenu, SleepMenu, SpeedMenu } from "@/components/player/panels/AudioMenus";
+import { useSongDetails } from "@/components/player/hooks/useSongDetails";
+import { usePlayerShortcuts } from "@/components/player/hooks/usePlayerShortcuts";
+import { CommentsSection } from "@/components/music/CommentsSection";
 import { SongContextMenu } from "@/components/music/SongContextMenu";
 import { AddToPlaylistModal } from "@/components/modals/AddToPlaylistModal";
 import { ShareModal } from "@/components/share/ShareModal";
 import { buildSongSubject } from "@/components/share/shareSubject";
+import { NIVEAUX_BASS } from "@/components/player/constants/bassBoost";
 import { downloadSongForOffline, isSongOffline, removeOfflineSong, queuePendingDownload } from "@/lib/offlineCache";
+import type { PlayableSong } from "@/context/PlayerProvider";
+import { useMediaQuery } from "@/hooks/useMediaQuery";
+import type { MenuAnchor } from "@/components/ui/useClampedMenuPosition";
 
-// Intensité appliquée quand le Bass Boost mobile est activé (interrupteur
-// on/off, à la différence du slider fin de l'égaliseur desktop).
-const MOBILE_BASS_BOOST_PERCENT = 65;
+/** Distance de glissement (px) à partir de laquelle le lecteur se ferme au relâchement. */
+const CLOSE_THRESHOLD = 120;
+
+type Onglet = "paroles" | "infos" | "credits" | "similaires" | "commentaires";
+
+const ONGLETS: { id: Onglet; label: string; court: string; icon: typeof Mic2 }[] = [
+  { id: "paroles", label: "Paroles", court: "Paroles", icon: Mic2 },
+  { id: "infos", label: "Informations", court: "Infos", icon: Info },
+  { id: "credits", label: "Crédits", court: "Crédits", icon: Users },
+  { id: "similaires", label: "Titres similaires", court: "Similaires", icon: Sparkles },
+  { id: "commentaires", label: "Commentaires", court: "Avis", icon: MessageCircle },
+];
 
 function formatTime(seconds: number) {
+  if (!Number.isFinite(seconds) || seconds < 0) return "0:00";
   const m = Math.floor(seconds / 60);
   const s = Math.floor(seconds % 60);
   return `${m}:${s.toString().padStart(2, "0")}`;
 }
 
-// Distance de glissement (px) à partir de laquelle le lecteur se ferme au relâchement.
-const CLOSE_THRESHOLD = 120;
-
+/**
+ * Lecteur plein écran.
+ *
+ * L'égaliseur 10 bandes qui occupait la colonne centrale a été retiré :
+ * cette place revient aux paroles, qui sont ce qu'on regarde réellement
+ * en écoutant. Les réglages audio (Bass Boost, vitesse, qualité, minuteur)
+ * passent en menus ancrés dans la barre de transport, où on les cherche.
+ *
+ * Toute la logique de lecture reste dans PlayerProvider : ce composant ne
+ * fait que l'afficher.
+ */
 export function FullPlayerPage() {
+  const { isFullPlayerOpen, currentSong } = usePlayer();
+  return (
+    <AnimatePresence>
+      {isFullPlayerOpen && currentSong && <ContenuLecteur key="lecteur" song={currentSong} />}
+    </AnimatePresence>
+  );
+}
+
+function ContenuLecteur({ song }: { song: PlayableSong }) {
   const {
     queue,
-    currentSong,
     isPlaying,
     progress,
+    duration,
     volume,
     setVolume,
     togglePlay,
     playNext,
     playPrevious,
     seek,
-    isFullPlayerOpen,
     closeFullPlayer,
     isShuffled,
     toggleShuffle,
     repeatMode,
     cycleRepeatMode,
-    bassBoostPercent,
-    setBassBoost,
+    playSource,
+    bassBoost,
+    playbackRate,
+    audioQuality,
+    sleepRemainingMs,
+    sleepAfterTrack,
   } = usePlayer();
   const pushToast = useToast();
   const { isOnline } = useOnlineStatus();
+  const { details } = useSongDetails(song._id);
+  usePlayerShortcuts({ pleinEcran: true });
 
+  // Les deux mises en page ne peuvent pas coexister dans le DOM : elles
+  // portent chacune la barre d'onglets et son contenu. Montées ensemble,
+  // elles créaient deux `role="tablist"`, deux animations partageant le
+  // même `layoutId`, et surtout deux fois les requêtes des onglets
+  // « Titres similaires » et « Commentaires ». On n'en monte qu'une.
+  const bureau = useMediaQuery("(min-width: 1024px)");
+  const colonneFile = useMediaQuery("(min-width: 1280px)");
+
+  const [onglet, setOnglet] = useState<Onglet>("paroles");
   const [offlineState, setOfflineState] = useState<"idle" | "saving" | "saved">("idle");
-  const [menuPosition, setMenuPosition] = useState<{ x: number; y: number } | null>(null);
-
   const [liked, setLiked] = useState(false);
-  const [showLyrics, setShowLyrics] = useState(false);
-  const [showQueueSheet, setShowQueueSheet] = useState(false);
+  const [menuPosition, setMenuPosition] = useState<MenuAnchor | null>(null);
   const [showAddToPlaylist, setShowAddToPlaylist] = useState(false);
   const [showShareModal, setShowShareModal] = useState(false);
+  const [showQueueSheet, setShowQueueSheet] = useState(false);
+  const [reglage, setReglage] = useState<{ type: "bass" | "vitesse" | "qualite" | "veille"; anchor: MenuAnchor } | null>(
+    null
+  );
+  const [plein, setPlein] = useState(false);
 
-  // Glissement vers le bas pour fermer (zone d'en-tête + pochette/titre).
+  // Glissement vers le bas pour fermer (zone d'en-tête + pochette).
   const [dragY, setDragY] = useState(0);
   const [dragging, setDragging] = useState(false);
   const startYRef = useRef(0);
 
+  // Vrai si une surcouche (menu, modale, feuille) est ouverte : Échap doit
+  // alors la fermer, elle, avant de fermer le lecteur.
+  const surcoucheOuverte =
+    !!menuPosition || !!reglage || showAddToPlaylist || showShareModal || showQueueSheet;
+
   useEffect(() => {
-    if (!currentSong) return;
-    let cancelled = false;
-    isSongOffline(currentSong._id).then((offline) => {
-      if (!cancelled) setOfflineState(offline ? "saved" : "idle");
+    function onEscape(e: KeyboardEvent) {
+      if (e.key !== "Escape" || surcoucheOuverte) return;
+      closeFullPlayer();
+    }
+    window.addEventListener("keydown", onEscape);
+    return () => window.removeEventListener("keydown", onEscape);
+  }, [surcoucheOuverte, closeFullPlayer]);
+
+  // Le corps ne doit pas défiler derrière le lecteur ouvert.
+  useEffect(() => {
+    const precedent = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = precedent;
+    };
+  }, []);
+
+  useEffect(() => {
+    const suivre = () => setPlein(!!document.fullscreenElement);
+    document.addEventListener("fullscreenchange", suivre);
+    return () => document.removeEventListener("fullscreenchange", suivre);
+  }, []);
+
+  useEffect(() => {
+    let annule = false;
+    isSongOffline(song._id).then((offline) => {
+      if (!annule) setOfflineState(offline ? "saved" : "idle");
     });
-    fetch(`/api/songs/${currentSong._id}/like`)
+    fetch(`/api/songs/${song._id}/like`)
       .then((res) => (res.ok ? res.json() : null))
       .then((data) => {
-        if (!cancelled && data) setLiked(data.liked);
-      });
+        if (!annule && data) setLiked(data.liked);
+      })
+      .catch(() => undefined);
     return () => {
-      cancelled = true;
+      annule = true;
     };
-  }, [currentSong]);
+  }, [song._id]);
 
   function handlePointerDown(e: React.PointerEvent) {
     startYRef.current = e.clientY;
     setDragging(true);
     (e.target as HTMLElement).setPointerCapture(e.pointerId);
   }
-
   function handlePointerMove(e: React.PointerEvent) {
     if (!dragging) return;
     const delta = e.clientY - startYRef.current;
     if (delta > 0) setDragY(delta);
   }
-
   function handlePointerUp() {
     if (!dragging) return;
     setDragging(false);
-    if (dragY > CLOSE_THRESHOLD) {
-      closeFullPlayer();
-    }
+    if (dragY > CLOSE_THRESHOLD) closeFullPlayer();
     setDragY(0);
   }
 
-  if (!isFullPlayerOpen || !currentSong) return null;
+  async function basculerPleinEcran() {
+    try {
+      if (document.fullscreenElement) await document.exitFullscreen();
+      else await document.documentElement.requestFullscreen();
+    } catch {
+      pushToast("info", "Le plein écran a été refusé par le navigateur.");
+    }
+  }
 
   async function handleToggleOffline() {
-    if (!currentSong || offlineState === "saving") return;
+    if (offlineState === "saving") return;
+    const charge = {
+      _id: song._id,
+      title: song.title,
+      coverUrl: song.coverUrl,
+      audioUrl: song.audioUrl,
+      duration: song.duration,
+      artist: song.artist ?? { _id: "", stageName: "Artiste supprimé" },
+    };
     try {
       if (offlineState === "saved") {
-        await removeOfflineSong(currentSong._id);
+        await removeOfflineSong(song._id);
         setOfflineState("idle");
         pushToast("success", "Retiré du mode hors-ligne.");
       } else if (!isOnline) {
-        await queuePendingDownload({
-          _id: currentSong._id,
-          title: currentSong.title,
-          coverUrl: currentSong.coverUrl,
-          audioUrl: currentSong.audioUrl,
-          duration: currentSong.duration,
-          artist: currentSong.artist ?? { _id: "", stageName: "Artiste supprimé" },
-        });
+        await queuePendingDownload(charge);
         pushToast("info", "En attente — le téléchargement démarrera à la reconnexion.");
       } else {
         setOfflineState("saving");
-        await downloadSongForOffline({
-          _id: currentSong._id,
-          title: currentSong.title,
-          coverUrl: currentSong.coverUrl,
-          audioUrl: currentSong.audioUrl,
-          duration: currentSong.duration,
-          artist: currentSong.artist ?? { _id: "", stageName: "Artiste supprimé" },
-        });
+        await downloadSongForOffline(charge);
         setOfflineState("saved");
         pushToast("success", "Disponible hors-ligne.");
       }
@@ -169,121 +257,398 @@ export function FullPlayerPage() {
   }
 
   async function handleToggleLike() {
-    if (!currentSong) return;
-    const nextLiked = !liked;
-    setLiked(nextLiked);
+    const suivant = !liked;
+    setLiked(suivant);
     try {
-      const res = await fetch(`/api/songs/${currentSong._id}/like`, { method: "POST" });
+      const res = await fetch(`/api/songs/${song._id}/like`, { method: "POST" });
       if (!res.ok) throw new Error();
       const data = await res.json();
       setLiked(data.liked);
       pushToast("success", data.liked ? "Ajouté à tes favoris." : "Retiré de tes favoris.");
     } catch {
-      setLiked(!nextLiked);
+      setLiked(!suivant);
       pushToast("error", "Connecte-toi pour aimer un son.");
     }
   }
 
-  function handleShare() {
-    if (!currentSong) return;
-    setShowShareModal(true);
-  }
-
-  function handleToggleBassBoost() {
-    setBassBoost(bassBoostPercent > 0 ? 0 : MOBILE_BASS_BOOST_PERCENT);
-  }
-
   const RepeatIcon = repeatMode === "one" ? Repeat1 : Repeat;
   const VolumeIcon = volume === 0 ? VolumeX : volume < 0.5 ? Volume1 : Volume2;
+  const OfflineIcon = offlineState === "saving" ? Loader2 : offlineState === "saved" ? Check : Download;
   const dragProgress = Math.min(1, dragY / (CLOSE_THRESHOLD * 2));
 
-  const hasLyrics = !!currentSong.lyrics && currentSong.lyrics.trim().length > 0;
-  const currentIndex = queue.findIndex((s) => s._id === currentSong._id);
-  const upcoming = currentIndex >= 0 ? queue.slice(currentIndex + 1, currentIndex + 3) : [];
-  const bassBoostOn = bassBoostPercent > 0;
+  const album = details?.album ?? (typeof song.album === "object" ? song.album : null);
+  const genre = details?.genre ?? song.genre;
+  const anneeSortie = (() => {
+    const brut = details?.releaseDate ?? song.releaseDate;
+    if (!brut) return null;
+    const d = new Date(brut);
+    return Number.isNaN(d.getTime()) ? null : d.getFullYear();
+  })();
+
+  const niveauBass = NIVEAUX_BASS.find((n) => n.id === bassBoost);
+  const bassActif = bassBoost !== "off";
+  const veilleActive = sleepRemainingMs !== null || sleepAfterTrack;
+  const veilleTexte = sleepAfterTrack
+    ? "Fin du morceau"
+    : sleepRemainingMs !== null
+      ? `${Math.ceil(sleepRemainingMs / 60000)} min`
+      : "Minuteur";
+
+  function ouvrirReglage(type: "bass" | "vitesse" | "qualite" | "veille", e: React.MouseEvent) {
+    const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+    setReglage({ type, anchor: { x: rect.left, y: rect.top } });
+  }
+
+  /* ------------------------------------------------------ blocs communs -- */
+
+  const contenuOnglet = (
+    <AnimatePresence mode="wait" initial={false}>
+      <motion.div
+        key={onglet}
+        initial={{ opacity: 0, y: 8 }}
+        animate={{ opacity: 1, y: 0 }}
+        exit={{ opacity: 0, y: -8 }}
+        transition={{ duration: 0.18 }}
+        className="flex min-h-0 flex-1 flex-col"
+      >
+        {onglet === "paroles" && (
+          <LyricsPanel
+            lyrics={details?.lyrics ?? song.lyrics}
+            progress={progress}
+            onSeek={seek}
+            titre={song.title}
+            artiste={song.artist?.stageName}
+            className="min-h-0 flex-1"
+          />
+        )}
+        {onglet === "infos" && (
+          <div className="min-h-0 flex-1 overflow-y-auto pr-1">
+            <InfoPanel song={song} details={details} />
+          </div>
+        )}
+        {onglet === "credits" && (
+          <div className="min-h-0 flex-1 overflow-y-auto pr-1">
+            <CreditsPanel song={song} details={details} />
+          </div>
+        )}
+        {onglet === "similaires" && (
+          <div className="min-h-0 flex-1 overflow-y-auto pr-1">
+            <SimilarPanel songId={song._id} />
+          </div>
+        )}
+        {onglet === "commentaires" && (
+          <div className="min-h-0 flex-1 overflow-y-auto pr-1 pb-6">
+            <CommentsSection songId={song._id} />
+          </div>
+        )}
+      </motion.div>
+    </AnimatePresence>
+  );
+
+  const barreOnglets = (
+    <div
+      role="tablist"
+      aria-label="Détails du morceau"
+      className="mb-4 flex shrink-0 gap-1 overflow-x-auto border-b border-border pb-px"
+    >
+      {ONGLETS.map((o) => {
+        const actif = onglet === o.id;
+        return (
+          <button
+            key={o.id}
+            role="tab"
+            aria-selected={actif}
+            onClick={() => setOnglet(o.id)}
+            className={`relative flex shrink-0 items-center gap-1.5 px-3 py-2.5 text-sm font-medium transition-colors ${
+              actif ? "text-accent" : "text-ink-muted hover:text-ink"
+            }`}
+          >
+            <o.icon size={14} />
+            <span className="hidden sm:inline">{o.label}</span>
+            <span className="sm:hidden">{o.court}</span>
+            {actif && (
+              <motion.span
+                layoutId="onglet-actif"
+                className="absolute inset-x-2 -bottom-px h-0.5 rounded-full bg-accent"
+                transition={{ type: "spring", stiffness: 400, damping: 32 }}
+              />
+            )}
+          </button>
+        );
+      })}
+    </div>
+  );
+
+  const transport = (taille: "compact" | "large") => {
+    const grand = taille === "large";
+    return (
+      <div className={`flex items-center justify-center ${grand ? "gap-6" : "gap-5"}`}>
+        <button
+          onClick={toggleShuffle}
+          aria-label="Lecture aléatoire"
+          aria-pressed={isShuffled}
+          title="Lecture aléatoire"
+          className={`transition-colors ${isShuffled ? "text-accent" : "text-ink-muted hover:text-ink"}`}
+        >
+          <Shuffle size={grand ? 19 : 18} />
+        </button>
+        <button
+          onClick={playPrevious}
+          aria-label="Précédent"
+          title="Précédent (P)"
+          className="text-ink transition-colors hover:text-accent"
+        >
+          <SkipBack size={grand ? 26 : 24} fill="currentColor" />
+        </button>
+        <motion.button
+          whileTap={{ scale: 0.92 }}
+          onClick={togglePlay}
+          aria-label={isPlaying ? "Pause" : "Lecture"}
+          title={isPlaying ? "Pause (Espace)" : "Lecture (Espace)"}
+          className={`grid place-items-center rounded-full bg-accent text-base shadow-lg shadow-accent/25 transition-colors hover:bg-accent-hover ${
+            grand ? "h-16 w-16" : "h-14 w-14"
+          }`}
+        >
+          {isPlaying ? (
+            <Pause size={grand ? 26 : 23} fill="currentColor" />
+          ) : (
+            <Play size={grand ? 26 : 23} fill="currentColor" className="ml-0.5" />
+          )}
+        </motion.button>
+        <button
+          onClick={playNext}
+          aria-label="Suivant"
+          title="Suivant (N)"
+          className="text-ink transition-colors hover:text-accent"
+        >
+          <SkipForward size={grand ? 26 : 24} fill="currentColor" />
+        </button>
+        <button
+          onClick={cycleRepeatMode}
+          aria-label="Répéter"
+          aria-pressed={repeatMode !== "off"}
+          title={repeatMode === "one" ? "Répéter le titre" : repeatMode === "all" ? "Répéter la file" : "Répéter"}
+          className={`transition-colors ${repeatMode !== "off" ? "text-accent" : "text-ink-muted hover:text-ink"}`}
+        >
+          <RepeatIcon size={grand ? 19 : 18} />
+        </button>
+      </div>
+    );
+  };
+
+  const chipsMeta = (
+    <div className="flex flex-wrap items-center justify-center gap-1.5">
+      {album && (
+        <Link
+          href={`/album/${album._id}`}
+          className="rounded-full border border-border px-2.5 py-1 text-[11px] text-ink-muted transition-colors hover:border-accent hover:text-accent"
+        >
+          {album.title}
+        </Link>
+      )}
+      {genre && (
+        <span className="rounded-full border border-border px-2.5 py-1 text-[11px] text-ink-muted">{genre}</span>
+      )}
+      {anneeSortie && (
+        <span className="rounded-full border border-border px-2.5 py-1 text-[11px] text-ink-muted">{anneeSortie}</span>
+      )}
+      <span className="rounded-full border border-border px-2.5 py-1 text-[11px] tabular-nums text-ink-muted">
+        {formatTime(duration)}
+      </span>
+    </div>
+  );
+
+  /** Réglages secondaires : Bass Boost, vitesse, qualité, veille, file, plein écran. */
+  const reglagesSecondaires = (
+    <div className="flex flex-wrap items-center justify-center gap-1">
+      <BoutonReglage
+        icon={Flame}
+        actif={bassActif}
+        label="Bass Boost"
+        valeur={niveauBass && bassActif ? niveauBass.label : "Off"}
+        onClick={(e) => ouvrirReglage("bass", e)}
+      />
+      <BoutonReglage
+        icon={Gauge}
+        actif={playbackRate !== 1}
+        label="Vitesse"
+        valeur={`${playbackRate}×`}
+        onClick={(e) => ouvrirReglage("vitesse", e)}
+      />
+      <BoutonReglage
+        icon={SignalHigh}
+        actif={false}
+        label="Qualité"
+        valeur={{ low: "64k", medium: "128k", high: "320k" }[audioQuality]}
+        onClick={(e) => ouvrirReglage("qualite", e)}
+      />
+      <BoutonReglage
+        icon={Moon}
+        actif={veilleActive}
+        label="Minuteur"
+        valeur={veilleTexte}
+        onClick={(e) => ouvrirReglage("veille", e)}
+      />
+      {!colonneFile && (
+        <BoutonReglage
+          icon={ListMusic}
+          actif={false}
+          label="File"
+          valeur={String(queue.length)}
+          onClick={() => setShowQueueSheet(true)}
+        />
+      )}
+      <BoutonReglage
+        icon={plein ? Minimize2 : Maximize2}
+        actif={plein}
+        label="Plein écran"
+        valeur={plein ? "Réduire" : "Plein écran"}
+        onClick={basculerPleinEcran}
+      />
+    </div>
+  );
+
+  const actionsTitre = (
+    <div className="flex items-center justify-center gap-1">
+      <ActionRonde
+        icon={Heart}
+        label={liked ? "Retirer des favoris" : "Ajouter aux favoris"}
+        actif={liked}
+        rempli={liked}
+        onClick={handleToggleLike}
+      />
+      <ActionRonde
+        icon={OfflineIcon}
+        label={offlineState === "saved" ? "Retirer du hors-ligne" : "Télécharger"}
+        actif={offlineState === "saved"}
+        tourne={offlineState === "saving"}
+        onClick={handleToggleOffline}
+      />
+      <ActionRonde icon={ListPlus} label="Ajouter à une playlist" onClick={() => setShowAddToPlaylist(true)} />
+      <ActionRonde icon={Share2} label="Partager" onClick={() => setShowShareModal(true)} />
+      <ActionRonde
+        icon={MoreHorizontal}
+        label="Autres options"
+        onClick={(e) => {
+          const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+          setMenuPosition({ x: rect.left, y: rect.top });
+        }}
+      />
+    </div>
+  );
 
   return (
-    <div
-      className="fixed inset-0 z-50 bg-base flex flex-col animate-toast-in"
+    <motion.div
+      initial={{ opacity: 0, y: 28 }}
+      animate={{ opacity: 1, y: 0 }}
+      exit={{ opacity: 0, y: 28 }}
+      transition={{ type: "spring", stiffness: 320, damping: 34 }}
+      role="dialog"
+      aria-modal="true"
+      aria-label={`Lecteur — ${song.title}`}
+      className="fixed inset-0 z-50 flex flex-col bg-base"
       style={{
-        transform: `translateY(${dragY}px)`,
-        opacity: 1 - dragProgress * 0.4,
-        transition: dragging ? "none" : "transform 0.25s ease, opacity 0.25s ease",
+        transform: dragY ? `translateY(${dragY}px)` : undefined,
+        opacity: dragY ? 1 - dragProgress * 0.4 : undefined,
+        transition: dragging ? "none" : undefined,
       }}
     >
+      {/* ------------------------------------------------------- en-tête -- */}
       <div
         onPointerDown={handlePointerDown}
         onPointerMove={handlePointerMove}
         onPointerUp={handlePointerUp}
         onPointerCancel={handlePointerUp}
-        className="touch-none"
+        className="shrink-0 touch-none"
       >
-        <header className="flex items-center justify-between px-6 py-4 cursor-grab active:cursor-grabbing">
-          <button onClick={closeFullPlayer} aria-label="Fermer le lecteur" className="text-ink-muted hover:text-ink">
+        <header className="flex items-center justify-between gap-3 px-4 py-3 md:px-6 md:py-4">
+          <button
+            onClick={closeFullPlayer}
+            aria-label="Fermer le lecteur"
+            title="Fermer (Échap)"
+            className="grid h-9 w-9 shrink-0 place-items-center rounded-full text-ink-muted transition-colors hover:bg-surface hover:text-ink"
+          >
             <ChevronDown size={22} />
           </button>
-          <span className="flex flex-col items-center gap-1.5 text-xs uppercase tracking-wide text-ink-muted">
-            En cours de lecture
-            <span className="hidden h-0.5 w-8 rounded-full bg-accent md:block" />
+
+          <span className="flex min-w-0 flex-col items-center">
+            <span className="text-[10px] font-semibold uppercase tracking-[0.18em] text-ink-muted">
+              En cours de lecture
+            </span>
+            {playSource?.label && (
+              <span className="mt-0.5 max-w-[60vw] truncate text-[11px] text-ink-muted md:max-w-md">
+                depuis {playSource.label}
+              </span>
+            )}
           </span>
-          <button
-            onClick={(e) => setMenuPosition({ x: e.clientX, y: e.clientY })}
-            aria-label="Autres options"
-            className="text-ink-muted hover:text-ink"
-          >
-            <MoreHorizontal size={20} />
-          </button>
+
+          <div className="flex shrink-0 items-center gap-1">
+            <button
+              onClick={basculerPleinEcran}
+              aria-label={plein ? "Quitter le plein écran" : "Plein écran"}
+              title={plein ? "Quitter le plein écran (F)" : "Plein écran (F)"}
+              className="hidden h-9 w-9 place-items-center rounded-full text-ink-muted transition-colors hover:bg-surface hover:text-ink md:grid"
+            >
+              {plein ? <Minimize2 size={18} /> : <Maximize2 size={18} />}
+            </button>
+            <button
+              onClick={(e) => {
+                const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+                setMenuPosition({ x: rect.left, y: rect.top });
+              }}
+              aria-label="Autres options"
+              className="grid h-9 w-9 place-items-center rounded-full text-ink-muted transition-colors hover:bg-surface hover:text-ink"
+            >
+              <MoreHorizontal size={20} />
+            </button>
+          </div>
         </header>
 
-        {/* Poignée visuelle indiquant que la zone se glisse */}
-        <div className="flex justify-center pb-2 -mt-2">
+        {/* Poignée : indique que la zone se glisse vers le bas pour fermer. */}
+        <div className="flex justify-center pb-1 lg:hidden">
           <div className="h-1 w-10 rounded-full bg-border" />
         </div>
       </div>
 
-      <div className="flex-1 overflow-y-auto px-6 pb-6">
-      <div className="flex flex-col items-center md:hidden">
-        <div
-          onPointerDown={handlePointerDown}
-          onPointerMove={handlePointerMove}
-          onPointerUp={handlePointerUp}
-          onPointerCancel={handlePointerUp}
-          onContextMenu={(e) => {
-            e.preventDefault();
-            setMenuPosition({ x: e.clientX, y: e.clientY });
-          }}
-          className="relative cursor-grab active:cursor-grabbing touch-none"
-        >
-          <SafeImage
-            src={currentSong.coverUrl}
-            alt={currentSong.title}
-            width={280}
-            height={280}
-            className="rounded-xl2 object-cover shadow-2xl mb-6"
-            priority
-          />
-          {hasLyrics && (
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                setShowLyrics(true);
-              }}
-              className="absolute bottom-3 right-3 flex items-center gap-1.5 rounded-full bg-black/60 px-3.5 py-2 text-xs font-medium text-white backdrop-blur-sm"
-            >
-              <Mic2 size={13} /> Paroles
-            </button>
-          )}
-        </div>
+      {/* ============================ MOBILE / TABLETTE (< lg) ============ */}
+      {!bureau && (
+      <div className="min-h-0 flex-1 overflow-y-auto px-4 pb-8">
+        <div className="mx-auto w-full max-w-md">
+          <div
+            onPointerDown={handlePointerDown}
+            onPointerMove={handlePointerMove}
+            onPointerUp={handlePointerUp}
+            onPointerCancel={handlePointerUp}
+            onContextMenu={(e) => {
+              e.preventDefault();
+              setMenuPosition({ x: e.clientX, y: e.clientY });
+            }}
+            className="relative mx-auto mb-5 w-full max-w-[300px] touch-none"
+          >
+            <SafeImage
+              src={song.coverUrl}
+              alt={song.title}
+              width={300}
+              height={300}
+              className="aspect-square w-full rounded-xl2 object-cover shadow-2xl"
+              priority
+            />
+          </div>
 
-        <div className="w-full max-w-md">
-          {/* En-tête titre — mobile : cœur "J'aime" (le hors-ligne reste accessible via le menu "..."). */}
-          <div className="flex items-center justify-between gap-3 mb-6">
+          <div className="mb-3 flex items-start justify-between gap-3">
             <div className="min-w-0">
-              <h1 className="truncate text-xl font-display">{currentSong.title}</h1>
-              <p className="flex items-center gap-1 text-sm text-ink-muted">
-                {currentSong.artist?.stageName ?? "Artiste supprimé"}
-                {currentSong.artist?.verified && <BadgeCheck size={14} className="text-verified" />}
-              </p>
+              <h1 className="truncate text-xl font-display text-ink">{song.title}</h1>
+              {song.artist ? (
+                <Link
+                  href={`/artiste/${song.artist._id}`}
+                  className="flex items-center gap-1 text-sm text-ink-muted transition-colors hover:text-accent"
+                >
+                  <span className="truncate">{song.artist.stageName}</span>
+                  {song.artist.verified && <BadgeCheck size={14} className="shrink-0 text-verified" />}
+                </Link>
+              ) : (
+                <p className="text-sm text-ink-muted">Artiste supprimé</p>
+              )}
             </div>
             <button
               onClick={handleToggleLike}
@@ -295,333 +660,283 @@ export function FullPlayerPage() {
             </button>
           </div>
 
-          <SeekBar progress={progress} duration={currentSong.duration} onSeek={seek} variant="pill" />
-          <div className="flex justify-between text-xs text-ink-muted mb-6 -mt-1">
+          <div className="mb-4">{chipsMeta}</div>
+
+          <SeekBar progress={progress} duration={duration} onSeek={seek} variant="pill" />
+          <div className="-mt-1 mb-5 flex justify-between text-xs tabular-nums text-ink-muted">
             <span>{formatTime(progress)}</span>
-            <span>{formatTime(currentSong.duration)}</span>
+            <span>{formatTime(duration)}</span>
           </div>
 
-          <div className="flex items-center justify-center gap-5 mb-10">
-            <button
-              onClick={toggleShuffle}
-              aria-label="Lecture aléatoire"
-              aria-pressed={isShuffled}
-              className={`transition-colors ${isShuffled ? "text-accent" : "text-ink-muted hover:text-ink"}`}
-            >
-              <Shuffle size={18} />
-            </button>
-            <button onClick={playPrevious} aria-label="Précédent" className="text-ink hover:text-accent">
-              <SkipBack size={24} />
-            </button>
-            <button
-              onClick={togglePlay}
-              aria-label={isPlaying ? "Pause" : "Lecture"}
-              className="grid h-16 w-16 place-items-center rounded-full bg-accent text-base hover:bg-accent-hover"
-            >
-              {isPlaying ? <Pause size={26} fill="currentColor" /> : <Play size={26} fill="currentColor" />}
-            </button>
-            <button onClick={playNext} aria-label="Suivant" className="text-ink hover:text-accent">
-              <SkipForward size={24} />
-            </button>
-            <button
-              onClick={cycleRepeatMode}
-              aria-label="Répéter"
-              aria-pressed={repeatMode !== "off"}
-              className={`transition-colors ${repeatMode !== "off" ? "text-accent" : "text-ink-muted hover:text-ink"}`}
-            >
-              <RepeatIcon size={18} />
-            </button>
-          </div>
+          <div className="mb-5">{transport("compact")}</div>
 
-          {/* ---------- Mobile : bass boost + accès rapide file d'attente / playlist + "à suivre" ---------- */}
-          <div className="w-full">
-            <div className="flex gap-2 mb-5">
-              <button
-                onClick={() => setShowQueueSheet(true)}
-                className="flex flex-1 items-center justify-center gap-1.5 rounded-full border border-border px-4 py-2 text-xs font-medium text-ink-muted hover:border-accent hover:text-accent"
-              >
-                <ListMusic size={14} /> File d&apos;attente
-              </button>
-              <button
-                onClick={() => setShowAddToPlaylist(true)}
-                className="flex flex-1 items-center justify-center gap-1.5 rounded-full border border-border px-4 py-2 text-xs font-medium text-ink-muted hover:border-accent hover:text-accent"
-              >
-                <ListPlus size={14} /> Ajouter à la playlist
-              </button>
-            </div>
-
-            <button
-              onClick={handleToggleBassBoost}
-              aria-pressed={bassBoostOn}
-              className="w-full rounded-xl2 border border-border bg-surface px-4 py-3.5 mb-6 text-left"
-            >
-              <div className="flex items-center justify-between">
-                <span className="flex items-center gap-1.5 text-sm font-medium">
-                  <Flame size={15} className="text-accent" /> Bass Boost
-                </span>
-                <span
-                  className={`relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors ${
-                    bassBoostOn ? "bg-accent" : "bg-border"
-                  }`}
-                >
-                  <span
-                    className={`inline-block h-[18px] w-[18px] transform rounded-full bg-ink transition-transform ${
-                      bassBoostOn ? "translate-x-[22px]" : "translate-x-[3px]"
-                    }`}
-                  />
-                </span>
-              </div>
-              <p className="text-[11px] text-ink-muted mt-1.5">
-                Renforce les basses et compense le volume pour un son plus puissant.
-              </p>
-            </button>
-
-            {upcoming.length > 0 && (
-              <div>
-                <div className="flex items-center justify-between mb-3">
-                  <h2 className="text-sm font-medium">À suivre</h2>
-                  <button
-                    onClick={() => setShowQueueSheet(true)}
-                    className="text-xs font-medium text-accent hover:underline"
-                  >
-                    Tout voir
-                  </button>
-                </div>
-                <div className="space-y-1">
-                  {upcoming.map((song) => (
-                    <div key={song._id} className="flex items-center gap-3 rounded-xl px-1.5 py-1.5">
-                      <SafeImage
-                        src={song.coverUrl}
-                        alt={song.title}
-                        width={40}
-                        height={40}
-                        className="shrink-0 rounded-lg object-cover"
-                      />
-                      <span className="min-w-0 flex-1">
-                        <span className="block truncate text-sm">{song.title}</span>
-                        <span className="block truncate text-xs text-ink-muted">
-                          {song.artist?.stageName ?? "Artiste supprimé"}
-                        </span>
-                      </span>
-                      <span className="shrink-0 text-xs text-ink-muted">{formatTime(song.duration)}</span>
-                      <button
-                        onClick={(e) => setMenuPosition({ x: e.clientX, y: e.clientY })}
-                        aria-label="Options du son"
-                        className="shrink-0 text-ink-muted hover:text-ink"
-                      >
-                        <MoreHorizontal size={16} />
-                      </button>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-          </div>
-        </div>
-      </div>
-
-      {/* ---------- Desktop / tablette : mise en page 3 colonnes (pochette+actions / lecture+égaliseur / file d'attente) ---------- */}
-      <div className="hidden md:grid md:max-w-6xl md:grid-cols-[280px_1fr_320px] md:items-start md:gap-8 md:mx-auto md:w-full">
-        {/* Colonne gauche : pochette, titre, actions */}
-        <div>
-          <SafeImage
-            src={currentSong.coverUrl}
-            alt={currentSong.title}
-            width={280}
-            height={280}
-            className="mb-4 aspect-square w-full rounded-xl2 object-cover shadow-2xl"
-            priority
-          />
-          <div className="mb-4 text-center">
-            <p className="truncate text-lg font-display">{currentSong.title}</p>
-            <p className="flex items-center justify-center gap-1 text-sm text-ink-muted">
-              {currentSong.artist?.stageName ?? "Artiste supprimé"}
-              {currentSong.artist?.verified && <BadgeCheck size={13} className="text-verified" />}
-            </p>
-          </div>
-          <div className="space-y-1 border-t border-border pt-3">
-            <button
-              onClick={handleToggleLike}
-              aria-pressed={liked}
-              className={`flex w-full items-center gap-3 rounded-xl px-2 py-2.5 text-sm transition-colors hover:bg-surface ${
-                liked ? "text-accent" : "text-ink-muted hover:text-ink"
-              }`}
-            >
-              <Heart size={17} fill={liked ? "currentColor" : "none"} />
-              {liked ? "Retirer des favoris" : "Ajouter aux favoris"}
-            </button>
-            <button
-              onClick={handleToggleOffline}
-              disabled={offlineState === "saving"}
-              className={`flex w-full items-center gap-3 rounded-xl px-2 py-2.5 text-sm transition-colors hover:bg-surface ${
-                offlineState === "saved" ? "text-accent" : "text-ink-muted hover:text-ink"
-              }`}
-            >
-              {offlineState === "saving" ? (
-                <Loader2 size={17} className="animate-spin" />
-              ) : offlineState === "saved" ? (
-                <Check size={17} />
-              ) : (
-                <Download size={17} />
-              )}
-              {offlineState === "saved" ? "Disponible hors-ligne" : "Télécharger"}
-            </button>
-            <button
-              onClick={handleShare}
-              className="flex w-full items-center gap-3 rounded-xl px-2 py-2.5 text-sm text-ink-muted transition-colors hover:bg-surface hover:text-ink"
-            >
-              <Share2 size={17} /> Partager
-            </button>
-            <Link
-              href={`/son/${currentSong._id}`}
-              className="flex w-full items-center gap-3 rounded-xl px-2 py-2.5 text-sm text-ink-muted transition-colors hover:bg-surface hover:text-ink"
-            >
-              <Info size={17} /> Informations sur le titre
-            </Link>
-          </div>
-        </div>
-
-        {/* Colonne centrale : lecture + égaliseur */}
-        <div className="mx-auto w-full max-w-xl">
-          <div className="mb-1 flex items-start justify-between gap-3">
-            <div className="min-w-0">
-              <h1 className="truncate text-3xl font-display">{currentSong.title}</h1>
-              <p className="mt-1 flex items-center gap-1 text-sm text-ink-muted">
-                {currentSong.artist?.stageName ?? "Artiste supprimé"}
-                {currentSong.artist?.verified && <BadgeCheck size={14} className="text-verified" />}
-              </p>
-            </div>
-            <div className="flex shrink-0 items-center gap-3 pt-1">
-              <button
-                onClick={handleToggleOffline}
-                aria-label={offlineState === "saved" ? "Retirer du hors-ligne" : "Télécharger"}
-                disabled={offlineState === "saving"}
-                className={`transition-colors ${offlineState === "saved" ? "text-accent" : "text-ink-muted hover:text-ink"}`}
-              >
-                {offlineState === "saving" ? (
-                  <Loader2 size={20} className="animate-spin" />
-                ) : offlineState === "saved" ? (
-                  <Check size={20} />
-                ) : (
-                  <Download size={20} />
-                )}
-              </button>
-              <button
-                onClick={(e) => setMenuPosition({ x: e.clientX, y: e.clientY })}
-                aria-label="Autres options"
-                className="text-ink-muted hover:text-ink"
-              >
-                <MoreHorizontal size={20} />
-              </button>
-            </div>
-          </div>
-
-          <div className="mb-8 mt-6">
-            <SeekBar progress={progress} duration={currentSong.duration} onSeek={seek} variant="pill" />
-            <div className="-mt-1 flex justify-between text-xs text-ink-muted">
-              <span>{formatTime(progress)}</span>
-              <span>{formatTime(currentSong.duration)}</span>
-            </div>
-          </div>
-
-          <div className="mb-8 flex items-center justify-center gap-6">
-            <button
-              onClick={toggleShuffle}
-              aria-label="Lecture aléatoire"
-              aria-pressed={isShuffled}
-              className={`transition-colors ${isShuffled ? "text-accent" : "text-ink-muted hover:text-ink"}`}
-            >
-              <Shuffle size={19} />
-            </button>
-            <button onClick={playPrevious} aria-label="Précédent" className="text-ink transition-colors hover:text-accent">
-              <SkipBack size={26} fill="currentColor" />
-            </button>
-            <button
-              onClick={togglePlay}
-              aria-label={isPlaying ? "Pause" : "Lecture"}
-              className="grid h-16 w-16 place-items-center rounded-full bg-accent text-base transition-transform hover:scale-105 hover:bg-accent-hover"
-            >
-              {isPlaying ? <Pause size={26} fill="currentColor" /> : <Play size={26} fill="currentColor" className="ml-0.5" />}
-            </button>
-            <button onClick={playNext} aria-label="Suivant" className="text-ink transition-colors hover:text-accent">
-              <SkipForward size={26} fill="currentColor" />
-            </button>
-            <button
-              onClick={cycleRepeatMode}
-              aria-label="Répéter"
-              aria-pressed={repeatMode !== "off"}
-              className={`transition-colors ${repeatMode !== "off" ? "text-accent" : "text-ink-muted hover:text-ink"}`}
-            >
-              <RepeatIcon size={19} />
-            </button>
-          </div>
-
-          <div className="mb-8 flex items-center gap-3">
+          <div className="mb-5 flex items-center gap-3">
             <button
               onClick={() => setVolume(volume > 0 ? 0 : 1)}
               aria-label={volume === 0 ? "Réactiver le son" : "Couper le son"}
-              className="shrink-0 text-ink-muted hover:text-ink"
+              className="shrink-0 text-ink-muted transition-colors hover:text-ink"
             >
               <VolumeIcon size={18} />
             </button>
             <SeekBar progress={volume} duration={1} onSeek={setVolume} variant="pill" className="flex-1" />
-            <Volume2 size={18} className="shrink-0 text-ink-muted" />
           </div>
 
-          <EQPanel />
-        </div>
+          <div className="mb-5">{actionsTitre}</div>
+          <div className="mb-6">{reglagesSecondaires}</div>
 
-        {/* Colonne droite : file d'attente persistante */}
-        <div className="sticky top-6 max-h-[75vh] overflow-y-auto rounded-xl2 border border-border bg-surface p-4">
-          <h2 className="mb-3 text-xs font-semibold uppercase tracking-wide text-ink-muted">File d&apos;attente</h2>
-          <QueuePanel />
+          {barreOnglets}
+          {/* Hauteur bornée : les paroles ont besoin de leur propre zone de
+              défilement pour pouvoir se recentrer sur la ligne chantée.
+              Sans hauteur définie, ce conteneur s'étirerait à l'infini et le
+              suivi automatique n'aurait plus rien à faire défiler. */}
+          <div className="flex h-[58vh] flex-col">{contenuOnglet}</div>
         </div>
       </div>
-      </div>
-
-      {menuPosition && (
-        <SongContextMenu song={currentSong} position={menuPosition} onClose={() => setMenuPosition(null)} />
       )}
 
-      {showLyrics && currentSong.lyrics && (
-        <LyricsSheet
-          title={currentSong.title}
-          artist={currentSong.artist?.stageName}
-          lyrics={currentSong.lyrics}
-          onClose={() => setShowLyrics(false)}
+      {/* ================================ BUREAU (lg et plus) ============= */}
+      {bureau && (
+      <div className="flex min-h-0 flex-1 flex-col">
+        <div className="mx-auto flex min-h-0 w-full max-w-[1600px] flex-1 gap-8 px-6 pb-2 xl:px-10">
+          {/* Colonne 1 — pochette et identité */}
+          <div className="flex w-[300px] shrink-0 flex-col xl:w-[340px]">
+            <div
+              onContextMenu={(e) => {
+                e.preventDefault();
+                setMenuPosition({ x: e.clientX, y: e.clientY });
+              }}
+            >
+              <SafeImage
+                src={song.coverUrl}
+                alt={song.title}
+                width={340}
+                height={340}
+                className="aspect-square w-full rounded-xl2 object-cover shadow-2xl"
+                priority
+              />
+            </div>
+
+            <div className="mt-5 text-center">
+              <h1 className="truncate text-2xl font-display text-ink">{song.title}</h1>
+              {song.artist ? (
+                <Link
+                  href={`/artiste/${song.artist._id}`}
+                  className="mt-1 inline-flex items-center gap-1 text-sm text-ink-muted transition-colors hover:text-accent"
+                >
+                  <span className="truncate">{song.artist.stageName}</span>
+                  {song.artist.verified && <BadgeCheck size={14} className="shrink-0 text-verified" />}
+                </Link>
+              ) : (
+                <p className="mt-1 text-sm text-ink-muted">Artiste supprimé</p>
+              )}
+            </div>
+
+            <div className="mt-4">{chipsMeta}</div>
+            <div className="mt-4">{actionsTitre}</div>
+
+            {song.featuring && song.featuring.length > 0 && (
+              <p className="mt-4 text-center text-xs text-ink-muted">
+                avec{" "}
+                {song.featuring
+                  .filter((f) => f.artist)
+                  .map((f) => f.artist.stageName)
+                  .join(", ")}
+              </p>
+            )}
+          </div>
+
+          {/* Colonne 2 — onglets, dominés par les paroles */}
+          <div className="flex min-h-0 min-w-0 flex-1 flex-col">
+            {barreOnglets}
+            {contenuOnglet}
+          </div>
+
+          {/* Colonne 3 — file d'attente et historique */}
+          {colonneFile && (
+            <div className="flex w-[330px] shrink-0 flex-col">
+              <div className="flex min-h-0 flex-1 flex-col rounded-xl2 border border-border bg-surface p-4">
+                <QueuePanel />
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Barre de transport, sur toute la largeur */}
+        <div className="shrink-0 border-t border-border bg-surface/60 px-6 py-3 backdrop-blur-sm xl:px-10">
+          <div className="mx-auto flex w-full max-w-[1600px] items-center gap-6">
+            <div className="flex w-[220px] shrink-0 items-center gap-3 2xl:w-[280px]">
+              <SafeImage
+                src={song.coverUrl}
+                alt=""
+                width={44}
+                height={44}
+                className="h-11 w-11 shrink-0 rounded-lg object-cover"
+              />
+              <span className="min-w-0">
+                <span className="block truncate text-sm font-semibold text-ink">{song.title}</span>
+                <span className="block truncate text-xs text-ink-muted">
+                  {song.artist?.stageName ?? "Artiste supprimé"}
+                </span>
+              </span>
+            </div>
+
+            <div className="flex min-w-0 flex-1 flex-col items-center gap-1.5">
+              {transport("large")}
+              <div className="flex w-full items-center gap-2.5">
+                <span className="w-10 shrink-0 text-right text-[11px] tabular-nums text-ink-muted">
+                  {formatTime(progress)}
+                </span>
+                <SeekBar
+                  progress={progress}
+                  duration={duration}
+                  onSeek={seek}
+                  variant="pill"
+                  className="min-w-0 flex-1"
+                />
+                <span className="w-10 shrink-0 text-[11px] tabular-nums text-ink-muted">{formatTime(duration)}</span>
+              </div>
+            </div>
+
+            <div className="flex shrink-0 items-center gap-3">
+              {reglagesSecondaires}
+              <div className="flex items-center gap-1.5">
+                <button
+                  onClick={() => setVolume(volume > 0 ? 0 : 1)}
+                  aria-label={volume === 0 ? "Réactiver le son" : "Couper le son"}
+                  title="Couper le son (M)"
+                  className="grid h-8 w-8 shrink-0 place-items-center rounded-lg text-ink-muted transition-colors hover:bg-base hover:text-ink"
+                >
+                  <VolumeIcon size={18} />
+                </button>
+                <div className="hidden w-20 xl:block">
+                  <SeekBar progress={volume} duration={1} onSeek={setVolume} variant="pill" />
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      )}
+
+      {/* ------------------------------------------------- surcouches ---- */}
+      {menuPosition && (
+        <SongContextMenu song={song} position={menuPosition} onClose={() => setMenuPosition(null)} />
+      )}
+      {reglage?.type === "bass" && <BassBoostMenu anchor={reglage.anchor} onClose={() => setReglage(null)} />}
+      {reglage?.type === "vitesse" && <SpeedMenu anchor={reglage.anchor} onClose={() => setReglage(null)} />}
+      {reglage?.type === "qualite" && <QualityMenu anchor={reglage.anchor} onClose={() => setReglage(null)} />}
+      {reglage?.type === "veille" && <SleepMenu anchor={reglage.anchor} onClose={() => setReglage(null)} />}
+
+      <AnimatePresence>
+        {showQueueSheet && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[60] flex items-end justify-center bg-black/60"
+            onClick={() => setShowQueueSheet(false)}
+          >
+            <motion.div
+              initial={{ y: "100%" }}
+              animate={{ y: 0 }}
+              exit={{ y: "100%" }}
+              transition={{ type: "spring", stiffness: 320, damping: 34 }}
+              onClick={(e) => e.stopPropagation()}
+              className="flex max-h-[78vh] w-full flex-col rounded-t-3xl bg-surface md:max-w-lg"
+            >
+              <div className="flex shrink-0 items-center justify-between border-b border-border px-5 py-4">
+                <span className="flex items-center gap-1.5 text-sm font-medium text-ink">
+                  <ListMusic size={15} className="text-accent" /> File d&apos;attente
+                </span>
+                <button
+                  onClick={() => setShowQueueSheet(false)}
+                  aria-label="Fermer la file d'attente"
+                  className="text-ink-muted transition-colors hover:text-ink"
+                >
+                  <X size={18} />
+                </button>
+              </div>
+              <div className="flex min-h-0 flex-1 flex-col px-3 py-3">
+                <QueuePanel compact />
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {showAddToPlaylist && <AddToPlaylistModal songId={song._id} onClose={() => setShowAddToPlaylist(false)} />}
+      {showShareModal && (
+        <ShareModal
+          subject={buildSongSubject(song)}
+          onClose={() => setShowShareModal(false)}
+          onOpenAddToPlaylist={() => setShowAddToPlaylist(true)}
         />
       )}
+    </motion.div>
+  );
+}
 
-      {showQueueSheet && (
-        <div
-          className="md:hidden fixed inset-0 z-[60] flex items-end justify-center bg-black/60"
-          onClick={() => setShowQueueSheet(false)}
-        >
-          <div
-            onClick={(e) => e.stopPropagation()}
-            className="flex max-h-[75vh] w-full flex-col rounded-t-3xl bg-surface animate-toast-in"
-          >
-            <div className="flex items-center justify-between border-b border-border px-5 py-4">
-              <span className="flex items-center gap-1.5 text-sm font-medium">
-                <ListMusic size={15} className="text-accent" /> File d&apos;attente
-              </span>
-              <button
-                onClick={() => setShowQueueSheet(false)}
-                aria-label="Fermer la file d'attente"
-                className="text-ink-muted hover:text-ink"
-              >
-                <X size={18} />
-              </button>
-            </div>
-            <div className="overflow-y-auto px-3 py-3">
-              <QueuePanel />
-            </div>
-          </div>
-        </div>
-      )}
+/* ------------------------------------------------------------ éléments -- */
 
-      {showAddToPlaylist && <AddToPlaylistModal songId={currentSong._id} onClose={() => setShowAddToPlaylist(false)} />}
-      {showShareModal && <ShareModal subject={buildSongSubject(currentSong)} onClose={() => setShowShareModal(false)} onOpenAddToPlaylist={() => setShowAddToPlaylist(true)} />}
-    </div>
+function ActionRonde({
+  icon: Icon,
+  label,
+  actif,
+  rempli,
+  tourne,
+  onClick,
+}: {
+  icon: typeof Heart;
+  label: string;
+  actif?: boolean;
+  rempli?: boolean;
+  tourne?: boolean;
+  onClick: (e: React.MouseEvent) => void;
+}) {
+  return (
+    <button
+      onClick={onClick}
+      title={label}
+      aria-label={label}
+      aria-pressed={actif}
+      className={`grid h-10 w-10 place-items-center rounded-full transition-colors ${
+        actif ? "text-accent hover:bg-accent/10" : "text-ink-muted hover:bg-surface hover:text-ink"
+      }`}
+    >
+      <Icon size={19} fill={rempli ? "currentColor" : "none"} className={tourne ? "animate-spin" : ""} />
+    </button>
+  );
+}
+
+function BoutonReglage({
+  icon: Icon,
+  label,
+  valeur,
+  actif,
+  onClick,
+  className = "",
+}: {
+  icon: typeof Flame;
+  label: string;
+  valeur: string;
+  actif?: boolean;
+  onClick: (e: React.MouseEvent) => void;
+  className?: string;
+}) {
+  return (
+    <button
+      onClick={onClick}
+      title={`${label} — ${valeur}`}
+      aria-label={`${label} : ${valeur}`}
+      aria-haspopup="menu"
+      className={`flex shrink-0 items-center gap-1.5 rounded-full border px-2.5 py-1.5 text-[11px] font-medium transition-colors ${
+        actif
+          ? "border-accent bg-accent/12 text-accent"
+          : "border-border text-ink-muted hover:border-accent hover:text-accent"
+      } ${className}`}
+    >
+      <Icon size={13} />
+      <span className="hidden max-w-[7rem] truncate sm:inline">{valeur}</span>
+    </button>
   );
 }

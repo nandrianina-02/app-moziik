@@ -2,39 +2,73 @@
 
 import { useEffect, useRef } from "react";
 import {
-  EQ_BANDS,
-  BASS_BOOST_FREQUENCY,
-  BASS_BOOST_MAX_DB,
-  MAKEUP_GAIN_MAX,
-} from "@/components/player/constants/eq";
+  dbVersGain,
+  reglageBass,
+  FREQ_CLARTE,
+  FREQ_POIDS,
+  FREQ_PROFONDEUR,
+  NIVEAU_BASS_PAR_DEFAUT,
+  Q_CLARTE,
+  Q_POIDS,
+  Q_PROFONDEUR,
+  type NiveauBass,
+} from "@/components/player/constants/bassBoost";
 
 /**
- * Encapsule un <audio> et une chaîne Web Audio API pour appliquer un
- * véritable égaliseur 10 bandes + un Bass Boost dédié (façon Poweramp),
- * plutôt qu'un simple visuel décoratif.
+ * Encapsule un <audio> et une chaîne Web Audio API.
+ *
+ * L'égaliseur graphique 10 bandes a été retiré : il demandait à
+ * l'auditeur de savoir ce qu'il faisait, et ses réglages agressifs
+ * écrêtaient. À la place, un Bass Boost à cinq niveaux dont chacun est un
+ * jeu de filtres cohérent (voir constants/bassBoost.ts pour la courbe
+ * mesurée et le choix des fréquences).
  *
  * Chaîne du signal :
- * source -> [10 filtres peaking] -> low-shelf (bass boost) -> gain de
- * compensation (loudness) -> limiteur (anti-écrêtage) -> destination
+ *
+ *   source
+ *     -> cloche 75 Hz          (le poids)
+ *     -> cloche 45 Hz          (la profondeur)
+ *     -> cloche 300 Hz, gain<0 (dégage la voix)
+ *     -> preGain (atténuation) (marge anti-écrêtage)
+ *     -> limiteur              (filet de sécurité)
+ *     -> destination
+ *
+ * Au niveau « Off », tous les gains valent 0 dB et le limiteur passe en
+ * ratio 1 : trois filtres en cloche à gain nul sont exactement à
+ * l'unité, la chaîne est donc transparente au sens strict — le morceau
+ * sort tel qu'il est entré.
  */
+
+/** Durée de transition d'un réglage à l'autre : sans elle, on entend un clic. */
+const LISSAGE_S = 0.04;
+
 export function useAudioEngine() {
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const audioContextRef = useRef<AudioContext | null>(null);
-  const filtersRef = useRef<BiquadFilterNode[]>([]);
-  const bassBoostRef = useRef<BiquadFilterNode | null>(null);
-  const makeupGainRef = useRef<GainNode | null>(null);
-  const limiterRef = useRef<DynamicsCompressorNode | null>(null);
+  const poidsRef = useRef<BiquadFilterNode | null>(null);
+  const profondeurRef = useRef<BiquadFilterNode | null>(null);
+  const clarteRef = useRef<BiquadFilterNode | null>(null);
+  const preGainRef = useRef<GainNode | null>(null);
+  const limiteurRef = useRef<DynamicsCompressorNode | null>(null);
   const sourceRef = useRef<MediaElementAudioSourceNode | null>(null);
-  // Sortie choisie, mémorisée hors du graphe : elle peut être demandée
-  // (restaurée depuis localStorage) avant même la première lecture, donc
-  // avant l'existence de l'AudioContext. Elle est alors appliquée à sa
-  // création. `null` = jamais choisie, on laisse la sortie système.
+
+  // Niveau demandé, mémorisé hors du graphe : il est restauré depuis
+  // localStorage au montage, donc avant la première lecture — donc avant
+  // l'existence de l'AudioContext. Il est appliqué à sa création.
+  const niveauRef = useRef<NiveauBass>(NIVEAU_BASS_PAR_DEFAUT);
+
+  // Sortie choisie, mémorisée pour la même raison.
+  // `null` = jamais choisie, on laisse la sortie système.
   const outputDeviceIdRef = useRef<string | null>(null);
 
   useEffect(() => {
     if (!audioRef.current) {
       audioRef.current = new Audio();
       audioRef.current.crossOrigin = "anonymous";
+      // Conserve la hauteur des voix quand la vitesse de lecture change :
+      // sans ça, un morceau à 1.5× monte d'une tierce.
+      const el = audioRef.current as HTMLAudioElement & { preservesPitch?: boolean };
+      el.preservesPitch = true;
     }
   }, []);
 
@@ -45,52 +79,54 @@ export function useAudioEngine() {
     const ctx = new AudioContext();
     const source = ctx.createMediaElementSource(audioRef.current);
 
-    const filters = EQ_BANDS.map((band) => {
-      const filter = ctx.createBiquadFilter();
-      filter.type = "peaking";
-      filter.frequency.value = band.frequency;
-      filter.Q.value = 1.1;
-      filter.gain.value = 0;
-      return filter;
-    });
+    const poids = ctx.createBiquadFilter();
+    poids.type = "peaking";
+    poids.frequency.value = FREQ_POIDS;
+    poids.Q.value = Q_POIDS;
+    poids.gain.value = 0;
 
-    const bassBoost = ctx.createBiquadFilter();
-    bassBoost.type = "lowshelf";
-    bassBoost.frequency.value = BASS_BOOST_FREQUENCY;
-    bassBoost.gain.value = 0;
+    const profondeur = ctx.createBiquadFilter();
+    profondeur.type = "peaking";
+    profondeur.frequency.value = FREQ_PROFONDEUR;
+    profondeur.Q.value = Q_PROFONDEUR;
+    profondeur.gain.value = 0;
 
-    const makeupGain = ctx.createGain();
-    makeupGain.gain.value = 1;
+    const clarte = ctx.createBiquadFilter();
+    clarte.type = "peaking";
+    clarte.frequency.value = FREQ_CLARTE;
+    clarte.Q.value = Q_CLARTE;
+    clarte.gain.value = 0;
 
-    // Limiteur final : sans lui, additionner plusieurs bandes boostées +
-    // le bass boost + le gain de compensation peut facilement dépasser
-    // 0 dBFS et provoquer un écrêtage numérique (le son "bizarre"/saturé
-    // signalé en boostant l'égaliseur). Poweramp fait la même chose en
-    // interne pour permettre des boosts agressifs sans distorsion.
-    const limiter = ctx.createDynamicsCompressor();
-    limiter.threshold.value = -1; // dB : n'intervient que juste avant l'écrêtage
-    limiter.knee.value = 0; // limiteur franc, pas de compression progressive
-    limiter.ratio.value = 20; // quasi brickwall
-    limiter.attack.value = 0.002; // très rapide pour attraper les crêtes
-    limiter.release.value = 0.15;
+    const preGain = ctx.createGain();
+    preGain.gain.value = 1;
 
-    // source -> filtre 1 -> ... -> filtre 10 -> bassBoost -> makeupGain -> limiter -> destination
-    let node: AudioNode = source;
-    filters.forEach((filter) => {
-      node.connect(filter);
-      node = filter;
-    });
-    node.connect(bassBoost);
-    bassBoost.connect(makeupGain);
-    makeupGain.connect(limiter);
-    limiter.connect(ctx.destination);
+    // Filet de sécurité seulement : avec l'atténuation d'entrée calculée
+    // dans bassBoost.ts, il ne doit intervenir que sur les crêtes.
+    // Ratio 1 = transparent, appliqué tant que le boost est sur « Off ».
+    const limiteur = ctx.createDynamicsCompressor();
+    limiteur.threshold.value = 0;
+    limiteur.knee.value = 0;
+    limiteur.ratio.value = 1;
+    limiteur.attack.value = 0.003;
+    limiteur.release.value = 0.18;
+
+    source.connect(poids);
+    poids.connect(profondeur);
+    profondeur.connect(clarte);
+    clarte.connect(preGain);
+    preGain.connect(limiteur);
+    limiteur.connect(ctx.destination);
 
     audioContextRef.current = ctx;
-    filtersRef.current = filters;
-    bassBoostRef.current = bassBoost;
-    makeupGainRef.current = makeupGain;
-    limiterRef.current = limiter;
+    poidsRef.current = poids;
+    profondeurRef.current = profondeur;
+    clarteRef.current = clarte;
+    preGainRef.current = preGain;
+    limiteurRef.current = limiteur;
     sourceRef.current = source;
+
+    // Réglages demandés avant l'existence du graphe.
+    appliquerNiveau(niveauRef.current, /* immediat */ true);
 
     // Sortie mémorisée d'une session à l'autre : les identifiants de
     // périphériques peuvent avoir expiré (matériel débranché, permissions
@@ -101,6 +137,61 @@ export function useAudioEngine() {
         outputDeviceIdRef.current = null;
       });
     }
+  }
+
+  /**
+   * Écrit les valeurs d'un niveau dans le graphe.
+   *
+   * `setTargetAtTime` plutôt qu'une affectation directe : changer un gain
+   * d'un coup pendant la lecture produit une discontinuité du signal,
+   * c'est-à-dire un clic parfaitement audible au casque.
+   */
+  function appliquerNiveau(niveau: NiveauBass, immediat = false) {
+    const ctx = audioContextRef.current;
+    if (!ctx) return;
+
+    const r = reglageBass(niveau);
+    const actif = niveau !== "off";
+    const t = ctx.currentTime;
+    const tau = immediat ? 0.001 : LISSAGE_S;
+
+    const viser = (param: AudioParam | undefined, valeur: number) => {
+      if (!param) return;
+      param.cancelScheduledValues(t);
+      param.setTargetAtTime(valeur, t, tau);
+    };
+
+    viser(poidsRef.current?.gain, r.poidsDb);
+    viser(profondeurRef.current?.gain, r.profondeurDb);
+    viser(clarteRef.current?.gain, r.clarteDb);
+    viser(preGainRef.current?.gain, dbVersGain(r.preGainDb));
+
+    // Le limiteur ne se lisse pas : ses paramètres ne sont pas dans le
+    // chemin du signal, un changement instantané ne s'entend pas.
+    const lim = limiteurRef.current;
+    if (lim) {
+      lim.threshold.value = actif ? -1.5 : 0;
+      lim.knee.value = actif ? 2 : 0;
+      lim.ratio.value = actif ? 12 : 1;
+    }
+  }
+
+  /** Change le niveau de Bass Boost. Sans effet audible tant que rien ne joue. */
+  function setBassBoost(niveau: NiveauBass) {
+    niveauRef.current = niveau;
+    appliquerNiveau(niveau);
+  }
+
+  /**
+   * Vitesse de lecture. `preservesPitch` est déjà posé à la création de
+   * l'élément, on le repose ici : certains navigateurs le réinitialisent
+   * au changement de source.
+   */
+  function setPlaybackRate(rate: number) {
+    const audio = audioRef.current as (HTMLAudioElement & { preservesPitch?: boolean }) | null;
+    if (!audio) return;
+    audio.preservesPitch = true;
+    audio.playbackRate = rate;
   }
 
   /**
@@ -125,35 +216,11 @@ export function useAudioEngine() {
     return typeof window.AudioContext.prototype.setSinkId === "function";
   }
 
-  function setBandGain(index: number, gainDb: number) {
-    if (filtersRef.current[index]) {
-      filtersRef.current[index].gain.value = gainDb;
-    }
-  }
-
-  function applyPreset(gains: number[]) {
-    gains.forEach((g, i) => setBandGain(i, g));
-  }
-
-  /** percent : 0-100, comme le slider Bass Boost de Poweramp. */
-  function setBassBoost(percent: number) {
-    const ratio = Math.min(Math.max(percent, 0), 100) / 100;
-    if (bassBoostRef.current) {
-      bassBoostRef.current.gain.value = ratio * BASS_BOOST_MAX_DB;
-    }
-    if (makeupGainRef.current) {
-      // Compense légèrement le volume perçu quand le boost est fort,
-      // pour un son plus puissant sans écrêter.
-      makeupGainRef.current.gain.value = 1 + ratio * (MAKEUP_GAIN_MAX - 1);
-    }
-  }
-
   return {
     audioRef,
     ensureAudioGraph,
-    setBandGain,
-    applyPreset,
     setBassBoost,
+    setPlaybackRate,
     setOutputDevice,
     isOutputSwitchSupported,
   };

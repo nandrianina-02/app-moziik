@@ -5,7 +5,8 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useSession, signOut } from "next-auth/react";
 import { oublierCompte } from "@/lib/offlineApi";
-import { Search, ChevronDown, User, CreditCard, Settings, LogOut, Shield, Mic2 } from "lucide-react";
+import { ChevronDown, User, CreditCard, Settings, LogOut, Shield, Mic2 } from "lucide-react";
+import { SearchBar } from "@/components/search/SearchBar";
 import { NotificationBell } from "@/components/ui/NotificationBell";
 import { ThemeToggle } from "@/components/ui/ThemeToggle";
 import { useEscapeClose } from "@/hooks/useEscapeClose";
@@ -50,10 +51,9 @@ export function DesktopHeader() {
     return () => document.removeEventListener("mousedown", handlePointerDown);
   }, [menuOpen]);
 
-  function submitSearch(e: React.FormEvent) {
-    e.preventDefault();
-    const terme = query.trim();
-    if (terme) router.push(`/recherche?q=${encodeURIComponent(terme)}`);
+  function submitSearch(terme: string) {
+    const propre = terme.trim();
+    if (propre) router.push(`/recherche?q=${encodeURIComponent(propre)}`);
   }
 
   const role = session?.user?.role;
@@ -61,18 +61,18 @@ export function DesktopHeader() {
 
   return (
     <header className="sticky top-0 z-20 hidden shrink-0 items-center gap-4 border-b border-border bg-base/85 px-6 py-3 backdrop-blur md:flex md:px-10 print:hidden">
-      <form onSubmit={submitSearch} className="mx-auto w-full max-w-xl">
-        <label className="flex items-center gap-2.5 rounded-full border border-border bg-surface px-4 py-2.5 transition-colors focus-within:border-accent">
-          <Search size={16} className="shrink-0 text-ink-muted" />
-          <input
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            placeholder="Rechercher un titre, un artiste, un album..."
-            aria-label="Rechercher sur Moziik"
-            className="min-w-0 flex-1 bg-transparent text-sm outline-none placeholder:text-ink-muted"
-          />
-        </label>
-      </form>
+      {/* Même composant que la page de recherche : les suggestions
+          instantanées doivent être disponibles depuis n'importe quel écran,
+          pas seulement une fois arrivé sur /recherche. */}
+      <div className="mx-auto w-full max-w-xl">
+        <SearchBar
+          valeur={query}
+          onChange={setQuery}
+          onValider={submitSearch}
+          variante="barre"
+          placeholder="Rechercher un titre, un artiste, un album..."
+        />
+      </div>
 
       <div className="flex shrink-0 items-center gap-2">
         <ThemeToggle />

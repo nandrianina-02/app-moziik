@@ -202,44 +202,7 @@ html.light {
   to { transform: translateX(100%); }
 }
 
-/* Curseurs verticaux de l'égaliseur : un <input type="range"> horizontal
-   pivoté à -90deg, plutôt que "writing-mode: vertical-lr" (mal supporté
-   et sans taille intrinsèque fiable — il pouvait s'étirer sur toute la
-   hauteur de la page). La largeur du <input> = la longueur visuelle du
-   curseur une fois pivoté ; elle est fixée en pixels via l'attribut
-   style de chaque slider (voir EQPanel.tsx), jamais en pourcentage. */
-.eq-slider {
-  -webkit-appearance: none;
-  appearance: none;
-  background: transparent;
-  cursor: pointer;
-  flex-shrink: 0;
-}
-.eq-slider::-webkit-slider-runnable-track {
-  height: 4px;
-  border-radius: 9999px;
-  background: rgb(var(--color-border));
-}
-.eq-slider::-webkit-slider-thumb {
-  -webkit-appearance: none;
-  appearance: none;
-  height: 14px;
-  width: 14px;
-  border-radius: 9999px;
-  background: rgb(var(--color-accent));
-  margin-top: -5px;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
-}
-.eq-slider::-moz-range-track {
-  height: 4px;
-  border-radius: 9999px;
-  background: rgb(var(--color-border));
-}
-.eq-slider::-moz-range-thumb {
-  height: 14px;
-  width: 14px;
-  border: none;
-  border-radius: 9999px;
-  background: rgb(var(--color-accent));
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
-}
+/* Les curseurs verticaux de l'égaliseur 10 bandes vivaient ici. L'égaliseur
+   a été retiré au profit d'un Bass Boost à cinq niveaux (voir
+   components/player/constants/bassBoost.ts) : plus de <input type="range">
+   pivoté, donc plus de style dédié. */

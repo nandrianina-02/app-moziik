@@ -6,7 +6,7 @@
 // à synchroniser, paramètres hors-ligne.
 
 const DB_NAME = "moziik-offline";
-const DB_VERSION = 2;
+const DB_VERSION = 3;
 
 export const STORES = {
   songs: "songs",
@@ -17,6 +17,8 @@ export const STORES = {
   syncQueue: "syncQueue",
   settings: "settings",
   pendingDownloads: "pendingDownloads",
+  /** Réponses des routes /api, indexées par compte (voir lib/offlineApi.ts). */
+  apiCache: "apiCache",
 } as const;
 
 function openDb(): Promise<IDBDatabase> {
@@ -53,6 +55,11 @@ function openDb(): Promise<IDBDatabase> {
       }
       if (!db.objectStoreNames.contains(STORES.pendingDownloads)) {
         db.createObjectStore(STORES.pendingDownloads, { keyPath: "_id" });
+      }
+      if (!db.objectStoreNames.contains(STORES.apiCache)) {
+        const store = db.createObjectStore(STORES.apiCache, { keyPath: "cle" });
+        // Permet de purger d'un coup tout ce qui appartient à un compte.
+        store.createIndex("utilisateur", "utilisateur");
       }
     };
 

@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useSession, signOut } from "next-auth/react";
+import { oublierCompte } from "@/lib/offlineApi";
 import { Search, ChevronDown, User, CreditCard, Settings, LogOut, Shield, Mic2 } from "lucide-react";
 import { NotificationBell } from "@/components/ui/NotificationBell";
 import { ThemeToggle } from "@/components/ui/ThemeToggle";
@@ -120,7 +121,10 @@ export function DesktopHeader() {
                 <MenuLink href="/compte" icon={Settings} label="Paramètres" onClick={() => setMenuOpen(false)} />
                 <div className="my-1.5 h-px bg-border" />
                 <button
-                  onClick={() => signOut({ callbackUrl: "/" })}
+                  onClick={async () => {
+                    await oublierCompte();
+                    signOut({ callbackUrl: "/" });
+                  }}
                   className="flex w-full items-center gap-2.5 px-4 py-2 text-left text-sm text-accent transition-colors hover:bg-base"
                 >
                   <LogOut size={15} /> Se déconnecter

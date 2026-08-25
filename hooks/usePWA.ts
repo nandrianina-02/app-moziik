@@ -16,6 +16,25 @@ export function usePWA() {
       navigator.serviceWorker.register("/sw.js").catch(() => {
         // Silencieux : l'app reste utilisable sans service worker, juste sans mode hors-ligne.
       });
+      // Dicte au worker les fichiers de build réellement chargés. Ils
+      // transitent par le cache HTTP du navigateur et ne repassent donc
+      // jamais par lui : sans cette liste, le bundle manque hors-ligne et
+      // la page ne s'hydrate pas (voir le gestionnaire « message » de
+      // public/sw.js).
+      const signaler = () => {
+        const worker = navigator.serviceWorker.controller;
+        if (!worker) return;
+        const urls = performance
+          .getEntriesByType("resource")
+          .map((e) => e.name)
+          .filter((n) => n.startsWith(location.origin) && n.includes("/_next/static/"));
+        if (urls.length > 0) worker.postMessage({ type: "moziik-precharger", urls: [...new Set(urls)] });
+      };
+      // Après le chargement complet, pour que la liste soit exhaustive, et
+      // à chaque prise de contrôle par un nouveau worker.
+      if (document.readyState === "complete") setTimeout(signaler, 1200);
+      else window.addEventListener("load", () => setTimeout(signaler, 1200), { once: true });
+      navigator.serviceWorker.addEventListener("controllerchange", () => setTimeout(signaler, 1200));
     }
 
     const displayModeStandalone = window.matchMedia("(display-mode: standalone)").matches;

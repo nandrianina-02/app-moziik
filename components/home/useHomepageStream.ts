@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { memoriserManuellement } from "@/lib/offlineApi";
 import { readNdjson } from "@/lib/readNdjson";
 
 export type HomepageSlot = {
@@ -55,6 +56,13 @@ export function useSectionStream(streamUrl: string, fallbackUrl: string) {
       if (!cancelled) setState(update);
     }
 
+    // Assemblage tenu au fil de l'eau, indépendamment de React : lire
+    // l'état juste après la fin du flux le prendrait en retard d'un rendu.
+    const assemblage: { hero: unknown; sections: { key: string; title: string; data: unknown }[] } = {
+      hero: null,
+      sections: [],
+    };
+
     function handle(event: StreamEvent) {
       switch (event.type) {
         case "meta":
@@ -65,9 +73,11 @@ export function useSectionStream(streamUrl: string, fallbackUrl: string) {
           }));
           break;
         case "hero":
+          assemblage.hero = event.data;
           apply((prev) => ({ ...prev, hero: event.data, heroPending: false }));
           break;
         case "section":
+          assemblage.sections.push({ key: event.key, title: event.title, data: event.data });
           apply((prev) => ({
             ...prev,
             slots: prev.slots.map((slot) =>
@@ -104,11 +114,23 @@ export function useSectionStream(streamUrl: string, fallbackUrl: string) {
       }));
     }
 
+    /**
+     * Le flux n'est jamais mis en cache (il est lu au fil de l'eau), et son
+     * repli n'est jamais appelé tant que le réseau répond. Sans ce rangement
+     * explicite, la page d'accueil n'a donc rien à afficher hors-ligne alors
+     * qu'elle vient de tout recevoir.
+     */
+    function archiver() {
+      if (assemblage.sections.length === 0) return;
+      memoriserManuellement(fallbackUrl, assemblage);
+    }
+
     async function run() {
       try {
         const res = await fetch(streamUrl, { signal: controller.signal });
         if (!res.ok || !res.body) throw new Error("Flux indisponible.");
         await readNdjson<StreamEvent>(res, handle);
+        if (!cancelled) archiver();
       } catch {
         // Une interruption volontaire n'est pas une panne : ne pas
         // basculer en repli, ni signaler une erreur à l'utilisateur.

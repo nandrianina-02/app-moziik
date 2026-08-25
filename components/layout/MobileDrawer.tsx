@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useSession, signOut } from "next-auth/react";
+import { oublierCompte } from "@/lib/offlineApi";
 import { motion, AnimatePresence } from "framer-motion";
 import { X, Mail, FileText, LogOut, User } from "lucide-react";
 import { useSiteConfig } from "@/context/SiteConfigProvider";
@@ -23,6 +24,7 @@ export function MobileDrawer({ onClose }: { onClose: () => void }) {
     onClose();
     // redirect:false + navigation manuelle : voir la note équivalente
     // dans app/compte/page.tsx.
+    await oublierCompte();
     await signOut({ redirect: false });
     pushToast("success", "Déconnecté avec succès.");
     router.push("/");

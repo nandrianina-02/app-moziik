@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useSession, signOut } from "next-auth/react";
+import { oublierCompte } from "@/lib/offlineApi";
 import { LogOut, Wallet, Shield, Mic2, Crown, ChevronRight, Pencil, Share2 } from "lucide-react";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { SafeImage } from "@/components/ui/SafeImage";
@@ -248,6 +249,7 @@ export default function AccountPage() {
           // par défaut de signOut, qui recharge la page en dur) : sinon le
           // toast de confirmation n'a jamais le temps de s'afficher, la
           // page étant déchargée avant son rendu.
+          await oublierCompte();
           await signOut({ redirect: false });
           pushToast("success", "Déconnecté avec succès.");
           router.push("/");

@@ -69,27 +69,29 @@ html.light {
      sur sa propre teinte, mesuré à 3,9:1 avec un corail plus clair. */
   --color-accent: 178 58 25;     /* #B23A19 */
   --color-accent-hover: 142 46 20; /* #8E2E14 */
-  --color-verified: 4 120 87;    /* #047857 */
+  --color-verified: 6 95 70;     /* #065F46 — comme l'accent, la nuance
+                                    doit tenir sur sa propre teinte à 15 % */
 
   --color-danger: 185 28 28;     /* red-700 */
-  --color-warning: 180 83 9;     /* amber-700 */
+  --color-warning: 146 64 14;    /* amber-800 */
   --color-info: 3 105 161;       /* sky-700 */
 
-  /* Nuance 700 sur fond clair — même rôle, même reconnaissance. */
-  --tint-violet: 109 40 217;
-  --tint-cyan: 14 116 144;
-  --tint-lime: 77 124 15;
-  --tint-sky: 3 105 161;
-  --tint-teal: 15 118 110;
-  --tint-orange: 194 65 12;
-  --tint-pink: 190 24 93;
-  --tint-indigo: 67 56 202;
-  --tint-emerald: 4 120 87;
-  --tint-fuchsia: 162 28 175;
-  --tint-amber: 180 83 9;
-  --tint-rose: 190 18 60;
-  --tint-blue: 29 78 216;
-  --tint-slate: 51 65 85;
+  /* Nuance 800 sur fond clair : la 700 ne tenait que 4,1:1 posée sur
+     sa propre teinte à 15 % (pastilles de /admin/accueil). */
+  --tint-violet: 91 33 182;
+  --tint-cyan: 21 94 117;
+  --tint-lime: 63 98 18;
+  --tint-sky: 7 89 133;
+  --tint-teal: 17 94 89;
+  --tint-orange: 154 52 18;
+  --tint-pink: 157 23 77;
+  --tint-indigo: 55 48 163;
+  --tint-emerald: 6 95 70;
+  --tint-fuchsia: 134 25 143;
+  --tint-amber: 146 64 14;
+  --tint-rose: 159 18 57;
+  --tint-blue: 30 64 175;
+  --tint-slate: 30 41 59;
 }
 
 @layer base {

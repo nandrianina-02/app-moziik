@@ -86,7 +86,7 @@ export function AlbumHero({
             {editMode && (
               <button
                 onClick={onEditBanner}
-                className="flex items-center gap-1.5 rounded-full bg-black/50 px-3.5 py-2 text-xs font-medium text-white backdrop-blur transition-colors hover:bg-black/65"
+                className="flex items-center gap-1.5 rounded-full bg-black/60 px-3.5 py-2 text-xs font-medium text-white backdrop-blur transition-colors hover:bg-black/70"
               >
                 <Pencil size={13} /> Modifier la bannière
               </button>
@@ -96,7 +96,7 @@ export function AlbumHero({
               className={`flex items-center gap-1.5 rounded-full px-3.5 py-2 text-xs font-medium backdrop-blur transition-colors ${
                 editMode
                   ? "bg-accent text-base hover:bg-accent-hover"
-                  : "bg-black/50 text-white hover:bg-black/65"
+                  : "bg-black/60 text-white hover:bg-black/70"
               }`}
             >
               {editMode ? <ToggleRight size={15} /> : <ToggleLeft size={15} />}

@@ -347,9 +347,14 @@ export default function ArtistManagementPage() {
           >
             <Settings2 size={14} /> Paramètres
           </button>
+          {/* aria-disabled plutôt qu'un simple gris : c'est ce qui dit aux
+              lecteurs d'écran que l'entrée est inactive. À 50 % d'encre
+              atténuée le libellé tombait à 2,2:1, illisible dans les deux
+              thèmes — 70 % reste estompé sans devenir indéchiffrable. */}
           <span
             title="Bientôt disponible"
-            className="flex cursor-not-allowed items-center gap-1.5 whitespace-nowrap rounded-full border border-border px-3.5 py-1.5 text-xs font-medium text-ink-muted/50"
+            aria-disabled="true"
+            className="flex cursor-not-allowed items-center gap-1.5 whitespace-nowrap rounded-full border border-border px-3.5 py-1.5 text-xs font-medium text-ink-muted/70"
           >
             <BarChart3 size={14} /> Statistiques
           </span>
@@ -397,13 +402,24 @@ export default function ArtistManagementPage() {
                   >
                     <Plus size={16} /> Publier un son
                   </button>
-                  <button
-                    title="Bientôt disponible"
-                    disabled
-                    className="flex items-center gap-1.5 rounded-full border border-border px-3.5 py-2 text-sm font-medium text-ink-muted/50"
-                  >
-                    <UploadCloud size={15} /> Importer plusieurs morceaux
-                  </button>
+                  {/* L'import groupé existe désormais, mais reste réservé à
+                      l'administration : l'entrée n'est active que pour elle. */}
+                  {session?.user?.role === "admin" ? (
+                    <Link
+                      href="/admin/import"
+                      className="flex items-center gap-1.5 rounded-full border border-border px-3.5 py-2 text-sm font-medium text-ink-muted transition-colors hover:border-accent hover:text-accent"
+                    >
+                      <UploadCloud size={15} /> Importer plusieurs morceaux
+                    </Link>
+                  ) : (
+                    <button
+                      title="Bientôt disponible"
+                      disabled
+                      className="flex items-center gap-1.5 rounded-full border border-border px-3.5 py-2 text-sm font-medium text-ink-muted/70"
+                    >
+                      <UploadCloud size={15} /> Importer plusieurs morceaux
+                    </button>
+                  )}
                 </>
               )}
               {tab === "albums" && (

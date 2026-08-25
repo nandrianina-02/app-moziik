@@ -115,7 +115,7 @@ export function PlaylistHero({
             <button
               onClick={onToggleEditMode}
               className={`flex items-center gap-1.5 rounded-full px-3.5 py-2 text-xs font-medium backdrop-blur transition-colors ${
-                editMode ? "bg-accent text-base hover:bg-accent-hover" : "bg-black/50 text-white hover:bg-black/65"
+                editMode ? "bg-accent text-base hover:bg-accent-hover" : "bg-black/60 text-white hover:bg-black/70"
               }`}
             >
               {editMode ? <ToggleRight size={15} /> : <ToggleLeft size={15} />}

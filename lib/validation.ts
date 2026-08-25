@@ -416,3 +416,18 @@ export const adminSiteConfigPatchSchema = z.object({
   legalWebsite: z.string().max(200).optional(),
   legalUpdatedAt: z.coerce.date().optional(),
 });
+
+// Import groupé de l'administration : le navigateur envoie les titres et
+// noms d'artiste lus dans les balises des fichiers, le serveur répond avec
+// l'artiste correspondant et l'éventuel doublon déjà en catalogue.
+export const inspectImportSchema = z.object({
+  items: z
+    .array(
+      z.object({
+        titre: z.string().trim().min(1).max(200),
+        artiste: z.string().trim().max(200).optional(),
+      })
+    )
+    .min(1)
+    .max(100),
+});

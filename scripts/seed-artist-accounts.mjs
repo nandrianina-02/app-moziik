@@ -67,6 +67,29 @@ const norm = (s) =>
 // ponctuation retirés, espaces supprimés. « Naïka » → naika@moziik.app.
 const slugEmail = (name) => `${norm(name).replace(/ /g, "")}@moziik.app`;
 
+// Distance d'édition, pour repérer les fautes de frappe : « Lion Hil » est à
+// une lettre de « Lion Hill », déjà en base. Le garde-fou anti-doublon compare
+// des noms normalisés à l'identique et laisserait passer ce second profil.
+function distance(a, b) {
+  if (a === b) return 0;
+  if (Math.abs(a.length - b.length) > 2) return 99; // au-delà, inutile de calculer
+  let ligne = Array.from({ length: b.length + 1 }, (_, i) => i);
+  for (let i = 1; i <= a.length; i++) {
+    let precedent = ligne[0];
+    ligne[0] = i;
+    for (let j = 1; j <= b.length; j++) {
+      const temp = ligne[j];
+      ligne[j] = Math.min(
+        ligne[j] + 1,
+        ligne[j - 1] + 1,
+        precedent + (a[i - 1] === b[j - 1] ? 0 : 1)
+      );
+      precedent = temp;
+    }
+  }
+  return ligne[b.length];
+}
+
 // --- Liste des artistes ----------------------------------------------------
 const ARTISTS = [
   ["Tarika Soley", "tarika-soley@moziik.app"],
@@ -364,6 +387,34 @@ const ARTISTS = [
   "KAIAMBA",
   "Aton'ich Miuzik",
   "SAKATE BOY",
+
+  // --- Cinquième lot -------------------------------------------------------
+  // Liste de contrôle : l'essentiel y figure déjà, seuls les absents seront
+  // créés. « Lion Hil » y est écrit avec un seul L et sera écarté par la
+  // détection de faute de frappe, au profit de « Lion Hill » déjà en base.
+  "Ljo",
+  "Dalvis",
+  "Boy Black",
+  "Lion Hil",
+  "Chriso",
+  "Smaven",
+  "Arnaah",
+  "Tence Mena",
+  "Maestro Marcelo",
+  "Black Nadia",
+  "Elidiot",
+  "Niu Raza",
+  "Ayo Naej",
+  "RJ",
+  "Big Mj",
+  "Denise",
+  "Teints Record Officiel",
+  "Basta Lion",
+  "Cyemci",
+  "Mahaleo",
+  "Ceasar",
+  "Dadi Love",
+  "Rak Roots",
 ].map((entry) => {
   const [name, email] = Array.isArray(entry) ? entry : [entry, slugEmail(entry)];
   return { name, email: email.toLowerCase() };
@@ -456,6 +507,7 @@ async function main() {
     artistLinked: [],
     artistKept: [],
     duplicates: [],
+    nearMisses: [],
     conflicts: [],
   };
 
@@ -495,6 +547,19 @@ async function main() {
       }
       if (heldBy) {
         report.duplicates.push(`${name} <${email}> : nom déjà porté par le compte ${heldBy}`);
+        continue;
+      }
+
+      // Faute de frappe probable : on ne crée rien et on laisse arbitrer.
+      // Créer « Lion Hil » à côté de « Lion Hill » scinderait le catalogue
+      // d'un même artiste entre deux profils.
+      const cible = norm(name);
+      const proche = [...byName.keys()].find((k) => k && distance(cible, k) === 1);
+      if (proche) {
+        const officiel = byName.get(proche)[0];
+        report.nearMisses.push(
+          `${name} <${email}> : à une lettre de « ${officiel.stageName || proche} », déjà en base — non créé`
+        );
         continue;
       }
     }
@@ -616,6 +681,7 @@ async function main() {
   section("Comptes déjà présents, mis à jour", report.userUpdated);
   section("Comptes déjà conformes, rien à faire", report.userUnchanged);
   section("Doublons ignorés (aucun compte créé)", report.duplicates);
+  section("Fautes de frappe probables, à arbitrer", report.nearMisses);
   section("Profils artistes existants rattachés (contenu conservé)", report.artistLinked);
   section("Profils artistes créés", report.artistCreated);
   section("Profils artistes déjà liés, inchangés", report.artistKept);

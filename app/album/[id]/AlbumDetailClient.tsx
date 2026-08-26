@@ -218,7 +218,7 @@ export function AlbumDetailClient() {
             downloadProgress={downloadProgress}
             canManage={canManage}
             editMode={editMode}
-            onTogglePlayAll={() => playQueue(album.songs, 0, { type: "album" })}
+            onTogglePlayAll={() => playQueue(album.songs, 0, { type: "album", label: album.title, id: album._id })}
             onToggleSaved={toggleSaved}
             onDownloadAll={handleDownloadAlbum}
             onShare={() => setShowShareModal(true)}

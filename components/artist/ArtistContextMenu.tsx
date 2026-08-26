@@ -50,7 +50,7 @@ export function ArtistContextMenu({
                 icon={Play}
                 label="Écouter tous les titres"
                 onClick={() => {
-                  playQueue(songs!, 0, { type: "artist", label: artist.stageName });
+                  playQueue(songs!, 0, { type: "artist", label: artist.stageName, id: artist._id });
                   onClose();
                 }}
               />

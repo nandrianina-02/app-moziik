@@ -225,9 +225,9 @@ export default function ArtistManagementPage() {
   const handlePlaySong = useCallback(
     (song: OwnSong, queue: OwnSong[], index: number) => {
       if (currentSong?._id === song._id) togglePlay();
-      else playQueue(queue, index, { type: "artist", label: artist?.stageName });
+      else playQueue(queue, index, { type: "artist", label: artist?.stageName, id: artist?._id });
     },
-    [currentSong, togglePlay, playQueue, artist?.stageName]
+    [currentSong, togglePlay, playQueue, artist?.stageName, artist?._id]
   );
 
   // Statistiques agrégées à partir des données déjà chargées — aucun

@@ -246,7 +246,7 @@ export function ArtistDetailClient() {
     }
     const list = topSongs.length > 0 ? topSongs : songs;
     if (list.length === 0) return;
-    playQueue(list, 0, { type: "artist", label: artist.stageName });
+    playQueue(list, 0, { type: "artist", label: artist.stageName, id: artist._id });
   }
 
   return (
@@ -523,7 +523,7 @@ export function ArtistDetailClient() {
                                 <span className="block text-xs text-ink-muted">{timeAgo((song as any).releaseDate)}</span>
                               </span>
                               <button
-                                onClick={() => playQueue(recentReleases, recentReleases.findIndex((s) => s._id === song._id), { type: "artist", label: artist.stageName })}
+                                onClick={() => playQueue(recentReleases, recentReleases.findIndex((s) => s._id === song._id), { type: "artist", label: artist.stageName, id: artist._id })}
                                 aria-label="Lire"
                                 className="shrink-0 grid h-8 w-8 place-items-center rounded-full border border-border text-ink-muted hover:border-accent hover:text-accent"
                               >

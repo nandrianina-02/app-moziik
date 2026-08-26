@@ -292,6 +292,9 @@ function SearchPageContent() {
     playQueue(sectionTitres.items as unknown as PlayableSong[], 0, {
       type: "search",
       label: `« ${terme} »`,
+      // Les termes saisis : la file se prolongera sur la page suivante
+      // des resultats plutot que de s'arreter au premier lot.
+      query: terme,
     });
   }
 

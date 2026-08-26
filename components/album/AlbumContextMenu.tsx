@@ -60,7 +60,7 @@ export function AlbumContextMenu({
                 icon={Play}
                 label="Écouter"
                 onClick={() => {
-                  playQueue(songs, 0);
+                  playQueue(songs, 0, { type: "album", label: album.title, id: album._id });
                   onClose();
                 }}
               />

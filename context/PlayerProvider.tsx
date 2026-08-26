@@ -18,6 +18,8 @@ import {
   type AudioQuality,
 } from "@/lib/offlineSettings";
 import { useSiteConfig } from "@/context/SiteConfigProvider";
+import { useOnlineStatus } from "@/context/OnlineStatusProvider";
+import { morceauxSuivants } from "@/lib/playbackContinuation";
 
 export type PlayableSong = {
   _id: string;
@@ -60,9 +62,24 @@ export type PlaySourceType =
   | "history"
   | "radio"
   | "home"
-  | "queue";
+  | "queue"
+  /** Bibliothèque hors-ligne : se prolonge sans jamais toucher au réseau. */
+  | "downloads";
 
-export type PlaySource = { type: PlaySourceType; label?: string } | null;
+export type PlaySource = {
+  type: PlaySourceType;
+  label?: string;
+  /**
+   * Identifiant de la source quand elle en a un — artiste, album,
+   * playlist. Sans lui, le prolongement ne saurait pas quoi demander au
+   * serveur une fois la file épuisée.
+   */
+  id?: string;
+  /** Termes saisis, pour prolonger une file issue de la recherche. */
+  query?: string;
+  /** Genre de la station, pour prolonger une file de radio. */
+  genre?: string;
+} | null;
 
 type PlayerContextValue = {
   // État global unique : la playlist active, le morceau en cours, sa
@@ -105,6 +122,10 @@ type PlayerContextValue = {
   /** Retire un morceau de la file. La lecture en cours n'est interrompue que s'il s'agit du morceau joué. */
   removeFromQueue: (index: number) => void;
   clearQueue: () => void;
+  /** Vrai pendant qu'on cherche de quoi prolonger la file. */
+  chargementSuite: boolean;
+  /** Vrai dès que la file a été prolongée au-delà de ce qui avait été demandé. */
+  lectureProlongee: boolean;
   togglePlay: () => void;
   playNext: () => void;
   playPrevious: () => void;
@@ -143,6 +164,16 @@ function shuffledOrder(length: number, keepFirst: number): number[] {
     [rest[i], rest[j]] = [rest[j], rest[i]];
   }
   return [keepFirst, ...rest];
+}
+
+/** Fisher-Yates sur une liste quelconque, sans la modifier. */
+function melanger<T>(liste: T[]): T[] {
+  const copie = [...liste];
+  for (let i = copie.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [copie[i], copie[j]] = [copie[j], copie[i]];
+  }
+  return copie;
 }
 
 // Compare deux listes de morceaux par identifiant : sert à détecter si la
@@ -227,10 +258,23 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
   const [sleepEndsAt, setSleepEndsAt] = useState<number | null>(null);
   const [sleepRemainingMs, setSleepRemainingMs] = useState<number | null>(null);
   const [sleepAfterTrack, setSleepAfterTrack] = useState(false);
+  const [chargementSuite, setChargementSuite] = useState(false);
+  const [lectureProlongee, setLectureProlongee] = useState(false);
+  const { isOnline } = useOnlineStatus();
   const hasRecordedPlay = useRef(false);
   // Lu depuis le gestionnaire « ended », qui est posé une fois : sans ref,
   // il verrait toujours la valeur du premier rendu.
   const sleepAfterTrackRef = useRef(false);
+  /**
+   * La lecture est-elle encore voulue ?
+   *
+   * Le prolongement dure le temps d'un aller-retour réseau. Une mise en
+   * pause ou un minuteur de veille qui expire pendant ce laps de temps
+   * arrivent avant la réponse : sans ce drapeau, la suite serait quand
+   * même lancée et le lecteur repartirait tout seul après un arrêt
+   * explicite.
+   */
+  const lectureVoulueRef = useRef(false);
   // Vraie durée du flux : celle enregistrée en base peut être fausse
   // (import automatique, conteneur sans en-tête de durée fiable).
   const currentIndex = order[position] ?? 0;
@@ -367,6 +411,7 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
       if (sleepAfterTrackRef.current) {
         sleepAfterTrackRef.current = false;
         setSleepAfterTrack(false);
+        lectureVoulueRef.current = false;
         setIsPlaying(false);
         return;
       }
@@ -458,6 +503,7 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
         // Arrêt net, mais on garde la file et la position : reprendre la
         // lecture au réveil ne doit rien redemander à l'utilisateur.
         audioRef.current?.pause();
+        lectureVoulueRef.current = false;
         setIsPlaying(false);
         setSleepEndsAt(null);
         setSleepRemainingMs(null);
@@ -489,6 +535,83 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
     setSleepEndsAt(Date.now() + option * 60_000);
   }
 
+  // ---------- Prolongement de la file ----------
+
+  /**
+   * Photographie de l'état courant, relue par le prolongement.
+   *
+   * Il est asynchrone et démarré depuis le gestionnaire « ended » : entre
+   * le moment où il part et celui où la réponse arrive, l'auditeur a pu
+   * changer de file. Sans ref, on écrirait la suite d'une lecture qui
+   * n'existe plus.
+   */
+  const etatRef = useRef({ queue, order, playSource, currentSong, isOnline });
+  useEffect(() => {
+    etatRef.current = { queue, order, playSource, currentSong, isOnline };
+  });
+
+  /** Tours déjà servis et échecs consécutifs, pour cette file. */
+  const prolongementRef = useRef({ tour: 0, echecs: 0, enCours: false });
+
+  function reinitialiserProlongement() {
+    prolongementRef.current = { tour: 0, echecs: 0, enCours: false };
+    setLectureProlongee(false);
+  }
+
+  /**
+   * Cherche la suite et l'ajoute à la file. Renvoie false quand il n'y a
+   * rien à jouer — c'est le seul cas où la lecture s'arrête vraiment.
+   */
+  async function prolongerFile(): Promise<boolean> {
+    const etat = prolongementRef.current;
+    const { queue: fileActuelle, order: ordreActuel, playSource: source, currentSong: dernier } = etatRef.current;
+    if (etat.enCours || fileActuelle.length === 0) return false;
+    // Deux tours sans rien trouver : le catalogue n'a plus rien pour cette
+    // source. Insister enchaînerait des requêtes vides à chaque fin de
+    // morceau.
+    if (etat.echecs >= 2) return false;
+
+    etat.enCours = true;
+    setChargementSuite(true);
+    try {
+      const suite = await morceauxSuivants({
+        source,
+        dernier,
+        dejaVus: new Set(fileActuelle.map((s) => s._id)),
+        enLigne: etatRef.current.isOnline,
+        tour: etat.tour,
+      });
+      if (suite.length === 0) {
+        etat.echecs += 1;
+        return false;
+      }
+      // Pause ou minuteur pendant la requête : on jette la réponse plutôt
+      // que de relancer une lecture que plus personne n'attend.
+      if (!lectureVoulueRef.current) return false;
+      etat.tour += 1;
+      etat.echecs = 0;
+
+      const debut = fileActuelle.length;
+      const nouveauxIndex = suite.map((_, i) => debut + i);
+      setQueue((prev) => [...prev, ...suite]);
+      setOrder((prev) => [
+        ...prev,
+        // En lecture aléatoire, le renfort est mélangé lui aussi : le
+        // laisser dans l'ordre du catalogue trahirait le mode choisi.
+        ...(isShuffled ? melanger(nouveauxIndex) : nouveauxIndex),
+      ]);
+      // La place juste après la fin de l'ordre précédent : c'est le premier
+      // morceau du renfort.
+      setPosition(ordreActuel.length);
+      setIsPlaying(true);
+      setLectureProlongee(true);
+      return true;
+    } finally {
+      etat.enCours = false;
+      setChargementSuite(false);
+    }
+  }
+
   // ---------- File d'attente ----------
 
   function playQueue(songs: PlayableSong[], startIndex = 0, source: PlaySource = null) {
@@ -498,6 +621,8 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
     // clique un autre titre dans les mêmes résultats de recherche) : on
     // saute juste au bon morceau, sans reconstruire la file ni relancer un
     // nouveau mélange aléatoire.
+    lectureVoulueRef.current = true;
+
     if (isSameSongList(songs, queue)) {
       const targetPosition = order.indexOf(startIndex);
       setPosition(targetPosition !== -1 ? targetPosition : 0);
@@ -510,6 +635,10 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
     // elle remplace entièrement la file active et devient la nouvelle
     // source de vérité pour Suivant / Précédent / lecture automatique.
     setQueue(songs);
+    // Nouvelle intention de lecture : le compteur de prolongements repart
+    // de zéro, sinon la pagination de la file précédente sauterait des
+    // pages de celle-ci.
+    reinitialiserProlongement();
     const initialOrder = isShuffled ? shuffledOrder(songs.length, startIndex) : songs.map((_, i) => i);
     setOrder(initialOrder);
     setPosition(initialOrder.indexOf(startIndex));
@@ -580,6 +709,8 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
   }
 
   function clearQueue() {
+    reinitialiserProlongement();
+    lectureVoulueRef.current = false;
     audioRef.current?.pause();
     setQueue([]);
     setOrder([]);
@@ -598,6 +729,7 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
     } else {
       audio.play().catch(() => undefined);
     }
+    lectureVoulueRef.current = !isPlaying;
     setIsPlaying(!isPlaying);
   }
 
@@ -613,12 +745,21 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
     if (position < order.length - 1) {
       setPosition(position + 1);
       setIsPlaying(true);
-    } else if (repeatMode === "all" && order.length > 0) {
+      return;
+    }
+    if (repeatMode === "all" && order.length > 0) {
       setPosition(0);
       setIsPlaying(true);
-    } else {
-      setIsPlaying(false);
+      return;
     }
+    // Fin de la file. Plutôt que de s'arrêter, on va chercher la suite
+    // auprès de la source qui a lancé la lecture. `isPlaying` reste vrai
+    // pendant la recherche : le lecteur affiche un chargement au lieu de
+    // clignoter sur « en pause » puis de repartir.
+    lectureVoulueRef.current = true;
+    void prolongerFile().then((prolonge) => {
+      if (!prolonge) setIsPlaying(false);
+    });
   }
 
   function playPrevious() {
@@ -734,6 +875,8 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
         reorderQueue,
         removeFromQueue,
         clearQueue,
+        chargementSuite,
+        lectureProlongee,
         togglePlay,
         playNext,
         playPrevious,

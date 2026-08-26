@@ -51,7 +51,17 @@ function formatTime(seconds: number) {
   return `${m}:${s.toString().padStart(2, "0")}`;
 }
 
-type Station = { key: string; label: string; icon: typeof Flame; bg: string; fetchUrl: string };
+// `genre` double l'information deja presente dans `fetchUrl` : c'est
+// lui que le lecteur relit pour prolonger la station une fois les
+// cinquante premiers titres joues.
+type Station = {
+  key: string;
+  label: string;
+  icon: typeof Flame;
+  bg: string;
+  fetchUrl: string;
+  genre?: string;
+};
 
 const stations: Station[] = [
   // Les huit tuiles gardent une couleur fixe, indépendante du thème : du
@@ -60,11 +70,11 @@ const stations: Station[] = [
   { key: "tendances", label: "Tendances", icon: Flame, bg: "bg-[#C63F1C]", fetchUrl: "/api/songs?limit=50&sort=popular" },
   { key: "favoris", label: "Mes favoris", icon: Heart, bg: "bg-[#C0356B]", fetchUrl: "/api/me/liked-songs" },
   { key: "nouveautes", label: "Nouveautés", icon: Sparkles, bg: "bg-[#2E5AAC]", fetchUrl: "/api/songs?limit=50" },
-  { key: "afro", label: "Afro", icon: Mic2, bg: "bg-[#1B2A4A]", fetchUrl: "/api/songs?limit=50&genre=Afro" },
-  { key: "rock", label: "Rock", icon: Guitar, bg: "bg-[#5B4FCF]", fetchUrl: "/api/songs?limit=50&genre=Rock" },
-  { key: "instrumental", label: "Instrumental", icon: Piano, bg: "bg-[#4B3F8F]", fetchUrl: "/api/songs?limit=50&genre=Instrumental" },
-  { key: "jazz", label: "Jazz", icon: Music2, bg: "bg-[#3D2F6F]", fetchUrl: "/api/songs?limit=50&genre=Jazz" },
-  { key: "gospel", label: "Gospel", icon: Sparkles, bg: "bg-[#B03050]", fetchUrl: "/api/songs?limit=50&genre=Gospel" },
+  { key: "afro", label: "Afro", icon: Mic2, bg: "bg-[#1B2A4A]", fetchUrl: "/api/songs?limit=50&genre=Afro", genre: "Afro" },
+  { key: "rock", label: "Rock", icon: Guitar, bg: "bg-[#5B4FCF]", fetchUrl: "/api/songs?limit=50&genre=Rock", genre: "Rock" },
+  { key: "instrumental", label: "Instrumental", icon: Piano, bg: "bg-[#4B3F8F]", fetchUrl: "/api/songs?limit=50&genre=Instrumental", genre: "Instrumental" },
+  { key: "jazz", label: "Jazz", icon: Music2, bg: "bg-[#3D2F6F]", fetchUrl: "/api/songs?limit=50&genre=Jazz", genre: "Jazz" },
+  { key: "gospel", label: "Gospel", icon: Sparkles, bg: "bg-[#B03050]", fetchUrl: "/api/songs?limit=50&genre=Gospel", genre: "Gospel" },
 ];
 
 type RadioData = {
@@ -107,7 +117,11 @@ export default function RadioPage() {
         pushToast("error", "Pas encore de sons disponibles pour cette station.");
         return;
       }
-      playQueue(songs, 0, { type: "radio", label: station ? station.label : "Moziik" });
+      playQueue(songs, 0, {
+        type: "radio",
+        label: station ? station.label : "Moziik",
+        genre: station?.genre,
+      });
       pushToast("success", `Radio ${station ? station.label : "Moziik"} lancée.`);
     } catch {
       pushToast("error", "Impossible de lancer cette station.");

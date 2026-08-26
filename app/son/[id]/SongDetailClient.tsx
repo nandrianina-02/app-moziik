@@ -280,7 +280,7 @@ export function SongDetailClient() {
             offline={offline}
             offlineBusy={offlineBusy}
             onTogglePlay={() =>
-              isCurrent ? togglePlay() : playQueue([song], 0)
+              isCurrent ? togglePlay() : playQueue([song], 0, { type: "song", label: song.title, id: song._id })
             }
             onToggleLike={toggleLike}
             onToggleOffline={toggleOffline}

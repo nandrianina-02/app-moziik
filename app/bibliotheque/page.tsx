@@ -383,7 +383,7 @@ export default function LibraryPage() {
               {offlineSongs.length === 0 ? (
                 <p className="text-sm text-ink-muted">Aucun son téléchargé pour l&apos;instant.</p>
               ) : (
-                <SongTable songs={offlineSongs.slice(0, 5) as PlayableSong[]} onDeleted={loadOfflineSongs} source={{ type: "queue", label: "Téléchargements" }} />
+                <SongTable songs={offlineSongs.slice(0, 5) as PlayableSong[]} onDeleted={loadOfflineSongs} source={{ type: "downloads", label: "Téléchargements" }} />
               )}
             </section>
           </div>
@@ -480,7 +480,7 @@ export default function LibraryPage() {
                   ou télécharge un album/une playlist entière depuis sa page.
                 </p>
               ) : (
-                <SongTable songs={offlineSongs as PlayableSong[]} onDeleted={loadOfflineSongs} source={{ type: "queue", label: "Téléchargements" }} />
+                <SongTable songs={offlineSongs as PlayableSong[]} onDeleted={loadOfflineSongs} source={{ type: "downloads", label: "Téléchargements" }} />
               )}
             </section>
 

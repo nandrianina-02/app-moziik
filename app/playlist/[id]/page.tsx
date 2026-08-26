@@ -266,7 +266,7 @@ export default function PlaylistDetailPage() {
             canManage={canManage}
             editMode={editMode}
             savingMeta={savingMeta}
-            onTogglePlayAll={() => playQueue(playlist.songs, 0, { type: "playlist", label: playlist.title })}
+            onTogglePlayAll={() => playQueue(playlist.songs, 0, { type: "playlist", label: playlist.title, id: playlist._id })}
             onDownloadAll={handleDownloadPlaylist}
             onShare={() => setShowShareModal(true)}
             onOpenMore={(x, y) => setMenuPosition({ x, y })}

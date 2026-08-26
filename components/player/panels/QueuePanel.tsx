@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
-import { GripVertical, History, ListMusic, MoreVertical, Play, Trash2, X } from "lucide-react";
+import { GripVertical, History, ListMusic, Loader2, MoreVertical, Play, Trash2, X } from "lucide-react";
 import { SafeImage } from "@/components/ui/SafeImage";
 import { usePlayer, type PlayableSong } from "@/context/PlayerProvider";
 import { SongContextMenu } from "@/components/music/SongContextMenu";
@@ -90,8 +90,18 @@ function BoutonOnglet({
 /* ---------------------------------------------------------------- file ---- */
 
 function ListeFile({ compact }: { compact: boolean }) {
-  const { queue, currentSong, currentIndex, isPlaying, playQueue, reorderQueue, removeFromQueue, playSource } =
-    usePlayer();
+  const {
+    queue,
+    currentSong,
+    currentIndex,
+    isPlaying,
+    playQueue,
+    reorderQueue,
+    removeFromQueue,
+    playSource,
+    chargementSuite,
+    lectureProlongee,
+  } = usePlayer();
   const [menu, setMenu] = useState<{ x: number; y: number; index: number } | null>(null);
   // Index tiré, et index survolé : la ligne survolée s'écarte pour montrer
   // où le morceau atterrira.
@@ -116,6 +126,10 @@ function ListeFile({ compact }: { compact: boolean }) {
       {playSource?.label && (
         <p className="mb-2 truncate px-1 text-[11px] text-ink-muted">
           Lecture depuis&nbsp;: <span className="text-ink">{playSource.label}</span>
+          {/* La file a depasse ce qui avait ete demande : le dire evite de
+              laisser croire que ces titres etaient dans l'album ou la
+              playlist d'origine. */}
+          {lectureProlongee && <span className="text-ink-muted"> · lecture automatique</span>}
         </p>
       )}
 
@@ -156,6 +170,13 @@ function ListeFile({ compact }: { compact: boolean }) {
           ))}
         </AnimatePresence>
       </ul>
+
+      {chargementSuite && (
+        <p className="flex items-center justify-center gap-2 px-1 py-3 text-[11px] text-ink-muted">
+          <Loader2 size={12} className="animate-spin" />
+          Recherche de la suite…
+        </p>
+      )}
 
       {menu && (
         <SongContextMenu song={queue[menu.index]} position={{ x: menu.x, y: menu.y }} onClose={() => setMenu(null)} />

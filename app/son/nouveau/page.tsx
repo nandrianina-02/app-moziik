@@ -33,6 +33,7 @@ import { SongPreviewSidebar, type ChecklistItem } from "@/components/song/SongPr
 import { FeaturingPicker } from "@/components/modals/FeaturingPicker";
 import { ArtistSinglePicker } from "@/components/modals/ArtistSinglePicker";
 import { MetadataAutofill, type ChampDetecte, type RapportMetadonnees } from "@/components/song/MetadataAutofill";
+import { DuplicateWarning, type DoublonTitre } from "@/components/song/DuplicateWarning";
 import {
   libererPochette,
   lireMetadonneesAudio,
@@ -161,6 +162,9 @@ export default function NewSongPage() {
     artiste: ArtistOption | null;
   } | null>(null);
 
+  /** Titre identique deja au catalogue de l'artiste vise, le cas echeant. */
+  const [doublon, setDoublon] = useState<DoublonTitre | null>(null);
+
   const [saving, setSaving] = useState<"draft" | "publish" | null>(null);
   const [uploadingCover, setUploadingCover] = useState(false);
   const [uploadingAudio, setUploadingAudio] = useState(false);
@@ -232,6 +236,40 @@ export default function NewSongPage() {
       .then((data) => setAlbums(data.albums ?? []))
       .catch(() => setAlbums([]));
   }, [targetArtist?._id]);
+
+  /**
+   * Le titre saisi existe-t-il deja chez cet artiste ?
+   *
+   * Interroge le serveur avec un temps mort : le champ se remplit lettre
+   * par lettre, et une requete par frappe interrogerait la base des
+   * dizaines de fois pour un seul titre. La requete precedente est
+   * annulee, sans quoi deux reponses en vol pourraient arriver dans le
+   * desordre et afficher un avertissement perime.
+   */
+  useEffect(() => {
+    const titre = watchedTitle?.trim();
+    const artistId = targetArtist?._id;
+    if (!titre || titre.length < 2 || !artistId) {
+      setDoublon(null);
+      return;
+    }
+    const controleur = new AbortController();
+    const minuteur = setTimeout(() => {
+      fetch(`/api/songs/duplicate?title=${encodeURIComponent(titre)}&artistId=${artistId}`, {
+        signal: controleur.signal,
+      })
+        .then((res) => (res.ok ? res.json() : { doublon: null }))
+        .then((data) => setDoublon(data.doublon ?? null))
+        // Annulation ou coupure reseau : pas d'avertissement, et surtout
+        // pas d'erreur affichee. L'absence de verification ne doit jamais
+        // empecher de publier.
+        .catch(() => {});
+    }, 450);
+    return () => {
+      clearTimeout(minuteur);
+      controleur.abort();
+    };
+  }, [watchedTitle, targetArtist?._id]);
 
   useEffect(() => {
     if (!coverFile) {
@@ -820,6 +858,7 @@ export default function NewSongPage() {
                 <div className="space-y-4">
                   <FormField label="Titre du morceau *" {...register("title", { required: true })} placeholder="Titre du morceau" />
                   {errors.title && <p className="-mt-3 text-xs text-accent">Le titre est requis.</p>}
+                  <DuplicateWarning doublon={doublon} />
 
                   <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                     <label className="block">

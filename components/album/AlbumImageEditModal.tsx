@@ -1,12 +1,11 @@
 "use client";
 
 import { useRef, useState } from "react";
-import { motion, AnimatePresence } from "framer-motion";
-import { X, Upload, Trash2, Loader2, ImageIcon } from "lucide-react";
+import { Upload, Trash2, Loader2, ImageIcon } from "lucide-react";
 import { SafeImage } from "@/components/ui/SafeImage";
 import { useToast } from "@/context/ToastProvider";
 import { uploadToCloudinaryClient } from "@/lib/cloudinaryClient";
-import { useEscapeClose } from "@/hooks/useEscapeClose";
+import { ModalSheet } from "@/components/ui/ModalSheet";
 
 /**
  * `title` permet de réutiliser cette modale hors des albums (pochette de
@@ -26,7 +25,6 @@ export function AlbumImageEditModal({
   onClose: () => void;
   onSaved: (url: string | null) => void;
 }) {
-  useEscapeClose(onClose);
   const pushToast = useToast();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [preview, setPreview] = useState<string | null>(currentUrl ?? null);
@@ -77,107 +75,88 @@ export function AlbumImageEditModal({
   }
 
   return (
-    <AnimatePresence>
-      <motion.div
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        exit={{ opacity: 0 }}
-        className="fixed inset-0 z-50 grid place-items-center bg-black/50 p-4"
-        onClick={onClose}
-      >
-        <motion.div
-          initial={{ opacity: 0, scale: 0.95, y: 10 }}
-          animate={{ opacity: 1, scale: 1, y: 0 }}
-          exit={{ opacity: 0, scale: 0.95, y: 10 }}
-          transition={{ duration: 0.2, ease: "easeOut" }}
-          onClick={(e) => e.stopPropagation()}
-          className="w-full max-w-md rounded-xl2 border border-border bg-surface p-5"
-        >
-          <div className="mb-4 flex items-center justify-between">
-            <h2 className="text-base text-ink font-semibold">{title}</h2>
-            <button onClick={onClose} aria-label="Fermer" className="text-ink-muted hover:text-ink">
-              <X size={18} />
-            </button>
-          </div>
-
-          <div
-            className={`relative overflow-hidden rounded-xl2 border border-dashed border-border bg-base ${
-              kind === "banner" ? "aspect-[21/9]" : "mx-auto aspect-square w-48"
-            }`}
+    <ModalSheet
+      titre={title}
+      largeur="sm:max-w-md"
+      onClose={onClose}
+      pied={
+        <div className="flex justify-end gap-2">
+          <button
+            onClick={onClose}
+            className="rounded-xl border border-border px-4 py-2 text-sm font-medium text-ink-muted hover:text-ink"
           >
-            {preview && !removed ? (
-              <SafeImage
-                src={preview}
-                alt="Aperçu"
-                width={400}
-                height={kind === "banner" ? 172 : 400}
-                className="h-full w-full object-cover"
-              />
-            ) : (
-              <div className="grid h-full place-items-center text-ink-muted">
-                <ImageIcon size={28} />
-              </div>
-            )}
-            {uploading && (
-              <div className="absolute inset-0 grid place-items-center bg-black/40 text-white">
-                <Loader2 size={22} className="animate-spin" />
-                <span className="mt-1 text-xs">{progress}%</span>
-              </div>
-            )}
-          </div>
-
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept="image/jpeg,image/png,image/webp"
-            className="hidden"
-            onChange={(e) => handlePick(e.target.files?.[0] ?? null)}
+            Annuler
+          </button>
+          <button
+            onClick={handleSave}
+            disabled={uploading}
+            className="rounded-xl bg-accent px-4 py-2 text-sm font-medium text-base hover:bg-accent-hover disabled:opacity-60"
+          >
+            {uploading ? "Envoi..." : "Enregistrer les modifications"}
+          </button>
+        </div>
+      }
+    >
+      <div
+        className={`relative overflow-hidden rounded-xl2 border border-dashed border-border bg-base ${
+          kind === "banner" ? "aspect-[21/9]" : "mx-auto aspect-square w-48"
+        }`}
+      >
+        {preview && !removed ? (
+          <SafeImage
+            src={preview}
+            alt="Aperçu"
+            width={400}
+            height={kind === "banner" ? 172 : 400}
+            className="h-full w-full object-cover"
           />
-
-          <div className="mt-4 flex flex-wrap gap-2">
-            <button
-              type="button"
-              onClick={() => fileInputRef.current?.click()}
-              className="flex items-center gap-1.5 rounded-xl border border-border px-3.5 py-2 text-sm font-medium text-ink transition-colors hover:border-accent"
-            >
-              <Upload size={14} /> Changer
-            </button>
-            {kind === "banner" && preview && !removed && (
-              <button
-                type="button"
-                onClick={() => {
-                  setRemoved(true);
-                  setPendingFile(null);
-                  setPreview(null);
-                }}
-                className="flex items-center gap-1.5 rounded-xl border border-border px-3.5 py-2 text-sm font-medium text-accent transition-colors hover:border-accent"
-              >
-                <Trash2 size={14} /> Supprimer
-              </button>
-            )}
+        ) : (
+          <div className="grid h-full place-items-center text-ink-muted">
+            <ImageIcon size={28} />
           </div>
-
-          <p className="mt-3 text-xs text-ink-muted">
-            JPG, PNG ou WEBP, 10 Mo maximum. Les modifications sont enregistrées après validation.
-          </p>
-
-          <div className="mt-5 flex justify-end gap-2">
-            <button
-              onClick={onClose}
-              className="rounded-xl border border-border px-4 py-2 text-sm font-medium text-ink-muted hover:text-ink"
-            >
-              Annuler
-            </button>
-            <button
-              onClick={handleSave}
-              disabled={uploading}
-              className="rounded-xl bg-accent px-4 py-2 text-sm font-medium text-base hover:bg-accent-hover disabled:opacity-60"
-            >
-              {uploading ? "Envoi..." : "Enregistrer les modifications"}
-            </button>
+        )}
+        {uploading && (
+          <div className="absolute inset-0 grid place-items-center bg-black/40 text-white">
+            <Loader2 size={22} className="animate-spin" />
+            <span className="mt-1 text-xs">{progress}%</span>
           </div>
-        </motion.div>
-      </motion.div>
-    </AnimatePresence>
+        )}
+      </div>
+
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept="image/jpeg,image/png,image/webp"
+        className="hidden"
+        onChange={(e) => handlePick(e.target.files?.[0] ?? null)}
+      />
+
+      <div className="mt-4 flex flex-wrap gap-2">
+        <button
+          type="button"
+          onClick={() => fileInputRef.current?.click()}
+          className="flex items-center gap-1.5 rounded-xl border border-border px-3.5 py-2 text-sm font-medium text-ink transition-colors hover:border-accent"
+        >
+          <Upload size={14} /> Changer
+        </button>
+        {kind === "banner" && preview && !removed && (
+          <button
+            type="button"
+            onClick={() => {
+              setRemoved(true);
+              setPendingFile(null);
+              setPreview(null);
+            }}
+            className="flex items-center gap-1.5 rounded-xl border border-border px-3.5 py-2 text-sm font-medium text-accent transition-colors hover:border-accent"
+          >
+            <Trash2 size={14} /> Supprimer
+          </button>
+        )}
+      </div>
+
+      <p className="mt-3 text-xs text-ink-muted">
+        JPG, PNG ou WEBP, 10 Mo maximum. Les modifications sont enregistrées après validation.
+      </p>
+    </ModalSheet>
   );
 }

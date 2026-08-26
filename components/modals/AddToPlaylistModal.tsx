@@ -1,10 +1,9 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { X, Plus, ListMusic } from "lucide-react";
+import { Plus, ListMusic } from "lucide-react";
 import { useToast } from "@/context/ToastProvider";
-import { Portal } from "@/components/ui/Portal";
-import { useEscapeClose } from "@/hooks/useEscapeClose";
+import { ModalSheet } from "@/components/ui/ModalSheet";
 
 type Playlist = { _id: string; title: string; coverUrl?: string };
 
@@ -15,7 +14,6 @@ export function AddToPlaylistModal({
   songId: string;
   onClose: () => void;
 }) {
-  useEscapeClose(onClose);
   const pushToast = useToast();
   const [playlists, setPlaylists] = useState<Playlist[]>([]);
   const [newTitle, setNewTitle] = useState("");
@@ -70,57 +68,41 @@ export function AddToPlaylistModal({
   }
 
   return (
-    // Portail : ouverte depuis le mini-lecteur (parent fixed + z-30),
-    // cette modale restait sinon confinée sous la navigation mobile.
-    <Portal>
-      <div className="fixed inset-0 z-[70] bg-black/60 grid place-items-center px-4" onClick={onClose}>
-        <div
-          className="w-full max-w-sm rounded-xl2 border border-border bg-surface p-6"
-          onClick={(e) => e.stopPropagation()}
+    <ModalSheet titre="Ajouter à une playlist" largeur="sm:max-w-sm" onClose={onClose}>
+      <div className="mb-4 flex items-center gap-2">
+        <input
+          value={newTitle}
+          onChange={(e) => setNewTitle(e.target.value)}
+          placeholder="Nouvelle playlist..."
+          className="min-w-0 flex-1 rounded-xl border border-border bg-base px-3.5 py-2 text-sm outline-none focus:border-accent"
+        />
+        <button
+          onClick={createAndAdd}
+          aria-label="Créer et ajouter"
+          className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-accent text-base hover:bg-accent-hover"
         >
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-lg font-display">Ajouter à une playlist</h2>
-            <button onClick={onClose} aria-label="Fermer" className="text-ink-muted hover:text-ink">
-              <X size={20} />
-            </button>
-          </div>
-
-          <div className="flex items-center gap-2 mb-4">
-            <input
-              value={newTitle}
-              onChange={(e) => setNewTitle(e.target.value)}
-              placeholder="Nouvelle playlist..."
-              className="flex-1 rounded-xl border border-border bg-base px-3.5 py-2 text-sm outline-none focus:border-accent"
-            />
-            <button
-              onClick={createAndAdd}
-              aria-label="Créer et ajouter"
-              className="grid h-9 w-9 place-items-center rounded-full bg-accent text-base hover:bg-accent-hover shrink-0"
-            >
-              <Plus size={16} />
-            </button>
-          </div>
-
-          {loading && <p className="text-sm text-ink-muted">Chargement...</p>}
-          {!loading && playlists.length === 0 && (
-            <p className="text-sm text-ink-muted">Tu n&apos;as pas encore de playlist.</p>
-          )}
-
-          <ul className="space-y-1 max-h-64 overflow-y-auto">
-            {playlists.map((playlist) => (
-              <li key={playlist._id}>
-                <button
-                  onClick={() => addTo(playlist._id)}
-                  className="w-full flex items-center gap-2 rounded-xl px-3 py-2.5 text-left text-sm hover:bg-base"
-                >
-                  <ListMusic size={16} className="text-ink-muted" />
-                  {playlist.title}
-                </button>
-              </li>
-            ))}
-          </ul>
-        </div>
+          <Plus size={16} />
+        </button>
       </div>
-    </Portal>
+
+      {loading && <p className="text-sm text-ink-muted">Chargement...</p>}
+      {!loading && playlists.length === 0 && (
+        <p className="text-sm text-ink-muted">Tu n&apos;as pas encore de playlist.</p>
+      )}
+
+      <ul className="space-y-1">
+        {playlists.map((playlist) => (
+          <li key={playlist._id}>
+            <button
+              onClick={() => addTo(playlist._id)}
+              className="flex w-full items-center gap-2 rounded-xl px-3 py-2.5 text-left text-sm hover:bg-base"
+            >
+              <ListMusic size={16} className="shrink-0 text-ink-muted" />
+              <span className="truncate">{playlist.title}</span>
+            </button>
+          </li>
+        ))}
+      </ul>
+    </ModalSheet>
   );
 }

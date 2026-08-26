@@ -1,8 +1,8 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
-import { AnimatePresence, motion } from "framer-motion";
+import { AnimatePresence, motion, useDragControls, useMotionValue, useTransform } from "framer-motion";
 import {
   BadgeCheck,
   Check,
@@ -59,10 +59,13 @@ import { NIVEAUX_BASS } from "@/components/player/constants/bassBoost";
 import { downloadSongForOffline, isSongOffline, removeOfflineSong, queuePendingDownload } from "@/lib/offlineCache";
 import type { PlayableSong } from "@/context/PlayerProvider";
 import { useMediaQuery } from "@/hooks/useMediaQuery";
+import { useScrollLock } from "@/lib/scrollLock";
 import type { MenuAnchor } from "@/components/ui/useClampedMenuPosition";
 
 /** Distance de glissement (px) à partir de laquelle le lecteur se ferme au relâchement. */
 const CLOSE_THRESHOLD = 120;
+/** Vitesse (px/s) qui ferme le lecteur même sur un geste court et vif. */
+const CLOSE_VELOCITY = 700;
 
 type Onglet = "paroles" | "infos" | "credits" | "similaires" | "commentaires";
 
@@ -103,6 +106,7 @@ export function FullPlayerPage() {
 
 function ContenuLecteur({ song }: { song: PlayableSong }) {
   const {
+    isFullPlayerOpen,
     queue,
     isPlaying,
     progress,
@@ -150,10 +154,23 @@ function ContenuLecteur({ song }: { song: PlayableSong }) {
   );
   const [plein, setPlein] = useState(false);
 
-  // Glissement vers le bas pour fermer (zone d'en-tête + pochette).
-  const [dragY, setDragY] = useState(0);
-  const [dragging, setDragging] = useState(false);
-  const startYRef = useRef(0);
+  /* Glissement vers le bas pour fermer.
+     Le geste passe par les outils de framer-motion — une MotionValue et
+     `useDragControls` — et non plus par un état React réécrit à chaque
+     `pointermove`. Deux raisons, la seconde étant un vrai défaut mesuré :
+     1. une MotionValue s'écrit sans re-rendu, alors que l'ancien `dragY`
+        re-rendait tout le lecteur à la fréquence du doigt ;
+     2. l'ancienne version passait aussi `transform` et `opacity` dans un
+        `style` brut, EN MÊME TEMPS que `animate`/`exit` les animait. Deux
+        propriétaires pour la même propriété : chaque re-rendu (le lecteur
+        en reçoit ~4 par seconde pendant la lecture) interrompait
+        l'animation de sortie, l'opacité se figeait à ~0,005 et le
+        composant n'était jamais démonté. Le calque `fixed inset-0 z-50`
+        restait alors sur la page, invisible, avalant tous les clics —
+        « l'écran devient incliquable ». */
+  const controlesGlissement = useDragControls();
+  const y = useMotionValue(0);
+  const opaciteGlissement = useTransform(y, [0, 400], [1, 0.45]);
 
   // Vrai si une surcouche (menu, modale, feuille) est ouverte : Échap doit
   // alors la fermer, elle, avant de fermer le lecteur.
@@ -169,14 +186,10 @@ function ContenuLecteur({ song }: { song: PlayableSong }) {
     return () => window.removeEventListener("keydown", onEscape);
   }, [surcoucheOuverte, closeFullPlayer]);
 
-  // Le corps ne doit pas défiler derrière le lecteur ouvert.
-  useEffect(() => {
-    const precedent = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
-    return () => {
-      document.body.style.overflow = precedent;
-    };
-  }, []);
+  // Le corps ne doit pas défiler derrière le lecteur ouvert. Le verrou est
+  // relâché dès le DÉBUT de la fermeture, pas à la fin de l'animation :
+  // même si celle-ci était interrompue, la page resterait utilisable.
+  useScrollLock(isFullPlayerOpen);
 
   useEffect(() => {
     const suivre = () => setPlein(!!document.fullscreenElement);
@@ -200,21 +213,16 @@ function ContenuLecteur({ song }: { song: PlayableSong }) {
     };
   }, [song._id]);
 
-  function handlePointerDown(e: React.PointerEvent) {
-    startYRef.current = e.clientY;
-    setDragging(true);
-    (e.target as HTMLElement).setPointerCapture(e.pointerId);
-  }
-  function handlePointerMove(e: React.PointerEvent) {
-    if (!dragging) return;
-    const delta = e.clientY - startYRef.current;
-    if (delta > 0) setDragY(delta);
-  }
-  function handlePointerUp() {
-    if (!dragging) return;
-    setDragging(false);
-    if (dragY > CLOSE_THRESHOLD) closeFullPlayer();
-    setDragY(0);
+  /**
+   * Amorce le glissement depuis une zone « prise en main » (barre du haut,
+   * pochette). Un geste qui commence sur une commande est laissé à cette
+   * commande : sinon le bouton de fermeture, celui du plein écran et le
+   * menu « Autres options » devenaient des poignées de glissement.
+   */
+  function demarrerGlissement(e: React.PointerEvent) {
+    if (bureau) return;
+    if ((e.target as HTMLElement).closest("button, a, input, [role='slider']")) return;
+    controlesGlissement.start(e);
   }
 
   async function basculerPleinEcran() {
@@ -274,7 +282,6 @@ function ContenuLecteur({ song }: { song: PlayableSong }) {
   const RepeatIcon = repeatMode === "one" ? Repeat1 : Repeat;
   const VolumeIcon = volume === 0 ? VolumeX : volume < 0.5 ? Volume1 : Volume2;
   const OfflineIcon = offlineState === "saving" ? Loader2 : offlineState === "saved" ? Check : Download;
-  const dragProgress = Math.min(1, dragY / (CLOSE_THRESHOLD * 2));
 
   const album = details?.album ?? (typeof song.album === "object" ? song.album : null);
   const genre = details?.genre ?? song.genre;
@@ -539,28 +546,34 @@ function ContenuLecteur({ song }: { song: PlayableSong }) {
 
   return (
     <motion.div
-      initial={{ opacity: 0, y: 28 }}
-      animate={{ opacity: 1, y: 0 }}
-      exit={{ opacity: 0, y: 28 }}
-      transition={{ type: "spring", stiffness: 320, damping: 34 }}
+      // Ouverture par le bas, fermeture par le bas : le même geste, qu'il
+      // vienne du bouton, de la touche Échap ou du glissement — l'animation
+      // de sortie repart de la position atteinte par le doigt.
+      initial={{ y: "100%" }}
+      animate={{ y: 0 }}
+      exit={{ y: "100%" }}
+      transition={{ type: "spring", stiffness: 330, damping: 36, mass: 0.9 }}
+      // Seules des MotionValue ici — aucune valeur brute qui viendrait
+      // disputer à framer-motion la propriété qu'il anime.
+      style={{ y, opacity: opaciteGlissement }}
+      drag={bureau ? false : "y"}
+      dragControls={controlesGlissement}
+      dragListener={false}
+      dragConstraints={{ top: 0, bottom: 0 }}
+      dragElastic={{ top: 0, bottom: 0.6 }}
+      dragMomentum={false}
+      onDragEnd={(_, info) => {
+        if (info.offset.y > CLOSE_THRESHOLD || info.velocity.y > CLOSE_VELOCITY) closeFullPlayer();
+      }}
       role="dialog"
       aria-modal="true"
       aria-label={`Lecteur — ${song.title}`}
-      className="fixed inset-0 z-50 flex flex-col bg-base"
-      style={{
-        transform: dragY ? `translateY(${dragY}px)` : undefined,
-        opacity: dragY ? 1 - dragProgress * 0.4 : undefined,
-        transition: dragging ? "none" : undefined,
-      }}
+      // Pendant l'animation de sortie le calque couvre encore tout l'écran :
+      // sans cela il continuerait d'intercepter les clics destinés à la page.
+      className={`fixed inset-0 z-50 flex flex-col bg-base ${isFullPlayerOpen ? "" : "pointer-events-none"}`}
     >
       {/* ------------------------------------------------------- en-tête -- */}
-      <div
-        onPointerDown={handlePointerDown}
-        onPointerMove={handlePointerMove}
-        onPointerUp={handlePointerUp}
-        onPointerCancel={handlePointerUp}
-        className="shrink-0 touch-none"
-      >
+      <div onPointerDown={demarrerGlissement} className="shrink-0 lg:touch-auto touch-pan-x">
         <header className="flex items-center justify-between gap-3 px-4 py-3 md:px-6 md:py-4">
           <button
             onClick={closeFullPlayer}
@@ -615,15 +628,12 @@ function ContenuLecteur({ song }: { song: PlayableSong }) {
       <div className="min-h-0 flex-1 overflow-y-auto px-4 pb-8">
         <div className="mx-auto w-full max-w-md">
           <div
-            onPointerDown={handlePointerDown}
-            onPointerMove={handlePointerMove}
-            onPointerUp={handlePointerUp}
-            onPointerCancel={handlePointerUp}
+            onPointerDown={demarrerGlissement}
             onContextMenu={(e) => {
               e.preventDefault();
               setMenuPosition({ x: e.clientX, y: e.clientY });
             }}
-            className="relative mx-auto mb-5 w-full max-w-[300px] touch-none"
+            className="relative mx-auto mb-5 w-full max-w-[300px] touch-pan-x"
           >
             <SafeImage
               src={song.coverUrl}

@@ -1,6 +1,7 @@
 "use client";
 
 import { createContext, useContext, useEffect, useRef, useState } from "react";
+import { usePathname } from "next/navigation";
 import { useAudioEngine } from "@/components/player/hooks/useAudioEngine";
 import {
   NIVEAU_BASS_PAR_DEFAUT,
@@ -203,6 +204,18 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
   const [progress, setProgress] = useState(0);
   const [streamDuration, setStreamDuration] = useState(0);
   const [isFullPlayerOpen, setFullPlayerOpen] = useState(false);
+  const cheminActuel = usePathname();
+
+  /* Le lecteur plein écran se referme dès qu'on change de page.
+     Il contient des liens — l'artiste, l'album, un titre similaire, une
+     ligne de la file — qui naviguaient sous lui : la nouvelle page se
+     chargeait derrière un calque opaque `fixed inset-0` toujours ouvert.
+     On atterrissait donc sur une page qu'on ne voyait pas et qui ne
+     réagissait à rien. Suivre le titre en cours n'a jamais imposé de
+     rester dans le lecteur : le mini-lecteur prend le relais. */
+  useEffect(() => {
+    setFullPlayerOpen(false);
+  }, [cheminActuel]);
   const [isShuffled, setIsShuffled] = useState(false);
   const [repeatMode, setRepeatMode] = useState<RepeatMode>("off");
   const [volume, setVolumeState] = useState(1);

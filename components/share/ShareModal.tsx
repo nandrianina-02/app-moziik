@@ -3,7 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { motion, AnimatePresence } from "framer-motion";
-import { X, Copy, Check, QrCode, ListMusic, BadgeCheck, Globe2, Lock, Loader2 } from "lucide-react";
+import { Copy, Check, QrCode, ListMusic, BadgeCheck, Globe2, Lock, Loader2 } from "lucide-react";
 import {
   FaFacebook,
   FaFacebookMessenger,
@@ -17,9 +17,8 @@ import {
 import { MdEmail } from "react-icons/md";
 import { SafeImage } from "@/components/ui/SafeImage";
 import { useToast } from "@/context/ToastProvider";
-import { Portal } from "@/components/ui/Portal";
+import { ModalSheet } from "@/components/ui/ModalSheet";
 import type { ShareSubject } from "@/components/share/shareSubject";
-import { useEscapeClose } from "@/hooks/useEscapeClose";
 
 // Réseaux pour lesquels il n'existe pas d'URL de partage web fiable sans
 // identifiant d'application (Messenger, Discord) ou pas du tout
@@ -51,7 +50,6 @@ export function ShareModal({
   /** Uniquement pertinent pour une playlist (subject.type === "playlist"). */
   privacy?: { isPublic: boolean; isOwner: boolean; busy?: boolean; onTogglePublic: () => void };
 }) {
-  useEscapeClose(onClose);
   const pushToast = useToast();
   const [copied, setCopied] = useState(false);
   const [qrDataUrl, setQrDataUrl] = useState<string | null>(null);
@@ -148,162 +146,151 @@ export function ShareModal({
   const isCircular = subject.type === "artist" || subject.type === "profile";
 
   return (
-    // Portail : ouverte depuis le mini-lecteur (parent fixed + z-30),
-    // cette modale restait sinon confinée sous la navigation mobile.
-    <Portal>
-    <div className="fixed inset-0 z-[70] grid place-items-center overflow-y-auto bg-black/60 px-4 py-8 backdrop-blur-sm" onClick={onClose}>
-      <motion.div
-        initial={{ opacity: 0, scale: 0.95, y: 8 }}
-        animate={{ opacity: 1, scale: 1, y: 0 }}
-        exit={{ opacity: 0, scale: 0.95 }}
-        transition={{ duration: 0.2, ease: "easeOut" }}
-        onClick={(e) => e.stopPropagation()}
-        className="w-full max-w-lg rounded-xl2 border border-border bg-surface p-6 shadow-2xl"
-      >
-        <div className="mb-1 flex items-start justify-between">
-          <div>
-            <h2 className="text-xl font-display">Partager</h2>
-            <p className="mt-0.5 text-sm text-ink-muted">{subjectDescription[subject.type]}</p>
-          </div>
-          <button onClick={onClose} aria-label="Fermer" className="grid h-9 w-9 shrink-0 place-items-center rounded-full text-ink-muted transition-colors hover:bg-base hover:text-ink">
-            <X size={18} />
-          </button>
-        </div>
-
-        <div className="mt-5 flex gap-4 rounded-xl2 bg-base p-3">
-          <SafeImage
-            src={subject.coverUrl}
-            alt={subject.title}
-            width={84}
-            height={84}
-            className={`shrink-0 object-cover ${isCircular ? "rounded-full" : "rounded-xl"}`}
-          />
-          <div className="min-w-0 flex-1">
-            <p className="truncate text-base text-ink font-semibold">{subject.title}</p>
-            {subject.subtitle && (
-              <p className="mt-0.5 flex items-center gap-1 truncate text-sm text-ink-muted">
-                {subject.subtitle}
-                {subject.verified && <BadgeCheck size={13} className="text-verified" />}
-              </p>
-            )}
-            <div className="mt-2 flex flex-wrap items-center gap-3 text-xs text-ink-muted">
-              {subject.stats.map((stat) => (
-                <span key={stat.label} className="flex items-center gap-1">
-                  <stat.icon size={11} /> {stat.value}
-                </span>
-              ))}
-            </div>
-          </div>
-        </div>
-
-        {privacy && (
-          <div className="mt-3 flex items-center justify-between rounded-xl2 border border-border p-3">
-            <span className="flex items-center gap-2 text-sm">
-              {privacy.isPublic ? <Globe2 size={15} className="text-verified" /> : <Lock size={15} className="text-ink-muted" />}
-              {privacy.isPublic ? "Playlist publique" : "Playlist privée"}
-            </span>
-            {privacy.isOwner ? (
-              <button
-                onClick={privacy.onTogglePublic}
-                disabled={privacy.busy}
-                className="flex items-center gap-1.5 rounded-lg border border-border px-3 py-1.5 text-xs font-medium text-ink-muted transition-colors hover:border-accent hover:text-accent disabled:opacity-60"
-              >
-                {privacy.busy && <Loader2 size={12} className="animate-spin" />}
-                {privacy.isPublic ? "Rendre privée" : "Rendre publique"}
-              </button>
-            ) : (
-              !privacy.isPublic && <span className="text-xs text-ink-muted">Lien valable pour toi uniquement</span>
-            )}
-          </div>
-        )}
-
-        <div className="mt-4 flex items-center gap-2">
-          <input
-            readOnly
-            value={shareUrl}
-            onFocus={(e) => e.currentTarget.select()}
-            className="flex-1 truncate rounded-xl border border-border bg-base px-3.5 py-2.5 text-sm text-ink-muted outline-none"
-          />
-          <button
-            onClick={copyLink}
-            className="flex shrink-0 items-center gap-1.5 rounded-xl bg-accent px-4 py-2.5 text-sm font-medium text-base transition-colors hover:bg-accent-hover"
-          >
-            {copied ? <Check size={15} /> : <Copy size={15} />}
-            {copied ? "Copié" : "Copier"}
-          </button>
-        </div>
-
-        <div className="my-5 h-px bg-border" />
-
-        <h3 className="mb-3 text-sm font-medium">Partager sur</h3>
-        <div className="grid grid-cols-4 gap-3 sm:grid-cols-5">
-          {networks.map((n) => (
-            <button key={n.id} onClick={() => handleNetwork(n.id)} className="group flex flex-col items-center gap-1.5">
-              <span className={`grid h-11 w-11 place-items-center rounded-full transition-transform group-hover:scale-110 ${n.className}`}>
-                <n.icon size={18} />
-              </span>
-              <span className="text-center text-[11px] leading-tight text-ink-muted">{n.label}</span>
-              {n.note && <span className="text-center text-[10px] leading-tight text-ink-muted/70">{n.note}</span>}
-            </button>
-          ))}
-          <button onClick={handleShowQr} className="group flex flex-col items-center gap-1.5">
-            <span className="grid h-11 w-11 place-items-center rounded-full border border-border text-ink-muted transition-transform group-hover:scale-110 group-hover:border-accent group-hover:text-accent">
-              <QrCode size={18} />
-            </span>
-            <span className="text-center text-[11px] leading-tight text-ink-muted">{loadingQr ? "..." : "QR Code"}</span>
-          </button>
-        </div>
-
-        <AnimatePresence>
-          {qrDataUrl && (
-            <motion.div
-              initial={{ opacity: 0, height: 0 }}
-              animate={{ opacity: 1, height: "auto" }}
-              exit={{ opacity: 0, height: 0 }}
-              className="mt-4 overflow-hidden"
-            >
-              <div className="flex flex-col items-center gap-2 rounded-xl2 border border-border bg-base p-4">
-                {/* eslint-disable-next-line @next/next/no-img-element -- image générée localement (data URL), next/image ne s'applique pas */}
-                <img src={qrDataUrl} alt="QR code du lien de partage" width={160} height={160} className="rounded-lg" />
-                <p className="text-xs text-ink-muted">Scannez pour ouvrir {subject.type === "song" ? "le morceau" : subject.type === "album" ? "l'album" : subject.type === "playlist" ? "la playlist" : "le profil"}</p>
-              </div>
-            </motion.div>
+    <ModalSheet titre="Partager" sousTitre={subjectDescription[subject.type]} onClose={onClose}>
+      <div className="flex gap-3 rounded-xl2 bg-base p-3 sm:gap-4">
+        <SafeImage
+          src={subject.coverUrl}
+          alt={subject.title}
+          width={84}
+          height={84}
+          className={`h-16 w-16 shrink-0 object-cover sm:h-[84px] sm:w-[84px] ${isCircular ? "rounded-full" : "rounded-xl"}`}
+        />
+        <div className="min-w-0 flex-1">
+          <p className="truncate text-base font-semibold text-ink">{subject.title}</p>
+          {subject.subtitle && (
+            <p className="mt-0.5 flex items-center gap-1 truncate text-sm text-ink-muted">
+              {subject.subtitle}
+              {subject.verified && <BadgeCheck size={13} className="shrink-0 text-verified" />}
+            </p>
           )}
-        </AnimatePresence>
-
-        {onOpenAddToPlaylist && (
-          <>
-            <div className="my-5 h-px bg-border" />
-            <h3 className="mb-3 text-sm font-medium">Partager vers</h3>
-            <button
-              onClick={() => {
-                onClose();
-                onOpenAddToPlaylist();
-              }}
-              className="flex w-full items-center gap-3 rounded-xl2 border border-border p-3.5 text-left transition-colors hover:border-accent"
-            >
-              <span className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-accent/10 text-accent">
-                <ListMusic size={17} />
+          <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-ink-muted">
+            {subject.stats.map((stat) => (
+              <span key={stat.label} className="flex items-center gap-1">
+                <stat.icon size={11} /> {stat.value}
               </span>
-              <span>
-                <span className="block text-sm font-medium">Playlist</span>
-                <span className="block text-xs text-ink-muted">Ajouter à une de tes playlists</span>
-              </span>
-            </button>
-          </>
-        )}
-
-        <p className="mt-4 text-xs text-ink-muted">
-          Le partage direct vers un utilisateur, un groupe ou une radio Moziik arrive bientôt.
-        </p>
-
-        <div className="mt-4 flex justify-end">
-          <Link href={subject.path} onClick={onClose} className="text-xs text-ink-muted hover:text-accent">
-            Voir la page →
-          </Link>
+            ))}
+          </div>
         </div>
-      </motion.div>
-    </div>
-    </Portal>
+      </div>
+
+      {privacy && (
+        <div className="mt-3 flex flex-wrap items-center justify-between gap-2 rounded-xl2 border border-border p-3">
+          <span className="flex items-center gap-2 text-sm">
+            {privacy.isPublic ? <Globe2 size={15} className="text-verified" /> : <Lock size={15} className="text-ink-muted" />}
+            {privacy.isPublic ? "Playlist publique" : "Playlist privée"}
+          </span>
+          {privacy.isOwner ? (
+            <button
+              onClick={privacy.onTogglePublic}
+              disabled={privacy.busy}
+              className="flex items-center gap-1.5 rounded-lg border border-border px-3 py-1.5 text-xs font-medium text-ink-muted transition-colors hover:border-accent hover:text-accent disabled:opacity-60"
+            >
+              {privacy.busy && <Loader2 size={12} className="animate-spin" />}
+              {privacy.isPublic ? "Rendre privée" : "Rendre publique"}
+            </button>
+          ) : (
+            !privacy.isPublic && <span className="text-xs text-ink-muted">Lien valable pour toi uniquement</span>
+          )}
+        </div>
+      )}
+
+      {/* Le champ et le bouton passent sur deux lignes en dessous de 360 px :
+          côte à côte, « Copier » y réduisait l'URL à une vingtaine de pixels. */}
+      <div className="mt-4 flex flex-col gap-2 xs:flex-row xs:items-center">
+        <input
+          readOnly
+          value={shareUrl}
+          aria-label="Lien de partage"
+          onFocus={(e) => e.currentTarget.select()}
+          className="min-w-0 flex-1 truncate rounded-xl border border-border bg-base px-3.5 py-2.5 text-sm text-ink-muted outline-none"
+        />
+        <button
+          onClick={copyLink}
+          className="flex shrink-0 items-center justify-center gap-1.5 rounded-xl bg-accent px-4 py-2.5 text-sm font-medium text-base transition-colors hover:bg-accent-hover"
+        >
+          {copied ? <Check size={15} /> : <Copy size={15} />}
+          {copied ? "Copié" : "Copier"}
+        </button>
+      </div>
+
+      <div className="my-5 h-px bg-border" />
+
+      <h3 className="mb-3 text-sm font-medium">Partager sur</h3>
+      <div className="grid grid-cols-4 gap-x-2 gap-y-3 xs:grid-cols-5 sm:gap-3">
+        {networks.map((n) => (
+          <button key={n.id} onClick={() => handleNetwork(n.id)} className="group flex flex-col items-center gap-1.5">
+            <span className={`grid h-11 w-11 place-items-center rounded-full transition-transform group-hover:scale-110 ${n.className}`}>
+              <n.icon size={18} />
+            </span>
+            <span className="text-center text-[11px] leading-tight text-ink-muted">{n.label}</span>
+            {n.note && <span className="text-center text-[10px] leading-tight text-ink-muted">{n.note}</span>}
+          </button>
+        ))}
+        <button onClick={handleShowQr} className="group flex flex-col items-center gap-1.5">
+          <span className="grid h-11 w-11 place-items-center rounded-full border border-border text-ink-muted transition-transform group-hover:scale-110 group-hover:border-accent group-hover:text-accent">
+            <QrCode size={18} />
+          </span>
+          <span className="text-center text-[11px] leading-tight text-ink-muted">{loadingQr ? "..." : "QR Code"}</span>
+        </button>
+      </div>
+
+      <AnimatePresence>
+        {qrDataUrl && (
+          <motion.div
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: "auto" }}
+            exit={{ opacity: 0, height: 0 }}
+            className="mt-4 overflow-hidden"
+          >
+            <div className="flex flex-col items-center gap-2 rounded-xl2 border border-border bg-base p-4">
+              {/* eslint-disable-next-line @next/next/no-img-element -- image générée localement (data URL), next/image ne s'applique pas */}
+              <img src={qrDataUrl} alt="QR code du lien de partage" width={160} height={160} className="rounded-lg" />
+              <p className="text-center text-xs text-ink-muted">
+                Scannez pour ouvrir{" "}
+                {subject.type === "song"
+                  ? "le morceau"
+                  : subject.type === "album"
+                    ? "l'album"
+                    : subject.type === "playlist"
+                      ? "la playlist"
+                      : "le profil"}
+              </p>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {onOpenAddToPlaylist && (
+        <>
+          <div className="my-5 h-px bg-border" />
+          <h3 className="mb-3 text-sm font-medium">Partager vers</h3>
+          <button
+            onClick={() => {
+              onClose();
+              onOpenAddToPlaylist();
+            }}
+            className="flex w-full items-center gap-3 rounded-xl2 border border-border p-3.5 text-left transition-colors hover:border-accent"
+          >
+            <span className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-accent/10 text-accent">
+              <ListMusic size={17} />
+            </span>
+            <span>
+              <span className="block text-sm font-medium">Playlist</span>
+              <span className="block text-xs text-ink-muted">Ajouter à une de tes playlists</span>
+            </span>
+          </button>
+        </>
+      )}
+
+      <p className="mt-4 text-xs text-ink-muted">
+        Le partage direct vers un utilisateur, un groupe ou une radio Moziik arrive bientôt.
+      </p>
+
+      <div className="mt-4 flex justify-end">
+        <Link href={subject.path} onClick={onClose} className="text-xs text-ink-muted hover:text-accent">
+          Voir la page →
+        </Link>
+      </div>
+    </ModalSheet>
   );
 }

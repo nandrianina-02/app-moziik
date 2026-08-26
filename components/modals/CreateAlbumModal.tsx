@@ -1,14 +1,12 @@
 "use client";
 
 import { useState } from "react";
-import { X } from "lucide-react";
 import { FormField } from "@/components/ui/FormField";
 import { useToast } from "@/context/ToastProvider";
 import { uploadToCloudinaryClient } from "@/lib/cloudinaryClient";
-import { useEscapeClose } from "@/hooks/useEscapeClose";
+import { ModalSheet } from "@/components/ui/ModalSheet";
 
 export function CreateAlbumModal({ onClose, onCreated }: { onClose: () => void; onCreated: () => void }) {
-  useEscapeClose(onClose);
   const pushToast = useToast();
   const [title, setTitle] = useState("");
   const [type, setType] = useState<"album" | "ep" | "single">("album");
@@ -50,19 +48,24 @@ export function CreateAlbumModal({ onClose, onCreated }: { onClose: () => void; 
   }
 
   return (
-    <div className="fixed inset-0 z-50 bg-black/60 grid place-items-center px-4" onClick={onClose}>
-      <div
-        className="w-full max-w-sm rounded-xl2 border border-border bg-surface p-6"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <div className="flex items-center justify-between mb-6">
-          <h2 className="text-lg font-display">Nouvel album</h2>
-          <button onClick={onClose} aria-label="Fermer" className="text-ink-muted hover:text-ink">
-            <X size={20} />
-          </button>
-        </div>
-
-        <form onSubmit={handleSubmit} className="space-y-4">
+    <ModalSheet
+      titre="Nouvel album"
+      largeur="sm:max-w-sm"
+      onClose={onClose}
+      pied={
+        // Hors de la zone défilante mais toujours rattaché au formulaire
+        // par `form=` : le bouton reste visible sans faire défiler.
+        <button
+          type="submit"
+          form="form-nouvel-album"
+          disabled={submitting}
+          className="w-full rounded-xl bg-accent py-2.5 text-sm font-medium text-base hover:bg-accent-hover disabled:opacity-60"
+        >
+          {submitting ? "Création..." : "Créer l'album"}
+        </button>
+      }
+    >
+      <form id="form-nouvel-album" onSubmit={handleSubmit} className="space-y-4">
           <FormField label="Titre" required value={title} onChange={(e) => setTitle(e.target.value)} />
 
           <label className="block">
@@ -90,15 +93,7 @@ export function CreateAlbumModal({ onClose, onCreated }: { onClose: () => void; 
             onChange={(e) => setReleaseDate(e.target.value)}
           />
 
-          <button
-            type="submit"
-            disabled={submitting}
-            className="w-full rounded-xl bg-accent py-2.5 text-sm font-medium text-base hover:bg-accent-hover disabled:opacity-60"
-          >
-            {submitting ? "Création..." : "Créer l'album"}
-          </button>
-        </form>
-      </div>
-    </div>
+      </form>
+    </ModalSheet>
   );
 }

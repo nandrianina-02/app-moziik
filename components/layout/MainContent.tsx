@@ -17,10 +17,11 @@ export function MainContent({ children }: { children: React.ReactNode }) {
   const { currentSong } = usePlayer();
   const { isOnline } = useOnlineStatus();
 
-  // OfflineBanner est en position fixed (h-8) au-dessus du contenu quand
-  // hors-ligne : sans cet espace réservé en plus, elle recouvre le tout
-  // début de la page (voir components/ui/OfflineBanner.tsx).
-  const topPad = isOnline ? "pt-14 md:pt-0" : "pt-[5.5rem] md:pt-8";
+  // pt-14 (mobile) : hauteur de l'en-tête mobile, qui est en `fixed`.
+  // Hors-ligne, c'est le bandeau — rendu juste au-dessus, dans le flux —
+  // qui dégage déjà cet espace ; le répéter ici décalerait le contenu deux
+  // fois (voir components/ui/OfflineBanner.tsx).
+  const topPad = isOnline ? "pt-14 md:pt-0" : "pt-0";
 
   return (
     // pb-16 (mobile) : hauteur de la barre de nav mobile fixe (MobileNav,

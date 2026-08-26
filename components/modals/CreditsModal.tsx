@@ -1,9 +1,9 @@
 "use client";
 
 import Link from "next/link";
-import { X, BadgeCheck, Clock, Disc3, Tag } from "lucide-react";
+import { BadgeCheck, Clock, Disc3, Tag } from "lucide-react";
 import type { PlayableSong } from "@/context/PlayerProvider";
-import { useEscapeClose } from "@/hooks/useEscapeClose";
+import { ModalSheet } from "@/components/ui/ModalSheet";
 
 function formatTime(seconds: number) {
   const m = Math.floor(seconds / 60);
@@ -12,25 +12,11 @@ function formatTime(seconds: number) {
 }
 
 export function CreditsModal({ song, onClose }: { song: PlayableSong; onClose: () => void }) {
-  useEscapeClose(onClose);
   const album = typeof song.album === "object" ? song.album : null;
 
   return (
-    <div className="fixed inset-0 z-50 bg-black/60 grid place-items-center px-4" onClick={onClose}>
-      <div
-        className="w-full max-w-sm rounded-xl2 border border-border bg-surface p-6"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="text-lg font-display">Crédits</h2>
-          <button onClick={onClose} aria-label="Fermer" className="text-ink-muted hover:text-ink">
-            <X size={20} />
-          </button>
-        </div>
-
-        <p className="text-sm font-medium mb-1">{song.title}</p>
-
-        <ul className="space-y-2.5 mt-4">
+    <ModalSheet titre="Crédits" sousTitre={song.title} largeur="sm:max-w-sm" onClose={onClose}>
+      <ul className="space-y-2.5">
           <li className="flex items-center gap-2 text-sm text-ink-muted">
             <span className="w-5 shrink-0" />
             {song.artist ? (
@@ -71,12 +57,11 @@ export function CreditsModal({ song, onClose }: { song: PlayableSong; onClose: (
             </li>
           )}
 
-          <li className="flex items-center gap-2 text-sm text-ink-muted">
-            <Clock size={15} className="shrink-0" />
-            {formatTime(song.duration)}
-          </li>
-        </ul>
-      </div>
-    </div>
+        <li className="flex items-center gap-2 text-sm text-ink-muted">
+          <Clock size={15} className="shrink-0" />
+          {formatTime(song.duration)}
+        </li>
+      </ul>
+    </ModalSheet>
   );
 }

@@ -1,8 +1,10 @@
 "use client";
 
+import { motion } from "framer-motion";
 import { AlertTriangle } from "lucide-react";
 import { Portal } from "@/components/ui/Portal";
 import { useEscapeClose } from "@/hooks/useEscapeClose";
+import { useScrollLock } from "@/lib/scrollLock";
 
 /**
  * Petite modale de confirmation générique, utilisée avant toute action
@@ -27,16 +29,27 @@ export function ConfirmDialog({
   onCancel: () => void;
 }) {
   useEscapeClose(onCancel);
+  // Sans verrou, la page continuait de défiler derrière la confirmation.
+  useScrollLock();
   return (
     // Portail : cette confirmation peut être ouverte depuis un menu
     // contextuel ou le mini-lecteur, dont le parent `fixed` piégerait la
     // surcouche dans sa propre couche. Voir components/ui/Portal.tsx.
     <Portal>
-    <div
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      transition={{ duration: 0.15 }}
       className="fixed inset-0 z-[80] grid place-items-center bg-black/60 px-4 backdrop-blur-sm"
       onClick={onCancel}
     >
-      <div
+      {/* Une confirmation reste une boîte centrée : la transformer en
+          feuille venue du bas éloignerait les deux boutons du pouce sans
+          rien gagner. Elle monte simplement de quelques pixels. */}
+      <motion.div
+        initial={{ opacity: 0, scale: 0.96, y: 16 }}
+        animate={{ opacity: 1, scale: 1, y: 0 }}
+        transition={{ type: "spring", stiffness: 380, damping: 30 }}
         className="w-full max-w-sm rounded-xl2 border border-border bg-surface p-6 shadow-2xl"
         onClick={(e) => e.stopPropagation()}
       >
@@ -67,8 +80,8 @@ export function ConfirmDialog({
             {busy ? "..." : confirmLabel}
           </button>
         </div>
-      </div>
-    </div>
+      </motion.div>
+    </motion.div>
     </Portal>
   );
 }

@@ -1,9 +1,9 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { X, Search, Plus, Check, Loader2, BadgeCheck } from "lucide-react";
+import { Search, Plus, Check, Loader2, BadgeCheck } from "lucide-react";
 import { SafeImage } from "@/components/ui/SafeImage";
-import { Portal } from "@/components/ui/Portal";
+import { ModalSheet } from "@/components/ui/ModalSheet";
 import { useToast } from "@/context/ToastProvider";
 import { readApiError } from "@/lib/readApiError";
 import type { PlayableSong } from "@/context/PlayerProvider";
@@ -100,105 +100,98 @@ export function AddSongsModal({
   }
 
   return (
-    <Portal>
-      <div className="fixed inset-0 z-[70] grid place-items-center bg-black/60 px-4 backdrop-blur-sm" onClick={onClose}>
-        <div
-          className="flex max-h-[85vh] w-full max-w-lg flex-col rounded-xl2 border border-border bg-surface"
-          onClick={(e) => e.stopPropagation()}
-        >
-          <div className="flex items-center justify-between border-b border-border px-5 py-4">
-            <h2 className="text-base text-ink font-display">Ajouter des morceaux</h2>
-            <button onClick={onClose} aria-label="Fermer" className="text-ink-muted transition-colors hover:text-ink">
-              <X size={18} />
+    <ModalSheet
+      titre="Ajouter des morceaux"
+      onClose={onClose}
+      entete={
+        <>
+          <div className="flex items-center gap-2 rounded-xl border border-border bg-base px-3.5 py-2 focus-within:border-accent">
+            <Search size={16} className="shrink-0 text-ink-muted" />
+            <input
+              autoFocus
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder="Rechercher un titre, un artiste..."
+              aria-label="Rechercher un morceau"
+              className="min-w-0 flex-1 bg-transparent text-sm outline-none"
+            />
+            {loading && <Loader2 size={15} className="shrink-0 animate-spin text-ink-muted" />}
+          </div>
+          {!query && <p className="mt-2 text-xs text-ink-muted">Titres les plus écoutés sur Moziik.</p>}
+        </>
+      }
+      pied={
+        <div className="flex items-center justify-between gap-3">
+          <span className="min-w-0 truncate text-sm text-ink-muted">
+            {selection.length > 0
+              ? `${selection.length} sélectionné${selection.length > 1 ? "s" : ""}`
+              : "Aucune sélection"}
+          </span>
+          <div className="flex shrink-0 gap-2">
+            <button
+              onClick={onClose}
+              className="rounded-xl border border-border px-4 py-2 text-sm font-medium text-ink-muted transition-colors hover:text-ink"
+            >
+              Annuler
+            </button>
+            <button
+              onClick={handleAdd}
+              disabled={!selection.length || saving}
+              className="flex items-center gap-1.5 rounded-xl bg-accent px-4 py-2 text-sm font-medium text-base transition-colors hover:bg-accent-hover disabled:opacity-50"
+            >
+              {saving ? <Loader2 size={14} className="animate-spin" /> : <Plus size={14} />}
+              Ajouter
             </button>
           </div>
-
-          <div className="px-5 pt-4">
-            <div className="flex items-center gap-2 rounded-xl border border-border bg-base px-3.5 py-2 focus-within:border-accent">
-              <Search size={16} className="shrink-0 text-ink-muted" />
-              <input
-                autoFocus
-                value={query}
-                onChange={(e) => setQuery(e.target.value)}
-                placeholder="Rechercher un titre, un artiste..."
-                aria-label="Rechercher un morceau"
-                className="min-w-0 flex-1 bg-transparent text-sm outline-none"
-              />
-              {loading && <Loader2 size={15} className="shrink-0 animate-spin text-ink-muted" />}
-            </div>
-            {!query && <p className="mt-2 text-xs text-ink-muted">Titres les plus écoutés sur Moziik.</p>}
-          </div>
-
-          <ul className="mt-3 min-h-0 flex-1 space-y-1 overflow-y-auto px-3 pb-2">
-            {!loading && results.length === 0 && (
-              <li className="px-2 py-10 text-center text-sm text-ink-muted">Aucun titre trouvé.</li>
-            )}
-            {results.map((song) => {
-              const deja = existingIds.includes(song._id);
-              const choisi = selection.includes(song._id);
-              return (
-                <li key={song._id}>
-                  <button
-                    onClick={() => !deja && toggle(song._id)}
-                    disabled={deja}
-                    className={`flex w-full items-center gap-3 rounded-xl px-2 py-2 text-left transition-colors ${
-                      deja ? "opacity-50" : choisi ? "bg-accent/10" : "hover:bg-base"
+        </div>
+      }
+    >
+      <ul className="space-y-1">
+        {!loading && results.length === 0 && (
+          <li className="px-2 py-10 text-center text-sm text-ink-muted">Aucun titre trouvé.</li>
+        )}
+        {results.map((song) => {
+          const deja = existingIds.includes(song._id);
+          const choisi = selection.includes(song._id);
+          return (
+            <li key={song._id}>
+              <button
+                onClick={() => !deja && toggle(song._id)}
+                disabled={deja}
+                className={`flex w-full items-center gap-3 rounded-xl px-2 py-2 text-left transition-colors ${
+                  deja ? "opacity-50" : choisi ? "bg-accent/10" : "hover:bg-base"
+                }`}
+              >
+                <SafeImage
+                  src={song.coverUrl}
+                  alt={song.title}
+                  width={40}
+                  height={40}
+                  className="h-10 w-10 shrink-0 rounded-lg object-cover"
+                />
+                <span className="min-w-0 flex-1">
+                  <span className="block truncate text-sm font-medium">{song.title}</span>
+                  <span className="flex items-center gap-1 truncate text-xs text-ink-muted">
+                    {song.artist?.stageName ?? "Artiste supprimé"}
+                    {song.artist?.verified && <BadgeCheck size={11} className="shrink-0 text-verified" />}
+                  </span>
+                </span>
+                {deja ? (
+                  <span className="shrink-0 text-xs text-ink-muted">Déjà présent</span>
+                ) : (
+                  <span
+                    className={`grid h-7 w-7 shrink-0 place-items-center rounded-full border transition-colors ${
+                      choisi ? "border-accent bg-accent text-base" : "border-border text-ink-muted"
                     }`}
                   >
-                    <SafeImage
-                      src={song.coverUrl}
-                      alt={song.title}
-                      width={40}
-                      height={40}
-                      className="h-10 w-10 shrink-0 rounded-lg object-cover"
-                    />
-                    <span className="min-w-0 flex-1">
-                      <span className="block truncate text-sm font-medium">{song.title}</span>
-                      <span className="flex items-center gap-1 truncate text-xs text-ink-muted">
-                        {song.artist?.stageName ?? "Artiste supprimé"}
-                        {song.artist?.verified && <BadgeCheck size={11} className="shrink-0 text-verified" />}
-                      </span>
-                    </span>
-                    {deja ? (
-                      <span className="shrink-0 text-xs text-ink-muted">Déjà présent</span>
-                    ) : (
-                      <span
-                        className={`grid h-7 w-7 shrink-0 place-items-center rounded-full border transition-colors ${
-                          choisi ? "border-accent bg-accent text-base" : "border-border text-ink-muted"
-                        }`}
-                      >
-                        {choisi ? <Check size={14} /> : <Plus size={14} />}
-                      </span>
-                    )}
-                  </button>
-                </li>
-              );
-            })}
-          </ul>
-
-          <div className="flex items-center justify-between gap-3 border-t border-border px-5 py-4">
-            <span className="text-sm text-ink-muted">
-              {selection.length > 0 ? `${selection.length} sélectionné${selection.length > 1 ? "s" : ""}` : "Aucune sélection"}
-            </span>
-            <div className="flex gap-2">
-              <button
-                onClick={onClose}
-                className="rounded-xl border border-border px-4 py-2 text-sm font-medium text-ink-muted transition-colors hover:text-ink"
-              >
-                Annuler
+                    {choisi ? <Check size={14} /> : <Plus size={14} />}
+                  </span>
+                )}
               </button>
-              <button
-                onClick={handleAdd}
-                disabled={!selection.length || saving}
-                className="flex items-center gap-1.5 rounded-xl bg-accent px-4 py-2 text-sm font-medium text-base transition-colors hover:bg-accent-hover disabled:opacity-50"
-              >
-                {saving ? <Loader2 size={14} className="animate-spin" /> : <Plus size={14} />}
-                Ajouter
-              </button>
-            </div>
-          </div>
-        </div>
-      </div>
-    </Portal>
+            </li>
+          );
+        })}
+      </ul>
+    </ModalSheet>
   );
 }

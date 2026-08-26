@@ -1,9 +1,9 @@
 "use client";
 
 import { useState } from "react";
-import { X, Plus, Trash2 } from "lucide-react";
+import { Plus, Trash2 } from "lucide-react";
 import { useToast } from "@/context/ToastProvider";
-import { useEscapeClose } from "@/hooks/useEscapeClose";
+import { ModalSheet } from "@/components/ui/ModalSheet";
 
 type SocialLink = { platform: string; url: string };
 
@@ -20,7 +20,6 @@ export function EditArtistProfileModal({
   onClose: () => void;
   onSaved: (data: { bio: string; genres: string[]; socialLinks: SocialLink[] }) => void;
 }) {
-  useEscapeClose(onClose);
   const pushToast = useToast();
   const [bioValue, setBioValue] = useState(bio ?? "");
   const [genresValue, setGenresValue] = useState(genres.join(", "));
@@ -65,19 +64,20 @@ export function EditArtistProfileModal({
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-4" onClick={onClose}>
-      <div
-        onClick={(e) => e.stopPropagation()}
-        className="flex max-h-[85vh] w-full max-w-lg flex-col rounded-xl2 bg-surface"
-      >
-        <div className="flex items-center justify-between border-b border-border px-5 py-4">
-          <h2 className="text-sm font-medium">Modifier le profil</h2>
-          <button onClick={onClose} aria-label="Fermer" className="text-ink-muted hover:text-ink">
-            <X size={18} />
-          </button>
-        </div>
-
-        <div className="space-y-5 overflow-y-auto px-5 py-5">
+    <ModalSheet
+      titre="Modifier le profil"
+      onClose={onClose}
+      pied={
+        <button
+          onClick={handleSave}
+          disabled={saving}
+          className="w-full rounded-full bg-accent py-2.5 text-sm font-medium text-base hover:bg-accent-hover disabled:opacity-60"
+        >
+          {saving ? "Enregistrement..." : "Enregistrer"}
+        </button>
+      }
+    >
+      <div className="space-y-5">
           <label className="block">
             <span className="mb-1.5 block text-xs font-medium text-ink-muted">Biographie</span>
             <textarea
@@ -132,18 +132,7 @@ export function EditArtistProfileModal({
               <Plus size={13} /> Ajouter un lien
             </button>
           </div>
-        </div>
-
-        <div className="border-t border-border px-5 py-4">
-          <button
-            onClick={handleSave}
-            disabled={saving}
-            className="w-full rounded-full bg-accent py-2.5 text-sm font-medium text-base hover:bg-accent-hover disabled:opacity-60"
-          >
-            {saving ? "Enregistrement..." : "Enregistrer"}
-          </button>
-        </div>
       </div>
-    </div>
+    </ModalSheet>
   );
 }

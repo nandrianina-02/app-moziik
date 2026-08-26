@@ -2,13 +2,13 @@
 
 import { useRef, useState } from "react";
 import { useSession } from "next-auth/react";
-import { X, Camera, Loader2, AlertCircle, Mic2 } from "lucide-react";
+import { Camera, Loader2, AlertCircle, Mic2 } from "lucide-react";
 import Link from "next/link";
 import { SafeImage } from "@/components/ui/SafeImage";
 import { FormField } from "@/components/ui/FormField";
 import { useToast } from "@/context/ToastProvider";
 import { uploadToCloudinaryClient } from "@/lib/cloudinaryClient";
-import { useEscapeClose } from "@/hooks/useEscapeClose";
+import { ModalSheet } from "@/components/ui/ModalSheet";
 
 export type EditableProfile = {
   name: string;
@@ -32,7 +32,6 @@ export function EditProfileModal({
   onClose: () => void;
   onUpdated: (profile: EditableProfile) => void;
 }) {
-  useEscapeClose(onClose);
   const { update } = useSession();
   const pushToast = useToast();
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -125,19 +124,31 @@ export function EditProfileModal({
   }
 
   return (
-    <div className="fixed inset-0 z-50 grid place-items-center overflow-y-auto bg-black/60 px-4 py-8 backdrop-blur-sm" onClick={onClose}>
-      <div
-        onClick={(e) => e.stopPropagation()}
-        className="w-full max-w-md rounded-xl2 border border-border bg-surface p-6 shadow-2xl"
-      >
-        <div className="mb-5 flex items-start justify-between">
-          <h2 className="text-xl font-display">Modifier le profil</h2>
-          <button onClick={onClose} aria-label="Fermer" className="grid h-9 w-9 shrink-0 place-items-center rounded-full text-ink-muted transition-colors hover:bg-base hover:text-ink">
-            <X size={18} />
+    <ModalSheet
+      titre="Modifier le profil"
+      largeur="sm:max-w-md"
+      onClose={onClose}
+      pied={
+        <div className="flex gap-2.5">
+          <button
+            type="button"
+            onClick={onClose}
+            className="flex-1 rounded-xl border border-border py-2.5 text-sm font-medium text-ink-muted transition-colors hover:text-ink"
+          >
+            Annuler
+          </button>
+          <button
+            type="submit"
+            form="form-profil"
+            disabled={saving || uploadingAvatar}
+            className="flex-1 rounded-xl bg-accent py-2.5 text-sm font-medium text-base transition-colors hover:bg-accent-hover disabled:opacity-60"
+          >
+            {saving ? "Enregistrement..." : "Enregistrer"}
           </button>
         </div>
-
-        <form onSubmit={handleSubmit} className="space-y-5">
+      }
+    >
+      <form id="form-profil" onSubmit={handleSubmit} className="space-y-5">
           <div className="flex justify-center">
             <div className="relative">
               <SafeImage
@@ -195,24 +206,7 @@ export function EditProfileModal({
             </p>
           )}
 
-          <div className="flex gap-2.5">
-            <button
-              type="button"
-              onClick={onClose}
-              className="flex-1 rounded-xl border border-border py-2.5 text-sm font-medium text-ink-muted transition-colors hover:text-ink"
-            >
-              Annuler
-            </button>
-            <button
-              type="submit"
-              disabled={saving || uploadingAvatar}
-              className="flex-1 rounded-xl bg-accent py-2.5 text-sm font-medium text-base transition-colors hover:bg-accent-hover disabled:opacity-60"
-            >
-              {saving ? "Enregistrement..." : "Enregistrer"}
-            </button>
-          </div>
-        </form>
-      </div>
-    </div>
+      </form>
+    </ModalSheet>
   );
 }

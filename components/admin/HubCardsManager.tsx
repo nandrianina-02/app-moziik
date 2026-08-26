@@ -1,12 +1,12 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { X, Plus, Trash2, ArrowUp, ArrowDown, UploadCloud } from "lucide-react";
+import { Plus, Trash2, ArrowUp, ArrowDown, UploadCloud } from "lucide-react";
 import { SafeImage } from "@/components/ui/SafeImage";
 import { Toggle } from "@/components/admin/Toggle";
 import { uploadToCloudinaryClient } from "@/lib/cloudinaryClient";
 import { useToast } from "@/context/ToastProvider";
-import { useEscapeClose } from "@/hooks/useEscapeClose";
+import { ModalSheet } from "@/components/ui/ModalSheet";
 
 type HubCard = {
   _id: string;
@@ -20,7 +20,6 @@ type HubCard = {
 };
 
 export function HubCardsManager({ onClose }: { onClose: () => void }) {
-  useEscapeClose(onClose);
   const pushToast = useToast();
   const [cards, setCards] = useState<HubCard[]>([]);
   const [loading, setLoading] = useState(true);
@@ -131,126 +130,116 @@ export function HubCardsManager({ onClose }: { onClose: () => void }) {
   }
 
   return (
-    <div className="fixed inset-0 z-50 grid place-items-center bg-black/60 px-4" onClick={onClose}>
-      <div
-        className="max-h-[85vh] w-full max-w-2xl overflow-y-auto rounded-xl2 border border-border bg-surface p-6"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <div className="mb-4 flex items-center justify-between">
-          <div>
-            <h2 className="text-lg font-display">Cartes de la section &quot;Pour vous&quot;</h2>
-            <p className="text-xs text-ink-muted">
-              Chaque carte sans pochette personnalisée affiche automatiquement la pochette du contenu réel correspondant
-              (dernière sortie, titre le plus écouté...).
-            </p>
-          </div>
-          <button onClick={onClose} aria-label="Fermer" className="text-ink-muted hover:text-ink">
-            <X size={20} />
-          </button>
-        </div>
+    <ModalSheet
+      titre={'Cartes de la section "Pour vous"'}
+      sousTitre="Chaque carte sans pochette personnalisée affiche automatiquement la pochette du contenu réel correspondant (dernière sortie, titre le plus écouté...)."
+      largeur="sm:max-w-2xl"
+      onClose={onClose}
+    >
+      {loading ? (
+        <p className="py-8 text-center text-sm text-ink-muted">Chargement...</p>
+      ) : (
+        <div className="space-y-3">
+          {cards.map((card, index) => (
+            <div key={card._id} className="rounded-xl border border-border p-3">
+              <div className="flex items-start gap-3">
+                <label className="group relative h-16 w-16 shrink-0 cursor-pointer overflow-hidden rounded-lg bg-base">
+                  <SafeImage src={card.coverUrl} alt={card.title} width={64} height={64} className="h-full w-full object-cover" />
+                  {/* Affordance visible en permanence : en `text-transparent` jusqu'au
+                      survol, l'icône « changer la pochette » n'existait tout
+                      simplement pas sur un écran tactile, qui n'a pas de survol. */}
+                  <div className="absolute inset-0 grid place-items-center bg-black/35 text-white/90 transition-colors group-hover:bg-black/55 group-hover:text-white">
+                    <UploadCloud size={16} />
+                  </div>
+                  <input
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      if (file) handleCoverChange(card._id, file);
+                    }}
+                  />
+                  {uploadingId === card._id && (
+                    <div className="absolute inset-0 grid place-items-center bg-black/60 text-[10px] text-white">...</div>
+                  )}
+                </label>
 
-        {loading ? (
-          <p className="py-8 text-center text-sm text-ink-muted">Chargement...</p>
-        ) : (
-          <div className="space-y-3">
-            {cards.map((card, index) => (
-              <div key={card._id} className="rounded-xl border border-border p-3">
-                <div className="flex items-start gap-3">
-                  <label className="group relative h-16 w-16 shrink-0 cursor-pointer overflow-hidden rounded-lg bg-base">
-                    <SafeImage src={card.coverUrl} alt={card.title} width={64} height={64} className="h-full w-full object-cover" />
-                    <div className="absolute inset-0 grid place-items-center bg-black/0 text-transparent transition-colors group-hover:bg-black/50 group-hover:text-white">
-                      <UploadCloud size={16} />
-                    </div>
+                <div className="min-w-0 flex-1 space-y-2">
+                  <div className="flex flex-wrap gap-2">
                     <input
-                      type="file"
-                      accept="image/*"
-                      className="hidden"
-                      onChange={(e) => {
-                        const file = e.target.files?.[0];
-                        if (file) handleCoverChange(card._id, file);
-                      }}
-                    />
-                    {uploadingId === card._id && (
-                      <div className="absolute inset-0 grid place-items-center bg-black/60 text-[10px] text-white">...</div>
-                    )}
-                  </label>
-
-                  <div className="min-w-0 flex-1 space-y-2">
-                    <div className="flex flex-wrap gap-2">
-                      <input
-                        value={card.title}
-                        onChange={(e) => setCards((prev) => prev.map((c) => (c._id === card._id ? { ...c, title: e.target.value } : c)))}
-                        onBlur={(e) => updateCard(card._id, { title: e.target.value })}
-                        placeholder="Titre (ex: Daily Mix)"
-                        className="min-w-[140px] flex-1 rounded-lg border border-border bg-base px-2 py-1.5 text-sm text-ink"
-                      />
-                      <input
-                        value={card.badge ?? ""}
-                        onChange={(e) => setCards((prev) => prev.map((c) => (c._id === card._id ? { ...c, badge: e.target.value } : c)))}
-                        onBlur={(e) => updateCard(card._id, { badge: e.target.value })}
-                        placeholder="Badge (ex: 01)"
-                        className="w-24 rounded-lg border border-border bg-base px-2 py-1.5 text-sm text-ink"
-                      />
-                    </div>
-                    <input
-                      value={card.subtitle ?? ""}
-                      onChange={(e) => setCards((prev) => prev.map((c) => (c._id === card._id ? { ...c, subtitle: e.target.value } : c)))}
-                      onBlur={(e) => updateCard(card._id, { subtitle: e.target.value })}
-                      placeholder="Sous-titre"
-                      className="w-full rounded-lg border border-border bg-base px-2 py-1.5 text-sm text-ink"
+                      value={card.title}
+                      onChange={(e) => setCards((prev) => prev.map((c) => (c._id === card._id ? { ...c, title: e.target.value } : c)))}
+                      onBlur={(e) => updateCard(card._id, { title: e.target.value })}
+                      placeholder="Titre (ex: Daily Mix)"
+                      className="min-w-[140px] flex-1 rounded-lg border border-border bg-base px-2 py-1.5 text-sm text-ink"
                     />
                     <input
-                      value={card.linkHref}
-                      onChange={(e) => setCards((prev) => prev.map((c) => (c._id === card._id ? { ...c, linkHref: e.target.value } : c)))}
-                      onBlur={(e) => updateCard(card._id, { linkHref: e.target.value })}
-                      placeholder="Lien (ex: /recherche?q=chill ou #new_releases)"
-                      className="w-full rounded-lg border border-border bg-base px-2 py-1.5 text-sm text-ink"
+                      value={card.badge ?? ""}
+                      onChange={(e) => setCards((prev) => prev.map((c) => (c._id === card._id ? { ...c, badge: e.target.value } : c)))}
+                      onBlur={(e) => updateCard(card._id, { badge: e.target.value })}
+                      placeholder="Badge (ex: 01)"
+                      className="w-24 rounded-lg border border-border bg-base px-2 py-1.5 text-sm text-ink"
                     />
                   </div>
+                  <input
+                    value={card.subtitle ?? ""}
+                    onChange={(e) => setCards((prev) => prev.map((c) => (c._id === card._id ? { ...c, subtitle: e.target.value } : c)))}
+                    onBlur={(e) => updateCard(card._id, { subtitle: e.target.value })}
+                    placeholder="Sous-titre"
+                    className="w-full rounded-lg border border-border bg-base px-2 py-1.5 text-sm text-ink"
+                  />
+                  <input
+                    value={card.linkHref}
+                    onChange={(e) => setCards((prev) => prev.map((c) => (c._id === card._id ? { ...c, linkHref: e.target.value } : c)))}
+                    onBlur={(e) => updateCard(card._id, { linkHref: e.target.value })}
+                    placeholder="Lien (ex: /recherche?q=chill ou #new_releases)"
+                    className="w-full rounded-lg border border-border bg-base px-2 py-1.5 text-sm text-ink"
+                  />
+                </div>
 
-                  <div className="flex shrink-0 flex-col items-end gap-2">
-                    <Toggle checked={card.enabled} onChange={() => updateCard(card._id, { enabled: !card.enabled })} label={`Activer ${card.title}`} />
-                    <div className="flex items-center gap-1">
-                      <button onClick={() => move(index, -1)} disabled={index === 0} className="text-ink-muted hover:text-ink disabled:opacity-30" aria-label="Monter">
-                        <ArrowUp size={14} />
-                      </button>
-                      <button
-                        onClick={() => move(index, 1)}
-                        disabled={index === cards.length - 1}
-                        className="text-ink-muted hover:text-ink disabled:opacity-30"
-                        aria-label="Descendre"
-                      >
-                        <ArrowDown size={14} />
-                      </button>
-                      <button onClick={() => deleteCard(card._id)} className="text-ink-muted hover:text-accent" aria-label="Supprimer">
-                        <Trash2 size={14} />
-                      </button>
-                    </div>
+                <div className="flex shrink-0 flex-col items-end gap-2">
+                  <Toggle checked={card.enabled} onChange={() => updateCard(card._id, { enabled: !card.enabled })} label={`Activer ${card.title}`} />
+                  <div className="flex items-center gap-1">
+                    <button onClick={() => move(index, -1)} disabled={index === 0} className="text-ink-muted hover:text-ink disabled:opacity-30" aria-label="Monter">
+                      <ArrowUp size={14} />
+                    </button>
+                    <button
+                      onClick={() => move(index, 1)}
+                      disabled={index === cards.length - 1}
+                      className="text-ink-muted hover:text-ink disabled:opacity-30"
+                      aria-label="Descendre"
+                    >
+                      <ArrowDown size={14} />
+                    </button>
+                    <button onClick={() => deleteCard(card._id)} className="text-ink-muted hover:text-accent" aria-label="Supprimer">
+                      <Trash2 size={14} />
+                    </button>
                   </div>
                 </div>
               </div>
-            ))}
+            </div>
+          ))}
 
-            {cards.length === 0 && <p className="text-sm text-ink-muted">Aucune carte pour l&apos;instant.</p>}
-          </div>
-        )}
+          {cards.length === 0 && <p className="text-sm text-ink-muted">Aucune carte pour l&apos;instant.</p>}
+        </div>
+      )}
 
-        <form onSubmit={createCard} className="mt-4 flex items-center gap-2 border-t border-border pt-4">
-          <input
-            value={newTitle}
-            onChange={(e) => setNewTitle(e.target.value)}
-            placeholder="Titre de la nouvelle carte"
-            className="flex-1 rounded-lg border border-border bg-base px-2 py-1.5 text-sm text-ink"
-          />
-          <button
-            type="submit"
-            disabled={creating}
-            className="flex items-center gap-1.5 rounded-xl bg-accent px-3 py-1.5 text-xs font-medium text-base hover:bg-accent-hover disabled:opacity-60"
-          >
-            <Plus size={14} /> Ajouter
-          </button>
-        </form>
-      </div>
-    </div>
+      <form onSubmit={createCard} className="mt-4 flex items-center gap-2 border-t border-border pt-4">
+        <input
+          value={newTitle}
+          onChange={(e) => setNewTitle(e.target.value)}
+          placeholder="Titre de la nouvelle carte"
+          className="flex-1 rounded-lg border border-border bg-base px-2 py-1.5 text-sm text-ink"
+        />
+        <button
+          type="submit"
+          disabled={creating}
+          className="flex items-center gap-1.5 rounded-xl bg-accent px-3 py-1.5 text-xs font-medium text-base hover:bg-accent-hover disabled:opacity-60"
+        >
+          <Plus size={14} /> Ajouter
+        </button>
+      </form>
+    </ModalSheet>
   );
 }

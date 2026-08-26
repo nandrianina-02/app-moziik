@@ -86,13 +86,16 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                     <NotificationsProvider>
                       <SidebarProvider>
                         <MobileHeader />
-                        <OfflineBanner />
                         <div className="flex min-h-screen">
                           <Sidebar />
                           {/* Colonne de contenu : la barre supérieure doit
                               rester à droite de la sidebar, jamais par-dessus. */}
                           <div className="flex min-w-0 flex-1 flex-col">
                             <DesktopHeader />
+                            {/* Dans le flux, sous l'en-tete : le bandeau ne
+                                recouvre plus ni la barre de recherche ni la
+                                premiere ligne de contenu. */}
+                            <OfflineBanner />
                             <MainContent>{children}</MainContent>
                           </div>
                         </div>

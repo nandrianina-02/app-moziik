@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { SafeImage } from "@/components/ui/SafeImage";
 import {
   Play,
@@ -196,6 +196,34 @@ export function MiniPlayerBar() {
     return () => window.removeEventListener("moziik-offline-settings-change", handler);
   }, []);
 
+  const refBarre = useRef<HTMLDivElement | null>(null);
+
+  /**
+   * Hauteur réelle du lecteur, publiée pour les surcouches qui doivent se
+   * poser au-dessus de lui — la pile de notifications aujourd'hui.
+   *
+   * Mesurée plutôt que codée en dur : la carte n'a pas la même hauteur en
+   * disposition compacte et en disposition large, et elle vaut zéro quand
+   * rien ne joue. Un ResizeObserver suit le changement de point de rupture
+   * sans qu'on ait à l'écouter nous-mêmes.
+   */
+  useEffect(() => {
+    const racine = document.documentElement;
+    const barre = refBarre.current;
+    if (!barre) {
+      racine.style.setProperty("--hauteur-lecteur", "0px");
+      return;
+    }
+    const mesurer = () => racine.style.setProperty("--hauteur-lecteur", `${barre.offsetHeight}px`);
+    mesurer();
+    const observateur = new ResizeObserver(mesurer);
+    observateur.observe(barre);
+    return () => {
+      observateur.disconnect();
+      racine.style.setProperty("--hauteur-lecteur", "0px");
+    };
+  }, [currentSong]);
+
   if (!currentSong) return null;
 
   async function handleToggleOffline() {
@@ -271,6 +299,7 @@ export function MiniPlayerBar() {
 
   return (
     <div
+      ref={refBarre}
       className={`fixed bottom-16 left-0 right-0 z-30 transition-[left] duration-300 ease-out md:bottom-0 md:px-4 md:pb-4 print:hidden ${
         // Décalage exact sur la largeur de la sidebar pour que le lecteur
         // reste dans la zone de contenu et ne passe jamais dessous.

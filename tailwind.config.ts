@@ -6,9 +6,16 @@ import type { Config } from "tailwindcss";
 // émeraude réservé aux statuts de vérification et de succès.
 const config: Config = {
   darkMode: "class",
+  // context/ doit etre scanne au meme titre que les deux autres :
+  // ToastProvider y rend la pile de notifications. Absent de cette liste,
+  // ses classes n'etaient jamais generees — la pile se retrouvait en
+  // position: fixed SANS decalage "bottom", donc rejetee a sa position
+  // statique en fin de document, hors de l'ecran. Aucune notification
+  // n'etait visible nulle part dans l'application.
   content: [
     "./app/**/*.{ts,tsx}",
     "./components/**/*.{ts,tsx}",
+    "./context/**/*.{ts,tsx}",
   ],
   theme: {
     extend: {
@@ -91,16 +98,11 @@ const config: Config = {
           "0%, 100%": { transform: "scaleY(0.3)" },
           "50%": { transform: "scaleY(1)" },
         },
-        "toast-in": {
-          "0%": { opacity: "0", transform: "translateY(8px)" },
-          "100%": { opacity: "1", transform: "translateY(0)" },
-        },
       },
       animation: {
         eq1: "eq 0.9s ease-in-out infinite",
         eq2: "eq 0.9s ease-in-out infinite 0.2s",
         eq3: "eq 0.9s ease-in-out infinite 0.4s",
-        "toast-in": "toast-in 0.2s ease-out",
       },
     },
   },

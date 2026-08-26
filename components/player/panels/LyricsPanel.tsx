@@ -205,7 +205,6 @@ export function LyricsPanel({
               if (!texte?.trim()) return <li key={i} className="h-4" aria-hidden />;
 
               const estActive = i === index;
-              const estPassee = index >= 0 && i < index;
               const cliquable = paroles.synchronisees && ligne.temps !== null;
 
               const contenu = (
@@ -213,9 +212,12 @@ export function LyricsPanel({
                   className={`block transition-all duration-300 ${
                     estActive
                       ? "text-lg font-semibold text-accent md:text-xl"
-                      : estPassee
-                        ? "text-[15px] text-ink-muted/70"
-                        : "text-[15px] text-ink-muted"
+                      : // Les lignes deja chantees restaient a 70 %
+                        // d'opacite, soit 3,34:1 sur le fond sombre. La
+                        // hierarchie est deja portee par la ligne active —
+                        // plus grande, grasse et en accent — sans avoir a
+                        // rendre le reste illisible.
+                        "text-[15px] text-ink-muted"
                   }`}
                 >
                   {texte}

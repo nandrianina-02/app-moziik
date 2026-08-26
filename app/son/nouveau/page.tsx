@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
 import { Controller, useForm } from "react-hook-form";
@@ -32,6 +32,22 @@ import { AudioDropzone, formatBytes } from "@/components/song/AudioDropzone";
 import { SongPreviewSidebar, type ChecklistItem } from "@/components/song/SongPreviewSidebar";
 import { FeaturingPicker } from "@/components/modals/FeaturingPicker";
 import { ArtistSinglePicker } from "@/components/modals/ArtistSinglePicker";
+import { MetadataAutofill, type ChampDetecte, type RapportMetadonnees } from "@/components/song/MetadataAutofill";
+import {
+  libererPochette,
+  lireMetadonneesAudio,
+  titreDepuisNomDeFichier,
+  type MetadonneesAudio,
+} from "@/lib/audioMetadata";
+import {
+  albumCorrespondant,
+  genreCorrespondant,
+  isrcNormalise,
+  langueCorrespondante,
+  memeNom,
+  separerFeaturing,
+  tonaliteCourte,
+} from "@/lib/metadataMapping";
 import { uploadToCloudinaryClient } from "@/lib/cloudinaryClient";
 import { readApiError } from "@/lib/readApiError";
 import { useToast } from "@/context/ToastProvider";
@@ -112,7 +128,9 @@ export default function NewSongPage() {
   const router = useRouter();
   const { data: session, status } = useSession();
   const siteConfig = useSiteConfig();
-  const GENRES = siteConfig.genres.length > 0 ? siteConfig.genres : ["Autre"];
+  // useMemo, et pas un simple ternaire : le tableau serait recréé à chaque
+  // rendu et ferait changer l'identité des rappels qui en dépendent.
+  const GENRES = useMemo(() => (siteConfig.genres.length > 0 ? siteConfig.genres : ["Autre"]), [siteConfig.genres]);
   const pushToast = useToast();
   const isAdmin = session?.user?.role === "admin";
 
@@ -131,6 +149,18 @@ export default function NewSongPage() {
   const [tags, setTags] = useState<string[]>([]);
   const [extraTouched, setExtraTouched] = useState(false);
 
+  // Lecture automatique des balises du fichier audio.
+  const [rapport, setRapport] = useState<RapportMetadonnees | null>(null);
+  const metaRef = useRef<MetadonneesAudio | null>(null);
+  /** Photographie du formulaire juste avant le remplissage, pour l'annuler. */
+  const avantRemplissageRef = useRef<{
+    valeurs: FormValues;
+    tags: string[];
+    featuring: ArtistOption[];
+    cover: File | null;
+    artiste: ArtistOption | null;
+  } | null>(null);
+
   const [saving, setSaving] = useState<"draft" | "publish" | null>(null);
   const [uploadingCover, setUploadingCover] = useState(false);
   const [uploadingAudio, setUploadingAudio] = useState(false);
@@ -142,6 +172,9 @@ export default function NewSongPage() {
     handleSubmit,
     control,
     watch,
+    setValue,
+    getValues,
+    reset,
     formState: { errors },
   } = useForm<FormValues>({
     defaultValues: {
@@ -219,6 +252,323 @@ export default function NewSongPage() {
     setAudioPreviewUrl(url);
     return () => URL.revokeObjectURL(url);
   }, [audioFile]);
+
+  /**
+   * Profil artiste portant exactement ce nom de scène, ou rien.
+   *
+   * L'égalité est vérifiée côté client parce que /api/artists cherche par
+   * sous-chaîne : « Nao » remonterait « Naomi ». Un rapprochement approximatif
+   * attribuerait le morceau au mauvais artiste — mieux vaut ne rien proposer.
+   */
+  const chercherArtiste = useCallback(async (nom: string): Promise<ArtistOption | null> => {
+    try {
+      const res = await fetch(`/api/artists?search=${encodeURIComponent(nom)}`);
+      if (!res.ok) return null;
+      const data = (await res.json()) as { artists: ArtistOption[] };
+      return data.artists.find((a) => memeNom(a.stageName, nom)) ?? null;
+    } catch {
+      return null;
+    }
+  }, []);
+
+  /**
+   * Reporte dans le formulaire tout ce que le fichier déclare.
+   *
+   * Par défaut, un champ déjà rempli n'est pas écrasé : l'artiste qui a
+   * commencé à saisir avant de déposer son fichier ne doit pas voir son
+   * texte disparaître. Le compte rendu signale ces champs, et le bouton
+   * « Écraser mes saisies » rejoue le remplissage sans cette réserve.
+   */
+  const remplirDepuisMetadonnees = useCallback(
+    async (meta: MetadonneesAudio, nomFichier: string, ecraser: boolean) => {
+      const valeurs = getValues();
+      const champs: ChampDetecte[] = [];
+      const vide = (v?: string) => !v || !v.trim();
+
+      const poser = (cle: keyof FormValues, libelle: string, valeur: string | null, dejaRempli: boolean) => {
+        if (!valeur) return;
+        if (dejaRempli && !ecraser) {
+          champs.push({ champ: libelle, valeur, etat: "conserve", note: "champ déjà rempli, non écrasé" });
+          return;
+        }
+        setValue(cle, valeur as never, { shouldDirty: true });
+        champs.push({ champ: libelle, valeur, etat: "applique" });
+      };
+
+      /* --- Titre et invités.
+         « Titre (feat. X) » alimente deux champs distincts ici. On ne retire
+         la mention du titre que pour les invités réellement rapprochés à un
+         profil : sinon l'information disparaîtrait du formulaire. */
+      const titreBrut = meta.titre || titreDepuisNomDeFichier(nomFichier);
+      const { titreSansMention, noms } = separerFeaturing(titreBrut, meta.artistes, meta.artiste);
+
+      const invites = (await Promise.all(noms.map(chercherArtiste))).filter(
+        (a): a is ArtistOption => !!a && a._id !== targetArtist?._id
+      );
+      const inconnus = noms.filter((n) => !invites.some((a) => memeNom(a.stageName, n)));
+
+      const titreRetenu = titreSansMention && invites.length > 0 ? titreSansMention : titreBrut;
+      poser("title", "Titre", titreRetenu, !vide(valeurs.title));
+      if (!meta.titre && champs.length > 0 && champs[champs.length - 1].champ === "Titre") {
+        champs[champs.length - 1].note = "déduit du nom du fichier, aucune balise de titre";
+      }
+
+      if (invites.length > 0 && (featuring.length === 0 || ecraser)) {
+        setFeaturing(invites);
+        champs.push({ champ: "Featuring", valeur: invites.map((a) => a.stageName).join(", "), etat: "applique" });
+      } else if (invites.length > 0) {
+        champs.push({
+          champ: "Featuring",
+          valeur: invites.map((a) => a.stageName).join(", "),
+          etat: "conserve",
+          note: "featuring déjà renseigné",
+        });
+      }
+      if (inconnus.length > 0) {
+        champs.push({
+          champ: "Featuring non rapproché",
+          valeur: inconnus.join(", "),
+          etat: "sans-correspondance",
+          note: "aucun profil artiste à ce nom sur Moziik",
+        });
+      }
+
+      /* --- Album : rapproché tout de suite si la liste de l'artiste est
+         déjà chargée. Pour un artiste elle l'est depuis le montage de la
+         page ; pour l'administration elle n'arrive qu'après que les balises
+         ont désigné l'artiste, d'où l'effet de rattrapage plus bas. */
+      if (meta.album && albums.length > 0) {
+        const trouve = albumCorrespondant(meta.album, albums);
+        if (trouve) poser("albumId", "Album", trouve._id, !vide(valeurs.albumId));
+        else
+          champs.push({
+            champ: "Album",
+            valeur: meta.album,
+            etat: "sans-correspondance",
+            note: "aucun album de cet artiste à ce nom",
+          });
+        // `poser` afficherait l'identifiant : on remet le titre lisible.
+        const ligne = champs.find((c) => c.champ === "Album");
+        if (ligne && trouve) ligne.valeur = trouve.title;
+      }
+
+      /* --- Genre et langue : listes fermées du site, d'où le rapprochement. */
+      const genre = genreCorrespondant(meta.genre, GENRES);
+      if (genre) poser("genre", "Genre", genre, valeurs.genre !== GENRES[0]);
+      else if (meta.genre)
+        champs.push({
+          champ: "Genre",
+          valeur: meta.genre,
+          etat: "sans-correspondance",
+          note: "absent de la liste des genres du site",
+        });
+
+      const langue = langueCorrespondante(meta.langue, LANGUAGES);
+      if (langue) poser("language", "Langue", langue, valeurs.language !== LANGUAGES[0]);
+
+      poser("composer", "Compositeur", meta.compositeur ?? null, !vide(valeurs.composer));
+      poser("producer", "Producteur", meta.producteur ?? null, !vide(valeurs.producer));
+      poser("musicalKey", "Tonalité", tonaliteCourte(meta.tonalite), !vide(valeurs.musicalKey));
+      poser("isrc", "ISRC", isrcNormalise(meta.isrc), !vide(valeurs.isrc));
+      poser("copyright", "Copyright", meta.copyright ?? null, !vide(valeurs.copyright));
+      poser("bpm", "BPM", meta.bpm ? String(Math.round(meta.bpm)) : null, !vide(valeurs.bpm));
+      poser("description", "Description", meta.description ?? null, !vide(valeurs.description));
+
+      if (meta.paroles) {
+        const dejaRempli = !vide(valeurs.lyrics);
+        if (dejaRempli && !ecraser) {
+          champs.push({ champ: "Paroles", valeur: "présentes dans le fichier", etat: "conserve", note: "champ déjà rempli, non écrasé" });
+        } else {
+          setValue("lyrics", meta.paroles, { shouldDirty: true });
+          champs.push({
+            champ: "Paroles",
+            valeur: `${meta.paroles.split("\n").length} lignes`,
+            etat: "applique",
+            note: meta.parolesSynchronisees
+              ? "synchronisées (LRC) — elles défileront dans le lecteur"
+              : "texte simple, sans minutage",
+          });
+        }
+      }
+
+      /* --- Contenu explicite : seule une balise sans ambiguïté coche la case. */
+      if (typeof meta.explicite === "boolean" && (ecraser || meta.explicite !== valeurs.explicit)) {
+        setValue("explicit", meta.explicite, { shouldDirty: true });
+        champs.push({ champ: "Contenu explicite", valeur: meta.explicite ? "oui" : "non", etat: "applique" });
+      }
+
+      /* --- Tags : genres secondaires et mots-clés du fichier. */
+      const motsCles = [...(meta.genresSecondaires ?? []), ...(meta.motsCles ?? [])].filter(Boolean);
+      if (motsCles.length > 0) {
+        const fusion = [...tags];
+        for (const mot of motsCles) if (!fusion.some((t) => memeNom(t, mot))) fusion.push(mot);
+        if (fusion.length !== tags.length) {
+          setTags(fusion);
+          champs.push({ champ: "Tags", valeur: motsCles.join(", "), etat: "applique" });
+        }
+      }
+
+      /* --- Date de sortie : ne bascule en publication programmée que pour
+         une date à venir. Une date passée décrit la sortie d'origine, pas
+         un moment de publication sur Moziik. */
+      if (meta.dateSortie) {
+        const prevue = new Date(`${meta.dateSortie}T00:00:00`);
+        if (prevue.getTime() > Date.now()) {
+          setValue("releaseMode", "schedule", { shouldDirty: true });
+          setValue("releaseDateInput", meta.dateSortie, { shouldDirty: true });
+          if (vide(valeurs.releaseTimeInput) || ecraser) setValue("releaseTimeInput", "00:00", { shouldDirty: true });
+          champs.push({
+            champ: "Date de sortie",
+            valeur: meta.dateSortie,
+            etat: "applique",
+            note: "publication programmée — vérifie l'heure",
+          });
+        } else {
+          champs.push({
+            champ: "Date de sortie",
+            valeur: meta.dateSortie,
+            etat: "conserve",
+            note: "date passée : la publication reste immédiate",
+          });
+        }
+      } else if (meta.annee) {
+        champs.push({ champ: "Année", valeur: String(meta.annee), etat: "conserve", note: "date incomplète dans le fichier" });
+      }
+
+      /* --- Pochette intégrée. */
+      if (meta.pochette && (!coverFile || ecraser)) {
+        setCoverFile(meta.pochette.fichier);
+        champs.push({
+          champ: "Pochette",
+          valeur:
+            meta.pochette.largeur && meta.pochette.hauteur
+              ? `${meta.pochette.largeur} × ${meta.pochette.hauteur} px`
+              : "image intégrée",
+          etat: "applique",
+          note: meta.nbPochettes > 1 ? `${meta.nbPochettes} images dans le fichier, la plus définie retenue` : undefined,
+        });
+      } else if (meta.pochette) {
+        champs.push({ champ: "Pochette", valeur: "image intégrée", etat: "conserve", note: "pochette déjà choisie" });
+      }
+
+      if (meta.duree) setPendingDuration(Math.round(meta.duree));
+
+      /* --- Artiste principal : réservé à l'administration, seul rôle qui
+         peut publier pour le compte d'un autre. */
+      if (isAdmin && meta.artiste) {
+        const trouve = await chercherArtiste(meta.artiste);
+        if (trouve && (!targetArtist || ecraser)) {
+          setTargetArtist(trouve);
+          champs.push({ champ: "Artiste principal", valeur: trouve.stageName, etat: "applique" });
+        } else if (trouve) {
+          champs.push({ champ: "Artiste principal", valeur: trouve.stageName, etat: "conserve", note: "artiste déjà choisi" });
+        } else {
+          champs.push({
+            champ: "Artiste principal",
+            valeur: meta.artiste,
+            etat: "sans-correspondance",
+            note: "aucun profil artiste à ce nom sur Moziik",
+          });
+        }
+      }
+
+      setExtraTouched(true);
+      return champs;
+    },
+    [
+      GENRES,
+      albums,
+      chercherArtiste,
+      coverFile,
+      featuring.length,
+      getValues,
+      isAdmin,
+      setValue,
+      tags,
+      targetArtist,
+    ]
+  );
+
+  /** Lance l'analyse d'un fichier déposé et publie le compte rendu. */
+  const analyserFichier = useCallback(
+    async (fichier: File, ecraser = false) => {
+      setRapport({ nomFichier: fichier.name, champs: [], enCours: true });
+      if (!ecraser) {
+        avantRemplissageRef.current = {
+          valeurs: getValues(),
+          tags,
+          featuring,
+          cover: coverFile,
+          artiste: targetArtist,
+        };
+      }
+      try {
+        const meta = ecraser && metaRef.current ? metaRef.current : await lireMetadonneesAudio(fichier);
+        metaRef.current = meta;
+        const champs = await remplirDepuisMetadonnees(meta, fichier.name, ecraser);
+        // L'aperçu d'objet créé par la lecture ne sert pas ici : la page
+        // recrée le sien à partir du File. Le libérer évite une fuite.
+        libererPochette(meta.pochette);
+        setRapport({
+          nomFichier: fichier.name,
+          technique: [meta.format, meta.debit ? `${Math.round(meta.debit / 1000)} kb/s` : null]
+            .filter(Boolean)
+            .join(" · "),
+          champs,
+        });
+      } catch {
+        setRapport({
+          nomFichier: fichier.name,
+          champs: [],
+          erreur: "Impossible de lire les métadonnées de ce fichier — les champs restent à remplir à la main.",
+        });
+      }
+    },
+    [coverFile, featuring, getValues, remplirDepuisMetadonnees, tags, targetArtist]
+  );
+
+  /**
+   * L'album ne peut être rapproché qu'une fois la liste de l'artiste
+   * chargée — pour l'administration, cette liste n'arrive qu'après que les
+   * balises ont désigné l'artiste. D'où ce rattrapage séparé.
+   */
+  useEffect(() => {
+    const nomAlbum = metaRef.current?.album;
+    if (!nomAlbum || albums.length === 0 || getValues("albumId")) return;
+    const trouve = albumCorrespondant(nomAlbum, albums);
+    setValue("albumId", trouve ? trouve._id : "", { shouldDirty: true });
+    setRapport((prev) =>
+      prev && !prev.champs.some((c) => c.champ === "Album")
+        ? {
+            ...prev,
+            champs: [
+              ...prev.champs,
+              trouve
+                ? { champ: "Album", valeur: trouve.title, etat: "applique" as const }
+                : {
+                    champ: "Album",
+                    valeur: nomAlbum,
+                    etat: "sans-correspondance" as const,
+                    note: "aucun album de cet artiste à ce nom",
+                  },
+            ],
+          }
+        : prev
+    );
+  }, [albums, getValues, setValue]);
+
+  /** Rétablit le formulaire tel qu'il était avant la lecture des balises. */
+  function annulerRemplissage() {
+    const avant = avantRemplissageRef.current;
+    if (!avant) return;
+    reset(avant.valeurs);
+    setTags(avant.tags);
+    setFeaturing(avant.featuring);
+    setCoverFile(avant.cover);
+    setTargetArtist(avant.artiste);
+    setRapport(null);
+    metaRef.current = null;
+  }
 
   const effectiveDuration = pendingDuration ?? 0;
 
@@ -549,8 +899,22 @@ export default function NewSongPage() {
                 onFileSelected={(f) => {
                   setAudioFile(f);
                   setExtraTouched(true);
+                  analyserFichier(f);
                 }}
                 onDurationDetected={setPendingDuration}
+              />
+
+              {/* Compte rendu de la lecture des balises : ce que le fichier
+                  portait, ce qui a été repris, ce qui ne correspond à rien
+                  dans les listes du site. */}
+              <MetadataAutofill
+                rapport={rapport}
+                onAppliquerQuandMeme={
+                  rapport?.champs.some((c) => c.etat === "conserve") && audioFile
+                    ? () => analyserFichier(audioFile, true)
+                    : undefined
+                }
+                onAnnuler={avantRemplissageRef.current ? annulerRemplissage : undefined}
               />
             </div>
 

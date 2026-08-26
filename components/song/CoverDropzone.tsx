@@ -93,7 +93,7 @@ export function CoverDropzone({
       <p className="mt-2.5 text-center text-xs text-ink-muted">
         Glissez-déposez ou cliquez pour ajouter une image
       </p>
-      <p className="text-center text-[11px] text-ink-muted/70">
+      <p className="text-center text-[11px] text-ink-muted">
         JPG, PNG ou WEBP. Max {MAX_SIZE_MB} Mo.
         <br />
         Recommandé : 3000x3000px (1:1)

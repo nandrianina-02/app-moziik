@@ -45,6 +45,39 @@ export type MetadonneesAudio = {
   pochette: PochetteIntegree | null;
   /** Nombre d'images trouvées — l'aperçu n'en montre qu'une. */
   nbPochettes: number;
+
+  /* --- Champs suivants : lus pour le formulaire de publication d'un seul
+     titre, qui remplit tout ce que le fichier porte. L'import groupé ne
+     s'en sert pas ; ils sont donc tous facultatifs et purement additifs. */
+
+  /** Tous les interprètes déclarés, artiste principal compris. */
+  artistes?: string[];
+  producteur?: string;
+  bpm?: number;
+  /** Tonalité déclarée, ex. « C#m ». */
+  tonalite?: string;
+  isrc?: string;
+  copyright?: string;
+  /** Valeur brute de la balise de langue : souvent un code ISO (« fra », « eng »). */
+  langue?: string;
+  /**
+   * Paroles. Converties en LRC quand le fichier porte des paroles
+   * synchronisées : c'est exactement le format que lib/lyrics.ts sait déjà
+   * lire, donc elles défilent dans le lecteur sans rien changer au modèle
+   * de données.
+   */
+  paroles?: string;
+  /** Vrai si `paroles` est au format LRC horodaté. */
+  parolesSynchronisees?: boolean;
+  description?: string;
+  /** Date de sortie déclarée, normalisée en AAAA-MM-JJ quand elle est complète. */
+  dateSortie?: string;
+  /** Genres au-delà du premier — le premier alimente le champ Genre. */
+  genresSecondaires?: string[];
+  /** Regroupement, ambiance et mots-clés : matière à tags. */
+  motsCles?: string[];
+  /** Renseigné uniquement quand une balise le dit sans ambiguïté. */
+  explicite?: boolean;
 };
 
 const EXTENSIONS_ACCEPTEES = /\.(mp3|wav|flac|m4a|aac|mp4|ogg|oga|opus)$/i;
@@ -172,6 +205,107 @@ function dureeParLeNavigateur(fichier: File): Promise<number | undefined> {
   });
 }
 
+/** Première valeur non vide d'un tableau de chaînes. */
+function premiereChaine(valeurs?: (string | undefined)[]): string | undefined {
+  return valeurs?.map((v) => v?.trim()).find((v): v is string => !!v);
+}
+
+function horodatageLrc(millisecondes: number): string {
+  const total = Math.max(0, millisecondes) / 1000;
+  const m = Math.floor(total / 60);
+  const s = total - m * 60;
+  return `[${String(m).padStart(2, "0")}:${s.toFixed(2).padStart(5, "0")}]`;
+}
+
+/** Format d'horodatage ID3 : 2 = millisecondes, seul cas exploitable tel quel. */
+const HORODATAGE_MS = 2;
+
+type BaliseParoles = {
+  text?: string;
+  syncText?: { text: string; timestamp?: number }[];
+  timeStampFormat?: number;
+};
+
+/**
+ * Paroles du fichier, en LRC dès qu'elles sont synchronisées.
+ *
+ * Un horodatage en numéro de trame MPEG (format 1) ne se convertit pas
+ * sans connaître la cadence exacte du flux : on retombe alors sur le texte
+ * brut plutôt que d'inventer des minutages faux.
+ */
+function lireParoles(tags: BaliseParoles[] | undefined): { texte?: string; synchronisees: boolean } {
+  for (const tag of tags ?? []) {
+    const lignes = (tag.syncText ?? []).filter((l) => typeof l.timestamp === "number" && l.text);
+    if (lignes.length > 0 && tag.timeStampFormat === HORODATAGE_MS) {
+      const texte = lignes
+        .map((l) => horodatageLrc(l.timestamp as number) + l.text.replace(/[\r\n]+/g, " ").trim())
+        .join("\n");
+      return { texte, synchronisees: true };
+    }
+  }
+  return { texte: premiereChaine((tags ?? []).map((t) => t.text)), synchronisees: false };
+}
+
+/**
+ * Indicateur « contenu explicite ».
+ *
+ * Il ne figure pas dans les champs communs de music-metadata : chaque
+ * conteneur le range ailleurs — atome `rtng` chez Apple, trame
+ * `TXXX:ITUNESADVISORY` en ID3v2, commentaire `ITUNESADVISORY` en Vorbis.
+ * On ne renvoie une valeur que lorsqu'elle est explicite : un fichier muet
+ * sur le sujet ne doit pas cocher la case à la place de l'artiste.
+ */
+function lireExplicite(natif: Record<string, { id: string; value: unknown }[]> | undefined): boolean | undefined {
+  for (const balises of Object.values(natif ?? {})) {
+    for (const b of balises) {
+      if (!/RTNG|ITUNESADVISORY|ADVISORY|EXPLICIT/.test(b.id.toUpperCase())) continue;
+      const brut =
+        typeof b.value === "object" && b.value !== null && "value" in b.value
+          ? (b.value as { value: unknown }).value
+          : b.value;
+      const v = String(brut).trim().toLowerCase();
+      if (v === "1" || v === "true" || v === "yes" || v === "explicit") return true;
+      if (v === "0" || v === "2" || v === "false" || v === "no" || v === "clean") return false;
+    }
+  }
+  return undefined;
+}
+
+/**
+ * Intervenant d'un rôle donné, lu dans les trames de crédits.
+ *
+ * music-metadata décode bien la trame IPLS d'un ID3v2.3 — elle arrive dans
+ * `native` sous la forme `{ producer: ["…"], engineer: ["…"] }` — mais ne
+ * la reporte pas dans `common` : sa table de correspondance ne rattache
+ * `IPLS:producer` qu'aux tags v2.4. Or v2.3 reste la version la plus
+ * répandue. Sans ce repli, le champ Producteur resterait vide sur la
+ * majorité des MP3 qui le renseignent pourtant.
+ */
+function intervenant(
+  natif: Record<string, { id: string; value: unknown }[]> | undefined,
+  role: string
+): string | undefined {
+  for (const balises of Object.values(natif ?? {})) {
+    for (const b of balises) {
+      if (!/^(IPLS|TIPL|TMCL)$/.test(b.id.toUpperCase())) continue;
+      const valeur = b.value as Record<string, unknown> | null;
+      if (!valeur || typeof valeur !== "object") continue;
+      const trouve = Object.entries(valeur).find(([cle]) => cle.toLowerCase() === role);
+      if (!trouve) continue;
+      const noms = Array.isArray(trouve[1]) ? trouve[1] : [trouve[1]];
+      const premier = noms.map((n) => String(n).trim()).find(Boolean);
+      if (premier) return premier;
+    }
+  }
+  return undefined;
+}
+
+/** AAAA, AAAA-MM ou AAAA-MM-JJ → AAAA-MM-JJ ; rien si la date est partielle. */
+function dateComplete(valeur?: string): string | undefined {
+  const m = valeur?.trim().match(/^([0-9]{4})-([0-9]{2})-([0-9]{2})/);
+  return m ? `${m[1]}-${m[2]}-${m[3]}` : undefined;
+}
+
 function premierNombre(valeur: unknown): number | undefined {
   if (typeof valeur === "number" && Number.isFinite(valeur)) return valeur;
   if (typeof valeur === "string") {
@@ -195,11 +329,17 @@ export async function lireMetadonneesAudio(fichier: File): Promise<MetadonneesAu
   let duree = format.duration;
   if (!duree || !Number.isFinite(duree) || duree <= 0) duree = await dureeParLeNavigateur(fichier);
 
+  const paroles = lireParoles(commun.lyrics as BaliseParoles[] | undefined);
+  const genres = (commun.genre ?? []).map((g) => g.trim()).filter(Boolean);
+  const motsCles = [...(commun.keywords ?? []), commun.grouping, commun.mood]
+    .map((v) => v?.trim())
+    .filter((v): v is string => !!v);
+
   return {
     titre: commun.title?.trim() || undefined,
     artiste: (commun.artist || commun.albumartist)?.trim() || undefined,
     album: commun.album?.trim() || undefined,
-    genre: commun.genre?.[0]?.trim() || undefined,
+    genre: genres[0] || undefined,
     annee: premierNombre(commun.year),
     piste: premierNombre(commun.track?.no),
     compositeur: commun.composer?.[0]?.trim() || undefined,
@@ -208,6 +348,27 @@ export async function lireMetadonneesAudio(fichier: File): Promise<MetadonneesAu
     format: (format.container || format.codec || "").toString().toUpperCase() || undefined,
     pochette,
     nbPochettes: images.length,
+
+    artistes: (commun.artists ?? []).map((a) => a.trim()).filter(Boolean),
+    producteur:
+      premiereChaine(commun.producer) ??
+      intervenant(resultat.native as Record<string, { id: string; value: unknown }[]> | undefined, "producer"),
+    bpm: premierNombre(commun.bpm),
+    tonalite: commun.key?.trim() || undefined,
+    isrc: premiereChaine(commun.isrc),
+    copyright: commun.copyright?.trim() || undefined,
+    langue: commun.language?.trim() || undefined,
+    paroles: paroles.texte,
+    parolesSynchronisees: paroles.synchronisees,
+    description:
+      premiereChaine(commun.description) ||
+      premiereChaine((commun.comment ?? []).map((c) => c.text)) ||
+      commun.longDescription?.trim() ||
+      undefined,
+    dateSortie: dateComplete(commun.releasedate) || dateComplete(commun.date) || dateComplete(commun.originaldate),
+    genresSecondaires: genres.slice(1),
+    motsCles,
+    explicite: lireExplicite(resultat.native as Record<string, { id: string; value: unknown }[]> | undefined),
   };
 }
 

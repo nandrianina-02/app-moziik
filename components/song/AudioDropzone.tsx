@@ -275,7 +275,7 @@ function DropSurface({
       <span className="rounded-full bg-accent px-4 py-2 text-xs font-medium text-base transition-colors hover:bg-accent-hover">
         Choisir un fichier
       </span>
-      <p className="text-[11px] text-ink-muted/70">MP3, WAV, FLAC · Max {MAX_SIZE_MB} Mo</p>
+      <p className="text-[11px] text-ink-muted">MP3, WAV, FLAC · Max {MAX_SIZE_MB} Mo</p>
       <input
         ref={inputRef}
         type="file"

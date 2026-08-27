@@ -2,6 +2,7 @@ import { z } from "zod";
 import { ApiError } from "@/lib/apiError";
 import { IDS_RESEAUX, urlSocialeValide } from "@/lib/socialPlatforms";
 import { IDS_FONCTIONNALITES_IA } from "@/lib/ai/features";
+import { IDS_RECETTES } from "@/lib/curation/labels";
 
 /**
  * Valide `data` contre `schema` et lève une ApiError 400 lisible en cas
@@ -500,6 +501,41 @@ export const adminAiSettingsSchema = z.object({
     .max(100000)
     .optional(),
 });
+
+export const adminCurationSettingsSchema = z.object({
+  enabled: z.boolean().optional(),
+  autoPublish: z.boolean().optional(),
+  retentionWeeks: z
+    .number()
+    .int("La durée de conservation doit être un nombre entier de semaines.")
+    .min(1, "Il faut conserver les sélections au moins une semaine.")
+    .max(52)
+    .optional(),
+  // Même parti pris que pour l'IA : un identifiant de recette inconnu
+  // est refusé, pas ignoré. Éteindre en silence une recette mal
+  // orthographiée la ferait disparaître sans que personne ne sache
+  // pourquoi.
+  disabled: z.array(z.enum(IDS_RECETTES as [string, ...string[]])).max(IDS_RECETTES.length).optional(),
+  sectionPosition: z.number().int().min(0).max(50).optional(),
+});
+
+export const adminCurationActionSchema = z.object({
+  action: z.enum(["analyser", "publier", "annuler", "retirer"]),
+  /** Requis pour tout ce qui ne crée pas une analyse. */
+  runId: z.string().length(24, "Identifiant d'analyse invalide.").optional(),
+});
+
+export const adminCurationPlaylistPatchSchema = z
+  .object({
+    title: z.string().trim().min(1, "Le titre ne peut pas être vide.").max(120).optional(),
+    description: z.string().trim().max(400).optional(),
+    /** Faux écarte la playlist de la publication à venir. */
+    inclure: z.boolean().optional(),
+    rang: z.number().int().min(0).max(50).optional(),
+    /** Identifiant du titre à retirer de la sélection. */
+    retirerTitre: z.string().length(24, "Identifiant de titre invalide.").optional(),
+  })
+  .refine((v) => Object.keys(v).length > 0, { message: "Aucune modification fournie." });
 
 export const supportHumanSchema = z.object({
   humanRequested: z.literal(true),

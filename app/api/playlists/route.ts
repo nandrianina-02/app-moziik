@@ -4,7 +4,7 @@ import Playlist from "@/models/Playlist";
 import { withApiErrors } from "@/lib/apiError";
 import { parseOrThrow, createPlaylistSchema } from "@/lib/validation";
 import { idsPublies } from "@/lib/publishedSongs";
-import { requireAuthUser } from "@/lib/mobileAuth";
+import { getAuthUser, requireAuthUser } from "@/lib/mobileAuth";
 
 export const GET = withApiErrors(async (req: Request) => {
   const { searchParams } = new URL(req.url);
@@ -19,7 +19,19 @@ export const GET = withApiErrors(async (req: Request) => {
   await connectDB();
   const query: Record<string, unknown> = {};
   if (owner) query.owner = owner;
-  if (publicOnly) query.isPublic = true;
+
+  // Sans propriétaire, la requête ne portait aucun filtre : appelée à nu,
+  // /api/playlists renvoyait TOUTES les playlists de la base, privées
+  // comprises. Aucun écran ne l'appelle ainsi — tous passent `owner=me`
+  // ou `public=true` — mais l'URL suffisait à énumérer les playlists
+  // privées de tout le monde.
+  //
+  // La règle tient en une phrase : on ne voit le privé que chez soi.
+  // Elle vaut aussi pour les brouillons de la curation hebdomadaire, qui
+  // ne doivent pas s'afficher avant validation (lib/curation/).
+  const authUser = owner ? await getAuthUser(req) : null;
+  const chezSoi = Boolean(authUser && owner === authUser.id);
+  if (publicOnly || !chezSoi) query.isPublic = true;
 
   const playlists = await Playlist.find(query).populate("owner", "name avatarUrl").sort({ createdAt: -1 });
   return NextResponse.json({ playlists });

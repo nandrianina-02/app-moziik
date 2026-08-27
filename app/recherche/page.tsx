@@ -75,6 +75,16 @@ const TRIS: { id: string; label: string }[] = [
 const DEBOUNCE_MS = 420;
 const PAR_PAGE = 24;
 
+/**
+ * Délai avant de retenir une recherche pour le classement hebdomadaire.
+ *
+ * Nettement plus long que le débat de la recherche elle-même, et c'est
+ * tout l'intérêt : en tapant « moziik » lettre à lettre, aucun préfixe
+ * ne reste affiché assez longtemps pour être compté. Seul le terme sur
+ * lequel on s'arrête l'est. Voir app/api/search/journal/route.ts.
+ */
+const JOURNAL_MS = 2500;
+
 /* ------------------------------------------------------------------ page - */
 
 function SearchPageContent() {
@@ -93,6 +103,11 @@ function SearchPageContent() {
   const [resultat, setResultat] = useState<Resultat | null>(null);
   const [chargement, setChargement] = useState(false);
   const [erreur, setErreur] = useState<string | null>(null);
+
+  // Dernier terme retenu pour le classement. Changer un filtre relance la
+  // recherche sans que personne n'ait cherché deux fois : sans cette
+  // mémoire, trois allers-retours sur les filtres compteraient triple.
+  const termeJournalise = useRef<string | null>(null);
 
   // Pagination cumulative de la vue « une seule catégorie ».
   const [pageSuivante, setPageSuivante] = useState(2);
@@ -269,6 +284,30 @@ function SearchPageContent() {
 
     return () => clearTimeout(minuteur);
   }, [terme, type, tri, genre, isOnline, enRecherche]);
+
+  /* --- ce que le public cherche, pour la curation hebdomadaire --------- */
+
+  useEffect(() => {
+    // Uniquement une recherche en ligne qui a abouti : un terme sans
+    // résultat n'a rien à faire dans un classement de contenus, et
+    // hors-ligne on n'interroge que ce qui est déjà téléchargé.
+    if (!enRecherche || !isOnline || !resultat) return;
+    if (termeJournalise.current === terme) return;
+
+    const minuteur = setTimeout(() => {
+      termeJournalise.current = terme;
+      // Sans await ni gestion d'erreur : cet appel n'a aucune incidence
+      // sur ce que voit celui qui cherche.
+      fetch("/api/search/journal", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ q: terme }),
+        keepalive: true,
+      }).catch(() => {});
+    }, JOURNAL_MS);
+
+    return () => clearTimeout(minuteur);
+  }, [terme, resultat, enRecherche, isOnline]);
 
   const chargerSuite = useCallback(async () => {
     if (!resultat || type === "all") return;

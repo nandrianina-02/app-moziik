@@ -1,0 +1,48 @@
+import { NextResponse } from "next/server";
+import { withApiErrors, ApiError } from "@/lib/apiError";
+import { lancerAnalyse, CurationIndisponible } from "@/lib/curation/run";
+import { purgerJournal } from "@/lib/searchJournal";
+
+/**
+ * Analyse hebdomadaire des écoutes, des recherches et des sorties.
+ *
+ * À appeler une fois par semaine avec
+ * `Authorization: Bearer <CRON_SECRET>` — le lundi convient : la fenêtre
+ * couvre alors les sept jours pleins de la semaine écoulée.
+ *
+ * Elle PRODUIT, elle ne publie pas. Les playlists arrivent en brouillon
+ * dans /admin/selections, et rien n'apparaît sur l'accueil tant qu'un
+ * humain n'a pas validé — sauf si `autoPublish` a été activé dans les
+ * réglages, en connaissance de cause.
+ */
+export const POST = withApiErrors(async (req: Request) => {
+  if (!process.env.CRON_SECRET) {
+    // Même échec bruyant que les autres crons : sans cette variable, la
+    // comparaison rejetterait tous les appels valides sans jamais dire
+    // pourquoi.
+    throw new ApiError("CRON_SECRET n'est pas configuré côté serveur.", 500);
+  }
+  if (req.headers.get("authorization") !== `Bearer ${process.env.CRON_SECRET}`) {
+    throw new ApiError("Non autorisé.", 401);
+  }
+
+  // Le ménage du journal des recherches d'abord : il doit avoir lieu même
+  // les semaines où l'analyse ne trouve rien à proposer, sinon la
+  // collection ne serait jamais purgée.
+  const journalPurge = await purgerJournal();
+
+  try {
+    const resultat = await lancerAnalyse({ declencheur: "cron" });
+    return NextResponse.json({ ...resultat, journalPurge });
+  } catch (err) {
+    // Une semaine trop calme pour remplir la moindre sélection n'est pas
+    // une panne : le cron doit renvoyer 200, sans quoi l'ordonnanceur
+    // signalera un échec chaque semaine creuse et l'alerte finira par
+    // être ignorée le jour où elle compte.
+    if (err instanceof CurationIndisponible) {
+      console.warn("[curation] analyse hebdomadaire sans résultat :", err.message);
+      return NextResponse.json({ run: null, playlists: 0, raison: err.message, journalPurge });
+    }
+    throw err;
+  }
+});

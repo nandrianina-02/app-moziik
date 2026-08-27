@@ -101,11 +101,13 @@ Tous les modèles vivent dans `models/` : `User`, `Artist`, `Song`,
 - Renseigner les identifiants MVola (`MVOLA_CONSUMER_KEY`,
   `MVOLA_CONSUMER_SECRET`, `MVOLA_MERCHANT_MSISDN`) — `MVOLA_ENV=sandbox`
   par défaut, passer à `production` une fois validé par MVola
-- Trois cron à planifier en dehors de Next.js (Vercel Cron ou autre) :
+- Quatre cron à planifier en dehors de Next.js (Vercel Cron ou autre) :
   - `/api/cron/publish-songs` (Phase 5) — toutes les 5 minutes
   - `/api/cron/compute-royalties` — une fois par jour
   - `/api/cron/moderate-comments` — une fois par heure, facultatif : la
     file se vide aussi à l'ouverture de `/admin/commentaires`
+  - `/api/cron/weekly-curation` — une fois par semaine (le lundi : la
+    fenêtre couvre alors les sept jours pleins de la semaine écoulée)
   - Tous exigent l'en-tête `Authorization: Bearer <CRON_SECRET>`
 - Les prix affichés sur `/abonnement` viennent de `/api/site-config`
   (public), donc toujours synchronisés avec `/admin/parametres`
@@ -135,7 +137,7 @@ Tous les modèles vivent dans `models/` : `User`, `Artist`, `Song`,
 
 ## Assistance par IA
 
-Neuf endroits appellent le modèle. Une seule variable les commande :
+Dix endroits appellent le modèle. Une seule variable les commande :
 `ANTHROPIC_API_KEY`. Absente, **rien n'est cassé** — chaque page garde son
 fonctionnement d'avant, et aucun bouton d'assistance ne s'affiche.
 
@@ -164,6 +166,52 @@ fonctionnement d'avant, et aucun bouton d'assistance ne s'affiche.
   invite le dit, et le texte est encadré.
 - `models/AiUsage.ts` ne stocke que des compteurs : aucun contenu envoyé au
   modèle n'est conservé.
+
+## Sélections hebdomadaires
+
+Chaque semaine, une analyse compose des playlists à partir de ce qui s'est
+réellement passé sur la plateforme, puis les propose à l'accueil. Elle
+s'administre depuis `/admin/selections`.
+
+- **Les chiffres choisissent les titres, jamais le modèle.**
+  `lib/curation/recipes.ts` décrit sept sélections — top, en progression,
+  nouveautés, les plus recherchés, hits malgaches, les plus aimés, genre de
+  la semaine — et chacune se justifie par une mesure, affichée à côté
+  d'elle. L'IA n'écrit que les titres, les descriptions et la synthèse ;
+  sans clef, les libellés de repli prennent le relais et rien d'autre ne
+  change.
+- **Rien ne s'affiche sans validation.** Le cron *produit*, il ne publie
+  pas : les playlists arrivent en brouillon (`isPublic: false`, donc
+  invisibles partout où le site filtre déjà sur ce champ) et attendent un
+  humain. Le réglage `autoPublish`, faux par défaut, lève cette étape pour
+  qui l'assume.
+- **Une écoute n'est pas une voix.** La contribution d'un même compte à un
+  même titre est plafonnée sur la semaine, sinon le classement mesurerait
+  l'insistance d'un auditeur — ou d'une boucle — plutôt que le succès d'un
+  morceau.
+- **Les recherches sont journalisées sans identité.**
+  `models/SearchQuery.ts` ne garde qu'un compteur par saisie et par jour :
+  ni compte, ni IP, ni horodatage précis. Le client n'enregistre qu'une
+  recherche posée (2,5 s après la dernière frappe), sans quoi le classement
+  compterait « mo », « moz », « mozi » autant que « moziik ».
+- **Les « j'aime » ne sont pas datables.** `User.likedSongs` n'a pas
+  d'horodatage : « les plus aimés » s'appuie sur un taux d'appréciation
+  cumulé, et le dit à l'écran plutôt que de laisser croire à une mesure de
+  la semaine.
+- **Une sélection qui n'a pas de quoi se remplir ne paraît pas.** Faute de
+  données, la recette se tait ; si aucune ne répond, le cron renvoie 200
+  avec sa raison — une semaine creuse n'est pas une panne, et une alerte
+  hebdomadaire finirait par être ignorée.
+- **La section d'accueil réutilise l'existant** : une section `custom` en
+  mode `manual` dont le contenu est épinglé (`models/HomepagePinned.ts`).
+  `lib/homeContentEngine.ts` n'a pas bougé, et la section se déplace, se
+  renomme ou s'éteint depuis `/admin/accueil` comme n'importe quelle autre.
+  Son titre suit la semaine tant que personne ne l'a renommée ; dès qu'un
+  humain l'a fait, son choix tient.
+- **Une playlist que quelqu'un suit n'est jamais supprimée.** Les
+  sélections périmées quittent l'accueil ; celles que personne n'a ajoutées
+  à sa bibliothèque disparaissent après le délai de conservation, les
+  autres restent accessibles à ceux qui les ont gardées.
 
 ## C'est la dernière phase de la roadmap initiale
 

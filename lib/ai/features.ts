@@ -105,6 +105,21 @@ export const FONCTIONNALITES_IA = {
     limite: { limit: 40, windowMs: 15 * MINUTE },
     acces: "admin",
   },
+  curation: {
+    label: "Nommage des sélections hebdomadaires",
+    detail: "Rédige titres et descriptions des playlists automatiques, et la synthèse de la semaine.",
+    niveau: "soigne",
+    // Sept playlists nommées et décrites, plus le titre de section et la
+    // synthèse, en un seul appel : le contexte de la semaine ne serait
+    // pas le même d'un appel à l'autre, et sept appels produiraient sept
+    // titres qui se répètent.
+    maxTokens: 1800,
+    // Une exécution par semaine, quelques reprises manuelles. Le plafond
+    // est large pour l'admin qui relance après avoir ajusté, pas pour un
+    // usage continu.
+    limite: { limit: 10, windowMs: 30 * MINUTE },
+    acces: "admin",
+  },
   traduction: {
     label: "Traduction des paroles",
     detail: "Traduit les paroles d'un titre dans la langue de l'auditeur.",

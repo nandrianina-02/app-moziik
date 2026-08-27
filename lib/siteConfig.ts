@@ -37,6 +37,13 @@ function fallbackSiteConfig() {
     legalUpdatedAt: new Date(),
     socialLinks: [] as { platform: string; url: string }[],
     ai: { enabled: true, disabled: [] as string[], dailyCallCap: PLAFOND_JOURNALIER_DEFAUT },
+    curation: {
+      enabled: true,
+      autoPublish: false,
+      retentionWeeks: 4,
+      disabled: [] as string[],
+      sectionPosition: 6,
+    },
     updatedAt: new Date(),
   };
 }

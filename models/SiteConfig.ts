@@ -9,6 +9,29 @@ export interface IAiSettings {
   dailyCallCap: number;
 }
 
+/**
+ * Réglages de la curation hebdomadaire (lib/curation/).
+ *
+ * `autoPublish` est faux par défaut, et ce défaut est un choix : la
+ * demande précise « valider… avant publication ». Une analyse
+ * s'exécute donc toute seule chaque semaine, mais rien n'apparaît sur
+ * l'accueil tant qu'un humain n'a pas regardé. Qui préfère le
+ * fonctionnement entièrement automatique l'active ici en connaissance de
+ * cause.
+ */
+export interface ICurationSettings {
+  /** Coupe l'analyse hebdomadaire sans rien désinstaller. */
+  enabled: boolean;
+  /** Publier sans validation humaine. Faux par défaut. */
+  autoPublish: boolean;
+  /** Semaines de conservation des playlists archivées que personne ne suit. */
+  retentionWeeks: number;
+  /** Identifiants de recettes éteintes (lib/curation/recipes.ts). */
+  disabled: string[];
+  /** Position de la section produite sur l'accueil. */
+  sectionPosition: number;
+}
+
 export interface IPlanPricing {
   plan: "premium" | "premium_annual";
   amountUSD: number; // prix de référence, converti selon la région
@@ -43,6 +66,7 @@ export interface ISiteConfig {
   // décide : l'interrupteur général, celles qu'elle éteint une à une, et
   // le plafond d'appels par jour.
   ai: IAiSettings;
+  curation: ICurationSettings;
   updatedAt: Date;
 }
 
@@ -87,6 +111,25 @@ const SiteConfigSchema = new Schema<ISiteConfig>({
       { _id: false }
     ),
     default: () => ({ enabled: true, disabled: [], dailyCallCap: 1000 }),
+  },
+  curation: {
+    type: new Schema<ICurationSettings>(
+      {
+        enabled: { type: Boolean, default: true },
+        autoPublish: { type: Boolean, default: false },
+        retentionWeeks: { type: Number, default: 4, min: 1, max: 52 },
+        disabled: { type: [String], default: [] },
+        sectionPosition: { type: Number, default: 6, min: 0, max: 50 },
+      },
+      { _id: false }
+    ),
+    default: () => ({
+      enabled: true,
+      autoPublish: false,
+      retentionWeeks: 4,
+      disabled: [],
+      sectionPosition: 6,
+    }),
   },
   updatedAt: { type: Date, default: Date.now },
 });

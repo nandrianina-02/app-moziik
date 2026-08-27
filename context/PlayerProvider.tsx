@@ -79,6 +79,13 @@ export type PlaySource = {
   query?: string;
   /** Genre de la station, pour prolonger une file de radio. */
   genre?: string;
+  /**
+   * Station personnalisée : sa suite se demande à /api/station, qui
+   * connaît le profil de l'auditeur, et non à un filtre de catalogue.
+   * Sans ce marqueur, elle se prolongerait par les plus écoutés — et
+   * cesserait d'être personnalisée au bout de vingt titres.
+   */
+  station?: boolean;
 } | null;
 
 type PlayerContextValue = {

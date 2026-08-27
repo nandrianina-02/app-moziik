@@ -33,6 +33,7 @@ import { SongContextMenu } from "@/components/music/SongContextMenu";
 import { useLongPress } from "@/components/music/useLongPress";
 import { ContextMenuShell, MenuItem } from "@/components/ui/ContextMenuShell";
 import { ShareModal } from "@/components/share/ShareModal";
+import { StationPersonnelle } from "@/components/radio/StationPersonnelle";
 import type { ShareSubject } from "@/components/share/shareSubject";
 
 function shuffle<T>(items: T[]): T[] {
@@ -192,6 +193,13 @@ export default function RadioPage() {
           </span>
         </div>
       </div>
+
+      {/* La station bâtie pour l'auditeur passe avant les stations de
+          genre : elle est la seule à dépendre de lui, les huit tuiles
+          ci-dessous étant les mêmes pour tout le monde. */}
+      <Reveal>
+        <StationPersonnelle />
+      </Reveal>
 
       {currentSong && <NowPlayingCard currentSong={currentSong} isPlaying={isPlaying} progress={progress} progressPct={progressPct} onToggleLike={toggleLikeCurrent} onTogglePlay={togglePlay} />}
 

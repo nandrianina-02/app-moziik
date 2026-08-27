@@ -137,7 +137,7 @@ Tous les modèles vivent dans `models/` : `User`, `Artist`, `Song`,
 
 ## Assistance par IA
 
-Dix endroits appellent le modèle. Une seule variable les commande :
+Onze endroits appellent le modèle. Une seule variable les commande :
 `ANTHROPIC_API_KEY`. Absente, **rien n'est cassé** — chaque page garde son
 fonctionnement d'avant, et aucun bouton d'assistance ne s'affiche.
 
@@ -166,6 +166,50 @@ fonctionnement d'avant, et aucun bouton d'assistance ne s'affiche.
   invite le dit, et le texte est encadré.
 - `models/AiUsage.ts` ne stocke que des compteurs : aucun contenu envoyé au
   modèle n'est conservé.
+
+## Écoute personnalisée
+
+Une station bâtie pour un auditeur, sans fin, sur `/radio`. Radio
+personnalisée, « DJ » et mix automatique désignent la même chose — une
+suite de morceaux choisie pour quelqu'un et ordonnée pour s'écouter
+d'affilée — et sont donc un seul moteur (`lib/taste/station.ts`).
+
+- **Le profil se déduit, il ne se déclare pas.** `lib/taste/profile.ts`
+  lit les écoutes des 90 derniers jours et les « j'aime ». Il **oublie**
+  (une écoute d'il y a trois mois pèse moitié moins qu'une écoute
+  d'hier), il **compte les abandons contre** (un titre lancé puis coupé
+  trois fois est un refus, pas un goût — c'est le signal le plus utile et
+  le plus souvent ignoré), et il **dit quand il ne sait pas** : en deçà de
+  huit écoutes, la station sert ce que le public écoute et l'annonce.
+- **Trois familles, dosées.** Du familier pour rester chez soi, du voisin
+  pour avancer, de la découverte pour être surpris. Une station qui ne
+  passe que du connu lasse ; une station qui ne passe que de l'inconnu se
+  fait couper au troisième titre.
+- **L'ordre est une décision.** Les familles sont entrelacées et deux
+  titres du même artiste ne se suivent pas. Quand le catalogue ne suffit
+  pas à remplir la file, les contraintes cèdent **une par une**, en
+  commençant par celle qui s'entend le moins (le plafond par artiste) et
+  en gardant l'espacement au plus longtemps.
+- **Chaque titre dit pourquoi il est là.** « Dans vos favoris »,
+  « Vous écoutez Rakoto », « À découvrir — Gospel ». Le motif est une
+  **donnée** (`lib/taste/motifs.ts`), pas une phrase du modèle : une
+  explication rédigée après coup serait plausible plutôt que vraie, et
+  disparaîtrait avec la clé d'API. `/api/recommendations` les renvoie
+  aussi.
+- **L'heure vient du navigateur.** Le serveur ignore quelle heure il est
+  chez l'auditeur ; décider côté serveur proposerait de la musique de nuit
+  à quelqu'un qui déjeune. Le moment infléchit le tempo, faiblement : il
+  départage deux titres également plausibles, il n'écarte jamais un
+  morceau que l'auditeur aime.
+- **Le modèle ne choisit aucun titre.** Il nomme la station et l'introduit
+  (`lib/ai/dj.ts`), rien de plus. Sans clé, la station se lance
+  exactement pareil sous un nom de repli. Il ne reçoit que des noms de
+  genres et d'artistes — aucune statistique, donc rien à inventer sur
+  quelqu'un qui saura, lui, si c'est faux.
+- **Elle se prolonge toute seule.** `lib/playbackContinuation.ts`
+  redemande un tour à `/api/station` en transmettant ce qui est déjà dans
+  la file : jamais deux fois le même morceau, et l'heure repart à chaque
+  tour.
 
 ## Sélections hebdomadaires
 

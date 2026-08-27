@@ -104,6 +104,21 @@ function recommandations() {
 }
 
 /**
+ * La suite d'une station personnalisée.
+ *
+ * On transmet ce qui est déjà dans la file : c'est ce qui évite qu'un
+ * prolongement resserve les mêmes morceaux, et c'est aussi ce qui permet
+ * à la station de tourner indéfiniment. L'heure locale repart à chaque
+ * tour : une écoute qui commence le soir et se poursuit la nuit suit le
+ * moment de la journée.
+ */
+function suiteDeLaStation(dejaVus: Set<string>) {
+  const exclus = [...dejaVus].slice(0, 400).join(",");
+  const heure = new Date().getHours();
+  return titres(`/api/station?suite=1&heure=${heure}&exclus=${encodeURIComponent(exclus)}`);
+}
+
+/**
  * Stratégie principale, celle qui respecte l'intention de départ.
  * Renvoie une liste vide dès qu'elle ne s'applique pas : le repli suivra.
  */
@@ -129,8 +144,10 @@ async function selonLaSource(ctx: ContexteProlongement): Promise<unknown[]> {
       return plusEcoutes(tour);
 
     case "radio":
-      // Les stations sont bâties sur un genre ; sans genre, la station
-      // générale se prolonge par les plus écoutés.
+      // Une station personnalisée se prolonge par elle-même ; les
+      // stations de genre par leur genre ; la station générale par les
+      // plus écoutés.
+      if (source.station) return suiteDeLaStation(ctx.dejaVus);
       return source.genre ? davantageDuGenre(source.genre, tour) : plusEcoutes(tour);
 
     case "favorites":

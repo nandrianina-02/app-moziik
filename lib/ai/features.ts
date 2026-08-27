@@ -105,6 +105,18 @@ export const FONCTIONNALITES_IA = {
     limite: { limit: 40, windowMs: 15 * MINUTE },
     acces: "admin",
   },
+  station: {
+    label: "Présentation de la station personnalisée",
+    detail: "Nomme et introduit la station d'un auditeur. Ne choisit aucun titre.",
+    // Deux phrases. Le modèle rapide suffit : il n'a rien à raisonner,
+    // seulement à formuler à partir d'une liste qu'on lui donne.
+    niveau: "rapide",
+    maxTokens: 300,
+    // Une station se relance souvent — en changeant d'avis, en revenant
+    // sur la page. La cadence tient compte de ce va-et-vient.
+    limite: { limit: 20, windowMs: 15 * MINUTE },
+    acces: "membre",
+  },
   curation: {
     label: "Nommage des sélections hebdomadaires",
     detail: "Rédige titres et descriptions des playlists automatiques, et la synthèse de la semaine.",

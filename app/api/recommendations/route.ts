@@ -4,6 +4,7 @@ import Play from "@/models/Play";
 import Song from "@/models/Song";
 import { withApiErrors } from "@/lib/apiError";
 import { getAuthUser } from "@/lib/mobileAuth";
+import { libelleMotif, type Motif } from "@/lib/taste/motifs";
 
 /**
  * Recommandation par contenu : on regarde les genres des sons écoutés
@@ -12,6 +13,12 @@ import { getAuthUser } from "@/lib/mobileAuth";
  * encore écoutés. Pas de ML ici — une base solide, remplaçable plus
  * tard par un moteur de recommandation dédié si besoin.
  */
+/** Sans historique, la seule raison honnête est « tout le monde l'écoute ». */
+function motifsPopulaires(songs: { _id: { toString: () => string } }[]) {
+  const motif: Motif = { type: "populaire" };
+  return songs.map((s) => ({ songId: s._id.toString(), motif, libelle: libelleMotif(motif) }));
+}
+
 export const GET = withApiErrors(async (req: Request) => {
   const authUser = await getAuthUser(req);
   await connectDB();
@@ -22,7 +29,7 @@ export const GET = withApiErrors(async (req: Request) => {
       .populate("artist", "stageName verified")
       .sort({ playsCount: -1 })
       .limit(12);
-    return NextResponse.json({ songs: popular, basis: "popular" });
+    return NextResponse.json({ songs: popular, basis: "popular", motifs: motifsPopulaires(popular) });
   }
 
   const since = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
@@ -45,7 +52,7 @@ export const GET = withApiErrors(async (req: Request) => {
       .populate("artist", "stageName verified")
       .sort({ playsCount: -1 })
       .limit(12);
-    return NextResponse.json({ songs: popular, basis: "popular" });
+    return NextResponse.json({ songs: popular, basis: "popular", motifs: motifsPopulaires(popular) });
   }
 
   const recommendations = await Song.find({
@@ -57,5 +64,13 @@ export const GET = withApiErrors(async (req: Request) => {
     .sort({ playsCount: -1 })
     .limit(12);
 
-  return NextResponse.json({ songs: recommendations, basis: "genres", genres: topGenres });
+  // Chaque proposition dit d'où elle vient. Une recommandation qu'on ne
+  // peut pas interroger se subit ; celle-ci s'explique par la mesure qui
+  // l'a produite, et non par une phrase écrite après coup.
+  const motifs = recommendations.map((song) => {
+    const motif: Motif = { type: "genre_habituel", genre: song.genre ?? "" };
+    return { songId: song._id.toString(), motif, libelle: libelleMotif(motif) };
+  });
+
+  return NextResponse.json({ songs: recommendations, basis: "genres", genres: topGenres, motifs });
 });

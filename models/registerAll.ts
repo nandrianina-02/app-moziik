@@ -31,6 +31,7 @@ import "@/models/HomepagePinned";
 import "@/models/HomepageSection";
 import "@/models/HomepageSettings";
 import "@/models/HomepageStats";
+import "@/models/InsightReport";
 import "@/models/Notification";
 import "@/models/Play";
 import "@/models/Playlist";

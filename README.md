@@ -6,6 +6,12 @@
 2. `npm install`
 3. `npm run dev` → http://localhost:3000
 
+Le script `build` fixe `--max-old-space-size=4096`. Ce n'est pas
+décoratif : au-delà d'une certaine taille de projet, la collecte des
+données de page épuise le tas par défaut de Node, et Next échoue sur un
+`kill EPERM` qui ne dit rien de la cause réelle. Ne pas retirer ce
+réglage sans avoir vérifié qu'un build complet passe sans lui.
+
 ## Ce qui est en place
 - Next.js 14 (App Router) + TypeScript + Tailwind
 - Connexion MongoDB réutilisable (`lib/db.ts`)
@@ -101,13 +107,15 @@ Tous les modèles vivent dans `models/` : `User`, `Artist`, `Song`,
 - Renseigner les identifiants MVola (`MVOLA_CONSUMER_KEY`,
   `MVOLA_CONSUMER_SECRET`, `MVOLA_MERCHANT_MSISDN`) — `MVOLA_ENV=sandbox`
   par défaut, passer à `production` une fois validé par MVola
-- Quatre cron à planifier en dehors de Next.js (Vercel Cron ou autre) :
+- Cinq cron à planifier en dehors de Next.js (Vercel Cron ou autre) :
   - `/api/cron/publish-songs` (Phase 5) — toutes les 5 minutes
   - `/api/cron/compute-royalties` — une fois par jour
   - `/api/cron/moderate-comments` — une fois par heure, facultatif : la
     file se vide aussi à l'ouverture de `/admin/commentaires`
   - `/api/cron/weekly-curation` — une fois par semaine (le lundi : la
     fenêtre couvre alors les sept jours pleins de la semaine écoulée)
+  - `/api/cron/weekly-report` — une fois par semaine, même jour : il
+    archive le rapport d'exploitation et prévient les administrateurs
   - Tous exigent l'en-tête `Authorization: Bearer <CRON_SECRET>`
 - Les prix affichés sur `/abonnement` viennent de `/api/site-config`
   (public), donc toujours synchronisés avec `/admin/parametres`
@@ -137,7 +145,7 @@ Tous les modèles vivent dans `models/` : `User`, `Artist`, `Song`,
 
 ## Assistance par IA
 
-Onze endroits appellent le modèle. Une seule variable les commande :
+Douze endroits appellent le modèle. Une seule variable les commande :
 `ANTHROPIC_API_KEY`. Absente, **rien n'est cassé** — chaque page garde son
 fonctionnement d'avant, et aucun bouton d'assistance ne s'affiche.
 
@@ -166,6 +174,44 @@ fonctionnement d'avant, et aucun bouton d'assistance ne s'affiche.
   invite le dit, et le texte est encadré.
 - `models/AiUsage.ts` ne stocke que des compteurs : aucun contenu envoyé au
   modèle n'est conservé.
+
+## Rapport d'exploitation
+
+`/admin/analyses` répond à des questions que `/api/admin/stats` ne pose
+pas : qui revient, qui décroche, ce qui sort de l'ordinaire, ce qui se
+dessine. Les deux coexistent — l'un compte, l'autre analyse.
+
+- **Le modèle n'écrit aucune quantité.** On ne lui en fournit aucune :
+  `lib/insights/report.ts` lui transmet des directions (« en nette
+  hausse », « une minorité »), des noms et des constats. Il ne peut donc
+  ni transcrire un chiffre de travers, ni en inventer un plausible. Un
+  rapport d'exploitation est précisément le document sur lequel on décide
+  de reverser ou de relancer : un chiffre faux y coûte plus cher que
+  partout ailleurs. Les vrais nombres sont calculés et affichés à côté
+  du texte.
+- **La rétention se mesure par cohortes**, pas en comparant les actifs
+  d'une semaine à l'autre : ce rapport-là monte quand on recrute et
+  descend quand on cesse, sans rien dire de la fidélité. Une cohorte de
+  moins de cinq personnes affiche « trop peu » plutôt qu'un pourcentage
+  qui désignerait une seule personne.
+- **Les anomalies se mesurent sur la médiane**, pas sur la moyenne : le
+  pic qu'on cherche est justement ce qui tire la moyenne vers le haut et
+  finit par masquer sa propre détection. Ce sont des constats, pas des
+  verdicts — rien n'est masqué ni suspendu. Un titre écouté presque
+  uniquement par un seul compte est signalé sans conclure : ce peut être
+  un auditeur passionné comme un gonflage de compteur, et les compteurs
+  nourrissent la rémunération des artistes.
+- **La prévision est un prolongement de droite, pas une prédiction.**
+  Elle rend une fourchette, jamais un nombre seul, et **refuse** de
+  répondre sous quatre semaines d'historique — l'écran affiche alors
+  pourquoi. La largeur de la fourchette vient de la dispersion réelle
+  autour de la droite : une audience erratique donne une fourchette large,
+  ce qui est exactement l'information utile.
+- **La fenêtre est celle de la curation** (sept jours pleins, journée en
+  cours exclue). Deux fenêtres différentes dans la même administration
+  donneraient deux chiffres d'audience pour la même semaine.
+- Sans clé d'API, le rapport reste entier : seule l'interprétation manque,
+  et l'écran le dit.
 
 ## Écoute personnalisée
 

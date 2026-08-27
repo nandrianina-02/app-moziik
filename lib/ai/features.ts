@@ -105,6 +105,16 @@ export const FONCTIONNALITES_IA = {
     limite: { limit: 40, windowMs: 15 * MINUTE },
     acces: "admin",
   },
+  analyse: {
+    label: "Lecture du rapport hebdomadaire",
+    detail: "Interprète les mesures d'exploitation. N'écrit aucun chiffre : ils sont calculés et affichés à côté.",
+    niveau: "soigne",
+    maxTokens: 900,
+    // Un rapport par semaine, plus quelques relectures. Un plafond bas
+    // suffit et borne la dépense d'un écran qu'on peut recharger.
+    limite: { limit: 12, windowMs: 30 * MINUTE },
+    acces: "admin",
+  },
   station: {
     label: "Présentation de la station personnalisée",
     detail: "Nomme et introduit la station d'un auditeur. Ne choisit aucun titre.",

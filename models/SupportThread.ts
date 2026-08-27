@@ -27,9 +27,29 @@ export interface ISupportThread {
   /** Début du dernier message, pour la liste de l'administration. */
   lastMessagePreview: string;
   /** Qui a écrit en dernier — l'administration trie sur ce que le membre attend. */
-  lastMessageFrom: "user" | "admin";
+  lastMessageFrom: "user" | "admin" | "ai";
   unreadForAdmin: number;
   unreadForUser: number;
+  /**
+   * Le membre a demandé quelqu'un — ou l'assistant a reconnu qu'il ne
+   * savait pas. L'assistant se tait alors définitivement sur ce fil, et
+   * celui-ci passe devant tous les autres dans la boîte de l'équipe.
+   *
+   * Définitif, et non « jusqu'à la prochaine question » : quelqu'un qui a
+   * demandé un humain vient d'essuyer un échec, lui réservir une machine
+   * au message suivant est le meilleur moyen de le perdre.
+   */
+  humanRequested: boolean;
+  /** Dernière fois que l'assistant a répondu sur ce fil. */
+  aiRepliedAt?: Date;
+  /**
+   * Message auquel l'assistant a déjà répondu — ou s'apprête à répondre.
+   *
+   * Réservé avant l'appel au modèle, pas après : l'appel dure quelques
+   * secondes, et deux onglets ouverts sur le même fil produiraient sinon
+   * deux réponses à la même question. Relâché si l'appel échoue.
+   */
+  aiAnsweredMessage?: Types.ObjectId;
   createdAt: Date;
 }
 
@@ -40,9 +60,12 @@ const SupportThreadSchema = new Schema<ISupportThread>({
   status: { type: String, enum: ["open", "closed"], default: "open", index: true },
   lastMessageAt: { type: Date, default: Date.now, index: true },
   lastMessagePreview: { type: String, default: "" },
-  lastMessageFrom: { type: String, enum: ["user", "admin"], default: "user" },
+  lastMessageFrom: { type: String, enum: ["user", "admin", "ai"], default: "user" },
   unreadForAdmin: { type: Number, default: 0 },
   unreadForUser: { type: Number, default: 0 },
+  humanRequested: { type: Boolean, default: false },
+  aiRepliedAt: { type: Date },
+  aiAnsweredMessage: { type: Schema.Types.ObjectId, ref: "SupportMessage" },
   createdAt: { type: Date, default: Date.now },
 });
 

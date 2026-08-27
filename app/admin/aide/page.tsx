@@ -16,6 +16,7 @@ import {
 import { AdminCardsSkeleton } from "@/components/admin/AdminSkeleton";
 import { FormField } from "@/components/ui/FormField";
 import { ModalSheet } from "@/components/ui/ModalSheet";
+import { useIADisponible } from "@/context/SiteConfigProvider";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { useToast } from "@/context/ToastProvider";
 import { CATEGORIES_AIDE } from "@/lib/helpCenter";
@@ -54,6 +55,10 @@ export default function AdminAidePage() {
   const [edition, setEdition] = useState<{ article: Article | null; brouillon: Brouillon } | null>(null);
   const [enregistrement, setEnregistrement] = useState(false);
   const [aSupprimer, setASupprimer] = useState<Article | null>(null);
+  const iaAide = useIADisponible("aide");
+  const [notesIA, setNotesIA] = useState("");
+  const [redaction, setRedaction] = useState(false);
+  const [aVerifier, setAVerifier] = useState<string[]>([]);
 
   const charger = useCallback(async () => {
     try {
@@ -157,6 +162,57 @@ export default function AdminAidePage() {
     } catch {
       pushToast("error", "Le changement n'a pas été enregistré.");
       charger();
+    }
+  }
+
+  /**
+   * Remplit le formulaire avec un brouillon.
+   *
+   * Le titre est exigé avant l'appel : c'est la question à laquelle
+   * l'article répond, et sans elle il n'y a rien à rédiger. Ce qui manque
+   * revient marqué « [À COMPLÉTER] » dans le texte et listé sous le
+   * formulaire, plutôt que comblé par une formule plausible.
+   */
+  async function redigerAvecIA() {
+    if (!edition) return;
+    const titre = edition.brouillon.title.trim();
+    if (titre.length < 3) {
+      pushToast("error", "Indiquez d'abord le titre de l'article.");
+      return;
+    }
+    setRedaction(true);
+    setAVerifier([]);
+    try {
+      const res = await fetch("/api/admin/help/draft", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          title: titre,
+          category: edition.brouillon.category,
+          notes: notesIA,
+          body: edition.brouillon.body,
+        }),
+      });
+      if (!res.ok) throw new Error(await readApiError(res, "La rédaction a échoué."));
+      const { brouillon } = await res.json();
+      setEdition((prev) =>
+        prev
+          ? {
+              ...prev,
+              brouillon: {
+                ...prev.brouillon,
+                title: brouillon.titre || prev.brouillon.title,
+                excerpt: brouillon.resume || prev.brouillon.excerpt,
+                body: brouillon.corps,
+              },
+            }
+          : prev
+      );
+      setAVerifier(brouillon.aVerifier ?? []);
+    } catch (err) {
+      pushToast("error", err instanceof Error ? err.message : "La rédaction a échoué.");
+    } finally {
+      setRedaction(false);
     }
   }
 
@@ -377,6 +433,48 @@ export default function AdminAidePage() {
               }
               placeholder="Laissé vide, il est déduit des premières lignes."
             />
+
+            {iaAide && (
+              <div className="rounded-xl2 border border-border bg-base p-3.5">
+                <p className="flex items-center gap-2 text-sm font-medium text-ink">
+                  <Sparkles size={14} className="text-accent" /> Rédiger avec l&apos;IA
+                </p>
+                <p className="mt-1 text-xs text-ink-muted">
+                  Le brouillon s&apos;appuie sur vos notes et sur les articles déjà publiés. Ce qu&apos;il ignore
+                  revient marqué « [À COMPLÉTER] » : rien n&apos;est inventé à la place d&apos;un tarif ou
+                  d&apos;un délai.
+                </p>
+                <textarea
+                  value={notesIA}
+                  onChange={(e) => setNotesIA(e.target.value)}
+                  rows={2}
+                  maxLength={4000}
+                  aria-label="Notes pour la rédaction"
+                  placeholder="Ce que l'article doit dire, en vrac : étapes, conditions, exceptions…"
+                  className="mt-2.5 w-full resize-y rounded-xl border border-border bg-surface px-3.5 py-2.5 text-sm outline-none focus:border-accent"
+                />
+                <button
+                  type="button"
+                  onClick={redigerAvecIA}
+                  disabled={redaction}
+                  className="mt-2 flex items-center gap-1.5 rounded-full border border-border px-3 py-1.5 text-xs font-medium text-ink-muted transition-colors hover:border-accent hover:text-accent disabled:opacity-60"
+                >
+                  {redaction ? <Loader2 size={12} className="animate-spin" /> : <Sparkles size={12} />}
+                  {redaction ? "Rédaction…" : "Rédiger le contenu"}
+                </button>
+
+                {aVerifier.length > 0 && (
+                  <div className="mt-3 rounded-xl border border-warning/40 bg-surface p-3">
+                    <p className="text-xs font-medium text-ink">À vérifier avant de publier</p>
+                    <ul className="mt-1.5 list-disc space-y-1 pl-4 text-xs text-ink-muted">
+                      {aVerifier.map((point, i) => (
+                        <li key={i}>{point}</li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+              </div>
+            )}
 
             <label className="block">
               <span className="mb-1.5 block text-sm text-ink-muted">Contenu *</span>

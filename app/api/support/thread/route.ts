@@ -3,10 +3,11 @@ import { connectDB } from "@/lib/db";
 import SupportThread from "@/models/SupportThread";
 import SupportMessage from "@/models/SupportMessage";
 import User from "@/models/User";
-import { withApiErrors } from "@/lib/apiError";
+import { ApiError, withApiErrors } from "@/lib/apiError";
 import { requireAuthUser } from "@/lib/mobileAuth";
 import { checkRateLimit } from "@/lib/rateLimit";
-import { parseOrThrow, supportMessageSchema } from "@/lib/validation";
+import { parseOrThrow, supportHumanSchema, supportMessageSchema } from "@/lib/validation";
+import { etatIA } from "@/lib/ai/client";
 
 /**
  * Le fil de support du membre connecté.
@@ -35,7 +36,12 @@ export const GET = withApiErrors(async (req: Request) => {
   await connectDB();
 
   const thread = await SupportThread.findOne({ user: authUser.id });
-  if (!thread) return NextResponse.json({ thread: null, messages: [] }, { headers: SANS_CACHE });
+  if (!thread) {
+    // Fil pas encore ouvert : le panneau a quand même besoin de savoir si
+    // un assistant répondra, pour annoncer la bonne attente.
+    const { disponible } = await etatIA("chat");
+    return NextResponse.json({ thread: null, messages: [], assistant: disponible }, { headers: SANS_CACHE });
+  }
 
   const query: Record<string, unknown> = { thread: thread._id };
   const depuis = after ? new Date(after) : null;
@@ -48,6 +54,8 @@ export const GET = withApiErrors(async (req: Request) => {
     await thread.save();
   }
 
+  const { disponible } = await etatIA("chat");
+
   return NextResponse.json(
     {
       thread: {
@@ -55,11 +63,44 @@ export const GET = withApiErrors(async (req: Request) => {
         status: thread.status,
         unreadForUser: panneauOuvert ? 0 : thread.unreadForUser,
         lastMessageAt: thread.lastMessageAt,
+        humanRequested: Boolean(thread.humanRequested),
       },
       messages,
+      // L'assistant répondra-t-il au prochain message ? Faux dès qu'un
+      // humain a été demandé sur ce fil, même si l'IA est par ailleurs
+      // disponible : le panneau ne doit pas afficher « l'assistant
+      // rédige… » pour une réponse qui ne viendra pas.
+      assistant: disponible && !thread.humanRequested,
     },
     { headers: SANS_CACHE }
   );
+});
+
+/**
+ * Le membre demande quelqu'un.
+ *
+ * Irréversible côté membre : rendre la main à l'assistant demanderait un
+ * geste que personne ne fera, et servir de nouveau une machine à qui
+ * vient d'en réclamer une vraie est le meilleur moyen de le perdre.
+ */
+export const PATCH = withApiErrors(async (req: Request) => {
+  const authUser = await requireAuthUser(req);
+  const { humanRequested } = parseOrThrow(supportHumanSchema, await req.json());
+
+  await connectDB();
+  const thread = await SupportThread.findOne({ user: authUser.id });
+  if (!thread) throw new ApiError("Aucune discussion en cours.", 404);
+
+  if (humanRequested && !thread.humanRequested) {
+    thread.humanRequested = true;
+    // Le fil remonte dans la boîte de l'équipe : quelqu'un attend une
+    // personne, c'est exactement ce qui doit passer devant.
+    thread.unreadForAdmin += 1;
+    thread.status = "open";
+    await thread.save();
+  }
+
+  return NextResponse.json({ thread: { _id: String(thread._id), humanRequested: thread.humanRequested } });
 });
 
 export const POST = withApiErrors(async (req: Request) => {
@@ -105,6 +146,17 @@ export const POST = withApiErrors(async (req: Request) => {
     body,
   });
 
-  return NextResponse.json({ message, thread: { _id: String(thread._id), status: thread.status } }, { status: 201 });
+  // Le panneau enchaîne sur /api/support/assist quand c'est vrai : il ne
+  // le demande donc que si une réponse est réellement attendue.
+  const { disponible } = await etatIA("chat");
+
+  return NextResponse.json(
+    {
+      message,
+      thread: { _id: String(thread._id), status: thread.status, humanRequested: Boolean(thread.humanRequested) },
+      assistant: disponible && !thread.humanRequested,
+    },
+    { status: 201 }
+  );
 });
 

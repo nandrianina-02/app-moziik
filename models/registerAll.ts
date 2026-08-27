@@ -18,6 +18,7 @@
  * `connectDB()`. Le coût est nul à l'exécution : ce sont des définitions
  * de schémas, pas des connexions.
  */
+import "@/models/AiUsage";
 import "@/models/Album";
 import "@/models/Artist";
 import "@/models/Badge";

@@ -101,17 +101,21 @@ Tous les modèles vivent dans `models/` : `User`, `Artist`, `Song`,
 - Renseigner les identifiants MVola (`MVOLA_CONSUMER_KEY`,
   `MVOLA_CONSUMER_SECRET`, `MVOLA_MERCHANT_MSISDN`) — `MVOLA_ENV=sandbox`
   par défaut, passer à `production` une fois validé par MVola
-- Deux cron à planifier en dehors de Next.js (Vercel Cron ou autre) :
+- Trois cron à planifier en dehors de Next.js (Vercel Cron ou autre) :
   - `/api/cron/publish-songs` (Phase 5) — toutes les 5 minutes
   - `/api/cron/compute-royalties` — une fois par jour
-  - Les deux exigent l'en-tête `Authorization: Bearer <CRON_SECRET>`
+  - `/api/cron/moderate-comments` — une fois par heure, facultatif : la
+    file se vide aussi à l'ouverture de `/admin/commentaires`
+  - Tous exigent l'en-tête `Authorization: Bearer <CRON_SECRET>`
 - Les prix affichés sur `/abonnement` viennent de `/api/site-config`
   (public), donc toujours synchronisés avec `/admin/parametres`
 
 ## Phase 8 — Analytics & recommandations
-- `lib/sentiment.ts` est un lexique simple, pas un modèle ML — largement
-  suffisant pour un premier tri, mais remplaçable par un vrai service
-  NLP plus tard (même interface `{ sentiment, score }`)
+- `lib/sentiment.ts` est un lexique simple, pas un modèle ML. Il sert
+  désormais de **classement provisoire** — instantané, donc l'envoi d'un
+  commentaire n'attend rien — puis la relecture par IA repasse par lots
+  et corrige le ton (voir la section « Assistance par IA »). Sans clé
+  d'API, ce lexique reste le seul classement, comme avant.
 - Les classements (`/api/charts`) tournent sur des agrégations MongoDB
   en temps réel ; à indexer/mettre en cache si le volume d'écoutes
   devient important
@@ -128,6 +132,38 @@ Tous les modèles vivent dans `models/` : `User`, `Artist`, `Song`,
 - L'icône PWA utilise le logo configuré dans `/admin/parametres` ;
   pour un rendu optimal, prévoir un logo carré ≥512×512
 - `/contact` a besoin des variables SMTP déjà configurées en Phase 2
+
+## Assistance par IA
+
+Neuf endroits appellent le modèle. Une seule variable les commande :
+`ANTHROPIC_API_KEY`. Absente, **rien n'est cassé** — chaque page garde son
+fonctionnement d'avant, et aucun bouton d'assistance ne s'affiche.
+
+- **Le catalogue des fonctionnalités vit dans `lib/ai/features.ts`** : le
+  modèle employé, le plafond de sortie et la cadence par compte y sont
+  décrits une fois. `/admin/ia` affiche cette liste telle quelle, l'éteint
+  ligne par ligne, fixe un plafond d'appels par jour et montre la
+  consommation des trente derniers jours.
+- **Tout passe par `lib/ai/client.ts`.** Aucune route ne parle au SDK
+  directement : disponibilité, cadence, plafond, comptage et traduction
+  des pannes y sont traités une fois pour toutes. La clé ne quitte jamais
+  le serveur.
+- **Les réponses sont contraintes par un schéma** (outil imposé côté API,
+  revalidé par zod). On ne parse jamais de la prose.
+- **Deux modèles** : Haiku 4.5 pour ce qui classe et trie, Sonnet 5 pour ce
+  qui rédige. Sonnet 5 refuse le paramètre `temperature` — le client le
+  retire pour lui et le conserve pour Haiku, qui l'honore encore.
+- **Rien ne s'écrit tout seul.** Les propositions de titre, la biographie,
+  l'article d'aide et la réponse au support reviennent dans un formulaire ;
+  c'est un humain qui valide. La modération signale, elle ne masque jamais.
+- **Ce qui n'est pas su reste vide.** Une description de morceau sans
+  paroles, une biographie sans notes, un tarif absent du centre d'aide : le
+  champ revient vide ou marqué `[À COMPLÉTER]` plutôt qu'inventé.
+- **Les textes des utilisateurs sont des données, pas des consignes** —
+  message de support, paroles, commentaire, demande de playlist. Chaque
+  invite le dit, et le texte est encadré.
+- `models/AiUsage.ts` ne stocke que des compteurs : aucun contenu envoyé au
+  modèle n'est conservé.
 
 ## C'est la dernière phase de la roadmap initiale
 

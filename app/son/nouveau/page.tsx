@@ -34,6 +34,7 @@ import { FeaturingPicker } from "@/components/modals/FeaturingPicker";
 import { ArtistSinglePicker } from "@/components/modals/ArtistSinglePicker";
 import { MetadataAutofill, type ChampDetecte, type RapportMetadonnees } from "@/components/song/MetadataAutofill";
 import { DuplicateWarning, type DoublonTitre } from "@/components/song/DuplicateWarning";
+import { SongAiAssist } from "@/components/song/SongAiAssist";
 import {
   libererPochette,
   lireMetadonneesAudio,
@@ -52,7 +53,7 @@ import {
 import { uploadToCloudinaryClient } from "@/lib/cloudinaryClient";
 import { readApiError } from "@/lib/readApiError";
 import { useToast } from "@/context/ToastProvider";
-import { useSiteConfig } from "@/context/SiteConfigProvider";
+import { useSiteConfig, useIADisponible } from "@/context/SiteConfigProvider";
 
 // Constantes, helpers et SectionCard identiques à app/son/[id]/modifier —
 // c'est la même expérience de saisie, seule la persistance change
@@ -149,6 +150,7 @@ export default function NewSongPage() {
 
   const [tags, setTags] = useState<string[]>([]);
   const [extraTouched, setExtraTouched] = useState(false);
+  const iaPublication = useIADisponible("publication");
 
   // Lecture automatique des balises du fichier audio.
   const [rapport, setRapport] = useState<RapportMetadonnees | null>(null);
@@ -206,6 +208,7 @@ export default function NewSongPage() {
   const watchedTitle = watch("title");
   const watchedGenre = watch("genre");
   const watchedLanguage = watch("language");
+  const watchedDescription = watch("description");
 
   // Profil artiste du visiteur : pour un artiste, c'est automatiquement
   // lui-même (pas de choix) ; un admin doit choisir via ArtistSinglePicker.
@@ -859,6 +862,37 @@ export default function NewSongPage() {
                   <FormField label="Titre du morceau *" {...register("title", { required: true })} placeholder="Titre du morceau" />
                   {errors.title && <p className="-mt-3 text-xs text-accent">Le titre est requis.</p>}
                   <DuplicateWarning doublon={doublon} />
+
+                  {/* Propositions de l'IA. Rien ne s'applique tout seul :
+                      chaque champ se pose separement, et le panneau dit
+                      lesquels ecraseraient une saisie. */}
+                  <SongAiAssist
+                    disponible={iaPublication}
+                    langues={LANGUAGES}
+                    donnees={() => ({
+                      title: getValues("title"),
+                      artistName: (isAdmin ? targetArtist?.stageName : ownArtist?.stageName) ?? "",
+                      lyrics: getValues("lyrics"),
+                      album: albums.find((a) => a._id === getValues("albumId"))?.title,
+                    })}
+                    valeurs={{
+                      genre: watchedGenre,
+                      language: watchedLanguage,
+                      tags,
+                      description: watchedDescription,
+                    }}
+                    onAppliquer={(champs) => {
+                      if (champs.genre !== undefined) setValue("genre", champs.genre, { shouldDirty: true });
+                      if (champs.language !== undefined)
+                        setValue("language", champs.language, { shouldDirty: true });
+                      if (champs.description !== undefined)
+                        setValue("description", champs.description, { shouldDirty: true });
+                      if (champs.tags) setTags(champs.tags);
+                      // Le garde-fou de sortie de page doit compter ces
+                      // champs comme une modification non enregistree.
+                      setExtraTouched(true);
+                    }}
+                  />
 
                   <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                     <label className="block">

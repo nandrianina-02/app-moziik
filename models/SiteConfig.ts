@@ -1,5 +1,14 @@
 import { Schema, models, model, Model } from "mongoose";
 
+export interface IAiSettings {
+  /** Coupe tous les appels d'un coup, sans toucher à la clé d'API. */
+  enabled: boolean;
+  /** Identifiants de lib/ai/features.ts éteints individuellement. */
+  disabled: string[];
+  /** Appels autorisés par jour UTC, toutes fonctionnalités confondues. 0 = sans plafond. */
+  dailyCallCap: number;
+}
+
 export interface IPlanPricing {
   plan: "premium" | "premium_annual";
   amountUSD: number; // prix de référence, converti selon la région
@@ -29,6 +38,11 @@ export interface ISiteConfig {
   // Réseaux sociaux officiels — affichés sur /contact et dans le pied de
   // page. Le catalogue des plateformes vit dans lib/socialPlatforms.ts.
   socialLinks: { platform: string; url: string }[];
+  // Réglages de l'IA. Le catalogue des fonctionnalités vit dans
+  // lib/ai/features.ts ; on ne stocke ici que ce que l'administration
+  // décide : l'interrupteur général, celles qu'elle éteint une à une, et
+  // le plafond d'appels par jour.
+  ai: IAiSettings;
   updatedAt: Date;
 }
 
@@ -58,6 +72,21 @@ const SiteConfigSchema = new Schema<ISiteConfig>({
   socialLinks: {
     type: [{ platform: { type: String, required: true }, url: { type: String, required: true } }],
     default: [],
+  },
+  // Allumée par défaut : la clé d'API n'est renseignée que par quelqu'un
+  // qui veut l'IA, et une fonctionnalité qu'il faut aller activer après
+  // l'avoir installée passe pour cassée. Le plafond, lui, existe dès le
+  // premier appel — c'est le garde-fou qui rend ce défaut acceptable.
+  ai: {
+    type: new Schema<IAiSettings>(
+      {
+        enabled: { type: Boolean, default: true },
+        disabled: { type: [String], default: [] },
+        dailyCallCap: { type: Number, default: 1000, min: 0 },
+      },
+      { _id: false }
+    ),
+    default: () => ({ enabled: true, disabled: [], dailyCallCap: 1000 }),
   },
   updatedAt: { type: Date, default: Date.now },
 });

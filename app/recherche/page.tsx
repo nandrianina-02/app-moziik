@@ -22,8 +22,10 @@ import { SkeletonRows } from "@/components/ui/Skeleton";
 import { PageSections } from "@/components/home/PageSections";
 import { SearchBar } from "@/components/search/SearchBar";
 import { SectionResultats, type SectionRecherche } from "@/components/search/SearchSection";
+import { AiSearchFallback } from "@/components/search/AiSearchFallback";
 import { TopResult } from "@/components/search/TopResult";
 import { useOnlineStatus } from "@/context/OnlineStatusProvider";
+import { useIADisponible } from "@/context/SiteConfigProvider";
 import { usePlayer, type PlayableSong } from "@/context/PlayerProvider";
 import { listOfflineSongs } from "@/lib/offlineCache";
 import {
@@ -79,6 +81,7 @@ function SearchPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { isOnline } = useOnlineStatus();
+  const iaRecherche = useIADisponible("recherche");
   const { playQueue } = usePlayer();
 
   const [saisie, setSaisie] = useState(() => searchParams.get("q") ?? "");
@@ -107,6 +110,15 @@ function SearchPageContent() {
   // d'une frappe plus récente.
   const numero = useRef(0);
   const terme = saisie.trim();
+  /**
+   * Une vraie phrase, a laquelle le site n'a presque rien repondu.
+   *
+   * Quatre mots significatifs : un nom d'artiste ou un titre en compte un
+   * a trois, une demande formulee en compte davantage. Trois resultats ou
+   * moins : au-dela, la recherche du site a manifestement compris, et une
+   * seconde lecture n'apporterait que du bruit.
+   */
+  const motsSignificatifs = terme.split(/\s+/).filter((m) => m.length > 2).length;
   const enRecherche = terme.length >= 2;
 
   /* --- historique et suggestions de l'état par défaut ------------------- */
@@ -306,6 +318,12 @@ function SearchPageContent() {
     : null;
   const resteAcharger = listeComplete ? listeComplete.total - listeComplete.items.length : 0;
 
+  // Une vraie phrase a laquelle le site n'a presque rien repondu : les
+  // deux ou trois titres remontes viennent souvent d'un mot isole et ne
+  // repondent pas a la demande. Voir le calcul de `motsSignificatifs`.
+  const totalTrouve = Object.values(resultat?.counts ?? {}).reduce((s, n) => s + (n as number), 0);
+  const phraseMaigre = motsSignificatifs >= 4 && totalTrouve > 0 && totalTrouve <= 3;
+
   return (
     <div className="mx-auto w-full max-w-6xl px-4 py-6 sm:px-6 md:px-10 md:py-10">
       <h1 className="mb-5 font-display text-2xl text-ink">Recherche</h1>
@@ -450,12 +468,16 @@ function SearchPageContent() {
           )}
 
           {resultat.sections.length === 0 ? (
-            <div className="rounded-xl2 border border-dashed border-border px-4 py-12 text-center">
-              <p className="mb-1 font-display text-base text-ink">Aucun résultat pour «&nbsp;{terme}&nbsp;»</p>
-              <p className="text-sm text-ink-muted">
-                Vérifie l&apos;orthographe, ou essaie avec moins de mots — la recherche accepte les noms incomplets.
-              </p>
-            </div>
+            <>
+              <div className="rounded-xl2 border border-dashed border-border px-4 py-12 text-center">
+                <p className="mb-1 font-display text-base text-ink">Aucun résultat pour «&nbsp;{terme}&nbsp;»</p>
+                <p className="text-sm text-ink-muted">
+                  Vérifie l&apos;orthographe, ou essaie avec moins de mots — la recherche accepte les noms incomplets.
+                </p>
+              </div>
+              {/* Seconde lecture de la demande, en genres et en mots-clés. */}
+              {iaRecherche && <AiSearchFallback demande={terme} />}
+            </>
           ) : type === "all" ? (
             <>
               {resultat.top && <TopResult top={resultat.top} onPlay={peutEcouter ? ecouterTop : undefined} />}
@@ -470,6 +492,11 @@ function SearchPageContent() {
                   }}
                 />
               ))}
+              {/* Sous une réponse maigre à une vraie phrase : les deux ou
+                  trois titres trouvés viennent souvent d'un mot isolé, et
+                  ne répondent pas à la demande. La seconde lecture se
+                  place dessous, elle ne remplace rien. */}
+              {iaRecherche && phraseMaigre && <AiSearchFallback demande={terme} avecResultats />}
             </>
           ) : (
             listeComplete && (

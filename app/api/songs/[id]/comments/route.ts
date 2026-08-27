@@ -29,6 +29,10 @@ export const POST = withApiErrors(
 
     const { text, timestampInSong, parentComment } = parseOrThrow(createCommentSchema, await req.json());
 
+    // Classement provisoire par lexique : instantane, donc l'envoi d'un
+    // commentaire n'attend rien. La relecture par l'IA repasse ensuite par
+    // lots et corrige ce ton (voir lib/ai/moderationQueue.ts) ; c'est
+    // l'absence de `moderatedAt` qui met ce commentaire dans sa file.
     const { sentiment, score } = analyzeSentiment(text);
 
     await connectDB();

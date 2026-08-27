@@ -1,6 +1,7 @@
 import { connectDB } from "@/lib/db";
 import SiteConfigModel from "@/models/SiteConfig";
 import { defaultSiteConfig } from "@/config/site";
+import { PLAFOND_JOURNALIER_DEFAUT } from "@/lib/ai/features";
 
 const SITE_CONFIG_ID = "000000000000000000000001";
 
@@ -35,6 +36,7 @@ function fallbackSiteConfig() {
     legalWebsite: `www.${defaultSiteConfig.siteName.toLowerCase()}.com`,
     legalUpdatedAt: new Date(),
     socialLinks: [] as { platform: string; url: string }[],
+    ai: { enabled: true, disabled: [] as string[], dailyCallCap: PLAFOND_JOURNALIER_DEFAUT },
     updatedAt: new Date(),
   };
 }

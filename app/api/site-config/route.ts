@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getSiteConfig } from "@/lib/siteConfig";
 import { withApiErrors } from "@/lib/apiError";
 import { liensSociauxUtilisables } from "@/lib/socialPlatforms";
+import { fonctionnalitesIADisponibles } from "@/lib/ai/client";
 
 // Sans ça, cette route (qui ne lit ni cookies ni headers) est traitée
 // comme statique par Next.js et figée au build : les modifications de
@@ -10,8 +11,13 @@ export const dynamic = "force-dynamic";
 
 export const GET = withApiErrors(async () => {
   const config = await getSiteConfig();
+  // Ce que l'IA peut servir maintenant, pour que les pages n'affichent pas
+  // un bouton qui repondrait par une erreur. Aucun secret n'y transite :
+  // c'est une liste d'identifiants de fonctionnalites.
+  const aiFeatures = await fonctionnalitesIADisponibles();
   return NextResponse.json(
     {
+      aiFeatures,
       siteName: config.siteName,
       tagline: config.tagline,
       logoUrl: config.logoUrl,

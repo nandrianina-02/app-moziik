@@ -16,6 +16,19 @@ import { analyserParoles, ligneActive, parolesEnTexte } from "@/lib/lyrics";
 /** Délai après un défilement manuel avant que le suivi automatique ne reprenne. */
 const PAUSE_SUIVI_MS = 4000;
 
+/**
+ * Langues de traduction proposées.
+ *
+ * Le français était la seule cible possible, ce qui rendait le bouton sans
+ * objet sur un morceau déjà en français — c'est-à-dire une bonne part du
+ * catalogue. Les trois langues du public sont désormais offertes.
+ */
+const LANGUES_TRADUCTION = [
+  { code: "fr", label: "Français" },
+  { code: "en", label: "English" },
+  { code: "mg", label: "Malagasy" },
+] as const;
+
 export function LyricsPanel({
   lyrics,
   progress,
@@ -47,6 +60,7 @@ export function LyricsPanel({
   const [traduitEnCours, setTraduitEnCours] = useState(false);
   const [erreurTraduction, setErreurTraduction] = useState<string | null>(null);
   const [afficherTraduction, setAfficherTraduction] = useState(false);
+  const [langueCible, setLangueCible] = useState<string>("fr");
 
   const index = paroles.synchronisees ? ligneActive(paroles.lignes, progress) : -1;
 
@@ -100,7 +114,7 @@ export function LyricsPanel({
       const res = await fetch("/api/lyrics/translate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ text: parolesEnTexte(paroles), target: "fr" }),
+        body: JSON.stringify({ text: parolesEnTexte(paroles), target: langueCible }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "Traduction impossible.");
@@ -161,6 +175,30 @@ export function LyricsPanel({
         </span>
 
         <span className="flex items-center gap-1.5">
+          <label className="sr-only" htmlFor="langue-traduction">
+            Langue de traduction
+          </label>
+          <select
+            id="langue-traduction"
+            value={langueCible}
+            onChange={(e) => {
+              setLangueCible(e.target.value);
+              // La traduction en mémoire est celle de l'ancienne langue :
+              // la garder afficherait un texte qui ne correspond plus au
+              // bouton.
+              setTraduction(null);
+              setTraductionBloc(null);
+              setAfficherTraduction(false);
+              setErreurTraduction(null);
+            }}
+            className="rounded-full border border-border bg-surface px-2 py-1 text-[11px] text-ink-muted outline-none focus:border-accent"
+          >
+            {LANGUES_TRADUCTION.map((l) => (
+              <option key={l.code} value={l.code}>
+                {l.label}
+              </option>
+            ))}
+          </select>
           {paroles.synchronisees && !suiviAuto && (
             <button
               onClick={() => setSuiviAuto(true)}

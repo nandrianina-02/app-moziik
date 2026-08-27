@@ -1,9 +1,10 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { ArrowLeft, Send, Loader2, Headphones, Check, RotateCcw, Inbox, Mail } from "lucide-react";
+import { ArrowLeft, Send, Loader2, Headphones, Check, RotateCcw, Inbox, Mail, Sparkles, UserRound } from "lucide-react";
 import { AdminCardsSkeleton } from "@/components/admin/AdminSkeleton";
 import { useToast } from "@/context/ToastProvider";
+import { useIADisponible } from "@/context/SiteConfigProvider";
 import { readApiError } from "@/lib/readApiError";
 
 type Fil = {
@@ -13,14 +14,16 @@ type Fil = {
   status: "open" | "closed";
   lastMessageAt: string;
   lastMessagePreview: string;
-  lastMessageFrom: "user" | "admin";
+  lastMessageFrom: "user" | "admin" | "ai";
   unreadForAdmin: number;
+  /** Le membre a réclamé une personne, ou l'assistant s'est récusé. */
+  humanRequested?: boolean;
   user?: { _id: string; name?: string; email?: string } | null;
 };
 
 type Message = {
   _id: string;
-  author: "user" | "admin";
+  author: "user" | "admin" | "ai";
   authorName: string;
   body: string;
   createdAt: string;
@@ -44,6 +47,10 @@ function quand(iso: string) {
  * périodique, comme le panneau côté membre — sans canal temps réel, c'est
  * la seule façon de voir arriver un message sans recharger la page. Le
  * fil ne demande que ce qui suit le dernier message connu.
+ *
+ * Ce que l'assistant a répondu s'affiche ici comme tel, et jamais comme
+ * un message de l'équipe : sans cette distinction, personne ne pourrait
+ * dire, en relisant un fil, ce qui a été promis par une machine.
  */
 export default function AdminMessagesPage() {
   const pushToast = useToast();
@@ -56,6 +63,8 @@ export default function AdminMessagesPage() {
   const [chargementFil, setChargementFil] = useState(false);
   const [reponse, setReponse] = useState("");
   const [envoi, setEnvoi] = useState(false);
+  const [suggestion, setSuggestion] = useState(false);
+  const suggestionDispo = useIADisponible("reponse");
 
   const dernierRef = useRef<string | null>(null);
   const finRef = useRef<HTMLDivElement>(null);
@@ -167,6 +176,36 @@ export default function AdminMessagesPage() {
     }
   }
 
+  /**
+   * Remplit le champ de réponse avec un brouillon.
+   *
+   * Rien n'est envoyé : le texte arrive dans le champ de saisie et part
+   * — ou non — après relecture. Un brouillon écrasé par mégarde étant
+   * plus agaçant qu'utile, la suggestion refuse d'écraser une réponse
+   * déjà commencée.
+   */
+  async function suggerer() {
+    if (!ouvert || suggestion) return;
+    if (reponse.trim() && !window.confirm("Remplacer la réponse en cours par la suggestion ?")) return;
+    setSuggestion(true);
+    try {
+      const res = await fetch(`/api/admin/support/${ouvert._id}/suggest`, { method: "POST" });
+      if (!res.ok) throw new Error(await readApiError(res, "La suggestion a échoué."));
+      const data = await res.json();
+      setReponse(data.brouillon ?? "");
+      if (data.incomplet) {
+        pushToast(
+          "info",
+          "Le centre d'aide ne couvre pas cette question : relisez de près, la réponse demande une décision."
+        );
+      }
+    } catch (err) {
+      pushToast("error", err instanceof Error ? err.message : "La suggestion a échoué.");
+    } finally {
+      setSuggestion(false);
+    }
+  }
+
   async function changerStatut(statut: "open" | "closed") {
     if (!ouvert) return;
     try {
@@ -185,6 +224,7 @@ export default function AdminMessagesPage() {
   }
 
   const enAttente = fils.filter((f) => f.unreadForAdmin > 0).length;
+  const humainsDemandes = fils.filter((f) => f.humanRequested && f.status === "open").length;
 
   return (
     <div className="space-y-6">
@@ -195,6 +235,12 @@ export default function AdminMessagesPage() {
           {enAttente > 0 && (
             <span className="ml-1 text-accent">
               {enAttente} en attente de réponse.
+            </span>
+          )}
+          {humainsDemandes > 0 && (
+            <span className="ml-1 text-accent">
+              {humainsDemandes} {humainsDemandes > 1 ? "réclament" : "réclame"} quelqu&apos;un de
+              l&apos;équipe.
             </span>
           )}
         </p>
@@ -273,13 +319,21 @@ export default function AdminMessagesPage() {
                     </div>
                     <p className="mt-1.5 truncate text-xs text-ink-muted">
                       {fil.lastMessageFrom === "admin" && <span className="text-ink-muted">Vous : </span>}
+                      {fil.lastMessageFrom === "ai" && <span className="text-ink-muted">Assistant : </span>}
                       {fil.lastMessagePreview || "—"}
                     </p>
-                    {fil.status === "closed" && (
-                      <span className="mt-2 inline-block rounded-full bg-ink-muted/15 px-2 py-0.5 text-[10px] text-ink-muted">
-                        Close
-                      </span>
-                    )}
+                    <span className="mt-2 flex flex-wrap gap-1.5">
+                      {fil.humanRequested && fil.status === "open" && (
+                        <span className="inline-flex items-center gap-1 rounded-full bg-accent/15 px-2 py-0.5 text-[10px] font-medium text-accent">
+                          <UserRound size={10} /> Vous attend
+                        </span>
+                      )}
+                      {fil.status === "closed" && (
+                        <span className="inline-block rounded-full bg-ink-muted/15 px-2 py-0.5 text-[10px] text-ink-muted">
+                          Close
+                        </span>
+                      )}
+                    </span>
                   </button>
                 </li>
               );
@@ -298,8 +352,13 @@ export default function AdminMessagesPage() {
                   <ArrowLeft size={16} />
                 </button>
                 <div className="min-w-0 flex-1">
-                  <p className="truncate text-sm font-medium text-ink">
+                  <p className="flex flex-wrap items-center gap-2 truncate text-sm font-medium text-ink">
                     {ouvert.user?.name || ouvert.userName || "Membre"}
+                    {ouvert.humanRequested && (
+                      <span className="inline-flex items-center gap-1 rounded-full bg-accent/15 px-2 py-0.5 text-[10px] font-medium text-accent">
+                        <UserRound size={10} /> Vous attend
+                      </span>
+                    )}
                   </p>
                   <a
                     href={`mailto:${ouvert.user?.email || ouvert.userEmail}`}
@@ -333,29 +392,64 @@ export default function AdminMessagesPage() {
                 ) : messages.length === 0 ? (
                   <p className="py-8 text-center text-sm text-ink-muted">Discussion vide.</p>
                 ) : (
-                  messages.map((m) => (
-                    <div key={m._id} className={`flex ${m.author === "admin" ? "justify-end" : "justify-start"}`}>
-                      <div className={`max-w-[80%] ${m.author === "admin" ? "text-right" : ""}`}>
-                        <p className="mb-1 flex items-center gap-1.5 text-[11px] text-ink-muted">
-                          {m.author === "admin" && <Headphones size={11} />}
-                          {m.authorName || (m.author === "admin" ? "Support" : "Membre")}
-                          <span>· {quand(m.createdAt)}</span>
-                        </p>
-                        <div
-                          className={`rounded-xl2 px-3.5 py-2.5 text-left text-sm ${
-                            m.author === "admin" ? "bg-accent text-base" : "bg-base text-ink"
-                          }`}
-                        >
-                          <p className="whitespace-pre-line break-words">{m.body}</p>
+                  messages.map((m) => {
+                    const deLEquipe = m.author === "admin";
+                    const deLIA = m.author === "ai";
+                    return (
+                      <div key={m._id} className={`flex ${deLEquipe ? "justify-end" : "justify-start"}`}>
+                        <div className={`max-w-[80%] ${deLEquipe ? "text-right" : ""}`}>
+                          <p className="mb-1 flex flex-wrap items-center gap-1.5 text-[11px] text-ink-muted">
+                            {deLEquipe && <Headphones size={11} />}
+                            {deLIA && <Sparkles size={11} className="text-accent" />}
+                            {deLIA ? "Assistant" : m.authorName || (deLEquipe ? "Support" : "Membre")}
+                            {deLIA && (
+                              <span className="rounded-full border border-accent/40 px-1.5 py-px text-[10px] text-accent">
+                                IA
+                              </span>
+                            )}
+                            <span>· {quand(m.createdAt)}</span>
+                          </p>
+                          {/* Reponse de l'assistant : meme fond qu'un message de
+                              membre, mais un filet accent a gauche. Lui donner le
+                              bleu de l'equipe ferait passer une reponse
+                              automatique pour la parole du support. */}
+                          <div
+                            className={`rounded-xl2 px-3.5 py-2.5 text-left text-sm ${
+                              deLEquipe
+                                ? "bg-accent text-base"
+                                : deLIA
+                                  ? "border-l-2 border-accent bg-base text-ink"
+                                  : "bg-base text-ink"
+                            }`}
+                          >
+                            <p className="whitespace-pre-line break-words">{m.body}</p>
+                          </div>
                         </div>
                       </div>
-                    </div>
-                  ))
+                    );
+                  })
                 )}
                 <div ref={finRef} />
               </div>
 
-              <form onSubmit={repondre} className="flex items-end gap-2 border-t border-border p-4">
+              <form onSubmit={repondre} className="space-y-2 border-t border-border p-4">
+                {suggestionDispo && (
+                  <div className="flex flex-wrap items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={suggerer}
+                      disabled={suggestion}
+                      className="flex items-center gap-1.5 rounded-full border border-border px-3 py-1.5 text-xs font-medium text-ink-muted transition-colors hover:border-accent hover:text-accent disabled:opacity-60"
+                    >
+                      {suggestion ? <Loader2 size={12} className="animate-spin" /> : <Sparkles size={12} />}
+                      {suggestion ? "Rédaction…" : "Suggérer une réponse"}
+                    </button>
+                    <span className="text-[11px] text-ink-muted">
+                      Brouillon à relire — rien n&apos;est envoyé avant votre clic.
+                    </span>
+                  </div>
+                )}
+                <div className="flex items-end gap-2">
                 <textarea
                   value={reponse}
                   onChange={(e) => setReponse(e.target.value)}
@@ -378,7 +472,8 @@ export default function AdminMessagesPage() {
                   className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-accent text-base transition-colors hover:bg-accent-hover disabled:opacity-50"
                 >
                   {envoi ? <Loader2 size={16} className="animate-spin" /> : <Send size={16} />}
-                </button>
+                  </button>
+                </div>
               </form>
             </div>
           ) : (

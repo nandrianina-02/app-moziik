@@ -4,14 +4,14 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useSession } from "next-auth/react";
 import { AnimatePresence, motion } from "framer-motion";
-import { Send, Loader2, LogIn, Headphones, AlertCircle } from "lucide-react";
+import { Send, Loader2, LogIn, Headphones, AlertCircle, Sparkles, UserRound } from "lucide-react";
 import { ModalSheet } from "@/components/ui/ModalSheet";
 import { readApiError } from "@/lib/readApiError";
 import { useSiteConfig } from "@/context/SiteConfigProvider";
 
 type MessageSupport = {
   _id: string;
-  author: "user" | "admin";
+  author: "user" | "admin" | "ai";
   authorName: string;
   body: string;
   createdAt: string;
@@ -40,6 +40,21 @@ function jour(iso: string) {
  * rapporte. Chaque appel ne demande que ce qui suit le dernier message
  * connu, la conversation ne se recharge donc pas en entier.
  *
+ * Un assistant répond d'abord, quand il est disponible. Trois choix le
+ * gouvernent, tous visibles à l'écran :
+ *
+ * - il se présente comme une machine à chaque bulle, sans exception ;
+ * - « Parler à l'équipe » reste offert en permanence, sans avoir à
+ *   argumenter ni à échouer d'abord ;
+ * - il se retire du fil dès qu'on le lui demande, ou dès qu'il reconnaît
+ *   ne pas savoir. Le fil part alors à l'équipe, qui voit tout depuis le
+ *   début.
+ *
+ * L'envoi et la réponse de l'assistant sont deux requêtes distinctes : le
+ * message part et s'affiche tout de suite, la réponse arrive quelques
+ * secondes plus tard. Enchaîner les deux ferait passer l'enregistrement du
+ * message pour lent, et un assistant indisponible ferait échouer l'envoi.
+ *
  * Un compte est nécessaire. Un fil anonyme ne pourrait être retrouvé que
  * par un jeton laissé dans le navigateur, lisible par la personne suivante
  * sur un appareil partagé. Les visiteurs sans compte gardent le formulaire
@@ -51,6 +66,9 @@ export function SupportChat({ onClose }: { onClose: () => void }) {
 
   const [messages, setMessages] = useState<MessageSupport[]>([]);
   const [statutFil, setStatutFil] = useState<"open" | "closed" | null>(null);
+  const [assistantActif, setAssistantActif] = useState(false);
+  const [humainDemande, setHumainDemande] = useState(false);
+  const [assistantEcrit, setAssistantEcrit] = useState(false);
   const [chargement, setChargement] = useState(true);
   const [saisie, setSaisie] = useState("");
   const [envoi, setEnvoi] = useState(false);
@@ -80,6 +98,8 @@ export function SupportChat({ onClose }: { onClose: () => void }) {
       if (!res.ok) throw new Error();
       const data = await res.json();
       setStatutFil(data.thread?.status ?? null);
+      setAssistantActif(Boolean(data.assistant));
+      setHumainDemande(Boolean(data.thread?.humanRequested));
       fusionner(data.messages ?? []);
     },
     [fusionner]
@@ -116,7 +136,29 @@ export function SupportChat({ onClose }: { onClose: () => void }) {
 
   useEffect(() => {
     finRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
-  }, [messages.length]);
+  }, [messages.length, assistantEcrit]);
+
+  /**
+   * Va chercher la réponse de l'assistant.
+   *
+   * Sans bruit en cas d'échec : le message du membre est enregistré, le
+   * fil est dans la boîte de l'équipe, et annoncer « l'assistant n'a pas
+   * pu répondre » n'apprendrait rien d'utile à qui attend de l'aide.
+   */
+  const demanderAssistant = useCallback(async () => {
+    setAssistantEcrit(true);
+    try {
+      const res = await fetch("/api/support/assist", { method: "POST" });
+      if (!res.ok) return;
+      const data = await res.json();
+      if (data.message) fusionner([data.message]);
+      if (data.escalade) setHumainDemande(true);
+    } catch {
+      // idem : silence volontaire.
+    } finally {
+      setAssistantEcrit(false);
+    }
+  }, [fusionner]);
 
   async function envoyer(e: React.FormEvent) {
     e.preventDefault();
@@ -136,10 +178,28 @@ export function SupportChat({ onClose }: { onClose: () => void }) {
       setSaisie("");
       setStatutFil("open");
       fusionner([data.message]);
+      if (data.assistant) void demanderAssistant();
     } catch (err) {
       setErreur(err instanceof Error ? err.message : "Le message n'a pas pu être envoyé.");
     } finally {
       setEnvoi(false);
+    }
+  }
+
+  async function appelerLEquipe() {
+    // Affiché tout de suite : le bouton disparaît, la bannière apparaît.
+    // Un aller-retour serveur avant de réagir donnerait l'impression que
+    // le clic n'a rien fait.
+    setHumainDemande(true);
+    setAssistantActif(false);
+    try {
+      await fetch("/api/support/thread", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ humanRequested: true }),
+      });
+    } catch {
+      // Le prochain rafraîchissement rétablira l'état réel.
     }
   }
 
@@ -201,7 +261,7 @@ export function SupportChat({ onClose }: { onClose: () => void }) {
       ) : (
         <div className="min-h-[16rem] space-y-3">
           {messages.length === 0 ? (
-            <Accueil prenom={session?.user?.name ?? null} />
+            <Accueil prenom={session?.user?.name ?? null} avecAssistant={assistantActif} />
           ) : (
             messages.map((m, i) => {
               const nouveauJour = i === 0 || jour(m.createdAt) !== jour(messages[i - 1].createdAt);
@@ -218,6 +278,30 @@ export function SupportChat({ onClose }: { onClose: () => void }) {
             })
           )}
 
+          {assistantEcrit && <AssistantRedige />}
+
+          {humainDemande && (
+            <p className="flex items-start gap-2 rounded-xl border border-border bg-base px-3.5 py-2.5 text-xs text-ink-muted">
+              <UserRound size={13} className="mt-0.5 shrink-0 text-accent" />
+              <span>
+                L&apos;équipe a été prévenue et vous répondra ici même. Vous recevrez une notification dès que la
+                réponse arrive.
+              </span>
+            </p>
+          )}
+
+          {assistantActif && !humainDemande && messages.length > 0 && (
+            <div className="pt-1 text-center">
+              <button
+                type="button"
+                onClick={appelerLEquipe}
+                className="rounded-full border border-border px-3.5 py-2 text-xs text-ink-muted transition-colors hover:border-accent hover:text-ink"
+              >
+                Parler plutôt à l&apos;équipe
+              </button>
+            </div>
+          )}
+
           {statutFil === "closed" && messages.length > 0 && (
             <p className="pt-2 text-center text-xs text-ink-muted">
               Cette discussion a été close. Écrivez pour la rouvrir.
@@ -230,20 +314,51 @@ export function SupportChat({ onClose }: { onClose: () => void }) {
   );
 }
 
+/** Repère `/aide/mon-article` dans un texte brut et en fait un vrai lien. */
+const LIEN_AIDE = /(\/aide\/[a-z0-9-]+)/g;
+
+function TexteAvecLiens({ texte }: { texte: string }) {
+  // Découpage sur le motif capturant : les segments impairs sont les
+  // liens. On construit des éléments React, jamais du HTML — un message
+  // reste du texte écrit par quelqu'un d'autre.
+  const morceaux = texte.split(LIEN_AIDE);
+  return (
+    <p className="whitespace-pre-line break-words">
+      {morceaux.map((morceau, i) =>
+        i % 2 === 1 ? (
+          <Link key={i} href={morceau} className="underline underline-offset-2 hover:text-accent">
+            {morceau}
+          </Link>
+        ) : (
+          morceau
+        )
+      )}
+    </p>
+  );
+}
+
 function Bulle({ message }: { message: MessageSupport }) {
-  const deLEquipe = message.author === "admin";
+  const duMembre = message.author === "user";
+  const deLIA = message.author === "ai";
   return (
     <AnimatePresence initial={false}>
       <motion.div
         initial={{ opacity: 0, y: 8 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.18 }}
-        className={`flex ${deLEquipe ? "justify-start" : "justify-end"}`}
+        className={`flex ${duMembre ? "justify-end" : "justify-start"}`}
       >
-        <div className={`max-w-[85%] ${deLEquipe ? "" : "text-right"}`}>
-          {deLEquipe && (
+        <div className={`max-w-[85%] ${duMembre ? "text-right" : ""}`}>
+          {!duMembre && (
             <p className="mb-1 flex items-center gap-1.5 text-[11px] text-ink-muted">
-              <Headphones size={11} /> {message.authorName || "Support"}
+              {deLIA ? <Sparkles size={11} className="text-accent" /> : <Headphones size={11} />}
+              {deLIA ? "Assistant" : message.authorName || "Support"}
+              {/* Dit à chaque bulle, et pas seulement au début de la
+                  discussion : quelqu'un qui rouvre le panneau trois jours
+                  plus tard doit savoir qui lui a répondu. */}
+              {deLIA && (
+                <span className="rounded-full border border-accent/40 px-1.5 py-px text-[10px] text-accent">IA</span>
+              )}
             </p>
           )}
           <div
@@ -251,10 +366,10 @@ function Bulle({ message }: { message: MessageSupport }) {
             // deja en surface, une bulle de la meme couleur ne se
             // detacherait pas du fond.
             className={`rounded-xl2 px-3.5 py-2.5 text-left text-sm ${
-              deLEquipe ? "bg-base text-ink" : "bg-accent text-base"
+              duMembre ? "bg-accent text-base" : "bg-base text-ink"
             }`}
           >
-            <p className="whitespace-pre-line break-words">{message.body}</p>
+            <TexteAvecLiens texte={message.body} />
           </div>
           <p className="mt-1 text-[11px] text-ink-muted">{heure(message.createdAt)}</p>
         </div>
@@ -263,18 +378,43 @@ function Bulle({ message }: { message: MessageSupport }) {
   );
 }
 
-function Accueil({ prenom }: { prenom: string | null }) {
+function AssistantRedige() {
+  return (
+    <div className="flex justify-start">
+      <p
+        // `status` et non `alert` : c'est une attente, pas un incident —
+        // un lecteur d'écran ne doit pas interrompre sa lecture pour ça.
+        role="status"
+        className="flex items-center gap-2 rounded-xl2 bg-base px-3.5 py-2.5 text-sm text-ink-muted"
+      >
+        <Sparkles size={13} className="animate-pulse text-accent" />
+        L&apos;assistant rédige une réponse…
+      </p>
+    </div>
+  );
+}
+
+function Accueil({ prenom, avecAssistant }: { prenom: string | null; avecAssistant: boolean }) {
   return (
     <div className="py-8 text-center">
       <span className="mx-auto mb-3 grid h-12 w-12 place-items-center rounded-full bg-accent/10 text-accent">
-        <Headphones size={20} />
+        {avecAssistant ? <Sparkles size={20} /> : <Headphones size={20} />}
       </span>
       <p className="text-sm text-ink">
         {prenom ? `Bonjour ${prenom.split(" ")[0]} !` : "Bonjour !"} Comment pouvons-nous vous aider ?
       </p>
       <p className="mx-auto mt-1.5 max-w-xs text-xs text-ink-muted">
-        Écrivez ci-dessous : notre équipe vous répond ici même, et vous recevez une notification dès que la
-        réponse arrive.
+        {avecAssistant ? (
+          <>
+            Un assistant automatique répond tout de suite à partir du centre d&apos;aide. Vous pouvez demander
+            l&apos;équipe à tout moment, et vous recevez une notification dès qu&apos;elle vous répond.
+          </>
+        ) : (
+          <>
+            Écrivez ci-dessous : notre équipe vous répond ici même, et vous recevez une notification dès que la
+            réponse arrive.
+          </>
+        )}
       </p>
     </div>
   );

@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { ApiError } from "@/lib/apiError";
 import { IDS_RESEAUX, urlSocialeValide } from "@/lib/socialPlatforms";
+import { IDS_FONCTIONNALITES_IA } from "@/lib/ai/features";
 
 /**
  * Valide `data` contre `schema` et lève une ApiError 400 lisible en cas
@@ -263,6 +264,10 @@ export const createPlaylistSchema = z.object({
   description: z.string().max(1000).optional(),
   coverUrl: z.string().url("URL de pochette invalide.").optional().or(z.literal("")),
   isPublic: z.boolean().optional().default(false),
+  // Creation avec son contenu, en une seule requete. Sans cela, une
+  // playlist composee ailleurs (proposition de l'IA) demanderait deux
+  // appels, et un echec entre les deux laisserait une playlist vide.
+  songIds: z.array(z.string().min(1)).max(100).optional(),
 });
 
 export const patchPlaylistSchema = z.object({
@@ -478,4 +483,62 @@ export const inspectImportSchema = z.object({
     )
     .min(1)
     .max(100),
+});
+
+// ---- Assistance par IA ---------------------------------------------------
+
+export const adminAiSettingsSchema = z.object({
+  enabled: z.boolean().optional(),
+  // Les identifiants inconnus sont rejetes plutot qu'ignores : accepter
+  // « moderatoin » en silence eteindrait une fonctionnalite que personne
+  // ne retrouverait ensuite dans la liste.
+  disabled: z.array(z.enum(IDS_FONCTIONNALITES_IA as [string, ...string[]])).max(IDS_FONCTIONNALITES_IA.length).optional(),
+  dailyCallCap: z
+    .number()
+    .int("Le plafond doit être un nombre entier.")
+    .min(0, "Le plafond ne peut pas être négatif.")
+    .max(100000)
+    .optional(),
+});
+
+export const supportHumanSchema = z.object({
+  humanRequested: z.literal(true),
+});
+
+export const aiSongMetadataSchema = z.object({
+  title: z.string().trim().min(1, "Le titre est requis.").max(200),
+  artistName: z.string().trim().max(200).default(""),
+  // Bornees ici et pas seulement a la lecture : ce sont ces textes qui
+  // partent chez le fournisseur, et leur longueur est ce qui fait le prix
+  // de l'appel.
+  lyrics: z.string().max(8000).optional(),
+  album: z.string().trim().max(200).optional(),
+  languages: z.array(z.string().trim().max(40)).min(1).max(12),
+});
+
+export const aiArtistBioSchema = z.object({
+  /** Ce que l'artiste raconte de lui : la seule source biographique. */
+  notes: z.string().max(3000).default(""),
+  /** Biographie en cours de saisie, a reprendre plutot qu'a remplacer. */
+  bio: z.string().max(2000).optional(),
+});
+
+export const aiPlaylistSchema = z.object({
+  demande: z
+    .string()
+    .trim()
+    .min(3, "Décrivez en quelques mots la playlist voulue.")
+    .max(400),
+});
+
+export const aiSearchSchema = z.object({
+  demande: z.string().trim().min(3, "Recherche trop courte.").max(300),
+});
+
+export const aiHelpDraftSchema = z.object({
+  title: z.string().trim().min(3, "Indiquez d'abord le titre de l'article.").max(160),
+  category: z.string().trim().max(60).default(""),
+  notes: z.string().max(4000).default(""),
+  /** Contenu deja saisi, a reprendre plutot qu'a remplacer. */
+  body: z.string().max(6000).optional(),
 });

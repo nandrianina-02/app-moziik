@@ -36,7 +36,8 @@ import { ArtistSinglePicker } from "@/components/modals/ArtistSinglePicker";
 import { uploadToCloudinaryClient } from "@/lib/cloudinaryClient";
 import { readApiError } from "@/lib/readApiError";
 import { useToast } from "@/context/ToastProvider";
-import { useSiteConfig } from "@/context/SiteConfigProvider";
+import { useSiteConfig, useIADisponible } from "@/context/SiteConfigProvider";
+import { SongAiAssist } from "@/components/song/SongAiAssist";
 
 const LANGUAGES = ["Malagasy", "Français", "Anglais", "Autre"];
 // Décalages fixes (pas de gestion de l'heure d'été) — suffisant pour une
@@ -199,6 +200,7 @@ export default function EditSongPage() {
   const [pendingDuration, setPendingDuration] = useState<number | null>(null);
 
   const [tags, setTags] = useState<string[]>([]);
+  const iaPublication = useIADisponible("publication");
   const [extraTouched, setExtraTouched] = useState(false);
 
   const [saving, setSaving] = useState<"draft" | "publish" | null>(null);
@@ -213,6 +215,10 @@ export default function EditSongPage() {
     control,
     watch,
     reset,
+    // Poses par les propositions de l'IA, qui ecrivent dans des champs
+    // que ce formulaire ne pilotait jusqu'ici que par `register`.
+    getValues,
+    setValue,
     formState: { errors, isDirty },
   } = useForm<FormValues>({
     defaultValues: {
@@ -605,6 +611,34 @@ export default function EditSongPage() {
                 <div className="space-y-4">
                   <FormField label="Titre du morceau *" {...register("title", { required: true })} placeholder="Titre du morceau" />
                   {errors.title && <p className="-mt-3 text-xs text-accent">Le titre est requis.</p>}
+
+                  {/* Memes propositions qu'a la publication : sur un titre
+                      deja en ligne, elles servent surtout a completer les
+                      mots-cles et la description restes vides. */}
+                  <SongAiAssist
+                    disponible={iaPublication}
+                    langues={LANGUAGES}
+                    donnees={() => ({
+                      title: getValues("title"),
+                      artistName: targetArtist?.stageName ?? song?.artist?.stageName ?? "",
+                      lyrics: getValues("lyrics"),
+                      album: albums.find((a) => a._id === getValues("albumId"))?.title,
+                    })}
+                    valeurs={{
+                      genre: watch("genre"),
+                      language: watch("language"),
+                      tags,
+                      description: watch("description"),
+                    }}
+                    onAppliquer={(champs) => {
+                      if (champs.genre !== undefined) setValue("genre", champs.genre, { shouldDirty: true });
+                      if (champs.language !== undefined)
+                        setValue("language", champs.language, { shouldDirty: true });
+                      if (champs.description !== undefined)
+                        setValue("description", champs.description, { shouldDirty: true });
+                      if (champs.tags) handleTagsChange(champs.tags);
+                    }}
+                  />
 
                   <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                     <label className="block">

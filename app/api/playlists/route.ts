@@ -3,6 +3,7 @@ import { connectDB } from "@/lib/db";
 import Playlist from "@/models/Playlist";
 import { withApiErrors } from "@/lib/apiError";
 import { parseOrThrow, createPlaylistSchema } from "@/lib/validation";
+import { idsPublies } from "@/lib/publishedSongs";
 import { requireAuthUser } from "@/lib/mobileAuth";
 
 export const GET = withApiErrors(async (req: Request) => {
@@ -27,16 +28,25 @@ export const GET = withApiErrors(async (req: Request) => {
 export const POST = withApiErrors(async (req: Request) => {
   const authUser = await requireAuthUser(req);
 
-  const { title, description, coverUrl, isPublic } = parseOrThrow(createPlaylistSchema, await req.json());
+  const { title, description, coverUrl, isPublic, songIds } = parseOrThrow(
+    createPlaylistSchema,
+    await req.json()
+  );
 
   await connectDB();
+
+  // Les identifiants recus sont filtres sur ce qui existe et est publie :
+  // une playlist creee avec son contenu ne doit pas pouvoir contenir un
+  // brouillon d'artiste ou un identifiant invente.
+  const songs = songIds?.length ? await idsPublies(songIds) : [];
+
   const playlist = await Playlist.create({
     title,
     description,
     coverUrl,
     isPublic,
     owner: authUser.id,
-    songs: [],
+    songs,
   });
 
   return NextResponse.json({ playlist }, { status: 201 });

@@ -18,6 +18,7 @@ import {
   Wifi,
   Gauge,
   Plus,
+  Sparkles,
 } from "lucide-react";
 import { SongTable } from "@/components/music/SongTable";
 import { SongCard } from "@/components/home/SongCard";
@@ -30,6 +31,7 @@ import { LibrarySectionHeader } from "@/components/library/LibrarySectionHeader"
 import { AlbumCard } from "@/components/library/AlbumCard";
 import { ArtistListItem } from "@/components/library/ArtistListItem";
 import { CreatePlaylistTile } from "@/components/library/CreatePlaylistTile";
+import { AiPlaylistModal } from "@/components/playlist/AiPlaylistModal";
 import {
   listOfflineSongs,
   cleanupUnplayedSince,
@@ -45,6 +47,7 @@ import {
 } from "@/lib/offlineSettings";
 import { useAsyncData, getJson } from "@/hooks/useAsyncData";
 import { useToast } from "@/context/ToastProvider";
+import { useIADisponible } from "@/context/SiteConfigProvider";
 import type { PlayableSong } from "@/context/PlayerProvider";
 
 type Playlist ={ _id: string; title: string; coverUrl?: string; songs: string[] };
@@ -70,6 +73,8 @@ export default function LibraryPage() {
   const { status } = useSession();
   const pushToast = useToast();
   const [tab, setTab] = useState<LibraryTabKey>("tout");
+  const [composerOuvert, setComposerOuvert] = useState(false);
+  const iaPlaylist = useIADisponible("playlist");
 
   const isAuthed = status === "authenticated";
 
@@ -394,6 +399,19 @@ export default function LibraryPage() {
             {/* La tuile de création reste utilisable pendant le chargement :
                 elle ne dépend d'aucune donnée distante. */}
             <CreatePlaylistTile onCreated={handlePlaylistCreated} />
+            {/* Tuile jumelle : meme place, meme forme. Absente quand
+                l'assistance n'est pas disponible, plutot qu'affichee et
+                inerte. */}
+            {iaPlaylist && (
+              <button
+                type="button"
+                onClick={() => setComposerOuvert(true)}
+                className="flex aspect-square w-full flex-col items-center justify-center gap-2 rounded-xl2 border border-dashed border-border text-ink-muted transition-colors hover:border-accent hover:text-accent"
+              >
+                <Sparkles size={22} />
+                <span className="px-2 text-center text-xs font-medium">Composer avec l&apos;IA</span>
+              </button>
+            )}
             {playlistsLoading && Array.from({ length: 4 }).map((_, i) => <SkeletonCard key={i} />)}
             {playlists.map((playlist) => (
               <Link key={playlist._id} href={`/playlist/${playlist._id}`}>
@@ -576,6 +594,13 @@ export default function LibraryPage() {
         {/* Sections éditoriales pilotées depuis l'administration. */}
         <PageSections page="library" className="mt-12" />
       </div>
+
+      {composerOuvert && (
+        <AiPlaylistModal
+          onClose={() => setComposerOuvert(false)}
+          onCreated={handlePlaylistCreated}
+        />
+      )}
     </div>
   );
 }

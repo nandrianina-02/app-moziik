@@ -34,6 +34,7 @@ function fallbackSiteConfig() {
     legalAddress: "Antananarivo, Madagascar",
     legalWebsite: `www.${defaultSiteConfig.siteName.toLowerCase()}.com`,
     legalUpdatedAt: new Date(),
+    socialLinks: [] as { platform: string; url: string }[],
     updatedAt: new Date(),
   };
 }

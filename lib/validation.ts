@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { ApiError } from "@/lib/apiError";
+import { IDS_RESEAUX, urlSocialeValide } from "@/lib/socialPlatforms";
 
 /**
  * Valide `data` contre `schema` et lève une ApiError 400 lisible en cas
@@ -390,6 +391,37 @@ export const adminHomepageSectionCreateSchema = z.object({
   page: z.enum(["home", "discover", "radio", "library", "detail"]).optional(),
 });
 
+// Chat de support. Corps en texte brut, borne : un message est ecrit par
+// un inconnu et s affiche dans le navigateur de l equipe.
+export const supportMessageSchema = z.object({
+  body: z.string().trim().min(1, "Le message est vide.").max(4000),
+});
+
+export const supportThreadPatchSchema = z.object({
+  status: z.enum(["open", "closed"]),
+});
+
+// Centre d aide. Le corps est du texte brut : il est rendu paragraphe par
+// paragraphe, jamais interprete comme du HTML, pour qu un article redige en
+// administration ne puisse pas injecter de balise sur une page publique.
+export const helpArticleCreateSchema = z.object({
+  title: z.string().trim().min(3, "Le titre est requis.").max(160),
+  category: z.string().trim().min(1, "La categorie est requise.").max(60),
+  excerpt: z.string().trim().max(300).optional(),
+  body: z.string().trim().min(10, "Le contenu est requis.").max(20000),
+  position: z.number().int().min(0).max(999).optional(),
+  published: z.boolean().optional(),
+});
+
+export const helpArticlePatchSchema = z.object({
+  title: z.string().trim().min(3).max(160).optional(),
+  category: z.string().trim().min(1).max(60).optional(),
+  excerpt: z.string().trim().max(300).optional(),
+  body: z.string().trim().min(10).max(20000).optional(),
+  position: z.number().int().min(0).max(999).optional(),
+  published: z.boolean().optional(),
+});
+
 export const adminSiteConfigPatchSchema = z.object({
   siteName: z.string().trim().min(1).max(80).optional(),
   tagline: z.string().max(200).optional(),
@@ -415,6 +447,22 @@ export const adminSiteConfigPatchSchema = z.object({
   legalAddress: z.string().max(300).optional(),
   legalWebsite: z.string().max(200).optional(),
   legalUpdatedAt: z.coerce.date().optional(),
+  // Le protocole est verrouille cote schema : une URL `javascript:` saisie
+  // en administration deviendrait sinon un lien executable pour tous les
+  // visiteurs.
+  socialLinks: z
+    .array(
+      z.object({
+        platform: z.enum(IDS_RESEAUX),
+        url: z
+          .string()
+          .trim()
+          .max(300)
+          .refine(urlSocialeValide, "Le lien doit commencer par http:// ou https://."),
+      })
+    )
+    .max(IDS_RESEAUX.length)
+    .optional(),
 });
 
 // Import groupé de l'administration : le navigateur envoie les titres et

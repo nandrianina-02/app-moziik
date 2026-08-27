@@ -26,6 +26,9 @@ export interface ISiteConfig {
   legalAddress: string; // adresse du siège affichée dans les mentions légales
   legalWebsite: string; // URL affichée dans les mentions légales
   legalUpdatedAt: Date; // date de "dernière mise à jour" affichée sur la page
+  // Réseaux sociaux officiels — affichés sur /contact et dans le pied de
+  // page. Le catalogue des plateformes vit dans lib/socialPlatforms.ts.
+  socialLinks: { platform: string; url: string }[];
   updatedAt: Date;
 }
 
@@ -52,6 +55,10 @@ const SiteConfigSchema = new Schema<ISiteConfig>({
   legalAddress: { type: String, default: "" },
   legalWebsite: { type: String, default: "" },
   legalUpdatedAt: { type: Date, default: Date.now },
+  socialLinks: {
+    type: [{ platform: { type: String, required: true }, url: { type: String, required: true } }],
+    default: [],
+  },
   updatedAt: { type: Date, default: Date.now },
 });
 

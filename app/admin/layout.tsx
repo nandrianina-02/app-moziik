@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { LayoutDashboard, Users, Music, Disc3, ListMusic, MessageCircle, CalendarDays, Settings, Award, Home, UploadCloud } from "lucide-react";
+import { LayoutDashboard, Users, Music, Disc3, ListMusic, MessageCircle, CalendarDays, Settings, Award, Home, UploadCloud, LifeBuoy, Inbox } from "lucide-react";
 
 const links = [
   { href: "/admin", label: "Vue d'ensemble", icon: LayoutDashboard },
@@ -13,8 +13,10 @@ const links = [
   { href: "/admin/albums", label: "Albums", icon: Disc3 },
   { href: "/admin/playlists", label: "Playlists", icon: ListMusic },
   { href: "/admin/commentaires", label: "Commentaires", icon: MessageCircle },
+  { href: "/admin/messages", label: "Messages", icon: Inbox },
   { href: "/admin/evenements", label: "Évènements", icon: CalendarDays },
   { href: "/admin/badges", label: "Badges", icon: Award },
+  { href: "/admin/aide", label: "Centre d'aide", icon: LifeBuoy },
   { href: "/admin/parametres", label: "Paramètres du site", icon: Settings },
 ];
 

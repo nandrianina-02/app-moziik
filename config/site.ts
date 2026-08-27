@@ -24,6 +24,12 @@ export type SiteConfig = {
   legalRcsNumber: string;
   legalAddress: string;
   legalWebsite: string;
+  /**
+   * Réseaux sociaux officiels, modifiables dans /admin/parametres.
+   * Vide par défaut : mieux vaut n'afficher aucun réseau que renvoyer
+   * vers des comptes qui n'existent pas.
+   */
+  socialLinks: { platform: string; url: string }[];
 };
 
 export const defaultSiteConfig: SiteConfig = {
@@ -42,4 +48,5 @@ export const defaultSiteConfig: SiteConfig = {
   legalRcsNumber: "123 456 789",
   legalAddress: "Antananarivo, Madagascar",
   legalWebsite: "www.moziik.com",
+  socialLinks: [],
 };

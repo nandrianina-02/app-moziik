@@ -8,6 +8,7 @@ import { FormField } from "@/components/ui/FormField";
 import { TagInput } from "@/components/ui/TagInput";
 import { useToast } from "@/context/ToastProvider";
 import { uploadToCloudinaryClient } from "@/lib/cloudinaryClient";
+import { RESEAUX, urlSocialeValide, type IdentifiantReseau } from "@/lib/socialPlatforms";
 
 type PlanPricing = { plan: "premium" | "premium_annual"; amountUSD: number; amountMGA: number };
 
@@ -27,6 +28,7 @@ type SiteConfigForm = {
   legalAddress: string;
   legalWebsite: string;
   legalUpdatedAt: string;
+  socialLinks: { platform: IdentifiantReseau; url: string }[];
 };
 
 export default function AdminSettingsPage() {
@@ -42,7 +44,7 @@ export default function AdminSettingsPage() {
         const res = await fetch("/api/admin/site-config");
         if (!res.ok) throw new Error();
         const data = await res.json();
-        setConfig(data.config);
+        setConfig({ ...data.config, socialLinks: data.config.socialLinks ?? [] });
         setLogoUrlInput(data.config.logoUrl ?? "");
       } catch {
         pushToast("error", "Impossible de charger les paramètres.");
@@ -108,7 +110,12 @@ export default function AdminSettingsPage() {
       const res = await fetch("/api/admin/site-config", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(config),
+        body: JSON.stringify({
+          ...config,
+          // Une ligne laissée en blanc ferait échouer tout l'enregistrement :
+          // le schéma exige une URL http(s) valide sur chaque entrée.
+          socialLinks: config.socialLinks.filter((l) => urlSocialeValide(l.url)),
+        }),
       });
       if (!res.ok) throw new Error();
       pushToast("success", "Paramètres enregistrés.");
@@ -256,6 +263,57 @@ export default function AdminSettingsPage() {
           value={config.payPerListenRateUSD}
           onChange={(e) => setConfig({ ...config, payPerListenRateUSD: Number(e.target.value) })}
         />
+      </section>
+
+      <section className="space-y-3">
+        <h2 className="text-sm uppercase tracking-wide text-ink-muted">Réseaux sociaux</h2>
+        <p className="-mt-1 text-xs text-ink-muted">
+          Affichés sur la page de contact. Un réseau laissé vide n&apos;apparaît pas.
+        </p>
+        <div className="space-y-2">
+          {RESEAUX.map((reseau) => {
+            const courant = config.socialLinks.find((l) => l.platform === reseau.id);
+            const valeur = courant?.url ?? "";
+            const invalide = valeur.trim().length > 0 && !urlSocialeValide(valeur);
+            return (
+              <div key={reseau.id} className="flex flex-wrap items-center gap-3">
+                <span className="flex w-32 shrink-0 items-center gap-2 text-sm text-ink">
+                  <span
+                    className="h-2.5 w-2.5 shrink-0 rounded-full"
+                    style={{ backgroundColor: reseau.couleur }}
+                    aria-hidden
+                  />
+                  {reseau.label}
+                </span>
+                <div className="min-w-[12rem] flex-1">
+                  <input
+                    type="url"
+                    inputMode="url"
+                    value={valeur}
+                    aria-label={`Lien ${reseau.label}`}
+                    placeholder={reseau.exemple}
+                    onChange={(e) => {
+                      const url = e.target.value;
+                      const autres = config.socialLinks.filter((l) => l.platform !== reseau.id);
+                      setConfig({
+                        ...config,
+                        socialLinks: url.trim() ? [...autres, { platform: reseau.id, url }] : autres,
+                      });
+                    }}
+                    className={`w-full rounded-xl border bg-base px-4 py-2.5 text-sm outline-none focus:border-accent ${
+                      invalide ? "border-accent" : "border-border"
+                    }`}
+                  />
+                  {invalide && (
+                    <p className="mt-1 text-xs text-accent">
+                      Le lien doit commencer par http:// ou https:// — sinon il ne sera pas enregistré.
+                    </p>
+                  )}
+                </div>
+              </div>
+            );
+          })}
+        </div>
       </section>
 
       <section className="space-y-4">

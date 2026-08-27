@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getSiteConfig } from "@/lib/siteConfig";
 import { withApiErrors } from "@/lib/apiError";
+import { liensSociauxUtilisables } from "@/lib/socialPlatforms";
 
 // Sans ça, cette route (qui ne lit ni cookies ni headers) est traitée
 // comme statique par Next.js et figée au build : les modifications de
@@ -25,6 +26,9 @@ export const GET = withApiErrors(async () => {
       legalAddress: config.legalAddress,
       legalWebsite: config.legalWebsite,
       legalUpdatedAt: config.legalUpdatedAt,
+      // Nettoyes ici et pas seulement a la saisie : la base peut
+      // contenir des liens ecrits avant que le schema ne filtre.
+      socialLinks: liensSociauxUtilisables(config.socialLinks),
     },
     { headers: { "Cache-Control": "no-store" } }
   );

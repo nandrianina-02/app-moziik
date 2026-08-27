@@ -16,6 +16,7 @@ type PublicSiteConfig = Pick<
   | "legalRcsNumber"
   | "legalAddress"
   | "legalWebsite"
+  | "socialLinks"
 > & { copyrightText?: string; legalUpdatedAt?: string };
 
 const SiteConfigContext = createContext<PublicSiteConfig>(defaultSiteConfig);

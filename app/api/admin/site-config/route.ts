@@ -31,6 +31,7 @@ export const PATCH = withApiErrors(async (req: Request) => {
     "legalAddress",
     "legalWebsite",
     "legalUpdatedAt",
+    "socialLinks",
   ];
 
   const config = await getSiteConfig();

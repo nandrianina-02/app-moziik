@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { motion, AnimatePresence } from "framer-motion";
 import {
@@ -24,6 +24,9 @@ import {
 import { useToast } from "@/context/ToastProvider";
 import { useSiteConfig } from "@/context/SiteConfigProvider";
 import { uploadToCloudinaryClient } from "@/lib/cloudinaryClient";
+import { SupportChat } from "@/components/support/SupportChat";
+import { SocialLinks } from "@/components/social/SocialLinks";
+import type { LienSocial } from "@/lib/socialPlatforms";
 
 const MESSAGE_MAX = 1000;
 const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10 Mo
@@ -68,9 +71,30 @@ export default function ContactPage() {
   const [sent, setSent] = useState(false);
   const [openFaq, setOpenFaq] = useState<number | null>(null);
   const [showAllFaq, setShowAllFaq] = useState(false);
+  const [chatOuvert, setChatOuvert] = useState(false);
+  const [reseauxDeplies, setReseauxDeplies] = useState(false);
+  /** Questions du centre d'aide ; la FAQ écrite en dur sert de repli. */
+  const [aide, setAide] = useState<{ title: string; slug: string; excerpt: string }[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const visibleFaq = showAllFaq ? faqItems : faqItems.slice(0, 3);
+  // Le centre d'aide alimente la FAQ dès qu'il contient des articles. Tant
+  // qu'il est vide — ou injoignable — la liste écrite dans ce fichier reste
+  // affichée : une page de contact sans aucune réponse serait une
+  // régression par rapport à ce qui existait.
+  useEffect(() => {
+    const controleur = new AbortController();
+    fetch("/api/help?limit=6", { signal: controleur.signal })
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => data?.articles?.length && setAide(data.articles))
+      .catch(() => undefined);
+    return () => controleur.abort();
+  }, []);
+
+  const questions =
+    aide.length > 0
+      ? aide.map((a) => ({ q: a.title, a: a.excerpt, slug: a.slug }))
+      : faqItems.map((f) => ({ ...f, slug: null as string | null }));
+  const visibleFaq = showAllFaq ? questions : questions.slice(0, 3);
 
   function validate(): FieldErrors {
     const next: FieldErrors = {};
@@ -134,6 +158,8 @@ export default function ContactPage() {
     }
   }
 
+  const reseaux = (siteConfig.socialLinks ?? []) as LienSocial[];
+
   const contactMethods = useMemo(
     () => [
       {
@@ -145,23 +171,32 @@ export default function ContactPage() {
       {
         icon: MessageCircle,
         title: "Chat en direct",
-        subtitle: "Disponible 9h – 18h (Lun – Ven)",
-        href: undefined,
+        subtitle: "Notre équipe vous répond ici même",
+        onClick: () => setChatOuvert(true),
       },
       {
         icon: HelpCircle,
         title: "Centre d'aide",
-        subtitle: "Trouve rapidement des réponses",
-        href: undefined,
+        subtitle: "Trouvez une réponse en quelques secondes",
+        href: "/aide",
       },
-      {
-        icon: Share2,
-        title: "Réseaux sociaux",
-        subtitle: "Suis-nous sur nos réseaux",
-        href: undefined,
-      },
+      // Rien à suivre tant qu'aucun réseau n'est renseigné en
+      // administration : la carte disparaît plutôt que de promettre des
+      // liens qui n'existent pas.
+      ...(reseaux.length > 0
+        ? [
+            {
+              icon: Share2,
+              title: "Réseaux sociaux",
+              subtitle: `${reseaux.length} compte${reseaux.length > 1 ? "s" : ""} officiel${
+                reseaux.length > 1 ? "s" : ""
+              }`,
+              onClick: () => setReseauxDeplies((v) => !v),
+            },
+          ]
+        : []),
     ],
-    [siteConfig.supportEmail]
+    [siteConfig.supportEmail, reseaux.length]
   );
 
   return (
@@ -425,26 +460,58 @@ export default function ContactPage() {
           >
             <h2 className="mb-4 text-base font-semibold text-ink">Autres moyens de nous contacter</h2>
             <div className="space-y-1">
-              {contactMethods.map(({ icon: Icon, title, subtitle, href }) => {
+              {contactMethods.map(({ icon: Icon, title, subtitle, href, onClick }) => {
                 const content = (
                   <>
                     <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-accent/10 text-accent">
                       <Icon size={18} />
                     </span>
-                    <span className="min-w-0 flex-1">
+                    <span className="min-w-0 flex-1 text-left">
                       <span className="block text-sm font-medium text-ink">{title}</span>
                       <span className="block truncate text-xs text-ink-muted">{subtitle}</span>
                     </span>
-                    <ChevronRight size={16} className="shrink-0 text-ink-muted" />
+                    <ChevronRight
+                      size={16}
+                      className={`shrink-0 text-ink-muted transition-transform ${
+                        title === "Réseaux sociaux" && reseauxDeplies ? "rotate-90" : ""
+                      }`}
+                    />
                   </>
                 );
-                return href ? (
-                  <a key={title} href={href} className="flex items-center gap-3 rounded-xl px-2 py-2.5 transition-colors hover:bg-base">
-                    {content}
-                  </a>
-                ) : (
-                  <div key={title} className="flex items-center gap-3 rounded-xl px-2 py-2.5">
-                    {content}
+                const classes =
+                  "flex w-full items-center gap-3 rounded-xl px-2 py-2.5 transition-colors hover:bg-base";
+                return (
+                  <div key={title}>
+                    {href ? (
+                      href.startsWith("/") ? (
+                        <Link href={href} className={classes}>
+                          {content}
+                        </Link>
+                      ) : (
+                        <a href={href} className={classes}>
+                          {content}
+                        </a>
+                      )
+                    ) : (
+                      <button type="button" onClick={onClick} className={classes}>
+                        {content}
+                      </button>
+                    )}
+                    {title === "Réseaux sociaux" && (
+                      <AnimatePresence initial={false}>
+                        {reseauxDeplies && (
+                          <motion.div
+                            initial={{ opacity: 0, height: 0 }}
+                            animate={{ opacity: 1, height: "auto" }}
+                            exit={{ opacity: 0, height: 0 }}
+                            transition={{ duration: 0.2 }}
+                            className="overflow-hidden"
+                          >
+                            <SocialLinks liens={reseaux} className="px-2 pb-2 pt-1" />
+                          </motion.div>
+                        )}
+                      </AnimatePresence>
+                    )}
                   </div>
                 );
               })}
@@ -499,6 +566,14 @@ export default function ContactPage() {
                           className="overflow-hidden pb-3 text-xs leading-relaxed text-ink-muted"
                         >
                           {item.a}
+                          {item.slug && (
+                            <Link
+                              href={`/aide/${item.slug}`}
+                              className="ml-1 whitespace-nowrap font-medium text-accent hover:underline"
+                            >
+                              Lire l&apos;article
+                            </Link>
+                          )}
                         </motion.p>
                       )}
                     </AnimatePresence>
@@ -506,7 +581,7 @@ export default function ContactPage() {
                 );
               })}
             </div>
-            {faqItems.length > 3 && (
+            {questions.length > 3 && (
               <button
                 onClick={() => setShowAllFaq((v) => !v)}
                 className="mt-2 flex items-center gap-1 text-sm font-medium text-accent hover:underline"
@@ -515,9 +590,18 @@ export default function ContactPage() {
                 <ChevronRight size={14} />
               </button>
             )}
+            <Link
+              href="/aide"
+              className="mt-3 flex items-center gap-1 text-xs text-ink-muted transition-colors hover:text-accent"
+            >
+              Parcourir tout le centre d&apos;aide
+              <ChevronRight size={12} />
+            </Link>
           </motion.div>
         </div>
       </div>
+
+      {chatOuvert && <SupportChat onClose={() => setChatOuvert(false)} />}
     </div>
   );
 }

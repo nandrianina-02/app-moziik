@@ -1,0 +1,97 @@
+apply plugin: 'com.android.application'
+
+// Signature de la version de production.
+//
+// Les identifiants ne sont PAS dans ce fichier : ils sont lus depuis
+// android/keystore.properties, ignore par git (voir android/.gitignore).
+// Absent, la compilation reste possible - `assembleDebug` et `assembleRelease`
+// fonctionnent - mais l'AAB produit n'est pas signe pour le Store.
+//
+// Contenu attendu de android/keystore.properties :
+//
+//   storeFile=../moziik-release.jks
+//   storePassword=...
+//   keyAlias=moziik
+//   keyPassword=...
+//
+// En integration continue, ces quatre valeurs viennent de secrets et le
+// fichier est ecrit juste avant la compilation.
+def proprietesKeystore = new Properties()
+def fichierKeystore = rootProject.file('keystore.properties')
+if (fichierKeystore.exists()) {
+    fichierKeystore.withInputStream { proprietesKeystore.load(it) }
+}
+
+android {
+    namespace "com.moziik.app"
+    compileSdk rootProject.ext.compileSdkVersion
+    defaultConfig {
+        applicationId "com.moziik.app"
+        minSdkVersion rootProject.ext.minSdkVersion
+        targetSdkVersion rootProject.ext.targetSdkVersion
+        versionCode 1
+        versionName "1.0"
+        testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
+        aaptOptions {
+             // Files and dirs to omit from the packaged assets dir, modified to accommodate modern web apps.
+             // Default: https://android.googlesource.com/platform/frameworks/base/+/282e181b58cf72b6ca770dc7ca5f91f135444502/tools/aapt/AaptAssets.cpp#61
+            ignoreAssetsPattern '!.svn:!.git:!.ds_store:!*.scc:.*:!CVS:!thumbs.db:!picasa.ini:!*~'
+        }
+    }
+    signingConfigs {
+        release {
+            if (proprietesKeystore.containsKey('storeFile')) {
+                storeFile file(proprietesKeystore['storeFile'])
+                storePassword proprietesKeystore['storePassword']
+                keyAlias proprietesKeystore['keyAlias']
+                keyPassword proprietesKeystore['keyPassword']
+            }
+        }
+    }
+
+    buildTypes {
+        release {
+            // Laisse a false, comme le veut le modele Capacitor : R8
+            // supprimerait les classes de plugin, qui ne sont referencees
+            // que par reflexion depuis le pont (Bridge.registerPlugin).
+            // MoziikAudioPlugin disparaitrait du binaire de production
+            // alors qu'il fonctionne parfaitement en debug - panne
+            // classique, et penible a diagnostiquer.
+            minifyEnabled false
+            proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
+            if (proprietesKeystore.containsKey('storeFile')) {
+                signingConfig signingConfigs.release
+            }
+        }
+    }
+}
+
+repositories {
+    flatDir{
+        dirs '../capacitor-cordova-android-plugins/src/main/libs', 'libs'
+    }
+}
+
+dependencies {
+    implementation fileTree(include: ['*.jar'], dir: 'libs')
+    implementation "androidx.appcompat:appcompat:$androidxAppCompatVersion"
+    implementation "androidx.coordinatorlayout:coordinatorlayout:$androidxCoordinatorLayoutVersion"
+    implementation "androidx.core:core-splashscreen:$coreSplashScreenVersion"
+    implementation "androidx.media:media:$androidxMediaVersion"
+    implementation project(':capacitor-android')
+    testImplementation "junit:junit:$junitVersion"
+    androidTestImplementation "androidx.test.ext:junit:$androidxJunitVersion"
+    androidTestImplementation "androidx.test.espresso:espresso-core:$androidxEspressoCoreVersion"
+    implementation project(':capacitor-cordova-android-plugins')
+}
+
+apply from: 'capacitor.build.gradle'
+
+try {
+    def servicesJSON = file('google-services.json')
+    if (servicesJSON.text) {
+        apply plugin: 'com.google.gms.google-services'
+    }
+} catch(Exception e) {
+    logger.info("google-services.json not found, google-services plugin not applied. Push Notifications won't work")
+}

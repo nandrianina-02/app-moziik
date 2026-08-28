@@ -143,6 +143,38 @@ Tous les modèles vivent dans `models/` : `User`, `Artist`, `Song`,
   pour un rendu optimal, prévoir un logo carré ≥512×512
 - `/contact` a besoin des variables SMTP déjà configurées en Phase 2
 
+## Application Android
+
+Le dossier `android/` est une coquille Capacitor qui affiche **le site
+déployé**, et non une seconde interface : il n'y a donc aucune page à
+maintenir en double, et un correctif mis en ligne est dans l'app au
+déploiement suivant, sans revue du Play Store.
+
+Ce que la coquille ajoute par-dessus la PWA — et que le navigateur ne sait
+pas faire sur Android :
+
+- la lecture survit à l'écran éteint (service de premier plan
+  `MoziikAudioService`) ; sans lui, Android gèle le processus au bout de
+  quelques minutes et le son s'arrête sans prévenir
+- une vraie notification média : pochette, commandes, barre de progression,
+  écran verrouillé, boutons de casque Bluetooth
+- le bouton Retour matériel, les liens Moziik qui ouvrent l'app, la barre
+  d'état qui suit le thème
+
+Le pont natif est injecté par Capacitor dans le site distant, si bien que
+`lib/native/pont.ts` lit directement `window.Capacitor` : **aucun paquet
+Capacitor n'entre dans le bundle web**, les visiteurs du site ne paient rien
+pour l'app.
+
+Installation de la chaîne de build, signature, liens profonds et publication
+sur le Store : voir **[ANDROID.md](ANDROID.md)**.
+
+```powershell
+npm run android:sync   # recopie la config dans android/
+npm run android:apk    # APK de test
+npm run android:aab    # bundle pour le Play Store
+```
+
 ## Assistance par IA
 
 Douze endroits appellent le modèle. Une seule variable les commande :

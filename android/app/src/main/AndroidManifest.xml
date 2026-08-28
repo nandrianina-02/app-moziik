@@ -1,0 +1,115 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <application
+        android:allowBackup="true"
+        android:icon="@mipmap/ic_launcher"
+        android:label="@string/app_name"
+        android:roundIcon="@mipmap/ic_launcher_round"
+        android:supportsRtl="true"
+        android:hardwareAccelerated="true"
+        android:theme="@style/AppTheme">
+        <activity
+            android:configChanges="orientation|keyboardHidden|keyboard|screenSize|locale|smallestScreenSize|screenLayout|uiMode"
+            android:name=".MainActivity"
+            android:label="@string/title_activity_main"
+            android:theme="@style/AppTheme.NoActionBarLaunch"
+            android:launchMode="singleTask"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+
+            <!--
+                App Links : un lien moziik partage dans WhatsApp ou par SMS
+                ouvre l'application directement sur le titre, et non le
+                navigateur. C'est ce qui rend utile le bouton « Partager »
+                deja present dans components/share/.
+
+                autoVerify demande a Android de verifier, a l'installation,
+                que le domaine reconnait l'application - via le fichier
+                /.well-known/assetlinks.json servi par app/well-known/. Sans
+                cette verification reussie, Android affiche un selecteur
+                « ouvrir avec » au lieu d'aller droit dans l'app.
+            -->
+            <intent-filter android:autoVerify="true">
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="https" android:host="app-moziik.vercel.app" />
+            </intent-filter>
+
+            <!--
+                Schema prive, utilise pour une seule chose : le retour du
+                navigateur systeme apres une connexion Google (voir
+                lib/native/authGoogle.ts). Google refuse OAuth dans une
+                WebView, le flux passe donc par un onglet Chrome qui
+                revient ici.
+            -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="moziik" />
+            </intent-filter>
+        </activity>
+
+        <!--
+            Service de lecture en arriere-plan. exported=false : personne
+            d'autre que l'app n'a de raison de le demarrer.
+
+            foregroundServiceType est obligatoire depuis Android 10 pour un
+            service qui joue du son, et Android 14 refuse purement et
+            simplement de demarrer un service de premier plan dont le type
+            n'est pas declare ici ET couvert par une permission.
+        -->
+        <service
+            android:name=".MoziikAudioService"
+            android:exported="false"
+            android:foregroundServiceType="mediaPlayback">
+            <intent-filter>
+                <action android:name="android.intent.action.MEDIA_BUTTON" />
+            </intent-filter>
+        </service>
+
+        <!--
+            Recoit les appuis sur les boutons des casques filaires et
+            Bluetooth, y compris ecran eteint et application fermee, et les
+            redirige vers le service. MediaSessionCompat cherche ce
+            recepteur dans le manifeste a sa construction : sans lui, le
+            bouton pause d'un casque reste sans effet.
+        -->
+        <receiver android:name="androidx.media.session.MediaButtonReceiver" android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.MEDIA_BUTTON" />
+            </intent-filter>
+        </receiver>
+
+        <provider
+            android:name="androidx.core.content.FileProvider"
+            android:authorities="${applicationId}.fileprovider"
+            android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data android:name="android.support.FILE_PROVIDER_PATHS" android:resource="@xml/file_paths" />
+        </provider>
+    </application>
+
+    <!-- Permissions -->
+
+    <uses-permission android:name="android.permission.INTERNET" />
+
+    <!-- Lue par @capacitor/network, qui alimente OnlineStatusProvider. -->
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+
+    <!-- Service de lecture. Aucune boite de dialogue : accordees a l'installation. -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK" />
+
+    <!--
+        Android 13+ uniquement, et celle-ci EST demandee a l'auditeur
+        (MoziikAudioPlugin.activer). Refusee, la lecture continue tant que
+        l'app est a l'ecran mais s'arrete une fois l'ecran eteint : le
+        service de premier plan a besoin d'une notification visible.
+    -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+</manifest>

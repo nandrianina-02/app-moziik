@@ -6,10 +6,25 @@
     "dev": "next dev",
     "build": "node --max-old-space-size=4096 ./node_modules/next/dist/bin/next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "next lint",
+    "android:sync": "cap sync android",
+    "android:open": "cap open android",
+    "android:apk": "cap sync android && cd android && gradlew.bat assembleDebug",
+    "android:aab": "cap sync android && cd android && gradlew.bat bundleRelease"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.121.0",
+    "@capacitor/android": "^6.2.1",
+    "@capacitor/app": "^6.0.3",
+    "@capacitor/browser": "^6.0.6",
+    "@capacitor/core": "^6.2.1",
+    "@capacitor/filesystem": "^6.0.4",
+    "@capacitor/haptics": "^6.0.3",
+    "@capacitor/network": "^6.0.4",
+    "@capacitor/preferences": "^6.0.4",
+    "@capacitor/share": "^6.0.4",
+    "@capacitor/splash-screen": "^6.0.4",
+    "@capacitor/status-bar": "^6.0.3",
     "bcryptjs": "2.4.3",
     "cloudinary": "^2.10.0",
     "clsx": "2.1.1",
@@ -31,6 +46,8 @@
     "zod-to-json-schema": "^3.25.2"
   },
   "devDependencies": {
+    "@capacitor/assets": "^3.0.5",
+    "@capacitor/cli": "^6.2.1",
     "@types/bcryptjs": "2.4.6",
     "@types/jsonwebtoken": "^9.0.7",
     "@types/node": "20.14.13",

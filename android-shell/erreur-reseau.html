@@ -1,0 +1,123 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>Moziik — hors connexion</title>
+<!--
+  Seule page embarquée dans l'APK. Capacitor la charge (server.errorPath)
+  quand le site est injoignable au lancement ou quand la WebView du système
+  est trop ancienne pour recevoir le pont natif.
+
+  Tout est en dur ici — couleurs, polices système, aucun asset externe :
+  cette page doit s'afficher précisément dans le cas où plus rien ne se
+  charge. Les valeurs reprennent les tokens de app/globals.css.
+-->
+<style>
+  :root {
+    --base: #0D0F1A;
+    --surface: #161927;
+    --border: #242838;
+    --ink: #F2F0E9;
+    --ink-muted: #8B8FA3;
+    --accent: #FF6B4A;
+    --accent-hover: #FF8267;
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0;
+    height: 100%;
+    background: var(--base);
+    color: var(--ink);
+    /* Sora / Plus Jakarta ne sont pas embarquées : la pile système donne
+       un rendu proche sans peser dans l'APK ni dépendre du réseau. */
+    font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+  main {
+    min-height: 100%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 1.5rem;
+    padding: 2rem 1.5rem calc(2rem + env(safe-area-inset-bottom));
+    text-align: center;
+  }
+  .mark {
+    width: 72px; height: 72px;
+    display: grid; place-items: center;
+    border-radius: 1.25rem;
+    background: var(--surface);
+    border: 1px solid var(--border);
+  }
+  /* Trois barres d'égaliseur figées : le même signe que le lecteur, mais
+     immobile — l'animation dirait « ça charge », ce qui serait faux. */
+  .eq { display: flex; align-items: flex-end; gap: 4px; height: 28px; }
+  .eq i { width: 5px; border-radius: 3px; background: var(--accent); display: block; }
+  .eq i:nth-child(1) { height: 40%; }
+  .eq i:nth-child(2) { height: 100%; }
+  .eq i:nth-child(3) { height: 65%; }
+  h1 { margin: 0; font-size: 1.375rem; font-weight: 700; letter-spacing: -0.01em; }
+  p { margin: 0; max-width: 30ch; color: var(--ink-muted); line-height: 1.6; font-size: 0.9375rem; }
+  button {
+    margin-top: 0.5rem;
+    appearance: none; border: 0; cursor: pointer;
+    background: var(--accent); color: #0D0F1A;
+    font: inherit; font-weight: 650; font-size: 1rem;
+    padding: 0.875rem 2rem; border-radius: 999px;
+    /* 48 px : cible tactile minimale recommandée par Android. */
+    min-height: 48px;
+  }
+  button:active { background: var(--accent-hover); }
+  .note { font-size: 0.8125rem; color: var(--ink-muted); opacity: 0.75; }
+</style>
+</head>
+<body>
+  <main>
+    <div class="mark"><div class="eq"><i></i><i></i><i></i></div></div>
+    <h1>Moziik n'a pas pu se connecter</h1>
+    <p id="message">
+      Vérifie ta connexion, puis réessaie. Tes titres déjà téléchargés
+      restent écoutables une fois l'application ouverte.
+    </p>
+    <button id="reessayer" type="button">Réessayer</button>
+    <p class="note" id="detail"></p>
+  </main>
+
+<script>
+  // Capacitor passe la raison en fragment quand il bascule sur errorPath.
+  // Le message par défaut parle de réseau ; si la cause est une WebView
+  // trop ancienne, aucun « réessayer » n'y changera rien — autant le dire
+  // plutôt que de faire tourner l'utilisateur en rond.
+  (function () {
+    var params = new URLSearchParams(location.search + location.hash.replace('#', '&'));
+    var raison = params.get('errorCode') || params.get('reason') || '';
+
+    if (/webview/i.test(raison) || /version/i.test(raison)) {
+      document.getElementById('message').textContent =
+        "La version de Android System WebView installée sur cet appareil est trop ancienne pour faire tourner Moziik. Mets-la à jour depuis le Play Store, puis rouvre l'application.";
+      document.getElementById('reessayer').textContent = 'Ouvrir le Play Store';
+      document.getElementById('reessayer').addEventListener('click', function () {
+        location.href = 'market://details?id=com.google.android.webview';
+      });
+      return;
+    }
+
+    if (raison) document.getElementById('detail').textContent = 'Code : ' + raison;
+
+    document.getElementById('reessayer').addEventListener('click', function () {
+      // Le pont natif est disponible ici aussi (la page est servie depuis
+      // l'origine locale de Capacitor) : on demande un rechargement complet
+      // de l'app plutôt qu'un history.back() qui resterait sur l'erreur.
+      var cap = window.Capacitor;
+      if (cap && cap.Plugins && cap.Plugins.WebView && cap.Plugins.WebView.reload) {
+        cap.Plugins.WebView.reload();
+      } else {
+        location.reload();
+      }
+    });
+  })();
+</script>
+</body>
+</html>

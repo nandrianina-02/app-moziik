@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { signIn } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
@@ -8,6 +8,7 @@ import { Mail, Lock, Eye, EyeOff } from "lucide-react";
 import { FormField } from "@/components/ui/FormField";
 import { GoogleIcon } from "@/components/ui/GoogleIcon";
 import { useToast } from "@/context/ToastProvider";
+import { ouvrirConnexionGoogle } from "@/lib/native/authGoogle";
 
 export function LoginForm() {
   const router = useRouter();
@@ -20,6 +21,35 @@ export function LoginForm() {
   const [loading, setLoading] = useState(false);
   const [resending, setResending] = useState(false);
   const [resent, setResent] = useState(false);
+
+  // Vrai quand cette page est affichée dans l'onglet Chrome ouvert par
+  // l'app Android (lib/native/authGoogle.ts). Lu après le montage plutôt
+  // qu'avec useSearchParams : ce dernier imposerait une frontière Suspense
+  // à toute la page, alors qu'on n'a besoin de l'info qu'ici.
+  const [relaisAndroid, setRelaisAndroid] = useState(false);
+  const [redirectionGoogle, setRedirectionGoogle] = useState(false);
+
+  useEffect(() => {
+    setRelaisAndroid(new URLSearchParams(window.location.search).get("relais") === "android");
+  }, []);
+
+  useEffect(() => {
+    if (!relaisAndroid) return;
+    // L'auditeur a déjà appuyé sur « Continuer avec Google » dans l'app :
+    // lui réafficher le même bouton dans un onglet de navigateur serait
+    // incompréhensible. On enchaîne directement sur Google.
+    setRedirectionGoogle(true);
+    void signIn("google", { callbackUrl: "/api/mobile-auth/relais" });
+  }, [relaisAndroid]);
+
+  /**
+   * Dans l'app Android, sort vers un onglet Chrome — Google refuse OAuth
+   * dans une WebView. Partout ailleurs, flux NextAuth habituel.
+   */
+  function connexionGoogle() {
+    if (ouvrirConnexionGoogle()) return;
+    signIn("google", { callbackUrl: "/" });
+  }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -134,11 +164,12 @@ export function LoginForm() {
       </div>
 
       <button
-        onClick={() => signIn("google", { callbackUrl: "/" })}
-        className="w-full flex items-center justify-center gap-2.5 rounded-xl border border-border py-3 text-sm font-medium transition-colors hover:border-accent"
+        onClick={connexionGoogle}
+        disabled={redirectionGoogle}
+        className="w-full flex items-center justify-center gap-2.5 rounded-xl border border-border py-3 text-sm font-medium transition-colors hover:border-accent disabled:opacity-60"
       >
         <GoogleIcon size={18} />
-        Continuer avec Google
+        {redirectionGoogle ? "Redirection vers Google..." : "Continuer avec Google"}
       </button>
 
       <p className="text-sm text-ink-muted mt-6 text-center">

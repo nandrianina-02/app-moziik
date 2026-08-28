@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Teinte de la notification média (accent corail de app/globals.css).
+         Android l'utilise pour colorer l'icône et le fond de la carte
+         quand le mode « notification colorée » est actif. -->
+    <color name="moziik_accent">#FF6B4A</color>
+    <color name="moziik_base">#0D0F1A</color>
+</resources>

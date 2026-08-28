@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Libellés propres à Moziik, séparés de strings.xml : ce dernier est
+  régénéré par `npx cap sync` à chaque changement de appId ou appName, ce
+  qui écraserait tout ce qu'on y ajouterait.
+-->
+<resources>
+    <!-- Nom du canal de notification, tel qu'il apparaît dans les
+         réglages Android > Notifications de l'application. -->
+    <string name="canal_lecture_nom">Lecture en cours</string>
+    <string name="canal_lecture_description">Affiche le titre écouté et ses commandes, même écran éteint.</string>
+
+    <string name="lecture_precedent">Précédent</string>
+    <string name="lecture_lire">Lire</string>
+    <string name="lecture_pause">Pause</string>
+    <string name="lecture_suivant">Suivant</string>
+    <string name="lecture_fermer">Fermer</string>
+    <string name="lecture_titre_inconnu">Moziik</string>
+</resources>

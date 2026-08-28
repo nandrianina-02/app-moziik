@@ -1,0 +1,9 @@
+# Le wrapper Gradle est un script sh. Livré avec des fins de ligne CRLF, il
+# échoue au démarrage sur macOS, Linux et en intégration continue avec un
+# « bad interpreter: /bin/sh^M » — panne classique quand un projet Android
+# est commité depuis Windows. Son pendant .bat, lui, veut du CRLF.
+android/gradlew text eol=lf
+android/gradlew.bat text eol=crlf
+
+# Jamais convertis : une conversion de fin de ligne corrompt l'archive.
+*.jar binary

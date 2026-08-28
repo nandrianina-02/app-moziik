@@ -21,6 +21,8 @@ import { FullPlayerPage } from "@/components/player/FullPlayerPage";
 import { PlayerShortcuts } from "@/components/player/PlayerShortcuts";
 import { FloatingInstallButton } from "@/components/ui/FloatingInstallButton";
 import { OfflineBanner } from "@/components/ui/OfflineBanner";
+import { NativeShell } from "@/components/native/NativeShell";
+import { NativeMediaSession } from "@/components/native/NativeMediaSession";
 import { getSiteConfig } from "@/lib/siteConfig";
 import { sizedIcon } from "@/lib/icons";
 
@@ -103,6 +105,18 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                         <MiniPlayerBar />
                         <FullPlayerPage />
                         <PlayerShortcuts />
+                        {/*
+                          Coquille Android. Ces deux composants ne rendent
+                          rien et sont inertes dans un navigateur : ils se
+                          contentent de brancher le bouton Retour, les liens
+                          profonds, la barre d'état et la notification média
+                          sur l'état React déjà existant. Ils sont ici, et
+                          non dans un layout séparé, précisément pour que
+                          l'app et le site restent le même arbre de
+                          composants.
+                        */}
+                        <NativeShell />
+                        <NativeMediaSession />
                         <FloatingInstallButton />
                         <MobileNav />
                       </SidebarProvider>

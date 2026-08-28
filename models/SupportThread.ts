@@ -50,6 +50,20 @@ export interface ISupportThread {
    * deux réponses à la même question. Relâché si l'appel échoue.
    */
   aiAnsweredMessage?: Types.ObjectId;
+  /**
+   * Tri automatique du fil : urgence, objet, et signalement éventuel.
+   *
+   * `triageAt` retient le moment du dernier classement. Tant qu'il est
+   * postérieur à `lastMessageAt`, il n'y a rien à reclasser — c'est ce
+   * qui évite de repayer un appel à chaque ouverture de la boîte.
+   */
+  urgence?: "haute" | "normale" | "basse";
+  categorie?: string;
+  /** Le message du membre s'en prend à quelqu'un, ou n'a rien à faire ici. */
+  signale?: boolean;
+  /** Ce qui a motivé le signalement, pour l'équipe. */
+  motifSignalement?: string;
+  triageAt?: Date;
   createdAt: Date;
 }
 
@@ -66,8 +80,16 @@ const SupportThreadSchema = new Schema<ISupportThread>({
   humanRequested: { type: Boolean, default: false },
   aiRepliedAt: { type: Date },
   aiAnsweredMessage: { type: Schema.Types.ObjectId, ref: "SupportMessage" },
+  urgence: { type: String, enum: ["haute", "normale", "basse"] },
+  categorie: { type: String },
+  signale: { type: Boolean, default: false },
+  motifSignalement: { type: String },
+  triageAt: { type: Date },
   createdAt: { type: Date, default: Date.now },
 });
+
+// La boîte de réception trie sur ces champs à chaque ouverture.
+SupportThreadSchema.index({ status: 1, urgence: 1, lastMessageAt: -1 });
 
 export default (models.SupportThread as Model<ISupportThread>) ||
   model<ISupportThread>("SupportThread", SupportThreadSchema);

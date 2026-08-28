@@ -6,11 +6,14 @@
 2. `npm install`
 3. `npm run dev` → http://localhost:3000
 
-Le script `build` fixe `--max-old-space-size=4096`. Ce n'est pas
-décoratif : au-delà d'une certaine taille de projet, la collecte des
-données de page épuise le tas par défaut de Node, et Next échoue sur un
-`kill EPERM` qui ne dit rien de la cause réelle. Ne pas retirer ce
-réglage sans avoir vérifié qu'un build complet passe sans lui.
+`next.config.mjs` force la collecte des données de page en séquentiel
+(`workerThreads: false`, `cpus: 1`). Next lance sinon un worker par cœur,
+et chacun charge le graphe complet des modules — mongoose et le SDK
+compris. Sur une machine de 4 Go, la somme dépasse la mémoire physique :
+les workers swappent, Next les tue sur délai, et le build échoue sur un
+`kill EPERM` qui ne dit rien de la cause. Le coût est un build plus lent
+sur une machine bien dotée ; qui construit sur un serveur confortable
+peut retirer ce bloc.
 
 ## Ce qui est en place
 - Next.js 14 (App Router) + TypeScript + Tailwind
@@ -177,7 +180,7 @@ npm run android:aab    # bundle pour le Play Store
 
 ## Assistance par IA
 
-Douze endroits appellent le modèle. Une seule variable les commande :
+Quatorze endroits appellent le modèle. Une seule variable les commande :
 `ANTHROPIC_API_KEY`. Absente, **rien n'est cassé** — chaque page garde son
 fonctionnement d'avant, et aucun bouton d'assistance ne s'affiche.
 
@@ -206,6 +209,37 @@ fonctionnement d'avant, et aucun bouton d'assistance ne s'affiche.
   invite le dit, et le texte est encadré.
 - `models/AiUsage.ts` ne stocke que des compteurs : aucun contenu envoyé au
   modèle n'est conservé.
+
+## Boîte de réception triée
+
+- **L'urgence n'est pas le ton.** C'est la seule chose que ce tri doit
+  réussir, et celle qu'un classement naïf rate. « Je n'arrive plus à me
+  connecter et j'ai payé hier » est calme et bloque quelqu'un : urgent.
+  « Votre appli est nulle » est furieux et ne bloque rien : pas urgent.
+  Trier sur l'agacement ferait remonter les mécontents et enterrerait les
+  gens en difficulté.
+- **L'urgence s'insère après les critères humains**, jamais avant.
+  Quelqu'un qui a réclamé une personne a déjà essuyé un échec ; le faire
+  passer derrière un fil classé urgent par une machine reviendrait à lui
+  préférer une estimation.
+- **Le signalement vise ce qui s'en prend à quelqu'un**, pas le
+  mécontentement. Un membre en colère reste un membre à qui l'on doit une
+  réponse.
+- **Le tri se fait par lots, jamais à l'envoi** : un membre qui écrit voit
+  son message parti tout de suite. Il se déclenche à l'ouverture de la
+  boîte, une fois par visite, et ne reclasse un fil que si le membre a
+  réécrit depuis.
+- **Le résumé d'un fil ne conclut jamais que c'est résolu.** Un fil qui
+  s'arrête peut signifier que la personne a trouvé, qu'elle a renoncé ou
+  qu'elle attend encore ; se tromper ferait fermer un dossier sur
+  quelqu'un qui attend. Il ne propose aucune réponse non plus — c'est une
+  lecture, pas un brouillon — et n'est pas conservé : il vieillit dès le
+  message suivant.
+- **Les comptes suspects sont détectés sans IA.** Deux signaux qui se
+  démontrent en une phrase : plus d'heures d'écoute que la période n'en
+  compte, ou une écoute concentrée sur un ou deux titres. On signale, on
+  ne sanctionne pas : le premier se retourne contre un lecteur qui renvoie
+  des durées fausses, le second décrit aussi bien un fan qu'une fraude.
 
 ## Rapport d'exploitation
 

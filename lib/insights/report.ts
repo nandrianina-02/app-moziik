@@ -13,6 +13,7 @@ import {
 } from "@/lib/insights/metrics";
 import { retentionParCohortes, type Cohorte } from "@/lib/insights/retention";
 import { detecterAnomalies, type Anomalie } from "@/lib/insights/anomalies";
+import { comptesSuspects, type CompteSuspect } from "@/lib/insights/suspects";
 import { previsionAudience, titresQuiMontent, type PrevisionAudience, type TitreQuiMonte } from "@/lib/insights/forecast";
 
 /**
@@ -36,6 +37,8 @@ export type Rapport = {
   genres: TendanceGenre[];
   cohortes: Cohorte[];
   anomalies: Anomalie[];
+  /** Comptes dont l'activité mérite un regard. Signalement, jamais sanction. */
+  suspects: CompteSuspect[];
   /** `null` quand l'historique est trop court pour prolonger quoi que ce soit. */
   prevision: PrevisionAudience | null;
   titresQuiMontent: TitreQuiMonte[];
@@ -54,6 +57,7 @@ export async function construireRapport(fenetre: Fenetre = fenetreHebdomadaire()
     anomalies,
     prevision,
     montants,
+    suspects,
   ] = await Promise.all([
     audience(fenetre.from, fenetre.to),
     audience(fenetre.precedenteFrom, fenetre.precedenteTo),
@@ -65,6 +69,7 @@ export async function construireRapport(fenetre: Fenetre = fenetreHebdomadaire()
     detecterAnomalies(fenetre.from, fenetre.to),
     previsionAudience(),
     titresQuiMontent(),
+    comptesSuspects(fenetre.from, fenetre.to),
   ]);
 
   return {
@@ -81,6 +86,7 @@ export async function construireRapport(fenetre: Fenetre = fenetreHebdomadaire()
     genres,
     cohortes,
     anomalies,
+    suspects,
     prevision,
     titresQuiMontent: montants,
   };
@@ -120,6 +126,10 @@ export function resumerPourLeModele(r: Rapport): string {
       : "",
     r.catalogue.jamaisEcoutes > 0 ? `Une partie du catalogue publié n'a jamais été écoutée.` : "",
     r.anomalies.length ? `Points d'attention relevés : ${r.anomalies.map((a) => a.constat).join(" ")}` : "",
+    // Les comptes ne sont pas nommés au modèle : un soupçon n'a pas à
+    // passer par un service tiers, et il n'a rien à en dire de plus que
+    // leur nombre.
+    r.suspects.length ? `Des comptes présentent une activité d'écoute inhabituelle.` : "",
     r.prevision
       ? `Tendance d'audience sur les dernières semaines : ${r.prevision.penteHebdo > 0 ? "orientée à la hausse" : r.prevision.penteHebdo < 0 ? "orientée à la baisse" : "plate"}.`
       : `Historique trop court pour dégager une tendance.`,

@@ -105,6 +105,23 @@ export const FONCTIONNALITES_IA = {
     limite: { limit: 40, windowMs: 15 * MINUTE },
     acces: "admin",
   },
+  resumeFil: {
+    label: "Résumé d'une conversation de support",
+    detail: "Résume un fil pour qui le reprend en route. Ne propose aucune réponse.",
+    niveau: "soigne",
+    maxTokens: 700,
+    limite: { limit: 30, windowMs: 15 * MINUTE },
+    acces: "admin",
+  },
+  triage: {
+    label: "Tri de la boîte de réception",
+    detail: "Classe les fils de support par urgence et par objet, et signale les messages abusifs.",
+    niveau: "rapide",
+    // Un lot de huit verdicts complets.
+    maxTokens: 1200,
+    limite: { limit: 40, windowMs: 10 * MINUTE },
+    acces: "admin",
+  },
   analyse: {
     label: "Lecture du rapport hebdomadaire",
     detail: "Interprète les mesures d'exploitation. N'écrit aucun chiffre : ils sont calculés et affichés à côté.",

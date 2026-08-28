@@ -1,11 +1,12 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { ArrowLeft, Send, Loader2, Headphones, Check, RotateCcw, Inbox, Mail, Sparkles, UserRound } from "lucide-react";
+import { ArrowLeft, Send, Loader2, Headphones, Check, RotateCcw, Inbox, Mail, Sparkles, UserRound, AlertTriangle, Flag, FileText } from "lucide-react";
 import { AdminCardsSkeleton } from "@/components/admin/AdminSkeleton";
 import { useToast } from "@/context/ToastProvider";
 import { useIADisponible } from "@/context/SiteConfigProvider";
 import { readApiError } from "@/lib/readApiError";
+import { DESCRIPTION_URGENCES, LIBELLE_CATEGORIES, type Categorie } from "@/lib/support/triageLabels";
 
 type Fil = {
   _id: string;
@@ -18,6 +19,11 @@ type Fil = {
   unreadForAdmin: number;
   /** Le membre a réclamé une personne, ou l'assistant s'est récusé. */
   humanRequested?: boolean;
+  /** Tri automatique : ce que la personne subit, pas le ton du message. */
+  urgence?: "haute" | "normale" | "basse";
+  categorie?: string;
+  signale?: boolean;
+  motifSignalement?: string;
   user?: { _id: string; name?: string; email?: string } | null;
 };
 
@@ -65,9 +71,16 @@ export default function AdminMessagesPage() {
   const [envoi, setEnvoi] = useState(false);
   const [suggestion, setSuggestion] = useState(false);
   const suggestionDispo = useIADisponible("reponse");
+  const [resume, setResume] = useState<{ demande: string; echanges: string; enSuspens: string[] } | null>(null);
+  const [chargementResume, setChargementResume] = useState(false);
+  const resumeDispo = useIADisponible("resumeFil");
 
   const dernierRef = useRef<string | null>(null);
   const finRef = useRef<HTMLDivElement>(null);
+  // Le tri automatique ne part qu'une fois par visite : la liste se
+  // rafraîchit en boucle, et relancer un classement à chaque tour
+  // rappellerait le modèle toutes les quelques secondes.
+  const triLance = useRef(false);
 
   const chargerListe = useCallback(
     async (signal?: AbortSignal) => {
@@ -76,6 +89,14 @@ export default function AdminMessagesPage() {
       if (!res.ok) throw new Error();
       const data = await res.json();
       setFils(data.threads);
+
+      if (!triLance.current) {
+        triLance.current = true;
+        // Sans await : la boîte s'affiche tout de suite, le classement
+        // arrive au rafraîchissement suivant. Une panne du modèle ne doit
+        // pas retarder la lecture des messages.
+        fetch("/api/admin/support", { method: "POST" }).catch(() => {});
+      }
     },
     [filtre]
   );
@@ -147,6 +168,9 @@ export default function AdminMessagesPage() {
     setMessages([]);
     setChargementFil(true);
     setReponse("");
+    // Le résumé porte sur un fil : le garder en changeant de fil ferait
+    // lire l'état d'une autre conversation.
+    setResume(null);
     setOuvert(fil);
     // La consultation vaut lecture : le compteur repart à zéro côté
     // serveur, on le reflète tout de suite dans la liste.
@@ -184,6 +208,27 @@ export default function AdminMessagesPage() {
    * plus agaçant qu'utile, la suggestion refuse d'écraser une réponse
    * déjà commencée.
    */
+  /**
+   * Résume le fil ouvert.
+   *
+   * Ne propose aucune réponse et n'écrit rien dans le champ de saisie :
+   * c'est une lecture, pas un brouillon. Rien n'est conservé non plus —
+   * un résumé vieillit dès le message suivant.
+   */
+  async function resumer() {
+    if (!ouvert || chargementResume) return;
+    setChargementResume(true);
+    try {
+      const res = await fetch(`/api/admin/support/${ouvert._id}/summary`, { method: "POST" });
+      if (!res.ok) throw new Error(await readApiError(res, "Le résumé a échoué."));
+      setResume(await res.json());
+    } catch (err) {
+      pushToast("error", err instanceof Error ? err.message : "Le résumé a échoué.");
+    } finally {
+      setChargementResume(false);
+    }
+  }
+
   async function suggerer() {
     if (!ouvert || suggestion) return;
     if (reponse.trim() && !window.confirm("Remplacer la réponse en cours par la suggestion ?")) return;
@@ -328,6 +373,31 @@ export default function AdminMessagesPage() {
                           <UserRound size={10} /> Vous attend
                         </span>
                       )}
+                      {/* L'urgence dit ce que la personne subit, jamais son
+                          ton : un message poli décrivant un blocage est
+                          urgent, un message furieux sans blocage ne l'est
+                          pas. Le libellé en infobulle rappelle ce critère. */}
+                      {fil.urgence === "haute" && fil.status === "open" && (
+                        <span
+                          title={DESCRIPTION_URGENCES.haute.detail}
+                          className="inline-flex items-center gap-1 rounded-full bg-warning/20 px-2 py-0.5 text-[10px] font-medium text-warning"
+                        >
+                          <AlertTriangle size={10} /> Urgent
+                        </span>
+                      )}
+                      {fil.signale && (
+                        <span
+                          title={fil.motifSignalement || "Signalé par le tri automatique"}
+                          className="inline-flex items-center gap-1 rounded-full bg-danger/15 px-2 py-0.5 text-[10px] font-medium text-danger"
+                        >
+                          <Flag size={10} /> Signalé
+                        </span>
+                      )}
+                      {fil.categorie && fil.categorie in LIBELLE_CATEGORIES && (
+                        <span className="inline-block rounded-full bg-surface-2 px-2 py-0.5 text-[10px] text-ink-muted">
+                          {LIBELLE_CATEGORIES[fil.categorie as Categorie]}
+                        </span>
+                      )}
                       {fil.status === "closed" && (
                         <span className="inline-block rounded-full bg-ink-muted/15 px-2 py-0.5 text-[10px] text-ink-muted">
                           Close
@@ -432,7 +502,43 @@ export default function AdminMessagesPage() {
                 <div ref={finRef} />
               </div>
 
+              {/* Le résumé se place au-dessus du champ de réponse, séparé de
+                  lui : c'est une lecture du fil, pas un brouillon. Les
+                  confondre ferait envoyer un résumé à un membre. */}
+              {resume && (
+                <div className="border-t border-border bg-base p-4">
+                  <p className="text-xs uppercase tracking-wide text-ink-muted">Résumé du fil</p>
+                  <p className="mt-2 text-sm text-ink">{resume.demande}</p>
+                  {resume.echanges && <p className="mt-1.5 text-sm text-ink-muted">{resume.echanges}</p>}
+                  {resume.enSuspens.length > 0 && (
+                    <ul className="mt-2 space-y-1">
+                      {resume.enSuspens.map((point) => (
+                        <li key={point} className="flex gap-2 text-sm text-ink-muted">
+                          <span aria-hidden className="text-accent">·</span>
+                          {point}
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                  <p className="mt-2 text-[11px] text-ink-muted">
+                    Rédigé par l&apos;IA à partir de l&apos;échange. Il ne dit pas si le problème est résolu —
+                    un fil qui s&apos;arrête peut aussi être un fil abandonné.
+                  </p>
+                </div>
+              )}
+
               <form onSubmit={repondre} className="space-y-2 border-t border-border p-4">
+                {resumeDispo && !resume && (
+                  <button
+                    type="button"
+                    onClick={resumer}
+                    disabled={chargementResume}
+                    className="flex items-center gap-1.5 rounded-full border border-border px-3 py-1.5 text-xs font-medium text-ink-muted transition-colors hover:border-accent hover:text-accent disabled:opacity-60"
+                  >
+                    {chargementResume ? <Loader2 size={12} className="animate-spin" /> : <FileText size={12} />}
+                    {chargementResume ? "Lecture…" : "Résumer ce fil"}
+                  </button>
+                )}
                 {suggestionDispo && (
                   <div className="flex flex-wrap items-center gap-2">
                     <button

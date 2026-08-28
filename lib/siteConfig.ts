@@ -65,7 +65,32 @@ export async function getSiteConfig() {
   let config = await SiteConfigModel.findById(SITE_CONFIG_ID);
 
   if (!config) {
-    config = await SiteConfigModel.create({
+    config = await creerParDefaut();
+  } else if (!config.genres || config.genres.length === 0) {
+    config.genres = defaultSiteConfig.genres;
+    await config.save();
+  }
+
+  return config;
+}
+
+/**
+ * Crée le document de configuration, sans casser si quelqu'un l'a créé
+ * entre-temps.
+ *
+ * Sur une base vierge, les toutes premières requêtes arrivent ensemble :
+ * `layout.tsx` appelle `getSiteConfig()` dans `generateMetadata`, et le
+ * navigateur en déclenche plusieurs d'un coup. Chacune constatait
+ * l'absence du document et tentait de l'écrire ; une seule y parvenait,
+ * les autres échouaient en E11000 — donc une 500 au tout premier
+ * chargement d'un déploiement neuf, au moment où personne ne s'y attend.
+ *
+ * On rattrape donc la collision plutôt que de la prévenir : la perdante
+ * relit simplement le document que la gagnante vient d'écrire.
+ */
+async function creerParDefaut() {
+  try {
+    return await SiteConfigModel.create({
       _id: SITE_CONFIG_ID,
       siteName: defaultSiteConfig.siteName,
       tagline: defaultSiteConfig.tagline,
@@ -85,10 +110,12 @@ export async function getSiteConfig() {
       legalWebsite: `www.${defaultSiteConfig.siteName.toLowerCase()}.com`,
       legalUpdatedAt: new Date(),
     });
-  } else if (!config.genres || config.genres.length === 0) {
-    config.genres = defaultSiteConfig.genres;
-    await config.save();
+  } catch (err) {
+    if ((err as { code?: number }).code !== 11000) throw err;
+    const existant = await SiteConfigModel.findById(SITE_CONFIG_ID);
+    if (existant) return existant;
+    // Collision annoncée mais document introuvable : la base est dans un
+    // état qu'on ne sait pas interpréter, mieux vaut propager.
+    throw err;
   }
-
-  return config;
 }

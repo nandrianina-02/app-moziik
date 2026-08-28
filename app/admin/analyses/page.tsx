@@ -12,6 +12,7 @@ import {
   Play,
   Repeat,
   Music,
+  ShieldAlert,
 } from "lucide-react";
 import { AdminPanelSkeleton } from "@/components/admin/AdminSkeleton";
 import { useToast } from "@/context/ToastProvider";
@@ -46,6 +47,7 @@ type Mouvement = { id: string; nom: string; ecoutes: number; ecoutesAvant: numbe
 type Genre = { genre: string; ecoutes: number; ecoutesAvant: number; progression: number };
 type Cohorte = { semaine: string; arrivants: number; retours: (number | null)[]; suffisante: boolean };
 type Anomalie = { type: string; constat: string; detail: string; intensite: number };
+type Suspect = { id: string; nom: string; email: string; constat: string; detail: string };
 type Prevision = { historique: number[]; estimation: number; bas: number; haut: number; penteHebdo: number };
 type Montant = { id: string; titre: string; artiste: string; trajectoire: number[] };
 
@@ -70,6 +72,7 @@ type Rapport = {
   genres: Genre[];
   cohortes: Cohorte[];
   anomalies: Anomalie[];
+  suspects: Suspect[];
   prevision: Prevision | null;
   titresQuiMontent: Montant[];
 };
@@ -149,6 +152,7 @@ export default function AdminAnalysesPage() {
 
   const { audience, audiencePrecedente, comportement, catalogue, artistes, genres, cohortes, anomalies, prevision } =
     rapport;
+  const suspects = rapport.suspects ?? [];
 
   return (
     <div className="space-y-6">
@@ -265,6 +269,35 @@ export default function AdminAnalysesPage() {
           </ul>
           <p className="mt-3 text-xs text-ink-muted">
             Ce sont des constats, pas des verdicts : rien n&apos;a été masqué ni suspendu.
+          </p>
+        </section>
+      )}
+
+      {/* ------------------------------------------------ comptes vus ---- */}
+      {suspects.length > 0 && (
+        <section className="rounded-xl2 border border-border bg-surface p-5">
+          <h3 className="flex items-center gap-2 text-sm uppercase tracking-wide text-ink-muted">
+            <ShieldAlert size={15} /> Comptes à regarder
+          </h3>
+          <p className="mt-1 text-sm text-ink-muted">
+            Une activité d&apos;écoute qui sort de l&apos;ordinaire. Ces compteurs alimentent la
+            rémunération des artistes, d&apos;où le signalement.
+          </p>
+          <ul className="mt-3 space-y-2">
+            {suspects.map((c) => (
+              <li key={c.id} className="rounded-xl border border-border bg-base p-3">
+                <p className="text-sm text-ink">
+                  {c.nom} <span className="text-ink-muted">— {c.email}</span>
+                </p>
+                <p className="mt-0.5 text-sm text-ink-muted">{c.constat}</p>
+                <p className="mt-0.5 text-xs text-ink-muted">{c.detail}</p>
+              </li>
+            ))}
+          </ul>
+          <p className="mt-3 text-xs text-ink-muted">
+            Aucun compte n&apos;a été suspendu et aucune écoute retirée. Le premier signal se retourne
+            contre un lecteur qui renvoie des durées fausses, le second décrit aussi bien un fan qu&apos;une
+            fraude : trancher demande de regarder.
           </p>
         </section>
       )}

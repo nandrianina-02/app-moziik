@@ -1,5 +1,20 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  experimental: {
+    // Collecte des données de page en séquentiel plutôt qu'en parallèle.
+    //
+    // Next lance par défaut un worker par cœur pour cette étape, et
+    // chacun charge le graphe complet des modules — mongoose et le SDK
+    // compris. Sur une machine modeste, la somme dépasse la mémoire
+    // physique : les workers se mettent à swapper, Next finit par les
+    // tuer sur délai, et le build échoue sur un « kill EPERM » qui ne
+    // dit rien de la cause.
+    //
+    // Le coût est un build plus lent sur une machine bien dotée ; le
+    // bénéfice est un build qui aboutit partout.
+    workerThreads: false,
+    cpus: 1,
+  },
   images: {
     remotePatterns: [
       { protocol: "https", hostname: "res.cloudinary.com" },

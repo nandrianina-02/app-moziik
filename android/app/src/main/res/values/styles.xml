@@ -31,6 +31,27 @@
 
 
     <style name="AppTheme.NoActionBarLaunch" parent="Theme.SplashScreen">
+        <!--
+            Utilise seulement jusqu'a Android 11 : au-dela, le splash est
+            dessine par le systeme et cet attribut est ignore.
+        -->
         <item name="android:background">@drawable/splash</item>
+
+        <!--
+            Le splash systeme d'Android 12+. Sans cette ligne, il retombe
+            sur le colorBackground de Theme.SplashScreen — c'est-a-dire du
+            NOIR, quel que soit le splash genere dans drawable/. C'est ce
+            qui donnait un ecran noir au lancement du premier APK.
+
+            Attribut fourni par androidx.core:core-splashscreen, donc sans
+            prefixe android: et sans garde de version : la bibliotheque
+            l'ignore proprement sur les versions anterieures.
+
+            Volontairement la meme valeur que android.backgroundColor de
+            capacitor.config.ts et que windowBackground ci-dessus : les
+            trois surfaces se succedent au lancement, une seule couleur
+            evite deux clignotements.
+        -->
+        <item name="windowSplashScreenBackground">@color/moziik_base</item>
     </style>
 </resources>

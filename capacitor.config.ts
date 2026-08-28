@@ -66,10 +66,24 @@ const config: CapacitorConfig = {
 
   plugins: {
     SplashScreen: {
-      // Masqué à la main par NativeShell une fois la page réellement
-      // interactive : une durée fixe afficherait soit un écran figé après
-      // le chargement, soit une page blanche avant.
-      launchAutoHide: false,
+      // NativeShell masque le splash dès le premier paint réel, ce qui
+      // reste le chemin normal et donne un démarrage franc.
+      //
+      // Mais `false` ici — ce qu'une première version faisait — rendait ce
+      // masquage OBLIGATOIRE : sans lui, l'écran de démarrage restait à
+      // l'infini. Or il dépend de JavaScript servi par le site distant.
+      // Réseau coupé, erreur JS, ou site déployé sans NativeShell, et
+      // l'application se fige au lancement sans rien dire. C'est
+      // exactement ce qui est arrivé au premier APK, avant que la branche
+      // ne soit en ligne.
+      //
+      // `true` remet un filet : le splash s'efface tout seul au bout de
+      // launchShowDuration, quoi qu'il arrive côté web. Trois secondes,
+      // parce que le premier rendu suppose un aller-retour vers Vercel —
+      // les 500 ms par défaut découvriraient une page encore vide sur un
+      // réseau lent.
+      launchAutoHide: true,
+      launchShowDuration: 3000,
       backgroundColor: "#0D0F1A",
       androidScaleType: "CENTER_CROP",
       showSpinner: false,

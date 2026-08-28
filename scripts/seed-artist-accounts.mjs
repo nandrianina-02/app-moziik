@@ -90,6 +90,42 @@ function distance(a, b) {
   return ligne[b.length];
 }
 
+// Variantes désignant un artiste déjà inscrit sous une autre graphie. Sans
+// cette table, « Vali Justin » ouvrirait un second profil à côté de « Justin
+// Vali » et scinderait son catalogue. La détection de faute de frappe ne
+// couvre que l'écart d'une lettre ; ces cas-là en sont trop loin.
+const VARIANTES = {
+  "les surfs": "The Surfs",
+  "mika sy davis": "Mika & Davis",
+  "vali justin": "Justin Vali",
+  "randafison sylvestre": "Sylvestre Randafison",
+  "radafison": "Sylvestre Randafison",
+  "henri ratsimbazafy": "H. Ratsimbazafy",
+  "jaojoby eusebe": "Jaojoby",
+  "datkotry": "Da T'Kotry",
+  "bessa et lola": "Bessa sy Lola",
+  "tarika tarika sammy": "Tarika Sammy",
+  "samy tarika sammy": "Tarika Sammy",
+  "olombelo ricky ricky randimbiarison": "Olombelo Ricky",
+  // Annoté « chanteur solo » dans le répertoire : c'est bien 'Zay, déjà inscrit.
+  "tarika zay": "'Zay",
+};
+
+// Noms à une lettre d'un artiste déjà inscrit, mais bel et bien distincts :
+// Ossy est un chanteur de variété des années 50-70, sans rapport avec Rossy ;
+// Bary est un artiste des années 90, sans rapport avec Rary. Sans cette liste,
+// la détection de faute de frappe les écarterait à tort.
+const PROCHES_MAIS_DISTINCTS = new Set(["ossy", "bary"]);
+
+// « Dox (Jean-Verdi Salomon Razakandrainy) » → « Dox » : on garde le nom de
+// scène, la parenthèse n'étant qu'une précision d'état civil ou de groupe.
+const sansParenthese = (nom) => nom.replace(/\s*\([^)]*\)\s*$/, "").trim();
+
+const canonique = (nom) => {
+  const nu = sansParenthese(nom);
+  return VARIANTES[norm(nom)] || VARIANTES[norm(nu)] || nu;
+};
+
 // --- Liste des artistes ----------------------------------------------------
 const ARTISTS = [
   ["Tarika Soley", "tarika-soley@moziik.app"],
@@ -415,9 +451,53 @@ const ARTISTS = [
   "Ceasar",
   "Dadi Love",
   "Rak Roots",
+
+  // --- Sixième lot ---------------------------------------------------------
+  // Répertoire par périodes, 1950 à aujourd'hui. Beaucoup de noms s'y répètent
+  // d'une période à l'autre et beaucoup sont déjà inscrits : les garde-fous
+  // (adresse vue, nom déjà porté, faute de frappe, variante connue) trient.
+  "Albert Razafimbahiny", "Andrianary Ratianarivo", "Barijaona", "Charles Ravaloson",
+  "Dédé Fenerive", "Emilson", "Gaby Ratsito", "Jean-Fredy", "Justin Rajoro",
+  "Ludger Andrianjaka", "Naly Rakotofiringa", "Ny Antsaly", "Ny Railovy", "Ossy",
+  "Paul Bert", "Radafison", "Raimond Ranjeva", "Ramilison Besigara",
+  "Randafison Sylvestre", "Rasamy-Gitara", "Ratsimiseta", "Samuel Ratany",
+  "Theresa", "Troupe Jeanette",
+
+  "Dox (Jean-Verdi Salomon Razakandrainy)", "Fredy Ranarison", "Henri Ratsimbazafy",
+  "Hubert", "Jerôme Randria", "Kintana Telo", "Les Chacha Boys", "Les Corsaires",
+  "Les Fantômes", "Les Flamants", "Les Jeunes", "Les Shakers", "Les Surfs",
+  "Les Vagabonds", "Ny Nanahary", "Rahoerson", "Romule", "The Dynamic's", "The Jokers",
+
+  "Ajesaia", "Bessa sy Lola", "Elysé Ranarivelo", "Feon'ny Ntaolo",
+  "Jean-Kely sy Basth", "Les Maîtres du Salegy", "Lolo sy ny Tariny", "Mahaleo",
+  "Odéam Rahaniraka", "Rakoto Frah", "Ramros", "Régis Gizavo", "Rivo sy Lala",
+  "Sanjila", "Soamy", "Terakaly", "Tovo",
+
+  "Afora", "Babaïque", "Bahery", "Datita Rabeson", "Doc Holliday", "Erick Manana",
+  "Feon'ala", "Fenoambby", "Freddy de Majunga", "Iraimbilanja", "Jaojoby Eusèbe",
+  "Kajy", "Kiaka", "Mily Clément", "Ndriana Ramamonjy", "Om-Gui (Ny Ainga)",
+  "Parson Jacques", "Pro-G", "Raza", "Rebika", "Rija Ramanantoanina", "Rossy",
+  "Sakaiza", "Salala", "Samy (Tarika Sammy)", "Scol", "Télésphore", "Tselatra",
+  "Vahombey",
+
+  "Alson", "Ambondron", "ABabet", "Bakar", "Bary", "Black Nadia", "Celia",
+  "Datkotry", "Din Rotsaka", "Farasoa", "Gothlieb", "Hazolahy", "Jabba", "Jarifa",
+  "Jerry Marcoss", "Joy K", "Lego", "Lianah", "Mage 4", "Mamy Gotso", "Marion",
+  "Mika sy Davis", "Nanie", "Olada", "Onja (Tinondadia)", "Princio", "Rabousssa",
+  "Rajery", "Silo", "Spy d'Op", "Tandapa", "Tarika Zay (Zay)", "Tence Mena",
+  "Tinondadia", "Titi", "Toto Mwandjani", "Unik", "Vaiavy Chila", "Vilon'Androy",
+  "Yzit",
+
+  "Anjaray Ankarana", "Apost", "Bessa et Lola", "Bogota", "Da Hopp", "Dadah R'Abel",
+  "Dama", "Damily", "D'Gary", "Dillie", "FAB", "Green", "Henri Ratsimbazafy",
+  "INN (Inaudible Negative Noise)", "Jean Emilien", "L.A Doudh", "Menalotsa",
+  "Ninie Doniah", "Njakatiana", "Olombelo Ricky (Ricky Randimbiarison)", "Poopy",
+  "Samoëla", "Tarika (Tarika Sammy)", "Tearano", "Teta", "Tsiok'ampita",
+  "Vali Justin", "Wawa", "X-Crew",
 ].map((entry) => {
-  const [name, email] = Array.isArray(entry) ? entry : [entry, slugEmail(entry)];
-  return { name, email: email.toLowerCase() };
+  const [brut, emailFourni] = Array.isArray(entry) ? entry : [entry, null];
+  const name = canonique(brut);
+  return { name, email: (emailFourni || slugEmail(name)).toLowerCase() };
 });
 
 // --- Schémas (inline : un .mjs ne peut pas importer les modèles TS) --------
@@ -487,8 +567,19 @@ async function main() {
     if (!byName.has(key)) byName.set(key, []);
     byName.get(key).push(entry);
   };
-  for (const a of await Artist.find().select("_id user stageName").lean()) {
-    registerName(a.stageName, a);
+  const tousArtistes = await Artist.find().select("_id user stageName").lean();
+  for (const a of tousArtistes) registerName(a.stageName, a);
+
+  // Tout est chargé d'avance : à ce volume, une requête par entrée coûtait
+  // plus d'un millier d'allers-retours vers Atlas, soit plusieurs minutes.
+  const tousUsers = await User.find()
+    .select("_id email name role emailVerified suspended verifiedArtist passwordHash")
+    .lean();
+  const userParEmail = new Map(tousUsers.map((u) => [u.email, u]));
+  const userParId = new Map(tousUsers.map((u) => [String(u._id), u]));
+  const artisteParUser = new Map();
+  for (const a of tousArtistes) {
+    if (a.user) artisteParUser.set(String(a.user), a);
   }
 
   // Nombre de titres par artiste, pour mesurer ce qu'un rattachement récupère.
@@ -521,7 +612,9 @@ async function main() {
     }
     seenEmails.add(email);
 
-    let user = await User.findOne({ email });
+    // Travaillé depuis l'index en mémoire : la base n'est réécrite que
+    // lorsqu'un champ diffère réellement.
+    let user = userParEmail.get(email) || null;
 
     // Garde-fou anti-doublon, AVANT toute création : un même artiste listé
     // deux fois sous deux adresses (« jerry-marcoss@ » puis « jerrymarcoss@ »)
@@ -539,7 +632,7 @@ async function main() {
           break;
         }
         if (!homonyme.user) continue; // profil orphelin : récupérable, voir plus bas
-        const owner = await User.findById(homonyme.user).select("email");
+        const owner = userParId.get(String(homonyme.user));
         if (owner) {
           heldBy = owner.email;
           break;
@@ -554,7 +647,9 @@ async function main() {
       // Créer « Lion Hil » à côté de « Lion Hill » scinderait le catalogue
       // d'un même artiste entre deux profils.
       const cible = norm(name);
-      const proche = [...byName.keys()].find((k) => k && distance(cible, k) === 1);
+      const proche = PROCHES_MAIS_DISTINCTS.has(cible)
+        ? null
+        : [...byName.keys()].find((k) => k && distance(cible, k) === 1);
       if (proche) {
         const officiel = byName.get(proche)[0];
         report.nearMisses.push(
@@ -581,6 +676,8 @@ async function main() {
           verifiedArtist: true,
           suspended: false,
         });
+        userParEmail.set(email, user);
+        userParId.set(String(user._id), user);
       }
     } else {
       const changes = [];
@@ -600,20 +697,22 @@ async function main() {
         report.userUnchanged.push(`${name} <${email}>`);
       } else {
         if (!DRY_RUN) {
-          user.name = name;
-          user.role = "artist";
-          user.emailVerified = true;
-          user.verifiedArtist = true;
-          user.suspended = false;
-          if (!passwordOk) user.passwordHash = passwordHash;
-          await user.save();
+          const maj = {
+            name,
+            role: "artist",
+            emailVerified: true,
+            verifiedArtist: true,
+            suspended: false,
+          };
+          if (!passwordOk) maj.passwordHash = passwordHash;
+          await User.updateOne({ _id: user._id }, { $set: maj });
         }
         report.userUpdated.push(`${name} <${email}> (${changes.join(", ")})`);
       }
     }
 
     // 2) Le profil artiste.
-    const linked = user._id ? await Artist.findOne({ user: user._id }) : null;
+    const linked = user._id ? artisteParUser.get(String(user._id)) : null;
     if (linked) {
       report.artistKept.push(`${name} → ${linked._id}`);
       continue;
@@ -666,7 +765,8 @@ async function main() {
     } else {
       const created = await Artist.create({ user: user._id, stageName: name, verified: true });
       report.artistCreated.push(`${name} → ${created._id}`);
-      registerName(name, { _id: created._id, user: user._id, ownerEmail: email });
+      registerName(name, { _id: created._id, user: user._id, ownerEmail: email, stageName: name });
+      artisteParUser.set(String(user._id), created);
     }
   }
 

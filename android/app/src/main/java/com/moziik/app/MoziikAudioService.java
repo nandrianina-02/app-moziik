@@ -143,9 +143,12 @@ public class MoziikAudioService extends Service {
     // alimente la barre de progression de l'ecran verrouille.
     /**
      * Separateur des champs de la signature. Code 31 (unit separator),
-     * ecrit en decimal plutot qu'avec un echappement Unicode : Java
-     * resout les sequences \uXXXX AVANT l'analyse lexicale, si bien
-     * qu'un tel echappement dans un litteral char ne compile pas.
+     * ecrit en decimal plutot qu'avec un echappement Unicode : Java resout
+     * ces echappements AVANT l'analyse lexicale, si bien qu'ils ne
+     * compilent pas dans un litteral char - ni meme, et c'est la que le
+     * piege se referme, dans un simple commentaire comme celui-ci. Ecrire
+     * la sequence ici, ne serait-ce que pour l'expliquer, suffit a casser
+     * la compilation de tout le fichier.
      *
      * Un caractere de controle plutot qu'un simple "|" : il ne peut pas
      * apparaitre dans un titre ou un nom d'artiste, donc deux etats
@@ -154,6 +157,9 @@ public class MoziikAudioService extends Service {
     private static final char SEP = 31;
 
     @Nullable private String signatureNotif;
+
+    /** Derniere notification batie, reutilisee tant que la signature ne bouge pas. */
+    @Nullable private Notification notifCourante;
 
     @Override
     public void onCreate() {
@@ -328,16 +334,26 @@ public class MoziikAudioService extends Service {
             + enLecture + SEP + aSuivant + SEP + aPrecedent + SEP
             + (pochette != null);
 
-        if (premierPlanDemarre && signature.equals(signatureNotif)) return;
-
-        Notification notif = construireNotification();
-        signatureNotif = signature;
-
-        if (!premierPlanDemarre) {
-            demarrerPremierPlan(notif);
-        } else {
-            gestionnaireNotifs.notify(NOTIF_ID, notif);
+        // La notification n'est RECONSTRUITE que si son contenu a change.
+        // C'est la seule economie faite ici, et elle est reelle : batir la
+        // carte suppose de resoudre des chaines, des icones et des
+        // PendingIntent, 30 fois par minute pour rien.
+        if (notifCourante == null || !signature.equals(signatureNotif)) {
+            notifCourante = construireNotification();
+            signatureNotif = signature;
         }
+
+        // En revanche startForeground est appele a CHAQUE fois, meme sur
+        // une notification inchangee. Ce n'est pas une maladresse : le
+        // plugin passe par startForegroundService, qui impose au service
+        // d'appeler startForeground dans les 5 s sous peine de voir le
+        // processus tue (« did not then call Service.startForeground() »).
+        // Sortir plus haut sans l'appeler, comme le faisait une premiere
+        // version de ce fichier, exposait a une mort du processus en pleine
+        // lecture - exactement ce que ce service est cense empecher.
+        // Appele alors que le service est deja au premier plan, il se
+        // contente de mettre la notification a jour.
+        demarrerPremierPlan(notifCourante);
     }
 
     private void demarrerPremierPlan(Notification notif) {
@@ -526,11 +542,11 @@ public class MoziikAudioService extends Service {
             premierPlanDemarre = false;
         }
         // Sans cette remise a zero, une reprise de lecture sur le meme
-        // morceau retrouverait une signature identique et sauterait la
-        // publication - le service redemarrerait donc sans notification,
-        // et Android le tuerait pour non-respect du contrat de premier
-        // plan.
+        // morceau reutiliserait la notification batie pour le service
+        // precedent, avec ses PendingIntent pointant sur une instance
+        // morte.
         signatureNotif = null;
+        notifCourante = null;
         stopSelf();
     }
 

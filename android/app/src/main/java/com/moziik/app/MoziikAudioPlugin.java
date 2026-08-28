@@ -144,15 +144,22 @@ public class MoziikAudioPlugin extends Plugin {
             .putExtra(MoziikAudioService.EXTRA_EN_LECTURE, Boolean.TRUE.equals(call.getBoolean("enLecture", false)))
             .putExtra(MoziikAudioService.EXTRA_POSITION_MS, arrondi(call.getDouble("positionMs", 0d)))
             .putExtra(MoziikAudioService.EXTRA_DUREE_MS, arrondi(call.getDouble("dureeMs", 0d)))
-            .putExtra(MoziikAudioService.EXTRA_VITESSE, call.getFloat("vitesse", 1f))
+            .putExtra(MoziikAudioService.EXTRA_VITESSE, vitesse(call))
             .putExtra(MoziikAudioService.EXTRA_A_SUIVANT, Boolean.TRUE.equals(call.getBoolean("aSuivant", false)))
             .putExtra(MoziikAudioService.EXTRA_A_PRECEDENT, Boolean.TRUE.equals(call.getBoolean("aPrecedent", false)));
 
         try {
-            // startService et non startForegroundService : le service
-            // appelle lui-meme startForeground des la premiere mise a jour,
-            // et startForegroundService imposerait un delai de 5 s sous
-            // peine de ANR meme pour une simple mise a jour de position.
+            // startForegroundService, et non startService : a partir
+            // d'Android 8, startService leve une IllegalStateException des
+            // que l'app n'est plus au premier plan - c'est-a-dire dans le
+            // cas meme que ce service existe pour couvrir.
+            //
+            // La contrepartie est un contrat strict : chaque appel oblige
+            // le service a appeler startForeground dans les 5 s, faute de
+            // quoi le systeme tue le processus. C'est pourquoi
+            // MoziikAudioService.publier() appelle startForeground a
+            // CHAQUE mise a jour, meme quand la notification n'a pas
+            // change.
             ContextCompat.startForegroundService(getContext(), i);
             call.resolve();
         } catch (IllegalStateException e) {
@@ -165,6 +172,22 @@ public class MoziikAudioPlugin extends Plugin {
     /** Les durees viennent du JS en millisecondes flottantes (currentTime * 1000). */
     private static long arrondi(Double d) {
         return d == null ? 0L : Math.round(d);
+    }
+
+    /**
+     * Rend un float PRIMITIF, et c'est tout l'interet de cette methode.
+     *
+     * `call.getFloat` rend un Float objet. Passe tel quel a `putExtra`,
+     * Java ne choisit pas `putExtra(String, float)` : la conversion
+     * Float -> Serializable est une conversion de reference, examinee
+     * avant tout deballage, si bien que c'est `putExtra(String,
+     * Serializable)` qui l'emporte. La vitesse partirait donc comme objet
+     * serialise, et `getFloatExtra` cote service ne tomberait sur la bonne
+     * valeur que par chance.
+     */
+    private static float vitesse(PluginCall call) {
+        Float v = call.getFloat("vitesse", 1f);
+        return v == null ? 1f : v;
     }
 
     @PluginMethod

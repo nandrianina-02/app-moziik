@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { SafeImage } from "@/components/ui/SafeImage";
+import { TexteAvecMentions } from "@/components/ui/TexteAvecMentions";
 import { MessageSquare } from "lucide-react";
 import { ShowMoreButton, useProgressiveList } from "@/components/ui/ShowMore";
 import type { AlbumComment } from "@/components/album/types";
@@ -66,7 +67,9 @@ export function AlbumCommentsTab({ albumId }: { albumId: string }) {
                 <span className="text-sm font-medium">{c.user.name}</span>
                 <span className="text-xs text-ink-muted">{timeAgo(c.createdAt)}</span>
               </div>
-              <p className="mt-0.5 text-sm text-ink-muted">{c.text}</p>
+              <p className="mt-0.5 text-sm text-ink-muted">
+                <TexteAvecMentions texte={c.text} />
+              </p>
               {c.songTitle && (
                 <Link href={`/son/${c.song}`} className="mt-1 inline-block text-xs text-accent hover:underline">
                   sur « {c.songTitle} »

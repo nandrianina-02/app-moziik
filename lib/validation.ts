@@ -238,10 +238,34 @@ export const moderateDecisionSchema = z.object({
 
 // ---- Compte (mon profil) ------------------------------------------------------
 
+/** Réglages régionaux d un compte : les mêmes catalogues que le site. */
+export const preferencesSchema = z.object({
+  language: z.string().trim().max(10).optional(),
+  timezone: z.string().trim().max(60).optional(),
+  dateFormat: z.string().trim().max(20).optional(),
+});
+
 export const patchMeProfileSchema = z.object({
   name: z.string().trim().min(1, "Le nom ne peut pas être vide.").max(80).optional(),
+  username: z
+    .string()
+    .trim()
+    .toLowerCase()
+    .regex(
+      /^[a-z0-9._]{3,20}$/,
+      "3 à 20 caractères : lettres sans accent, chiffres, point ou tiret bas."
+    )
+    .optional(),
   avatarUrl: z.string().trim().url("URL d'avatar invalide.").max(500).optional(),
   email: z.string().trim().toLowerCase().email("Adresse email invalide.").max(254).optional(),
+  // Le vide est accepté : c'est ainsi qu'on retire un numéro déjà enregistré.
+  phone: z
+    .string()
+    .trim()
+    .max(30)
+    .refine((v) => v === "" || /^[+0-9 ().-]{6,30}$/.test(v), "Numéro de téléphone invalide.")
+    .optional(),
+  preferences: preferencesSchema.optional(),
 });
 
 export const toggleSavedAlbumSchema = z.object({
@@ -457,6 +481,21 @@ export const themePreferenceSchema = z.object({
  * seule fois. Le minimum de huit caractères vaut ici comme à l inscription —
  * un compte créé par l équipe n est pas moins exposé.
  */
+/**
+ * Changement de mot de passe depuis le compte.
+ *
+ * `currentPassword` est facultatif ici, mais exigé par la route dès que le
+ * compte en a déjà un : un compte créé via Google n'en a pas, et devoir
+ * saisir un mot de passe qu'on n'a jamais eu empêcherait d'en définir un.
+ */
+export const changePasswordSchema = z.object({
+  currentPassword: z.string().max(200).optional(),
+  newPassword: z
+    .string()
+    .min(8, "Le mot de passe doit faire au moins 8 caractères.")
+    .max(200),
+});
+
 export const adminUserCreateSchema = z.object({
   name: z.string().trim().min(2, "Le nom doit faire au moins 2 caractères.").max(80),
   email: z.string().trim().toLowerCase().email("Adresse email invalide.").max(254),

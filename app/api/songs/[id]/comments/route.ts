@@ -6,6 +6,7 @@ import Artist from "@/models/Artist";
 import User from "@/models/User";
 import { analyzeSentiment } from "@/lib/sentiment";
 import { notify } from "@/lib/notify";
+import { notifierMentions } from "@/lib/notifyMentions";
 import { withApiErrors } from "@/lib/apiError";
 import { parseOrThrow, createCommentSchema } from "@/lib/validation";
 import { checkRateLimitByIp } from "@/lib/rateLimit";
@@ -48,15 +49,19 @@ export const POST = withApiErrors(
 
     await comment.populate("user", "name avatarUrl");
 
-    // Notifie l'artiste propriétaire du morceau (jamais lui-même).
+    // Notifie l'artiste propriétaire du morceau (jamais lui-même), puis
+    // les personnes citées dans le texte.
     const song = await Song.findById(params.id).select("title coverUrl artist");
+    const commenter = await User.findById(authUser.id).select("name avatarUrl");
+    let proprietaireId: string | undefined;
+
     if (song) {
       const artist = await Artist.findById(song.artist).select("user");
-      if (artist && artist.user.toString() !== authUser.id) {
-        const commenter = await User.findById(authUser.id).select("name avatarUrl");
+      proprietaireId = artist?.user?.toString();
+      if (proprietaireId && proprietaireId !== authUser.id) {
         const excerpt = text.length > 80 ? `${text.slice(0, 80)}…` : text;
         await notify({
-          recipient: artist.user.toString(),
+          recipient: proprietaireId,
           type: "comment",
           title: `${commenter?.name ?? "Quelqu'un"} a commenté "${song.title}"`,
           message: excerpt,
@@ -64,6 +69,21 @@ export const POST = withApiErrors(
           imageUrl: commenter?.avatarUrl ?? song.coverUrl,
         });
       }
+    }
+
+    // Une citation ne doit pas faire échouer la publication du commentaire :
+    // il est déjà enregistré, et l'auteur n'y peut rien.
+    try {
+      await notifierMentions({
+        texte: text,
+        auteurId: authUser.id,
+        dejaPrevenu: [proprietaireId],
+        lien: `/son/${params.id}`,
+        titre: `${commenter?.name ?? "Quelqu'un"} vous a mentionné`,
+        avatarUrl: commenter?.avatarUrl,
+      });
+    } catch (err) {
+      console.error("Notification de mention non envoyée :", err);
     }
 
     return NextResponse.json({ comment }, { status: 201 });

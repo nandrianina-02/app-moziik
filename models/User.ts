@@ -20,9 +20,38 @@ export interface IUserTheme {
   radius: number;
 }
 
+/**
+ * Réglages régionaux propres à un compte. Absents, ceux du site
+ * s'appliquent (SiteConfig) — c'est une préférence, pas une obligation.
+ */
+export interface IUserPreferences {
+  language?: string;
+  timezone?: string;
+  dateFormat?: string;
+}
+
 export interface IUser {
   name: string;
+  /**
+   * Adresse publique du compte : mentions dans les commentaires, page
+   * /membre/<username>, recherche. Facultatif en base — les comptes
+   * antérieurs à ce champ en reçoivent un à leur première lecture
+   * (lib/username.ts).
+   */
+  username?: string;
   email: string;
+  /** Numéro de téléphone, saisi pour le paiement mobile. */
+  phone?: string;
+  preferences?: IUserPreferences;
+  /** Dernière connexion réussie, écrite par lib/auth.ts. */
+  lastLoginAt?: Date;
+  /**
+   * Instant de la dernière déconnexion générale demandée par le compte.
+   * Toute session émise avant est refusée à la revalidation : c'est ce qui
+   * permet de couper les sessions web, qui sont des JWT sans état côté
+   * serveur et ne peuvent donc pas être supprimées une à une.
+   */
+  sessionsRevokedAt?: Date;
   passwordHash?: string; // absent si connexion Google uniquement
   googleId?: string;
   avatarUrl?: string;
@@ -43,7 +72,24 @@ export interface IUser {
 
 const UserSchema = new Schema<IUser>({
   name: { type: String, required: true },
+  // `sparse` : sans lui, l'index unique refuserait le deuxième compte sans
+  // nom d'utilisateur, deux `null` étant considérés comme un doublon.
+  username: { type: String, unique: true, sparse: true, lowercase: true, trim: true },
   email: { type: String, required: true, unique: true, lowercase: true },
+  phone: { type: String },
+  preferences: {
+    type: new Schema<IUserPreferences>(
+      {
+        language: { type: String },
+        timezone: { type: String },
+        dateFormat: { type: String },
+      },
+      { _id: false }
+    ),
+    default: undefined,
+  },
+  lastLoginAt: { type: Date },
+  sessionsRevokedAt: { type: Date },
   passwordHash: { type: String },
   googleId: { type: String },
   avatarUrl: { type: String },

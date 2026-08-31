@@ -7,6 +7,7 @@ import { sendVerificationEmail } from "@/utils/mailer";
 import { ApiError, withApiErrors } from "@/lib/apiError";
 import { checkRateLimitByIp } from "@/lib/rateLimit";
 import { parseOrThrow, registerSchema } from "@/lib/validation";
+import { genererUsername } from "@/lib/username";
 
 export const POST = withApiErrors(async (req: Request) => {
   // 5 inscriptions max / 15 min / IP : limite le spam de comptes sans
@@ -27,6 +28,7 @@ export const POST = withApiErrors(async (req: Request) => {
 
   const user = await User.create({
     name,
+    username: await genererUsername(name),
     email,
     passwordHash,
     role: "member",

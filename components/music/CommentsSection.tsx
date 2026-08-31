@@ -14,6 +14,7 @@ import {
   CornerDownRight,
 } from "lucide-react";
 import { SafeImage } from "@/components/ui/SafeImage";
+import { TexteAvecMentions } from "@/components/ui/TexteAvecMentions";
 import { ShowMoreButton, useProgressiveList } from "@/components/ui/ShowMore";
 import { useToast } from "@/context/ToastProvider";
 import { useOnlineStatus } from "@/context/OnlineStatusProvider";
@@ -227,7 +228,9 @@ export function CommentsSection({ songId }: { songId: string }) {
                 />
               )}
             </div>
-            <p className="mt-0.5 text-sm text-ink-muted">{comment.text}</p>
+            <p className="mt-0.5 text-sm text-ink-muted">
+              <TexteAvecMentions texte={comment.text} />
+            </p>
 
             {comment.pending && (
               <p className="mt-1 flex items-center gap-1 text-[11px] text-ink-muted">

@@ -52,8 +52,18 @@ const CONFIG_PAR_DEFAUT: PublicSiteConfig = { ...defaultSiteConfig, currency: "E
 
 const SiteConfigContext = createContext<PublicSiteConfig>(CONFIG_PAR_DEFAUT);
 
+type Preferences = { language?: string; timezone?: string; dateFormat?: string };
+
+/**
+ * Réglages régionaux du compte connecté, s'il en a. Ils recouvrent ceux du
+ * site pour l'affichage des dates — le contexte les expose fusionnés, si
+ * bien qu'aucun appelant n'a à connaître cette hiérarchie.
+ */
+const PreferencesContext = createContext<Preferences | null>(null);
+
 export function SiteConfigProvider({ children }: { children: React.ReactNode }) {
   const [config, setConfig] = useState<PublicSiteConfig>(CONFIG_PAR_DEFAUT);
+  const [preferences, setPreferences] = useState<Preferences | null>(null);
 
   const refresh = useCallback(() => {
     fetch("/api/site-config")
@@ -64,15 +74,35 @@ export function SiteConfigProvider({ children }: { children: React.ReactNode }) 
       });
   }, []);
 
+  const relirePreferences = useCallback(() => {
+    // La requête part pour tout le monde : ce fournisseur est monté
+    // au-dessus de la session, il ne sait pas encore qui regarde. La route
+    // répond « aucune préférence » sans erreur pour un visiteur anonyme.
+    fetch("/api/me/preferences")
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => setPreferences(data?.preferences ?? null))
+      .catch(() => setPreferences(null));
+  }, []);
+
   useEffect(() => {
     refresh();
+    relirePreferences();
     // Déclenché depuis /admin/parametres après un enregistrement réussi,
     // pour que le logo/nom se mette à jour partout sans recharger la page.
     window.addEventListener("moziik-site-config-change", refresh);
-    return () => window.removeEventListener("moziik-site-config-change", refresh);
-  }, [refresh]);
+    // Déclenché depuis « Mon compte » après un changement de réglages.
+    window.addEventListener("moziik-preferences-change", relirePreferences);
+    return () => {
+      window.removeEventListener("moziik-site-config-change", refresh);
+      window.removeEventListener("moziik-preferences-change", relirePreferences);
+    };
+  }, [refresh, relirePreferences]);
 
-  return <SiteConfigContext.Provider value={config}>{children}</SiteConfigContext.Provider>;
+  return (
+    <SiteConfigContext.Provider value={config}>
+      <PreferencesContext.Provider value={preferences}>{children}</PreferencesContext.Provider>
+    </SiteConfigContext.Provider>
+  );
 }
 
 export const useSiteConfig = () => useContext(SiteConfigContext);
@@ -84,9 +114,18 @@ export const useSiteConfig = () => useContext(SiteConfigContext);
  */
 export function useFormatDate() {
   const { dateFormat, timezone, defaultLanguage } = useSiteConfig();
+  const perso = useContext(PreferencesContext);
+
+  // Le compte l'emporte sur le site, champ par champ : quelqu'un peut
+  // vouloir son fuseau sans pour autant changer de format de date.
+  const format = perso?.dateFormat || dateFormat;
+  const fuseau = perso?.timezone || timezone;
+  const langue = perso?.language || defaultLanguage;
+
   return useCallback(
-    (valeur: string | number | Date) => formatDate(valeur, { dateFormat, timezone, defaultLanguage }),
-    [dateFormat, timezone, defaultLanguage]
+    (valeur: string | number | Date) =>
+      formatDate(valeur, { dateFormat: format, timezone: fuseau, defaultLanguage: langue }),
+    [format, fuseau, langue]
   );
 }
 

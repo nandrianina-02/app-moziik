@@ -5,6 +5,7 @@ import bcrypt from "bcryptjs";
 import { connectDB } from "@/lib/db";
 import User from "@/models/User";
 import { checkRateLimit } from "@/lib/rateLimit";
+import { genererUsername } from "@/lib/username";
 
 // Le rôle et le statut "suspendu" ne sont revalidés en base qu'au bout de
 // ce délai, pas à chaque requête (coût DB), pour rester réactif sans
@@ -64,6 +65,11 @@ export const authOptions: NextAuthOptions = {
           throw new Error("EMAIL_NOT_VERIFIED");
         }
 
+        // Trace de la dernière connexion réussie, affichée sur « Mon
+        // compte ». Écriture détachée : elle ne doit pas retarder — ni
+        // pouvoir faire échouer — une authentification par ailleurs valide.
+        User.updateOne({ _id: user._id }, { lastLoginAt: new Date() }).catch(() => undefined);
+
         return {
           id: user._id.toString(),
           name: user.name,
@@ -91,6 +97,7 @@ export const authOptions: NextAuthOptions = {
         if (!existing) {
           await User.create({
             name: user.name,
+            username: await genererUsername(user.name ?? user.email ?? "membre"),
             email: user.email,
             googleId: account.providerAccountId,
             avatarUrl: user.image,
@@ -105,6 +112,8 @@ export const authOptions: NextAuthOptions = {
           existing.emailVerified = true;
           await existing.save();
         }
+        // Même trace que pour la connexion par mot de passe.
+        User.updateOne({ email: user.email }, { lastLoginAt: new Date() }).catch(() => undefined);
       }
       return true;
     },
@@ -139,6 +148,17 @@ export const authOptions: NextAuthOptions = {
             // Compte suspendu après coup : on invalide la session dès la
             // prochaine revalidation plutôt que d'attendre l'expiration
             // du JWT.
+            token.suspended = true;
+          } else if (
+            // Déconnexion générale demandée depuis le compte : les sessions
+            // web sont des JWT sans état, impossibles à supprimer une à une.
+            // On refuse donc celles émises avant la demande — l'effet est
+            // donc immédiat pour une session neuve, et appliqué à la
+            // prochaine revalidation pour les autres.
+            dbUser.sessionsRevokedAt &&
+            typeof token.iat === "number" &&
+            token.iat * 1000 < dbUser.sessionsRevokedAt.getTime()
+          ) {
             token.suspended = true;
           } else {
             token.suspended = false;

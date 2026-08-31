@@ -8,6 +8,7 @@ import Playlist from "@/models/Playlist";
 import Badge from "@/models/Badge";
 import { ApiError, withApiErrors } from "@/lib/apiError";
 import { parseOrThrow, patchMeProfileSchema } from "@/lib/validation";
+import { assurerUsername } from "@/lib/username";
 
 /**
  * Vue d'ensemble du profil pour la page "Mon compte" : combine les
@@ -25,6 +26,11 @@ export const GET = withApiErrors(async (req: Request) => {
 
   const user = await User.findById(authUser.id);
   if (!user) throw new ApiError("Utilisateur introuvable.", 404);
+
+  // Les comptes antérieurs au nom d'utilisateur en reçoivent un ici, à leur
+  // première lecture : pas de migration à lancer, et aucun compte ne reste
+  // sans adresse publique une fois qu'il s'est montré.
+  await assurerUsername(user);
 
   const [playlistsCount, followedArtistsCount, earnedBadges] = await Promise.all([
     Playlist.countDocuments({ owner: user._id }),
@@ -60,13 +66,19 @@ export const GET = withApiErrors(async (req: Request) => {
     user: {
       id: user._id.toString(),
       name: user.name,
+      username: user.username,
       email: user.email,
       avatarUrl: user.avatarUrl,
+      phone: user.phone ?? "",
       role: user.role,
       verifiedArtist: user.verifiedArtist,
+      emailVerified: user.emailVerified,
+      suspended: user.suspended,
       hasPassword: Boolean(user.passwordHash),
       hasGoogleAccount: Boolean(user.googleId),
       createdAt: user.createdAt,
+      lastLoginAt: user.lastLoginAt ?? null,
+      preferences: user.preferences ?? {},
     },
     stats: {
       likedSongsCount: user.likedSongs.length,
@@ -80,10 +92,10 @@ export const GET = withApiErrors(async (req: Request) => {
 });
 
 /**
- * Met à jour les informations de base du compte connecté (nom, photo,
- * email). Seuls les champs réellement présents dans le modèle User sont
- * modifiables ici — pas de nom d'utilisateur, bio, téléphone ou bannière :
- * ces champs n'existent pas dans le schéma actuel.
+ * Met à jour les informations du compte connecté : nom, photo, email,
+ * téléphone et réglages régionaux. Seuls ces champs existent dans le
+ * modèle — il n'y a toujours ni nom d'utilisateur ni bannière, et un champ
+ * de formulaire sans colonne derrière ne serait qu'un décor.
  */
 export const PATCH = withApiErrors(async (req: Request) => {
   const authUser = await getAuthUser(req);
@@ -93,10 +105,21 @@ export const PATCH = withApiErrors(async (req: Request) => {
   const user = await User.findById(authUser.id);
   if (!user) throw new ApiError("Utilisateur introuvable.", 404);
 
-  const { name, avatarUrl, email } = parseOrThrow(patchMeProfileSchema, await req.json().catch(() => ({})));
+  const { name, username, avatarUrl, email, phone, preferences } = parseOrThrow(
+    patchMeProfileSchema,
+    await req.json().catch(() => ({}))
+  );
 
   if (typeof name === "string") {
     user.name = name;
+  }
+
+  if (typeof username === "string" && username !== user.username) {
+    // L'unicité est aussi garantie par un index : cette vérification sert
+    // à répondre une phrase compréhensible plutôt qu'une erreur de base.
+    const pris = await User.findOne({ username, _id: { $ne: user._id } }).select("_id");
+    if (pris) throw new ApiError("Ce nom d'utilisateur est déjà pris.", 409);
+    user.username = username;
   }
 
   if (typeof avatarUrl === "string") {
@@ -118,18 +141,34 @@ export const PATCH = withApiErrors(async (req: Request) => {
     }
   }
 
+  // Une chaîne vide efface le numéro : c'est la seule façon de le retirer
+  // depuis un formulaire.
+  if (typeof phone === "string") {
+    user.phone = phone.trim() || undefined;
+  }
+
+  if (preferences) {
+    // Fusion et non remplacement : l'écran des préférences n'envoie que ce
+    // qu'il affiche, et pourrait en oublier.
+    user.preferences = { ...(user.preferences ?? {}), ...preferences };
+  }
+
   await user.save();
 
   return NextResponse.json({
     user: {
       name: user.name,
+      username: user.username,
       email: user.email,
       avatarUrl: user.avatarUrl,
+      phone: user.phone ?? "",
       role: user.role,
       verifiedArtist: user.verifiedArtist,
       hasPassword: Boolean(user.passwordHash),
       hasGoogleAccount: Boolean(user.googleId),
       createdAt: user.createdAt,
+      lastLoginAt: user.lastLoginAt ?? null,
+      preferences: user.preferences ?? {},
     },
   });
 });

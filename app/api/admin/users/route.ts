@@ -10,6 +10,7 @@ import Album from "@/models/Album";
 import { requireAdmin } from "@/lib/requireAdmin";
 import { ApiError, withApiErrors } from "@/lib/apiError";
 import { parseOrThrow, adminUserCreateSchema } from "@/lib/validation";
+import { genererUsername } from "@/lib/username";
 
 const TAILLE_PAGE_MAX = 200;
 
@@ -197,6 +198,7 @@ export const POST = withApiErrors(async (req: Request) => {
 
   const user = await User.create({
     name,
+    username: await genererUsername(name),
     email,
     passwordHash,
     role,

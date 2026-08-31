@@ -14,6 +14,7 @@ import {
   Music,
 } from "lucide-react";
 import { AdminPanelSkeleton } from "@/components/admin/AdminSkeleton";
+import { CountriesPanel } from "@/components/admin/CountriesPanel";
 import { useToast } from "@/context/ToastProvider";
 import { readApiError } from "@/lib/readApiError";
 
@@ -198,6 +199,9 @@ export default function AdminAnalysesPage() {
           </div>
         )}
       </section>
+
+      {/* ------------------------------------------------------- pays ------ */}
+      <CountriesPanel />
 
       {/* ----------------------------------------------------- audience ---- */}
       <section className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">

@@ -332,21 +332,23 @@ export async function rechercheGlobale(opts: OptionsRecherche): Promise<Resultat
 
     Song.aggregate([{ $match: { status: "published" } }, { $group: { _id: "$genre", count: { $sum: 1 } } }]),
 
-    // « Utilisateur public » n'existe pas dans le modèle User. On retient
-    // donc une définition défendable plutôt qu'une supposition : un compte
-    // qui a publié au moins une playlist publique s'est lui-même rendu
-    // visible. Les autres ne sont jamais listés.
+    // Les comptes ayant publié une playlist publique : ils passent devant
+    // les autres profils, s'étant déjà rendus visibles d'eux-mêmes.
     Playlist.distinct("owner", { isPublic: true }),
   ]);
 
-  const usersBrut = proprietairesPublics.length
-    ? await User.find(
-        filtreOu({ _id: { $in: proprietairesPublics }, suspended: { $ne: true } }, conditionsTexte(mots, ["name"]))
-      )
-        .select("name avatarUrl role")
-        .limit(VIVIER.users)
-        .lean()
-    : [];
+  // Depuis que chaque compte a une adresse publique (/membre/<username>),
+  // tout membre non suspendu est trouvable — par son nom ou par ce nom
+  // d'utilisateur. Les profils restent la dernière section des résultats :
+  // on cherche d'abord de la musique sur Moziik.
+  const usersBrut = await User.find(
+    filtreOu({ suspended: { $ne: true } }, conditionsTexte(mots, ["name", "username"]))
+  )
+    .select("name username avatarUrl role")
+    .limit(VIVIER.users)
+    .lean();
+
+  const ensemblePublics = new Set(proprietairesPublics.map((id) => String(id)));
 
   /* --- 3. Notation ----------------------------------------------------- */
 
@@ -454,7 +456,18 @@ export async function rechercheGlobale(opts: OptionsRecherche): Promise<Resultat
     .filter((x) => x.score > 0);
 
   const users = (usersBrut as unknown as Record<string, unknown>[])
-    .map((u) => noteDe(u, noter(mots, phrase, [{ valeur: s(u.name), poids: POIDS.titre }])))
+    .map((u) => {
+      const base = noter(mots, phrase, [
+        { valeur: s(u.name), poids: POIDS.titre },
+        // Le nom d'utilisateur est une adresse exacte : le taper, c'est
+        // désigner quelqu'un, pas décrire une recherche.
+        { valeur: s(u.username), poids: POIDS.titre },
+      ]);
+      // Un profil qui a publié quelque chose passe devant un compte qui n'a
+      // rien montré, à pertinence textuelle égale.
+      const bonus = ensemblePublics.has(String(u._id)) ? 1.15 : 1;
+      return noteDe(u, { ...base, score: base.score * bonus });
+    })
     .filter((x) => x.score > 0);
 
   // Le nom d'un genre EST le titre de cette entité : il se note au même

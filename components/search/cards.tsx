@@ -52,7 +52,13 @@ export type EvenementResultat = {
   artist?: { _id: string; stageName: string; verified?: boolean } | null;
 };
 
-export type UtilisateurResultat = { _id: string; name: string; avatarUrl?: string; role?: string };
+export type UtilisateurResultat = {
+  _id: string;
+  name: string;
+  username?: string;
+  avatarUrl?: string;
+  role?: string;
+};
 
 export type GenreResultat = { _id: string; name: string; count: number };
 
@@ -170,9 +176,14 @@ export function CarteEvenement({ evenement }: { evenement: EvenementResultat }) 
   );
 }
 
+/**
+ * Un profil mène désormais quelque part : /membre/<username>. Les comptes
+ * antérieurs au nom d'utilisateur n'en ont pas encore — la carte reste
+ * alors muette plutôt que de renvoyer vers une page introuvable.
+ */
 export function CarteUtilisateur({ utilisateur }: { utilisateur: UtilisateurResultat }) {
-  return (
-    <span className="group block w-40 shrink-0 rounded-xl2 border border-transparent p-2 transition-colors hover:border-border hover:bg-surface sm:w-44">
+  const contenu = (
+    <>
       <SafeImage
         src={utilisateur.avatarUrl}
         alt={utilisateur.name}
@@ -182,9 +193,20 @@ export function CarteUtilisateur({ utilisateur }: { utilisateur: UtilisateurResu
       />
       <p className="truncate text-center text-sm font-medium text-ink">{utilisateur.name}</p>
       <p className="flex items-center justify-center gap-1 truncate text-center text-xs text-ink-muted">
-        <UserIcon size={11} /> Profil public
+        <UserIcon size={11} />
+        {utilisateur.username ? `@${utilisateur.username}` : "Profil"}
       </p>
-    </span>
+    </>
+  );
+
+  const classes =
+    "group block w-40 shrink-0 rounded-xl2 border border-transparent p-2 transition-colors hover:border-border hover:bg-surface sm:w-44";
+
+  if (!utilisateur.username) return <span className={classes}>{contenu}</span>;
+  return (
+    <Link href={`/membre/${utilisateur.username}`} className={classes}>
+      {contenu}
+    </Link>
   );
 }
 

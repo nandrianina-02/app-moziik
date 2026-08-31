@@ -5,6 +5,7 @@ import { withApiErrors } from "@/lib/apiError";
 import { requireAdmin } from "@/lib/requireAdmin";
 import { parseOrThrow, createNotificationSchema } from "@/lib/validation";
 import { requireAuthUser } from "@/lib/mobileAuth";
+import { attachVisuals } from "@/lib/notificationVisuals";
 
 const PAGE_SIZE = 20;
 
@@ -22,10 +23,14 @@ export const GET = withApiErrors(async (req: Request) => {
   // du contenu à charger, sans avoir à faire un countDocuments séparé.
   const page = await Notification.find(query)
     .sort({ createdAt: -1 })
-    .limit(PAGE_SIZE + 1);
+    .limit(PAGE_SIZE + 1)
+    .lean();
 
   const hasMore = page.length > PAGE_SIZE;
-  const notifications = page.slice(0, PAGE_SIZE);
+  // L'affichage montre la pochette ou la photo de ce dont parle la
+  // notification ; celles qui n'en portent pas la retrouvent ici, à partir
+  // de leur lien, en une requête par famille d'objets.
+  const notifications = await attachVisuals(page.slice(0, PAGE_SIZE));
 
   return NextResponse.json({ notifications, hasMore });
 });

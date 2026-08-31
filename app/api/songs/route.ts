@@ -152,6 +152,7 @@ export const POST = withApiErrors(async (req: Request) => {
         title: "Tu es crédité en featuring",
         message: `${artistProfile.stageName} t'a ajouté en featuring sur "${title}".`,
         link: `/son/${song._id}`,
+        imageUrl: song.coverUrl,
       });
     } catch (err) {
       console.error("Notification de featuring non envoyée :", err);

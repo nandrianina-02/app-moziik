@@ -3,7 +3,7 @@
 import { useEffect, useRef } from "react";
 import Link from "next/link";
 import { X, Trash2 } from "lucide-react";
-import { notificationIcons } from "@/lib/notificationMeta";
+import { NotificationVisual } from "@/components/notifications/NotificationVisual";
 import { useNotifications } from "@/context/NotificationsProvider";
 
 /**
@@ -87,37 +87,37 @@ export function NotificationsDrawer() {
           )}
 
           <ul>
-            {items.map((n) => {
-              const Icon = notificationIcons[n.type];
-              return (
-                <li key={n._id} className="group relative border-b border-border/60">
-                  <Link
-                    href={n.link ?? "/notifications"}
-                    onClick={() => {
-                      if (!n.read) markRead(n._id);
-                      closeDrawer();
-                    }}
-                    className={`flex items-start gap-3 px-5 py-3.5 pr-11 text-sm transition-colors hover:bg-base ${
-                      n.read ? "opacity-60" : ""
-                    }`}
-                  >
-                    {!n.read && <span className="absolute left-2 top-5 h-1.5 w-1.5 rounded-full bg-accent" />}
-                    <Icon size={16} className="mt-0.5 shrink-0 text-accent" />
-                    <span className="min-w-0">
-                      <span className="block font-medium">{n.title}</span>
-                      <span className="block truncate text-xs text-ink-muted">{n.message}</span>
-                    </span>
-                  </Link>
-                  <button
-                    onClick={() => deleteNotification(n._id)}
-                    aria-label="Supprimer la notification"
-                    className="absolute right-3 top-3.5 text-ink-muted opacity-0 transition-opacity hover:text-accent group-hover:opacity-100"
-                  >
-                    <Trash2 size={14} />
-                  </button>
-                </li>
-              );
-            })}
+            {items.map((n) => (
+              <li key={n._id} className="group relative border-b border-border/60">
+                <Link
+                  href={n.link ?? "/notifications"}
+                  onClick={() => {
+                    if (!n.read) markRead(n._id);
+                    closeDrawer();
+                  }}
+                  className={`flex items-start gap-3 px-5 py-3.5 pr-11 text-sm transition-colors hover:bg-base ${
+                    n.read ? "opacity-60" : ""
+                  }`}
+                >
+                  {!n.read && <span className="absolute left-2 top-5 h-1.5 w-1.5 rounded-full bg-accent" />}
+                  {/* Même visuel que la page : la pochette ou la photo de
+                      ce dont parle la notification, l'icône seulement à
+                      défaut d'image. */}
+                  <NotificationVisual type={n.type} imageUrl={n.imageUrl} alt={n.title} size={36} />
+                  <span className="min-w-0 pt-0.5">
+                    <span className="block font-medium">{n.title}</span>
+                    <span className="block truncate text-xs text-ink-muted">{n.message}</span>
+                  </span>
+                </Link>
+                <button
+                  onClick={() => deleteNotification(n._id)}
+                  aria-label="Supprimer la notification"
+                  className="absolute right-3 top-3.5 text-ink-muted opacity-0 transition-opacity hover:text-accent group-hover:opacity-100"
+                >
+                  <Trash2 size={14} />
+                </button>
+              </li>
+            ))}
           </ul>
         </div>
 

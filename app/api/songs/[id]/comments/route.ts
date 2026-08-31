@@ -53,7 +53,7 @@ export const POST = withApiErrors(
     if (song) {
       const artist = await Artist.findById(song.artist).select("user");
       if (artist && artist.user.toString() !== authUser.id) {
-        const commenter = await User.findById(authUser.id).select("name");
+        const commenter = await User.findById(authUser.id).select("name avatarUrl");
         const excerpt = text.length > 80 ? `${text.slice(0, 80)}…` : text;
         await notify({
           recipient: artist.user.toString(),
@@ -61,7 +61,7 @@ export const POST = withApiErrors(
           title: `${commenter?.name ?? "Quelqu'un"} a commenté "${song.title}"`,
           message: excerpt,
           link: `/son/${song._id}`,
-          imageUrl: song.coverUrl,
+          imageUrl: commenter?.avatarUrl ?? song.coverUrl,
         });
       }
     }

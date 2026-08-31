@@ -63,7 +63,10 @@ export const POST = withApiErrors(
           title: `${liker?.name ?? "Quelqu'un"} a aimé votre morceau`,
           message: updatedSong.title,
           link: `/son/${updatedSong._id}`,
-          imageUrl: updatedSong.coverUrl,
+          // Ce qui se passe ici, c'est quelqu'un — sa photo dit plus que la
+          // pochette d'un morceau que l'artiste connaît déjà. La pochette
+          // reprend la main pour les comptes sans avatar.
+          imageUrl: liker?.avatarUrl ?? updatedSong.coverUrl,
         });
       }
     }

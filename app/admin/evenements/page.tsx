@@ -7,6 +7,7 @@ import { AdminCardsSkeleton } from "@/components/admin/AdminSkeleton";
 import { IconActionButton, IconActionLink } from "@/components/admin/IconActionButton";
 import { AdminItemGrid } from "@/components/admin/AdminItemGrid";
 import { useToast } from "@/context/ToastProvider";
+import { useFormatDate } from "@/context/SiteConfigProvider";
 
 type AdminEvent = {
   _id: string;
@@ -38,6 +39,7 @@ const statusColor: Record<AdminEvent["status"], string> = {
 
 export default function AdminEventsPage() {
   const pushToast = useToast();
+  const formatDate = useFormatDate();
   const [events, setEvents] = useState<AdminEvent[]>([]);
   const [statusFilter, setStatusFilter] = useState("");
   const [loading, setLoading] = useState(true);
@@ -122,7 +124,7 @@ export default function AdminEventsPage() {
                 <p className="text-sm font-medium truncate">{event.title}</p>
                 <p className="flex items-center gap-3 text-xs text-ink-muted mt-0.5">
                   <span className="flex items-center gap-1"><MapPin size={11} /> {event.location}</span>
-                  <span className="flex items-center gap-1"><CalendarDays size={11} /> {new Date(event.date).toLocaleDateString("fr-FR")}</span>
+                  <span className="flex items-center gap-1"><CalendarDays size={11} /> {formatDate(event.date)}</span>
                 </p>
                 {event.artist && <p className="text-xs text-ink-muted">Par {event.artist.stageName}</p>}
                 <p className={`text-[11px] mt-0.5 ${statusColor[event.status]}`}>{statusLabel[event.status]}</p>

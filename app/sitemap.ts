@@ -4,10 +4,16 @@ import Album from "@/models/Album";
 import Artist from "@/models/Artist";
 import Event from "@/models/Event";
 import Playlist from "@/models/Playlist";
+import { getSiteConfig } from "@/lib/siteConfig";
 
-const baseUrl = "https://app-moziik.vercel.app";
+/** Repli tant que l'adresse du site n'a pas été renseignée. */
+const BASE_PAR_DEFAUT = "https://app-moziik.vercel.app";
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
+  // L'adresse publique vient des paramètres du site : un sitemap qui pointe
+  // vers un autre domaine que celui réellement servi ne référence rien.
+  const config = await getSiteConfig();
+  const baseUrl = (config.siteUrl || BASE_PAR_DEFAUT).replace(/\/+$/, "");
   // Pages statiques publiques (on exclut les pages qui nécessitent une
   // connexion : compte, bibliothèque, notifications, admin, gestion artiste...)
   const staticRoutes: MetadataRoute.Sitemap = [

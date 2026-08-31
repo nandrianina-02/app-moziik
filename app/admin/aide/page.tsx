@@ -18,6 +18,7 @@ import { FormField } from "@/components/ui/FormField";
 import { ModalSheet } from "@/components/ui/ModalSheet";
 import { useIADisponible } from "@/context/SiteConfigProvider";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
+import { AdminHeaderActions } from "@/components/admin/AdminChrome";
 import { useToast } from "@/context/ToastProvider";
 import { CATEGORIES_AIDE } from "@/lib/helpCenter";
 import { readApiError } from "@/lib/readApiError";
@@ -231,38 +232,36 @@ export default function AdminAidePage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <h1 className="text-xl font-display font-bold">Centre d&apos;aide</h1>
-          <p className="mt-1 text-sm text-ink-muted">
-            Articles publiés sur{" "}
-            <Link href="/aide" target="_blank" className="text-accent hover:underline">
-              /aide
-            </Link>
-            . Les visiteurs y accèdent depuis la page de contact.
-          </p>
-        </div>
-        <div className="flex flex-wrap gap-2">
-          {articles.length === 0 && !chargement && (
-            <button
-              type="button"
-              onClick={installerContenuDepart}
-              disabled={installation}
-              className="flex items-center gap-2 rounded-xl border border-border px-4 py-2.5 text-sm font-medium text-ink-muted transition-colors hover:border-accent hover:text-accent disabled:opacity-60"
-            >
-              {installation ? <Loader2 size={15} className="animate-spin" /> : <Sparkles size={15} />}
-              Installer les articles de départ
-            </button>
-          )}
+{/* Titre et sous-titre viennent du cadre commun (app/admin/layout.tsx) ;
+          seules les actions remontent dans l'en-tête. */}
+      <AdminHeaderActions>
+        {articles.length === 0 && !chargement && (
           <button
             type="button"
-            onClick={() => setEdition({ article: null, brouillon: { ...BROUILLON_VIDE } })}
-            className="flex items-center gap-2 rounded-xl bg-accent px-4 py-2.5 text-sm font-medium text-base transition-colors hover:bg-accent-hover"
+            onClick={installerContenuDepart}
+            disabled={installation}
+            className="flex items-center gap-2 rounded-xl border border-border px-4 py-2.5 text-sm font-medium text-ink-muted transition-colors hover:border-accent hover:text-accent disabled:opacity-60"
           >
-            <Plus size={15} /> Nouvel article
+            {installation ? <Loader2 size={15} className="animate-spin" /> : <Sparkles size={15} />}
+            Installer les articles de départ
           </button>
-        </div>
-      </div>
+        )}
+        <button
+          type="button"
+          onClick={() => setEdition({ article: null, brouillon: { ...BROUILLON_VIDE } })}
+          className="flex items-center gap-2 rounded-xl bg-accent px-4 py-2.5 text-sm font-semibold text-base transition-colors hover:bg-accent-hover"
+        >
+          <Plus size={15} /> Nouvel article
+        </button>
+      </AdminHeaderActions>
+
+      <p className="text-sm text-ink-muted">
+        Articles publiés sur{" "}
+        <Link href="/aide" target="_blank" className="text-accent hover:underline">
+          /aide
+        </Link>
+        . Les visiteurs y accèdent depuis la page de contact.
+      </p>
 
       {articles.length > 0 && (
         <div className="relative max-w-md">

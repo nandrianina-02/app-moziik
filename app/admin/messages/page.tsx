@@ -228,23 +228,19 @@ export default function AdminMessagesPage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-xl font-display font-bold">Messages</h1>
-        <p className="mt-1 text-sm text-ink-muted">
-          Les discussions ouvertes depuis la page de contact.
-          {enAttente > 0 && (
-            <span className="ml-1 text-accent">
-              {enAttente} en attente de réponse.
-            </span>
-          )}
+      {/* Le rappel de ce qu attend une réponse : le titre et la description
+          de la page viennent du cadre commun (app/admin/layout.tsx). */}
+      {(enAttente > 0 || humainsDemandes > 0) && (
+        <p className="flex flex-wrap gap-x-2 text-sm text-accent">
+          {enAttente > 0 && <span>{enAttente} en attente de réponse.</span>}
           {humainsDemandes > 0 && (
-            <span className="ml-1 text-accent">
+            <span>
               {humainsDemandes} {humainsDemandes > 1 ? "réclament" : "réclame"} quelqu&apos;un de
               l&apos;équipe.
             </span>
           )}
         </p>
-      </div>
+      )}
 
       <div className="flex flex-wrap gap-2">
         {(

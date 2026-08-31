@@ -39,10 +39,17 @@ export interface ICurationSettings {
  */
 export interface IThemeSettings {
   preset: string;
-  mode: "dark" | "light";
+  /** "system" délègue au réglage de l'appareil du visiteur. */
+  mode: "dark" | "light" | "system";
   accent: string;
   backgroundDark: string;
   backgroundLight: string;
+  /** Badges vérifiés, statuts publiés, confirmations. */
+  secondary: string;
+  /** Avertissements et seuils. */
+  warning: string;
+  /** Rayon de référence des arrondis, en pixels. */
+  radius: number;
 }
 
 export interface IPlanPricing {
@@ -53,10 +60,24 @@ export interface IPlanPricing {
 
 export interface ISiteConfig {
   siteName: string;
-  tagline: string;
+  tagline: string; // slogan court, affiché sous le nom
+  description: string; // présentation longue, reprise par défaut en méta description
+  siteUrl: string; // adresse publique, utilisée par les liens absolus et le sitemap
+  defaultLanguage: string; // code ISO posé sur <html lang>
+  currency: string; // devise d'affichage des prix (EUR, USD, MGA…)
+  timezone: string; // fuseau de référence pour l'affichage des dates
+  dateFormat: string; // gabarit d'affichage des dates (voir lib/dates.ts)
   logoUrl: string; // hébergé sur Cloudinary
+  logoDarkUrl: string; // variante pour fond sombre ; à défaut, logoUrl sert partout
+  faviconUrl: string; // icône d'onglet ; à défaut, dérivée du logo
   supportEmail: string;
   copyrightText: string;
+  // Référencement et mesure d'audience
+  seoTitle: string; // titre de la page d'accueil dans les résultats de recherche
+  seoDescription: string; // description affichée sous ce titre
+  googleAnalyticsId: string; // identifiant G-XXXXXXXXXX ; vide = aucun script chargé
+  googleSearchConsoleId: string; // jeton de vérification de propriété
+  trialDays: number; // jours d'essai offerts sur l'abonnement Premium
   plans: IPlanPricing[]; // coûts d'abonnement, modifiables par l'admin
   // Genres proposés à la publication d'un titre — remplace la liste avant
   // codée en dur et dupliquée dans les pages son/nouveau et son/[id]/modifier.
@@ -87,9 +108,22 @@ export interface ISiteConfig {
 const SiteConfigSchema = new Schema<ISiteConfig>({
   siteName: { type: String, required: true, default: "Moziik" },
   tagline: { type: String, default: "" },
+  description: { type: String, default: "" },
+  siteUrl: { type: String, default: "" },
+  defaultLanguage: { type: String, default: "fr" },
+  currency: { type: String, default: "EUR" },
+  timezone: { type: String, default: "Indian/Antananarivo" },
+  dateFormat: { type: String, default: "DD/MM/YYYY" },
   logoUrl: { type: String, default: "" },
+  logoDarkUrl: { type: String, default: "" },
+  faviconUrl: { type: String, default: "" },
   supportEmail: { type: String, default: "" },
   copyrightText: { type: String, default: "" },
+  seoTitle: { type: String, default: "" },
+  seoDescription: { type: String, default: "" },
+  googleAnalyticsId: { type: String, default: "" },
+  googleSearchConsoleId: { type: String, default: "" },
+  trialDays: { type: Number, default: 0, min: 0, max: 365 },
   plans: [
     {
       plan: { type: String, enum: ["premium", "premium_annual"] },
@@ -103,10 +137,13 @@ const SiteConfigSchema = new Schema<ISiteConfig>({
     type: new Schema<IThemeSettings>(
       {
         preset: { type: String, default: "moziik" },
-        mode: { type: String, enum: ["dark", "light"], default: "dark" },
+        mode: { type: String, enum: ["dark", "light", "system"], default: "dark" },
         accent: { type: String, default: "#FF6B4A" },
         backgroundDark: { type: String, default: "#0D0F1A" },
         backgroundLight: { type: String, default: "#FBF9F4" },
+        secondary: { type: String, default: "#3DDC97" },
+        warning: { type: String, default: "#FBBF24" },
+        radius: { type: Number, default: 12, min: 0, max: 24 },
       },
       { _id: false }
     ),
@@ -116,6 +153,9 @@ const SiteConfigSchema = new Schema<ISiteConfig>({
       accent: "#FF6B4A",
       backgroundDark: "#0D0F1A",
       backgroundLight: "#FBF9F4",
+      secondary: "#3DDC97",
+      warning: "#FBBF24",
+      radius: 12,
     }),
   },
   legalEntityName: { type: String, default: "" },

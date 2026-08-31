@@ -90,8 +90,21 @@ const config: Config = {
         body: ["var(--font-body)"],
         mono: ["var(--font-mono)"],
       },
+      // Toute l échelle d arrondis découle d une seule variable, réglable
+      // depuis les paramètres du site. Les multiples reproduisent les
+      // valeurs par défaut de Tailwind pour --radius: 12px — passer le
+      // réglage à 12 ne change donc rien à ce qui existait.
       borderRadius: {
-        xl2: "1.25rem",
+        none: "0px",
+        sm: "calc(var(--radius) * 0.25)",
+        DEFAULT: "calc(var(--radius) * 0.33)",
+        md: "calc(var(--radius) * 0.5)",
+        lg: "calc(var(--radius) * 0.67)",
+        xl: "var(--radius)",
+        xl2: "calc(var(--radius) * 1.67)",
+        "2xl": "calc(var(--radius) * 1.33)",
+        "3xl": "calc(var(--radius) * 2)",
+        full: "9999px",
       },
       keyframes: {
         eq: {

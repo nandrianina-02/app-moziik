@@ -5,6 +5,7 @@ import Image from "next/image";
 import { usePathname } from "next/navigation";
 import { ChevronsLeft, Mail, FileText } from "lucide-react";
 import { useSiteConfig } from "@/context/SiteConfigProvider";
+import { useTheme } from "@/context/ThemeProvider";
 import { useSidebar } from "@/context/SidebarProvider";
 import { EqualizerLoader } from "@/components/ui/EqualizerLoader";
 import { ThemeToggle } from "@/components/ui/ThemeToggle";
@@ -14,6 +15,11 @@ import { primaryLinks, accountLinks, useRoleLinks, isLinkActive, type NavLink } 
 
 export function Sidebar() {
   const siteConfig = useSiteConfig();
+  // Le logo sombre ne remplace le principal que sur fond sombre, et
+  // seulement si l'administration en a fourni un.
+  const { theme } = useTheme();
+  const logo = (theme === "dark" && siteConfig.logoDarkUrl) || siteConfig.logoUrl;
+
   const pathname = usePathname();
   const roleLinks = useRoleLinks();
   // État partagé (voir context/SidebarProvider.tsx) : le mini-lecteur en
@@ -63,8 +69,8 @@ export function Sidebar() {
     >
       <div className={`mb-6 flex shrink-0 items-center px-2 pt-6 ${collapsed ? "flex-col gap-3" : "justify-between"}`}>
         <div className={`flex min-w-0 items-center gap-2 ${collapsed ? "justify-center" : ""}`}>
-          {siteConfig.logoUrl ? (
-            <Image src={siteConfig.logoUrl} alt="" width={24} height={24} className="h-6 w-6 shrink-0 object-contain" priority />
+          {logo ? (
+            <Image src={logo} alt="" width={24} height={24} className="h-6 w-6 shrink-0 object-contain" priority />
           ) : (
             <EqualizerLoader size="sm" />
           )}

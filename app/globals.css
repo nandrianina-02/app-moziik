@@ -7,6 +7,11 @@
   --font-body: "Plus Jakarta Sans", ui-sans-serif, system-ui, sans-serif;
   --font-mono: "JetBrains Mono", ui-monospace, monospace;
 
+  /* Rayon de référence : toute l échelle d arrondis Tailwind s y adosse
+     (voir tailwind.config.ts). Réglable depuis les paramètres du site,
+     surchargé sur <html> par ThemeProvider. */
+  --radius: 12px;
+
   /* Thème sombre (par défaut) — triplets RGB, sans "rgb()", pour
      fonctionner avec la syntaxe <alpha-value> de Tailwind. */
   --color-base: 13 15 26;        /* #0D0F1A */

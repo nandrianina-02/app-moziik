@@ -21,10 +21,18 @@ export const GET = withApiErrors(async () => {
       aiFeatures,
       siteName: config.siteName,
       tagline: config.tagline,
+      description: config.description,
+      siteUrl: config.siteUrl,
+      defaultLanguage: config.defaultLanguage,
+      currency: config.currency,
+      timezone: config.timezone,
+      dateFormat: config.dateFormat,
       logoUrl: config.logoUrl,
+      logoDarkUrl: config.logoDarkUrl,
       supportEmail: config.supportEmail,
       copyrightText: config.copyrightText,
       plans: config.plans,
+      trialDays: config.trialDays,
       genres: config.genres,
       // Le thème par défaut du site : c'est lui que voit tout visiteur qui
       // n'a rien personnalisé, y compris déconnecté.

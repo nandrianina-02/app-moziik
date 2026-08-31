@@ -6,6 +6,7 @@ import Image from "next/image";
 import { useSession } from "next-auth/react";
 import { Menu, User } from "lucide-react";
 import { useSiteConfig } from "@/context/SiteConfigProvider";
+import { useTheme } from "@/context/ThemeProvider";
 import { MobileDrawer } from "@/components/layout/MobileDrawer";
 import { NotificationBell } from "@/components/ui/NotificationBell";
 import { ThemeToggle } from "@/components/ui/ThemeToggle";
@@ -14,6 +15,11 @@ import { EqualizerLoader } from "@/components/ui/EqualizerLoader";
 export function MobileHeader() {
   const { data: session } = useSession();
   const siteConfig = useSiteConfig();
+  // Le logo sombre ne remplace le principal que sur fond sombre, et
+  // seulement si l'administration en a fourni un.
+  const { theme } = useTheme();
+  const logo = (theme === "dark" && siteConfig.logoDarkUrl) || siteConfig.logoUrl;
+
   const [drawerOpen, setDrawerOpen] = useState(false);
 
   return (
@@ -28,8 +34,8 @@ export function MobileHeader() {
         </button>
 
         <span className="flex items-center gap-1.5 min-w-0">
-          {siteConfig.logoUrl ? (
-            <Image src={siteConfig.logoUrl} alt="" width={20} height={20} className="h-5 w-5 shrink-0 object-contain" priority />
+          {logo ? (
+            <Image src={logo} alt="" width={20} height={20} className="h-5 w-5 shrink-0 object-contain" priority />
           ) : (
             <EqualizerLoader size="sm" />
           )}

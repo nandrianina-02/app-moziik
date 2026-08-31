@@ -442,16 +442,44 @@ const couleurHex = z
 
 export const themePreferenceSchema = z.object({
   preset: z.string().trim().min(1).max(40),
-  mode: z.enum(["dark", "light"]),
+  mode: z.enum(["dark", "light", "system"]),
   accent: couleurHex,
   backgroundDark: couleurHex,
   backgroundLight: couleurHex,
+  secondary: couleurHex,
+  warning: couleurHex,
+  radius: z.number().int().min(0).max(24),
 });
 
 export const adminSiteConfigPatchSchema = z.object({
   siteName: z.string().trim().min(1).max(80).optional(),
   tagline: z.string().max(200).optional(),
+  description: z.string().max(1000).optional(),
+  // Une adresse de site sert à fabriquer des liens absolus : un protocole
+  // exotique s'y retrouverait tel quel dans les partages et le sitemap.
+  siteUrl: z
+    .string()
+    .trim()
+    .max(300)
+    .refine((v) => v === "" || /^https?:\/\//.test(v), "L'adresse doit commencer par http:// ou https://.")
+    .optional(),
+  defaultLanguage: z.string().trim().max(10).optional(),
+  currency: z.string().trim().max(10).optional(),
+  timezone: z.string().trim().max(60).optional(),
+  dateFormat: z.string().trim().max(20).optional(),
   logoUrl: z.string().max(500).optional(),
+  logoDarkUrl: z.string().max(500).optional(),
+  faviconUrl: z.string().max(500).optional(),
+  seoTitle: z.string().max(200).optional(),
+  seoDescription: z.string().max(400).optional(),
+  googleAnalyticsId: z
+    .string()
+    .trim()
+    .max(40)
+    .refine((v) => v === "" || /^(G-[A-Z0-9]{4,}|UA-\d{4,}-\d+)$/i.test(v), "Identifiant attendu au format G-XXXXXXXXXX.")
+    .optional(),
+  googleSearchConsoleId: z.string().trim().max(120).optional(),
+  trialDays: z.number().int().min(0).max(365).optional(),
   supportEmail: z.string().trim().email("Adresse email invalide.").max(254).optional().or(z.literal("")),
   copyrightText: z.string().max(300).optional(),
   plans: z

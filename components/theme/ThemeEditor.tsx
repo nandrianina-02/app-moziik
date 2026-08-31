@@ -1,16 +1,20 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { Check, Moon, Sun } from "lucide-react";
+import { Check, Monitor, Moon, Sun } from "lucide-react";
 import {
   PRESET_PERSONNALISE,
+  RAYONS,
   THEME_PRESETS,
   couleursDe,
+  modeApplique,
   themeVariables,
   type ThemeMode,
+  type ThemeModeChoice,
   type ThemePreference,
 } from "@/lib/theme";
 import { contraste, hexEnRgb } from "@/lib/color";
+import { useTheme } from "@/context/ThemeProvider";
 
 /**
  * L'éditeur de thème, partagé par l'administration (thème du site) et les
@@ -30,17 +34,22 @@ export function ThemeEditor({
   onChange: (theme: ThemePreference) => void;
   disabled?: boolean;
 }) {
+  const { modeSysteme } = useTheme();
+
   const modifier = (patch: Partial<ThemePreference>) => {
     if (disabled) return;
     onChange({ ...value, ...patch });
   };
 
-  const { accent, background } = couleursDe(value, value.mode);
+  // « Automatique » n'a pas de couleurs propres : on montre ce que
+  // l'appareil demande en ce moment.
+  const modeVu: ThemeMode = modeApplique(value.mode, modeSysteme);
+  const { accent, background } = couleursDe(value, modeVu);
   const personnalise = value.preset === PRESET_PERSONNALISE;
-  const cleFond = value.mode === "light" ? "backgroundLight" : "backgroundDark";
+  const cleFond = modeVu === "light" ? "backgroundLight" : "backgroundDark";
 
   // Ce que donnera réellement le thème, une fois le contraste garanti.
-  const variables = useMemo(() => themeVariables(value, value.mode), [value]);
+  const variables = useMemo(() => themeVariables(value, modeVu), [value, modeVu]);
   const accentApplique = `rgb(${variables["--color-accent"].split(" ").join(",")})`;
 
   // L'accent choisi a-t-il dû être corrigé pour rester lisible ?
@@ -56,7 +65,14 @@ export function ThemeEditor({
       {/* Mode */}
       <div>
         <p className="mb-2 text-sm font-medium text-ink">Mode</p>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
+          <BoutonMode
+            actif={value.mode === "light"}
+            onClick={() => modifier({ mode: "light" })}
+            icon={Sun}
+            label="Clair"
+            disabled={disabled}
+          />
           <BoutonMode
             actif={value.mode === "dark"}
             onClick={() => modifier({ mode: "dark" })}
@@ -65,13 +81,18 @@ export function ThemeEditor({
             disabled={disabled}
           />
           <BoutonMode
-            actif={value.mode === "light"}
-            onClick={() => modifier({ mode: "light" })}
-            icon={Sun}
-            label="Clair"
+            actif={value.mode === "system"}
+            onClick={() => modifier({ mode: "system" })}
+            icon={Monitor}
+            label="Système"
             disabled={disabled}
           />
         </div>
+        {value.mode === "system" && (
+          <p className="mt-2 text-xs text-ink-muted">
+            Suit le réglage de l&apos;appareil — actuellement {modeSysteme === "light" ? "clair" : "sombre"}.
+          </p>
+        )}
       </div>
 
       {/* Préréglages */}
@@ -83,7 +104,7 @@ export function ThemeEditor({
               key={preset.id}
               label={preset.label}
               accent={preset.accent}
-              fond={value.mode === "light" ? preset.backgroundLight : preset.backgroundDark}
+              fond={modeVu === "light" ? preset.backgroundLight : preset.backgroundDark}
               actif={value.preset === preset.id}
               onClick={() => modifier({ preset: preset.id })}
               disabled={disabled}
@@ -100,18 +121,18 @@ export function ThemeEditor({
         </div>
       </div>
 
-      {/* Couleurs libres */}
+      {/* Couleurs libres du préréglage « Personnalisé » */}
       {personnalise && (
         <div className="grid gap-4 sm:grid-cols-2">
           <ChampCouleur
-            label="Couleur d'accent"
+            label="Couleur principale"
             aide="Boutons, liens, lecture en cours."
             value={value.accent}
             onChange={(accent) => modifier({ accent })}
             disabled={disabled}
           />
           <ChampCouleur
-            label={value.mode === "light" ? "Fond (mode clair)" : "Fond (mode sombre)"}
+            label={modeVu === "light" ? "Fond (mode clair)" : "Fond (mode sombre)"}
             aide="Surfaces, bordures et encre en sont déduites."
             value={value[cleFond]}
             onChange={(couleur) => modifier({ [cleFond]: couleur } as Partial<ThemePreference>)}
@@ -119,6 +140,56 @@ export function ThemeEditor({
           />
         </div>
       )}
+
+      {/* Les deux autres couleurs d'identité valent pour tous les
+          préréglages : elles ne décrivent pas une ambiance, mais un sens —
+          ce qui est validé, ce qui appelle l'attention. */}
+      <div className="grid gap-4 sm:grid-cols-2">
+        <ChampCouleur
+          label="Couleur secondaire"
+          aide="Badges vérifiés, statuts publiés, confirmations."
+          value={value.secondary}
+          onChange={(secondary) => modifier({ secondary })}
+          disabled={disabled}
+        />
+        <ChampCouleur
+          label="Couleur d'alerte"
+          aide="Avertissements et seuils à surveiller."
+          value={value.warning}
+          onChange={(warning) => modifier({ warning })}
+          disabled={disabled}
+        />
+      </div>
+
+      {/* Rayon des bordures */}
+      <div>
+        <p className="mb-2 text-sm font-medium text-ink">Rayon des bordures</p>
+        <div className="flex flex-wrap gap-2">
+          {RAYONS.map((rayon) => (
+            <button
+              key={rayon}
+              type="button"
+              onClick={() => modifier({ radius: rayon })}
+              disabled={disabled}
+              aria-pressed={value.radius === rayon}
+              className={`flex items-center gap-2 border px-3.5 py-2 text-sm font-medium transition-colors disabled:opacity-60 ${
+                value.radius === rayon ? "border-accent text-accent" : "border-border text-ink-muted hover:text-ink"
+              }`}
+              style={{ borderRadius: Math.max(4, rayon) }}
+            >
+              <span
+                className="h-4 w-4 border border-current opacity-70"
+                style={{ borderRadius: rayon }}
+                aria-hidden
+              />
+              {rayon === 0 ? "Carré" : `${rayon} px`}
+            </button>
+          ))}
+        </div>
+        <p className="mt-1.5 text-xs text-ink-muted">
+          Toute l&apos;échelle d&apos;arrondis du site s&apos;y adosse : cartes, boutons, pochettes.
+        </p>
+      </div>
 
       {accentAjuste && (
         <p className="flex items-start gap-2 rounded-xl border border-border bg-base/60 p-3 text-xs text-ink-muted">

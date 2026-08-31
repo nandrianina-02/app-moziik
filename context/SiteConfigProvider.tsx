@@ -3,6 +3,7 @@
 import { createContext, useCallback, useContext, useEffect, useState } from "react";
 import { defaultSiteConfig, type SiteConfig } from "@/config/site";
 import { THEME_PAR_DEFAUT, type ThemePreference } from "@/lib/theme";
+import { formatDate } from "@/lib/dates";
 
 type PublicSiteConfig = Pick<
   SiteConfig,
@@ -23,6 +24,18 @@ type PublicSiteConfig = Pick<
   legalUpdatedAt?: string;
   /** Thème par défaut du site, appliqué par ThemeProvider. */
   theme?: ThemePreference;
+  /** Présentation longue, reprise par le référencement à défaut de description SEO. */
+  description?: string;
+  siteUrl?: string;
+  defaultLanguage?: string;
+  /** Devise d'affichage des prix internationaux. */
+  currency?: string;
+  timezone?: string;
+  dateFormat?: string;
+  /** Variante du logo pour fond sombre. */
+  logoDarkUrl?: string;
+  /** Jours d'essai offerts sur l'abonnement, 0 si aucun. */
+  trialDays?: number;
   /**
    * Identifiants des fonctionnalités d'IA servables en ce moment
    * (lib/ai/features.ts). Vide tant que /api/site-config n'a pas répondu,
@@ -32,10 +45,15 @@ type PublicSiteConfig = Pick<
   aiFeatures?: string[];
 };
 
-const SiteConfigContext = createContext<PublicSiteConfig>({ ...defaultSiteConfig, theme: THEME_PAR_DEFAUT });
+// `defaultSiteConfig.currency` décrit les deux devises de paiement, là où la
+// configuration publique n'en expose qu'une, celle d'affichage : on la
+// remplace explicitement plutôt que de laisser passer l'objet.
+const CONFIG_PAR_DEFAUT: PublicSiteConfig = { ...defaultSiteConfig, currency: "EUR", theme: THEME_PAR_DEFAUT };
+
+const SiteConfigContext = createContext<PublicSiteConfig>(CONFIG_PAR_DEFAUT);
 
 export function SiteConfigProvider({ children }: { children: React.ReactNode }) {
-  const [config, setConfig] = useState<PublicSiteConfig>(defaultSiteConfig);
+  const [config, setConfig] = useState<PublicSiteConfig>(CONFIG_PAR_DEFAUT);
 
   const refresh = useCallback(() => {
     fetch("/api/site-config")
@@ -58,6 +76,19 @@ export function SiteConfigProvider({ children }: { children: React.ReactNode }) 
 }
 
 export const useSiteConfig = () => useContext(SiteConfigContext);
+
+/**
+ * Formate une date selon les réglages du site — fuseau, format, langue.
+ * À préférer à `toLocaleDateString("fr-FR")` : sans lui, une plateforme
+ * réglée sur Antananarivo affiche des dates calculées à Paris.
+ */
+export function useFormatDate() {
+  const { dateFormat, timezone, defaultLanguage } = useSiteConfig();
+  return useCallback(
+    (valeur: string | number | Date) => formatDate(valeur, { dateFormat, timezone, defaultLanguage }),
+    [dateFormat, timezone, defaultLanguage]
+  );
+}
 
 /**
  * Cette assistance par IA est-elle proposable ici et maintenant ?

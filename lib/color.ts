@@ -16,6 +16,10 @@ export const BLANC: RGB = { r: 255, g: 255, b: 255 };
 
 /** Accepte « #RGB », « #RRGGBB » et la même chose sans dièse. */
 export function hexEnRgb(hex: string): RGB | null {
+  // Cette fonction est le point d entrée de toute couleur venue d ailleurs —
+  // base, formulaire, stockage local. Une valeur manquante y arrive donc
+  // pour de vrai, et doit repartir en « null », pas en exception.
+  if (typeof hex !== "string") return null;
   const brut = hex.trim().replace(/^#/, "");
   const complet = brut.length === 3 ? brut.replace(/./g, (c) => c + c) : brut;
   if (!/^[0-9a-fA-F]{6}$/.test(complet)) return null;

@@ -32,13 +32,30 @@ const mono = JetBrains_Mono({ subsets: ["latin"], variable: "--font-mono" });
 
 export async function generateMetadata(): Promise<Metadata> {
   const config = await getSiteConfig();
-  const favicon32 = (config.logoUrl && sizedIcon(config.logoUrl, 32)) || "/favicon-32.png";
-  const favicon16 = (config.logoUrl && sizedIcon(config.logoUrl, 16)) || "/favicon-16.png";
-  const appleIcon = (config.logoUrl && sizedIcon(config.logoUrl, 180)) || "/icon-mark.png";
+  // Le favicon dédié l'emporte ; à défaut on retaille le logo, comme avant.
+  const source = config.faviconUrl || config.logoUrl;
+  const favicon32 = (source && sizedIcon(source, 32)) || "/favicon-32.png";
+  const favicon16 = (source && sizedIcon(source, 16)) || "/favicon-16.png";
+  const appleIcon = (source && sizedIcon(source, 180)) || "/icon-mark.png";
+
+  // Ce que voient les moteurs de recherche : les champs SEO d'abord, puis
+  // ce qui décrit déjà le site. Aucun texte n'est inventé ici.
+  const titre = config.seoTitle?.trim() || config.siteName;
+  const description = config.seoDescription?.trim() || config.description?.trim() || config.tagline;
 
   return {
-    title: config.siteName,
-    description: config.tagline,
+    // Sans base, les images et liens relatifs des cartes de partage sont
+    // résolus contre l'adresse courante — donc faux dès qu'un aperçu est
+    // généré ailleurs.
+    metadataBase: config.siteUrl ? new URL(config.siteUrl) : undefined,
+    title: titre,
+    description,
+    openGraph: {
+      title: titre,
+      description,
+      siteName: config.siteName,
+      type: "website",
+    },
     icons: {
       icon: [
         { url: favicon32, sizes: "32x32", type: "image/png" },
@@ -46,9 +63,9 @@ export async function generateMetadata(): Promise<Metadata> {
       ],
       apple: appleIcon,
     },
-      verification: {
-      google: "bdr2XQKw3ix0tOhfnh5FPpdgy-22DAbaLPEZej7Bg14",
-    },
+    // La balise de vérification n'est posée que si un jeton est renseigné :
+    // celui d'un autre compte ne servirait à personne.
+    verification: config.googleSearchConsoleId ? { google: config.googleSearchConsoleId } : undefined,
   };
 }
 
@@ -58,9 +75,12 @@ export const viewport: Viewport = {
   themeColor: "#FF6B4A",
 };
 
-export default function RootLayout({ children }: { children: React.ReactNode }) {
+export default async function RootLayout({ children }: { children: React.ReactNode }) {
+  const config = await getSiteConfig();
+  const mesure = (config.googleAnalyticsId ?? "").trim();
+
   return (
-    <html lang="fr">
+    <html lang={config.defaultLanguage || "fr"}>
       <body className={`${display.variable} ${body.variable} ${mono.variable}`}>
         {/*
           Applique le thème stocké AVANT le premier paint, en bloquant
@@ -90,6 +110,22 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             } catch (e) {}
           `}
         </Script>
+        {/* Mesure d'audience : rien n'est chargé tant qu'aucun identifiant
+            n'est renseigné en administration — pas de script, pas de requête,
+            pas de dépôt sur l'appareil du visiteur. */}
+        {mesure && (
+          <>
+            <Script src={`https://www.googletagmanager.com/gtag/js?id=${mesure}`} strategy="afterInteractive" />
+            <Script id="ga-init" strategy="afterInteractive">
+              {`
+                window.dataLayer = window.dataLayer || [];
+                function gtag(){dataLayer.push(arguments);}
+                gtag('js', new Date());
+                gtag('config', '${mesure}');
+              `}
+            </Script>
+          </>
+        )}
         <SiteConfigProvider>
           <AuthProvider>
             <ThemeProvider>

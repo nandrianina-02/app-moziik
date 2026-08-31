@@ -6,9 +6,11 @@ import { useSiteConfig } from "@/context/SiteConfigProvider";
 import {
   THEME_PAR_DEFAUT,
   fondSombre,
+  modeApplique,
   normaliserTheme,
   themeVariables,
   type ThemeMode,
+  type ThemeModeChoice,
   type ThemePreference,
 } from "@/lib/theme";
 
@@ -32,10 +34,13 @@ const CLE_MODE = "moziik-theme";
 export const CLE_VARIABLES = "moziik-theme-vars";
 
 type ThemeContextValue = {
+  /** Le mode réellement appliqué, « system » déjà résolu. */
   theme: ThemeMode;
+  /** Ce que l'appareil demande via prefers-color-scheme. */
+  modeSysteme: ThemeMode;
   toggleTheme: () => void;
   /** Fixe le mode de cet appareil, sans passer par la bascule. */
-  setMode: (mode: ThemeMode) => void;
+  setMode: (mode: ThemeModeChoice) => void;
   /** Le thème effectivement appliqué (personnel ou celui du site). */
   preference: ThemePreference;
   /** Le thème personnel enregistré, s'il y en a un. */
@@ -52,6 +57,7 @@ type ThemeContextValue = {
 
 const ThemeContext = createContext<ThemeContextValue>({
   theme: "dark",
+  modeSysteme: "dark",
   toggleTheme: () => {},
   setMode: () => {},
   preference: THEME_PAR_DEFAUT,
@@ -75,11 +81,22 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
   // `null` tant que le stockage local n'a pas été lu : le mode enregistré
   // dans le thème sert de valeur de départ, mais un choix explicite de
   // l'appareil doit primer, et il n'est lisible qu'après le montage.
-  const [modeLocal, setModeLocal] = useState<ThemeMode | null>(null);
+  const [modeLocal, setModeLocal] = useState<ThemeModeChoice | null>(null);
+  // Ce que demande le système d'exploitation, pour le mode « automatique ».
+  const [modeSysteme, setModeSysteme] = useState<ThemeMode>("dark");
 
   useEffect(() => {
     const stocke = localStorage.getItem(CLE_MODE);
-    if (stocke === "dark" || stocke === "light") setModeLocal(stocke);
+    if (stocke === "dark" || stocke === "light" || stocke === "system") setModeLocal(stocke);
+  }, []);
+
+  useEffect(() => {
+    if (!window.matchMedia) return;
+    const requete = window.matchMedia("(prefers-color-scheme: light)");
+    const relire = () => setModeSysteme(requete.matches ? "light" : "dark");
+    relire();
+    requete.addEventListener("change", relire);
+    return () => requete.removeEventListener("change", relire);
   }, []);
 
   useEffect(() => {
@@ -117,7 +134,7 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
   // Pendant un aperçu, c'est le mode de l'aperçu qui s'applique : l'écran
   // de personnalisation doit montrer exactement ce qui sera enregistré, y
   // compris quand l'appareil est resté sur l'autre mode.
-  const mode: ThemeMode = apercu ? apercu.mode : modeLocal ?? preference.mode;
+  const mode: ThemeMode = modeApplique(apercu ? apercu.mode : modeLocal ?? preference.mode, modeSysteme);
 
   // Application : variables CSS + classe `light`, et copie dans le stockage
   // local pour que le prochain chargement peigne la page avant le premier
@@ -137,7 +154,7 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
     }
   }, [preference, mode]);
 
-  const setMode = useCallback((suivant: ThemeMode) => {
+  const setMode = useCallback((suivant: ThemeModeChoice) => {
     setModeLocal(suivant);
     try {
       localStorage.setItem(CLE_MODE, suivant);
@@ -146,13 +163,16 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
     }
   }, []);
 
+  // La bascule de l'en-tête reste binaire : elle part de ce qui est affiché
+  // et le renverse, y compris quand le réglage enregistré est « automatique ».
   const toggleTheme = useCallback(() => {
-    setMode((modeLocal ?? preference.mode) === "dark" ? "light" : "dark");
-  }, [setMode, modeLocal, preference.mode]);
+    setMode(mode === "dark" ? "light" : "dark");
+  }, [setMode, mode]);
 
   const valeur = useMemo<ThemeContextValue>(
     () => ({
       theme: mode,
+      modeSysteme,
       toggleTheme,
       setMode,
       preference,
@@ -162,7 +182,17 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
       previsualiser: setApercu,
       rafraichir: chargerPersonnel,
     }),
-    [mode, toggleTheme, setMode, preference, themePersonnel, themeSite, peutPersonnaliser, chargerPersonnel]
+    [
+      mode,
+      modeSysteme,
+      toggleTheme,
+      setMode,
+      preference,
+      themePersonnel,
+      themeSite,
+      peutPersonnaliser,
+      chargerPersonnel,
+    ]
   );
 
   return <ThemeContext.Provider value={valeur}>{children}</ThemeContext.Provider>;

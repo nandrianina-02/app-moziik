@@ -20,16 +20,28 @@ export const POST = withApiErrors(async (req: Request) => {
   const user = await User.findById(authUser.id);
   if (!user) throw new ApiError("Utilisateur introuvable.", 404);
 
+  // La devise choisie en administration pilote le débit, pas seulement
+  // l'affichage : annoncer « 4,99 € » et prélever des dollars serait faux.
+  // L'ariary n'est pas débitable par carte — c'est le mobile money qui s'en
+  // charge — donc Stripe repart sur le dollar dans ce cas.
+  const devise = ["usd", "eur"].includes((config.currency ?? "").toLowerCase())
+    ? (config.currency as string).toLowerCase()
+    : "usd";
+  const essai = Math.max(0, Math.round(config.trialDays ?? 0));
+
   const checkoutSession = await stripe.checkout.sessions.create({
     mode: "subscription",
     customer_email: user.email,
+    // Une période d'essai à zéro jour est refusée par Stripe : on n'envoie
+    // le bloc que lorsqu'il y a réellement un essai à offrir.
+    ...(essai > 0 ? { subscription_data: { trial_period_days: essai } } : {}),
     // Le prix est généré à la volée à partir de la config admin, plutôt
     // que de dépendre d'un Price ID Stripe fixe qui se désynchroniserait
     // à chaque changement de tarif dans /admin/parametres.
     line_items: [
       {
         price_data: {
-          currency: "usd",
+          currency: devise,
           unit_amount: Math.round(pricing.amountUSD * 100),
           recurring: { interval: plan === "premium_annual" ? "year" : "month" },
           product_data: { name: `${config.siteName} — ${plan === "premium_annual" ? "Premium annuel" : "Premium"}` },

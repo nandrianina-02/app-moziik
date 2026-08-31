@@ -11,10 +11,13 @@ export type UserRole = "member" | "artist" | "admin";
  */
 export interface IUserTheme {
   preset: string;
-  mode: "dark" | "light";
+  mode: "dark" | "light" | "system";
   accent: string;
   backgroundDark: string;
   backgroundLight: string;
+  secondary: string;
+  warning: string;
+  radius: number;
 }
 
 export interface IUser {
@@ -59,10 +62,13 @@ const UserSchema = new Schema<IUser>({
     type: new Schema<IUserTheme>(
       {
         preset: { type: String, required: true },
-        mode: { type: String, enum: ["dark", "light"], required: true },
+        mode: { type: String, enum: ["dark", "light", "system"], required: true },
         accent: { type: String, required: true },
         backgroundDark: { type: String, required: true },
         backgroundLight: { type: String, required: true },
+        secondary: { type: String, required: true },
+        warning: { type: String, required: true },
+        radius: { type: Number, required: true, min: 0, max: 24 },
       },
       { _id: false }
     ),

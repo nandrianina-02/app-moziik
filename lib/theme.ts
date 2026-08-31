@@ -24,18 +24,39 @@ import {
  * qu'une seule classe soit réécrite.
  */
 
+/** Le mode réellement appliqué à la page. */
 export type ThemeMode = "dark" | "light";
+
+/**
+ * Le mode choisi dans les réglages. « system » n'est pas un troisième
+ * habillage : c'est une délégation au réglage de l'appareil, résolue à
+ * l'exécution en sombre ou en clair.
+ */
+export type ThemeModeChoice = ThemeMode | "system";
 
 export type ThemePreference = {
   /** Identifiant d'un préréglage, ou "custom" pour des couleurs libres. */
   preset: string;
   /** Mode appliqué à la première visite ; l'interrupteur du site peut en changer ensuite. */
-  mode: ThemeMode;
+  mode: ThemeModeChoice;
   /** Couleurs libres — ignorées tant que `preset` n'est pas "custom". */
   accent: string;
   backgroundDark: string;
   backgroundLight: string;
+  /**
+   * Couleur secondaire : badges vérifiés, statuts publiés, confirmations.
+   * Indépendante du préréglage — c'est la seconde couleur d'identité, pas
+   * une variante de la première.
+   */
+  secondary: string;
+  /** Couleur d'alerte : avertissements, seuils, états à surveiller. */
+  warning: string;
+  /** Rayon des coins, en pixels. Toute l'échelle Tailwind s'y adosse. */
+  radius: number;
 };
+
+/** Rayons proposés à l'écran de réglages. */
+export const RAYONS = [0, 4, 8, 12, 16, 20] as const;
 
 export type ThemePreset = {
   id: string;
@@ -68,7 +89,15 @@ export const THEME_PAR_DEFAUT: ThemePreference = {
   accent: "#FF6B4A",
   backgroundDark: "#0D0F1A",
   backgroundLight: "#FBF9F4",
+  secondary: "#3DDC97",
+  warning: "#FBBF24",
+  radius: 12,
 };
+
+/** Le mode à appliquer, une fois « system » résolu par l'appareil. */
+export function modeApplique(choix: ThemeModeChoice, systeme: ThemeMode): ThemeMode {
+  return choix === "system" ? systeme : choix;
+}
 
 /** Encres de référence, reprises de la palette d'origine. */
 const ENCRE_CLAIRE: RGB = { r: 242, g: 240, b: 233 }; // #F2F0E9
@@ -126,6 +155,12 @@ export function themeVariables(pref: ThemePreference, mode: ThemeMode): Record<s
   const accentLisible = accentAjuste(accentRgb, base);
   const accentHover = sombre ? melange(accentLisible, BLANC, 0.15) : melange(accentLisible, NOIR, 0.2);
 
+  // Les deux autres couleurs d'identité passent par la même garantie de
+  // lisibilité que l'accent : un vert de marque posé tel quel sur un fond
+  // crème donne des badges qu'on devine plus qu'on ne les lit.
+  const secondaire = accentAjuste(hexEnRgb(pref.secondary) ?? hexEnRgb(THEME_PAR_DEFAUT.secondary)!, base);
+  const alerte = accentAjuste(hexEnRgb(pref.warning) ?? hexEnRgb(THEME_PAR_DEFAUT.warning)!, base);
+
   return {
     "--color-base": triplet(base),
     "--color-surface": triplet(surface),
@@ -134,7 +169,16 @@ export function themeVariables(pref: ThemePreference, mode: ThemeMode): Record<s
     "--color-ink-muted": triplet(encreMuted),
     "--color-accent": triplet(accentLisible),
     "--color-accent-hover": triplet(accentHover),
+    "--color-verified": triplet(secondaire),
+    "--color-warning": triplet(alerte),
+    "--radius": `${rayonValide(pref.radius)}px`,
   };
+}
+
+/** Un rayon hors barème casserait la mise en page : on le ramène dedans. */
+function rayonValide(rayon: number): number {
+  if (!Number.isFinite(rayon)) return THEME_PAR_DEFAUT.radius;
+  return Math.min(24, Math.max(0, Math.round(rayon)));
 }
 
 /**
@@ -171,12 +215,17 @@ export function normaliserTheme(valeur: unknown, repli: ThemePreference = THEME_
   const couleur = (v: unknown, defaut: string) =>
     typeof v === "string" && hexEnRgb(v) ? rgbNormalise(v) : defaut;
 
+  const modeConnu = brut.mode === "light" || brut.mode === "dark" || brut.mode === "system";
+
   return {
     preset: presetConnu ? (brut.preset as string) : repli.preset,
-    mode: brut.mode === "light" || brut.mode === "dark" ? brut.mode : repli.mode,
+    mode: modeConnu ? (brut.mode as ThemeModeChoice) : repli.mode,
     accent: couleur(brut.accent, repli.accent),
     backgroundDark: couleur(brut.backgroundDark, repli.backgroundDark),
     backgroundLight: couleur(brut.backgroundLight, repli.backgroundLight),
+    secondary: couleur(brut.secondary, repli.secondary),
+    warning: couleur(brut.warning, repli.warning),
+    radius: typeof brut.radius === "number" ? rayonValide(brut.radius) : repli.radius,
   };
 }
 

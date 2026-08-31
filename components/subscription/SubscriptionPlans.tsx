@@ -15,6 +15,8 @@ import {
   Ban,
 } from "lucide-react";
 import { useToast } from "@/context/ToastProvider";
+import { useSiteConfig } from "@/context/SiteConfigProvider";
+import { deviseDe } from "@/lib/locales";
 
 type Plan = { plan: "premium" | "premium_annual"; amountUSD: number; amountMGA: number };
 type PaymentMethod = "stripe" | "mobile_money";
@@ -35,14 +37,18 @@ const perkColors: Record<string, string> = {
   rose: "bg-tint-rose/15 text-tint-rose",
 };
 
-function formatPrice(plan: Plan, method: PaymentMethod) {
+function formatPrice(plan: Plan, method: PaymentMethod, symbole: string) {
   return method === "mobile_money"
     ? `${plan.amountMGA.toLocaleString("fr-FR")} Ar`
-    : `${plan.amountUSD.toFixed(2)} $`;
+    : `${plan.amountUSD.toFixed(2)} ${symbole}`;
 }
 
 export function SubscriptionPlans() {
   const pushToast = useToast();
+  // La devise vient des paramètres du site : c'est aussi celle que Stripe
+  // débite (voir /api/subscriptions/checkout).
+  const { currency, trialDays } = useSiteConfig();
+  const symbole = deviseDe(currency ?? "EUR").symbole;
   const [plans, setPlans] = useState<Plan[]>([]);
   const [preferredMethod, setPreferredMethod] = useState<PaymentMethod>("stripe");
   const [selectedPlan, setSelectedPlan] = useState<Plan["plan"]>("premium");
@@ -160,7 +166,7 @@ export function SubscriptionPlans() {
                     {isAnnual ? "Premium annuel" : "Premium mensuel"}
                   </h3>
                   <p className="mb-4">
-                    <span className="text-2xl font-display text-accent">{formatPrice(plan, method)}</span>
+                    <span className="text-2xl font-display text-accent">{formatPrice(plan, method, symbole)}</span>
                     <span className="text-sm text-ink-muted"> / {isAnnual ? "an" : "mois"}</span>
                   </p>
                 </div>
@@ -239,8 +245,15 @@ export function SubscriptionPlans() {
             disabled={loading || !currentPlan}
             className="w-full rounded-xl bg-accent py-3.5 text-sm font-medium text-base hover:bg-accent-hover disabled:opacity-60"
           >
-            {loading ? "Redirection..." : `S'abonner — ${currentPlan ? formatPrice(currentPlan, method) : ""}`}
+            {loading ? "Redirection..." : `S'abonner — ${currentPlan ? formatPrice(currentPlan, method, symbole) : ""}`}
           </button>
+          {/* L essai vient des paramètres du site, et c est bien lui que
+              Stripe applique — l annonce et le débit ne peuvent pas diverger. */}
+          {(trialDays ?? 0) > 0 && method === "stripe" && (
+            <p className="mt-2 text-center text-xs text-verified">
+              {trialDays} jours d&apos;essai offerts, sans engagement.
+            </p>
+          )}
           <p className="flex items-center justify-center gap-1.5 text-xs text-ink-muted mt-3">
             <Lock size={12} /> Paiement sécurisé
           </p>
@@ -258,7 +271,7 @@ export function SubscriptionPlans() {
             </div>
             <div className="flex items-center justify-between">
               <dt className="text-ink-muted">Prix</dt>
-              <dd>{currentPlan ? formatPrice(currentPlan, method) : "—"}</dd>
+              <dd>{currentPlan ? formatPrice(currentPlan, method, symbole) : "—"}</dd>
             </div>
             <div className="flex items-center justify-between">
               <dt className="flex items-center gap-1 text-ink-muted">
@@ -271,7 +284,7 @@ export function SubscriptionPlans() {
           <div className="flex items-center justify-between">
             <span className="font-display">Total à payer</span>
             <span className="font-display text-lg text-accent">
-              {currentPlan ? formatPrice(currentPlan, method) : "—"}
+              {currentPlan ? formatPrice(currentPlan, method, symbole) : "—"}
             </span>
           </div>
         </div>

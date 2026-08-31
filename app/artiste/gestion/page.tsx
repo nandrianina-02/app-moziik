@@ -5,7 +5,6 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
 import {
-  Music,
   Disc3,
   Users2,
   Plus,
@@ -17,8 +16,8 @@ import {
   Play,
   Pause,
   Search,
-  SlidersHorizontal,
-  ArrowUpDown,
+  ChevronDown,
+  ChevronRight,
   LayoutList,
   LayoutGrid,
   Headphones,
@@ -26,7 +25,6 @@ import {
   Share2,
   Settings2,
   Wallet,
-  BarChart3,
   UploadCloud,
   MoreVertical,
   AlertTriangle,
@@ -103,6 +101,13 @@ const sortOptions: { value: SortKey; label: string }[] = [
   { value: "title", label: "Titre" },
 ];
 
+// La liste des sons s'ouvre sur un aperçu court, puis se déroule par
+// paliers via « Voir plus de sons » — sur un téléphone, cinq lignes
+// laissent atteindre les cartes de synthèse sans traverser tout le
+// catalogue au doigt.
+const SONGS_PAGE_SIZE = 5;
+const SONGS_PAGE_STEP = 10;
+
 function formatDuration(seconds: number) {
   const m = Math.floor(seconds / 60);
   const s = Math.floor(seconds % 60);
@@ -141,6 +146,7 @@ export default function ArtistManagementPage() {
   const [showSortMenu, setShowSortMenu] = useState(false);
   const [showFilterMenu, setShowFilterMenu] = useState(false);
   const [viewMode, setViewMode] = useState<"list" | "grid">("list");
+  const [visibleCount, setVisibleCount] = useState(SONGS_PAGE_SIZE);
 
   const { currentSong, isPlaying, playQueue, togglePlay } = usePlayer();
 
@@ -188,6 +194,13 @@ export default function ArtistManagementPage() {
     loadAll();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [status]);
+
+  // Tout changement de recherche, de filtre ou de tri replie la liste :
+  // sans cela, « Voir plus » resterait déroulé sur un résultat qui n'a
+  // plus rien à voir avec celui qu'on venait d'ouvrir.
+  useEffect(() => {
+    setVisibleCount(SONGS_PAGE_SIZE);
+  }, [search, category, sortKey, sortDir, tab]);
 
   const confirmDelete = useCallback((song: OwnSong) => {
     setMenuState(null);
@@ -300,52 +313,41 @@ export default function ArtistManagementPage() {
   return (
     <div className="mx-auto w-full max-w-[1600px] px-6 py-8 md:px-10 md:py-10">
       {/* En-tête */}
-      <div className="mb-6 flex flex-wrap items-center justify-between gap-4">
-        <div className="flex items-center gap-4">
-          <SafeImage
-            src={artist?.coverUrl}
-            alt={artist?.stageName ?? "Artiste"}
-            width={56}
-            height={56}
-            className="h-14 w-14 shrink-0 rounded-full object-cover"
-          />
-          <div>
-            <div className="flex items-center gap-1.5">
-              <h1 className="text-2xl font-display">Mon espace artiste</h1>
-              <span aria-hidden>👋</span>
-            </div>
-            <p className="flex items-center gap-1 text-sm text-ink-muted">
-              Gère ta musique, tes albums et tes collaborations
-              {artist?.verified && (
-                <span className="ml-1 inline-flex items-center gap-1 text-verified">
-                  <BadgeCheck size={13} /> Artiste vérifié
-                </span>
-              )}
-            </p>
-          </div>
+      <div className="mb-6 flex items-center gap-4 sm:gap-5">
+        <SafeImage
+          src={artist?.coverUrl}
+          alt={artist?.stageName ?? "Artiste"}
+          width={96}
+          height={96}
+          className="h-[72px] w-[72px] shrink-0 rounded-full object-cover sm:h-24 sm:w-24"
+        />
+        <div className="min-w-0">
+          <h1 className="text-2xl font-display sm:text-3xl">Mon espace artiste</h1>
+          <p className="mt-1 text-sm text-ink-muted">Gère ta musique, tes albums et tes collaborations</p>
+          {artist?.verified && (
+            <span className="mt-2.5 inline-flex items-center gap-1.5 rounded-full border border-border px-3 py-1 text-xs font-medium text-verified">
+              <BadgeCheck size={14} /> Artiste vérifié
+            </span>
+          )}
         </div>
       </div>
 
-      {/* Navigation secondaire de l'espace artiste */}
-      <nav aria-label="Sections de l'espace artiste" className="-mx-6 mb-6 overflow-x-auto px-6 md:-mx-10 md:px-10">
-        <div className="flex w-max items-center gap-2">
-          <div role="tablist" aria-label="Contenu principal" className="flex items-center gap-2">
-            <SecondaryNavButton icon={Music} label="Mes sons" active={tab === "songs"} onClick={() => setTab("songs")} />
-            <SecondaryNavButton icon={Disc3} label="Mes albums" active={tab === "albums"} onClick={() => setTab("albums")} />
-            <SecondaryNavButton icon={Users2} label="Collaborations" active={tab === "featurings"} onClick={() => setTab("featurings")} />
+      {/* Navigation secondaire de l'espace artiste — les cinq entrées ont
+          désormais la même forme : rien ne distingue plus « Revenus » et
+          « Paramètres » du reste, alors qu'ils mènent au même niveau de
+          l'espace artiste. */}
+      <nav aria-label="Sections de l'espace artiste" className="-mx-6 mb-5 overflow-x-auto px-6 pb-1 md:-mx-10 md:px-10">
+        <div className="flex w-max items-center gap-2.5">
+          <div role="tablist" aria-label="Contenu principal" className="flex items-center gap-2.5">
+            <SecondaryNavButton label="Mes sons" active={tab === "songs"} onClick={() => setTab("songs")} />
+            <SecondaryNavButton label="Mes albums" active={tab === "albums"} onClick={() => setTab("albums")} />
+            <SecondaryNavButton label="Collaborations" active={tab === "featurings"} onClick={() => setTab("featurings")} />
           </div>
-          <span className="mx-1 h-5 w-px bg-border" aria-hidden />
-          <Link
-            href="/artiste/revenus"
-            className="flex items-center gap-1.5 whitespace-nowrap rounded-full border border-border px-3.5 py-1.5 text-xs font-medium text-ink-muted transition-colors hover:border-accent hover:text-ink"
-          >
-            <Wallet size={14} /> Revenus
+          <Link href="/artiste/revenus" className={navPillClass(false)}>
+            Revenus
           </Link>
-          <button
-            onClick={() => setShowEditProfile(true)}
-            className="flex items-center gap-1.5 whitespace-nowrap rounded-full border border-border px-3.5 py-1.5 text-xs font-medium text-ink-muted transition-colors hover:border-accent hover:text-ink"
-          >
-            <Settings2 size={14} /> Paramètres
+          <button onClick={() => setShowEditProfile(true)} className={navPillClass(false)}>
+            Paramètres
           </button>
           {/* aria-disabled plutôt qu'un simple gris : c'est ce qui dit aux
               lecteurs d'écran que l'entrée est inactive. À 50 % d'encre
@@ -354,9 +356,9 @@ export default function ArtistManagementPage() {
           <span
             title="Bientôt disponible"
             aria-disabled="true"
-            className="flex cursor-not-allowed items-center gap-1.5 whitespace-nowrap rounded-full border border-border px-3.5 py-1.5 text-xs font-medium text-ink-muted/70"
+            className="flex cursor-not-allowed items-center whitespace-nowrap rounded-2xl border border-border px-4 py-2.5 text-sm font-medium text-ink-muted/70"
           >
-            <BarChart3 size={14} /> Statistiques
+            Statistiques
           </span>
         </div>
       </nav>
@@ -392,58 +394,49 @@ export default function ArtistManagementPage() {
         <div className="grid grid-cols-1 gap-6 xl:grid-cols-[minmax(0,1fr)_320px]">
           {/* Colonne principale */}
           <div className="min-w-0">
-            {/* Barre d'actions */}
-            <div className="mb-5 flex flex-wrap items-center gap-2">
-              {tab === "songs" && (
-                <>
-                  <button
-                    onClick={() => router.push("/son/nouveau")}
-                    className="flex items-center gap-1.5 rounded-full bg-accent px-4 py-2 text-sm font-medium text-base transition-colors hover:bg-accent-hover"
-                  >
-                    <Plus size={16} /> Publier un son
-                  </button>
-                  {/* L'import groupé existe désormais, mais reste réservé à
-                      l'administration : l'entrée n'est active que pour elle. */}
-                  {session?.user?.role === "admin" ? (
-                    <Link
-                      href="/admin/import"
-                      className="flex items-center gap-1.5 rounded-full border border-border px-3.5 py-2 text-sm font-medium text-ink-muted transition-colors hover:border-accent hover:text-accent"
-                    >
-                      <UploadCloud size={15} /> Importer plusieurs morceaux
-                    </Link>
-                  ) : (
-                    <button
-                      title="Bientôt disponible"
-                      disabled
-                      className="flex items-center gap-1.5 rounded-full border border-border px-3.5 py-2 text-sm font-medium text-ink-muted/70"
-                    >
-                      <UploadCloud size={15} /> Importer plusieurs morceaux
-                    </button>
-                  )}
-                </>
-              )}
-              {tab === "albums" && (
+            {/* Barre d'actions — empilée sur toute la largeur : sur un
+                téléphone, « Publier un son » est l'action de la page, elle
+                mérite la pleine mesure plutôt qu'un coin de ligne. */}
+            {tab === "songs" && (
+              <div className="mb-5 flex flex-col gap-3">
                 <button
-                  onClick={() => setShowCreateAlbum(true)}
-                  className="flex items-center gap-1.5 rounded-full bg-accent px-4 py-2 text-sm font-medium text-base transition-colors hover:bg-accent-hover"
+                  onClick={() => router.push("/son/nouveau")}
+                  className="flex w-full items-center justify-center gap-2 rounded-2xl bg-accent px-5 py-3.5 text-sm font-semibold text-base transition-colors hover:bg-accent-hover sm:w-auto sm:self-start"
                 >
-                  <Plus size={16} /> Créer un album
+                  <Plus size={18} /> Publier un son
                 </button>
-              )}
 
-              {tab === "songs" && (
-                <div className="ml-auto flex flex-wrap items-center gap-2">
-                  <label className="relative">
-                    <Search size={14} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-ink-muted" />
-                    <input
-                      value={search}
-                      onChange={(e) => setSearch(e.target.value)}
-                      placeholder="Rechercher un son..."
-                      aria-label="Rechercher un son"
-                      className="w-44 rounded-full border border-border bg-surface py-2 pl-8 pr-3 text-xs outline-none focus:border-accent sm:w-56"
-                    />
-                  </label>
+                {/* L'import groupé existe désormais, mais reste réservé à
+                    l'administration : l'entrée n'est active que pour elle. */}
+                {session?.user?.role === "admin" ? (
+                  <Link
+                    href="/admin/import"
+                    className="flex w-full items-center justify-center gap-2 rounded-2xl border border-border px-5 py-3 text-sm font-medium text-ink transition-colors hover:border-accent hover:text-accent sm:w-auto sm:self-start"
+                  >
+                    <UploadCloud size={17} /> Importer plusieurs morceaux
+                  </Link>
+                ) : (
+                  <button
+                    title="Bientôt disponible"
+                    disabled
+                    className="flex w-full items-center justify-center gap-2 rounded-2xl border border-border px-5 py-3 text-sm font-medium text-ink-muted/70 sm:w-auto sm:self-start"
+                  >
+                    <UploadCloud size={17} /> Importer plusieurs morceaux
+                  </button>
+                )}
 
+                <label className="relative block">
+                  <Search size={16} className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-ink-muted" />
+                  <input
+                    value={search}
+                    onChange={(e) => setSearch(e.target.value)}
+                    placeholder="Rechercher un son..."
+                    aria-label="Rechercher un son"
+                    className="w-full rounded-2xl border border-border bg-surface py-3 pl-11 pr-4 text-sm outline-none focus:border-accent"
+                  />
+                </label>
+
+                <div className="flex items-center gap-2.5">
                   <div className="relative">
                     <button
                       onClick={() => {
@@ -452,13 +445,13 @@ export default function ArtistManagementPage() {
                       }}
                       aria-haspopup="true"
                       aria-expanded={showFilterMenu}
-                      className="flex items-center gap-1.5 rounded-full border border-border px-3 py-2 text-xs font-medium text-ink-muted transition-colors hover:border-accent hover:text-ink"
+                      className="flex items-center gap-2 rounded-2xl border border-border px-4 py-2.5 text-sm font-medium text-ink transition-colors hover:border-accent"
                     >
-                      <SlidersHorizontal size={13} />
                       {categoryFilters.find((f) => f.value === category)?.label}
+                      <ChevronDown size={15} className="text-ink-muted" />
                     </button>
                     {showFilterMenu && (
-                      <div className="absolute right-0 top-10 z-20 w-44 rounded-xl border border-border bg-surface p-1.5 shadow-2xl">
+                      <div className="absolute left-0 top-12 z-20 w-44 rounded-xl border border-border bg-surface p-1.5 shadow-2xl">
                         {categoryFilters.map((f) => (
                           <button
                             key={f.value}
@@ -485,13 +478,13 @@ export default function ArtistManagementPage() {
                       }}
                       aria-haspopup="true"
                       aria-expanded={showSortMenu}
-                      className="flex items-center gap-1.5 rounded-full border border-border px-3 py-2 text-xs font-medium text-ink-muted transition-colors hover:border-accent hover:text-ink"
+                      className="flex items-center gap-2 rounded-2xl border border-border px-4 py-2.5 text-sm font-medium text-ink transition-colors hover:border-accent"
                     >
-                      <ArrowUpDown size={13} />
                       {sortOptions.find((s) => s.value === sortKey)?.label}
+                      <ChevronDown size={15} className="text-ink-muted" />
                     </button>
                     {showSortMenu && (
-                      <div className="absolute right-0 top-10 z-20 w-44 rounded-xl border border-border bg-surface p-1.5 shadow-2xl">
+                      <div className="absolute left-0 top-12 z-20 w-44 rounded-xl border border-border bg-surface p-1.5 shadow-2xl">
                         {sortOptions.map((s) => (
                           <button
                             key={s.value}
@@ -515,31 +508,40 @@ export default function ArtistManagementPage() {
                     )}
                   </div>
 
-                  <div role="group" aria-label="Mode d'affichage" className="flex items-center rounded-full border border-border p-0.5">
+                  <div role="group" aria-label="Mode d'affichage" className="ml-auto flex items-center rounded-2xl border border-border p-1">
                     <button
                       onClick={() => setViewMode("list")}
                       aria-pressed={viewMode === "list"}
                       aria-label="Affichage en liste"
-                      className={`grid h-7 w-7 place-items-center rounded-full transition-colors ${
+                      className={`grid h-8 w-8 place-items-center rounded-xl transition-colors ${
                         viewMode === "list" ? "bg-accent text-base" : "text-ink-muted"
                       }`}
                     >
-                      <LayoutList size={13} />
+                      <LayoutList size={15} />
                     </button>
                     <button
                       onClick={() => setViewMode("grid")}
                       aria-pressed={viewMode === "grid"}
                       aria-label="Affichage en grille"
-                      className={`grid h-7 w-7 place-items-center rounded-full transition-colors ${
+                      className={`grid h-8 w-8 place-items-center rounded-xl transition-colors ${
                         viewMode === "grid" ? "bg-accent text-base" : "text-ink-muted"
                       }`}
                     >
-                      <LayoutGrid size={13} />
+                      <LayoutGrid size={15} />
                     </button>
                   </div>
                 </div>
-              )}
-            </div>
+              </div>
+            )}
+
+            {tab === "albums" && (
+              <button
+                onClick={() => setShowCreateAlbum(true)}
+                className="mb-5 flex w-full items-center justify-center gap-2 rounded-2xl bg-accent px-5 py-3.5 text-sm font-semibold text-base transition-colors hover:bg-accent-hover sm:w-auto"
+              >
+                <Plus size={18} /> Créer un album
+              </button>
+            )}
 
             {tab === "songs" && (
               <SongsPanel
@@ -547,6 +549,8 @@ export default function ArtistManagementPage() {
                 totalCount={songs.length}
                 hasSearch={search.trim().length > 0 || category !== "all"}
                 viewMode={viewMode}
+                visibleCount={visibleCount}
+                onShowMore={() => setVisibleCount((n) => n + SONGS_PAGE_STEP)}
                 onPlay={handlePlaySong}
                 onOpenMenu={(song, x, y) => setMenuState({ song, x, y })}
                 onDelete={confirmDelete}
@@ -621,9 +625,9 @@ export default function ArtistManagementPage() {
           <aside className="flex flex-col gap-5">
             <div className="rounded-xl2 border border-border bg-surface p-5">
               <p className="mb-4 text-sm font-semibold">Aperçu rapide</p>
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-4 gap-2.5 xl:grid-cols-2 xl:gap-3">
                 <StatTile icon={Headphones} label="Écoutes" value={stats.plays} />
-                <StatTile icon={Heart} label="Likes" value={stats.likes} />
+                <StatTile icon={Heart} label="Likes" value={stats.likes} accent />
                 <StatTile icon={Share2} label="Partages" value={stats.shares} />
                 <StatTile icon={Users2} label="Abonnés" value={stats.followers} />
               </div>
@@ -635,8 +639,8 @@ export default function ArtistManagementPage() {
             </div>
 
             <div className="rounded-xl2 border border-border bg-surface p-5">
-              <p className="mb-3 text-sm font-semibold">Actions rapides</p>
-              <div className="flex flex-col gap-1">
+              <p className="mb-1 text-sm font-semibold">Actions rapides</p>
+              <div className="flex flex-col">
                 <QuickAction icon={Plus} label="Publier un son" description="Partagez votre musique avec le monde" onClick={() => router.push("/son/nouveau")} />
                 <QuickAction icon={Disc3} label="Créer un album" description="Regroupez vos sons" onClick={() => setShowCreateAlbum(true)} />
                 <QuickAction icon={Wallet} label="Gérer mes revenus" description="Suivez vos gains et paiements" href="/artiste/revenus" />
@@ -686,37 +690,47 @@ export default function ArtistManagementPage() {
 // Sous-composants
 // ---------------------------------------------------------------------------
 
+// La forme des entrées de navigation est partagée par les trois onglets,
+// le lien « Revenus » et le bouton « Paramètres » : trois éléments HTML
+// différents pour une seule et même rangée, d'où la classe extraite.
+function navPillClass(active: boolean) {
+  return `flex items-center whitespace-nowrap rounded-2xl border px-4 py-2.5 text-sm font-medium transition-colors ${
+    active ? "border-accent bg-accent text-base" : "border-border text-ink hover:border-accent hover:text-accent"
+  }`;
+}
+
 function SecondaryNavButton({
-  icon: Icon,
   label,
   active,
   onClick,
 }: {
-  icon: typeof Music;
   label: string;
   active: boolean;
   onClick: () => void;
 }) {
   return (
-    <button
-      role="tab"
-      aria-selected={active}
-      onClick={onClick}
-      className={`flex items-center gap-1.5 whitespace-nowrap rounded-full border px-3.5 py-1.5 text-xs font-medium transition-colors ${
-        active ? "border-accent bg-accent text-base" : "border-border text-ink-muted hover:border-accent hover:text-ink"
-      }`}
-    >
-      <Icon size={14} /> {label}
+    <button role="tab" aria-selected={active} onClick={onClick} className={navPillClass(active)}>
+      {label}
     </button>
   );
 }
 
-function StatTile({ icon: Icon, label, value }: { icon: typeof Headphones; label: string; value: number }) {
+function StatTile({
+  icon: Icon,
+  label,
+  value,
+  accent,
+}: {
+  icon: typeof Headphones;
+  label: string;
+  value: number;
+  accent?: boolean;
+}) {
   return (
-    <div className="rounded-xl border border-border p-3">
-      <Icon size={16} className="mb-2 text-accent" />
-      <p className="text-base text-ink font-semibold">{formatCompactNumber(value)}</p>
-      <p className="text-[11px] text-ink-muted">{label}</p>
+    <div className="flex flex-col items-center gap-1.5 rounded-xl border border-border px-1.5 py-3.5 text-center">
+      <Icon size={18} className={accent ? "text-accent" : "text-ink"} />
+      <p className="text-[11px] leading-tight text-ink-muted">{label}</p>
+      <p className="text-lg font-semibold leading-none text-ink">{formatCompactNumber(value)}</p>
     </div>
   );
 }
@@ -736,16 +750,21 @@ function QuickAction({
 }) {
   const content = (
     <>
-      <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-accent/10 text-accent">
-        <Icon size={16} />
+      <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-accent/10 text-accent">
+        <Icon size={17} />
       </span>
-      <span className="min-w-0">
+      <span className="min-w-0 flex-1">
         <span className="block text-sm font-medium">{label}</span>
-        <span className="block truncate text-xs text-ink-muted">{description}</span>
+        {/* La description n'apparaît qu'à partir du grand écran : dans la
+            colonne étroite d'un téléphone, elle doublait la hauteur de
+            chaque rangée pour redire ce que le libellé annonce déjà. */}
+        <span className="hidden truncate text-xs text-ink-muted sm:block">{description}</span>
       </span>
+      <ChevronRight size={16} className="shrink-0 text-ink-muted" />
     </>
   );
-  const className = "flex items-center gap-3 rounded-xl px-2.5 py-2 text-left transition-colors hover:bg-base";
+  const className =
+    "flex items-center gap-3 border-b border-border px-1 py-3 text-left transition-colors last:border-0 hover:text-accent";
   if (href) {
     return (
       <Link href={href} className={className}>
@@ -804,12 +823,12 @@ function StatusDonut({ counts }: { counts: Record<OwnSong["status"], number> }) 
           })}
         <circle cx="50" cy="50" r="40" fill="none" />
       </svg>
-      <ul className="flex flex-col gap-1.5 text-xs">
+      <ul className="flex min-w-0 flex-1 flex-col gap-2 text-xs">
         {segments.map((seg) => (
           <li key={seg.key} className="flex items-center gap-2">
-            <span className="h-2 w-2 rounded-full" style={{ backgroundColor: seg.color }} aria-hidden />
-            <span className="text-ink-muted">{statusMeta[seg.key].label}</span>
-            <span className="font-medium">{counts[seg.key]}</span>
+            <span className="h-2 w-2 shrink-0 rounded-full" style={{ backgroundColor: seg.color }} aria-hidden />
+            <span className="flex-1 truncate text-ink-muted">{statusMeta[seg.key].label}</span>
+            <span className="font-semibold">{counts[seg.key]}</span>
           </li>
         ))}
       </ul>
@@ -831,6 +850,8 @@ function SongsPanel({
   totalCount,
   hasSearch,
   viewMode,
+  visibleCount,
+  onShowMore,
   onPlay,
   onOpenMenu,
   onDelete,
@@ -839,10 +860,18 @@ function SongsPanel({
   totalCount: number;
   hasSearch: boolean;
   viewMode: "list" | "grid";
+  visibleCount: number;
+  onShowMore: () => void;
   onPlay: (song: OwnSong, queue: OwnSong[], index: number) => void;
   onOpenMenu: (song: OwnSong, x: number, y: number) => void;
   onDelete: (song: OwnSong) => void;
 }) {
+  // On tronque l'affichage, jamais la file de lecture : `onPlay` reçoit
+  // toujours la liste filtrée complète, si bien qu'un son lancé depuis
+  // l'aperçu enchaîne sur ceux qui ne sont pas encore dépliés.
+  const visible = songs.slice(0, visibleCount);
+  const hasMore = songs.length > visible.length;
+
   if (totalCount === 0) {
     return <EmptyState icon={Inbox} message="Tu n'as encore publié aucun son." />;
   }
@@ -852,10 +881,17 @@ function SongsPanel({
 
   if (viewMode === "grid") {
     return (
-      <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
-        {songs.map((song, i) => (
-          <SongGridCard key={song._id} song={song} onPlay={() => onPlay(song, songs, i)} onOpenMenu={(x, y) => onOpenMenu(song, x, y)} />
-        ))}
+      <div>
+        <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
+          {visible.map((song, i) => (
+            <SongGridCard key={song._id} song={song} onPlay={() => onPlay(song, songs, i)} onOpenMenu={(x, y) => onOpenMenu(song, x, y)} />
+          ))}
+        </div>
+        {hasMore && (
+          <div className="mt-4 flex justify-center">
+            <ShowMoreButton remaining={songs.length - visible.length} onClick={onShowMore} />
+          </div>
+        )}
       </div>
     );
   }
@@ -863,37 +899,65 @@ function SongsPanel({
   return (
     <>
       {/* Tableau — desktop / tablette */}
-      <div className="hidden overflow-x-auto rounded-xl2 border border-border bg-surface sm:block">
-        <table className="w-full min-w-[720px] border-collapse text-sm">
-          <thead>
-            <tr className="border-b border-border text-left text-[11px] uppercase tracking-wide text-ink-muted">
-              <th scope="col" className="w-10 py-3 pl-4"><span className="sr-only">Lecture</span></th>
-              <th scope="col" className="py-3 pr-3">Titre</th>
-              <th scope="col" className="py-3 pr-3">Genre</th>
-              <th scope="col" className="py-3 pr-3">Durée</th>
-              <th scope="col" className="py-3 pr-3">Statut</th>
-              <th scope="col" className="py-3 pr-3">Écoutes</th>
-              <th scope="col" className="py-3 pr-3">Likes</th>
-              <th scope="col" className="py-3 pr-3">Partages</th>
-              <th scope="col" className="py-3 pr-3">Date</th>
-              <th scope="col" className="w-28 py-3 pr-4">Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            {songs.map((song, i) => (
-              <SongTableRow key={song._id} song={song} onPlay={() => onPlay(song, songs, i)} onOpenMenu={(x, y) => onOpenMenu(song, x, y)} onDelete={() => onDelete(song)} />
-            ))}
-          </tbody>
-        </table>
+      <div className="hidden overflow-hidden rounded-xl2 border border-border bg-surface sm:block">
+        <div className="overflow-x-auto">
+          <table className="w-full min-w-[720px] border-collapse text-sm">
+            <thead>
+              <tr className="border-b border-border text-left text-[11px] uppercase tracking-wide text-ink-muted">
+                <th scope="col" className="w-10 py-3 pl-4"><span className="sr-only">Lecture</span></th>
+                <th scope="col" className="py-3 pr-3">Titre</th>
+                <th scope="col" className="py-3 pr-3">Genre</th>
+                <th scope="col" className="py-3 pr-3">Durée</th>
+                <th scope="col" className="py-3 pr-3">Statut</th>
+                <th scope="col" className="py-3 pr-3">Écoutes</th>
+                <th scope="col" className="py-3 pr-3">Likes</th>
+                <th scope="col" className="py-3 pr-3">Partages</th>
+                <th scope="col" className="py-3 pr-3">Date</th>
+                <th scope="col" className="w-28 py-3 pr-4">Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {visible.map((song, i) => (
+                <SongTableRow key={song._id} song={song} onPlay={() => onPlay(song, songs, i)} onOpenMenu={(x, y) => onOpenMenu(song, x, y)} onDelete={() => onDelete(song)} />
+              ))}
+            </tbody>
+          </table>
+        </div>
+        {hasMore && (
+          <div className="border-t border-border">
+            <ShowMoreButton remaining={songs.length - visible.length} onClick={onShowMore} full />
+          </div>
+        )}
       </div>
 
-      {/* Cartes verticales — mobile */}
-      <div className="flex flex-col gap-3 sm:hidden">
-        {songs.map((song, i) => (
-          <SongMobileCard key={song._id} song={song} onPlay={() => onPlay(song, songs, i)} onOpenMenu={(x, y) => onOpenMenu(song, x, y)} onDelete={() => onDelete(song)} />
+      {/* Liste compacte — mobile. Une seule carte, des rangées séparées par
+          un filet : les quatre boutons pleine largeur de l'ancienne fiche
+          faisaient trois écrans pour cinq morceaux, alors que le menu
+          contextuel (les trois points) porte déjà les mêmes actions. */}
+      <div className="overflow-hidden rounded-xl2 border border-border bg-surface sm:hidden">
+        {visible.map((song, i) => (
+          <SongMobileRow key={song._id} song={song} onPlay={() => onPlay(song, songs, i)} onOpenMenu={(x, y) => onOpenMenu(song, x, y)} />
         ))}
+        {/* Pas de filet supplémentaire ici : la dernière rangée visible
+            n'est plus l'enfant final, elle garde donc le sien. */}
+        {hasMore && <ShowMoreButton remaining={songs.length - visible.length} onClick={onShowMore} full />}
       </div>
     </>
+  );
+}
+
+function ShowMoreButton({ remaining, onClick, full }: { remaining: number; onClick: () => void; full?: boolean }) {
+  return (
+    <button
+      onClick={onClick}
+      className={`flex items-center justify-center gap-1.5 text-sm font-semibold text-accent transition-colors hover:bg-base ${
+        full ? "w-full py-3.5" : "rounded-2xl border border-border px-5 py-2.5"
+      }`}
+    >
+      Voir plus de sons
+      <ChevronDown size={16} />
+      <span className="sr-only">({remaining} restants)</span>
+    </button>
   );
 }
 
@@ -967,78 +1031,66 @@ const SongTableRow = memo(function SongTableRow({
   );
 });
 
-const SongMobileCard = memo(function SongMobileCard({
+const SongMobileRow = memo(function SongMobileRow({
   song,
   onPlay,
   onOpenMenu,
-  onDelete,
 }: {
   song: OwnSong;
   onPlay: () => void;
   onOpenMenu: (x: number, y: number) => void;
-  onDelete: () => void;
 }) {
   const { currentSong, isPlaying } = usePlayer();
   const isCurrent = currentSong?._id === song._id;
   const meta = statusMeta[song.status];
 
   return (
-    <div className="rounded-xl2 border border-border bg-surface p-3.5">
-      <div className="flex items-center gap-3">
-        <SafeImage src={song.coverUrl} alt={song.title} width={48} height={48} className="shrink-0 rounded-xl object-cover" />
-        <div className="min-w-0 flex-1">
-          <p className={`truncate text-sm font-medium ${isCurrent ? "text-accent" : ""}`}>{song.title}</p>
-          <p className="truncate text-xs text-ink-muted">
-            {song.genre ?? "—"} · {formatDuration(song.duration)}
-          </p>
+    <div className="flex items-center gap-3 border-b border-border px-3 py-3 last:border-0">
+      <button
+        onClick={onPlay}
+        aria-label={isCurrent && isPlaying ? "Mettre en pause" : `Lire ${song.title}`}
+        className={`grid h-9 w-9 shrink-0 place-items-center rounded-full border transition-colors ${
+          isCurrent ? "border-accent text-accent" : "border-border text-ink-muted"
+        }`}
+      >
+        {isCurrent && isPlaying ? <Pause size={13} fill="currentColor" /> : <Play size={13} fill="currentColor" />}
+      </button>
+
+      <SafeImage src={song.coverUrl} alt={song.title} width={48} height={48} className="h-12 w-12 shrink-0 rounded-lg object-cover" />
+
+      <div className="min-w-0 flex-1">
+        <p className={`truncate text-sm font-semibold ${isCurrent ? "text-accent" : ""}`}>{song.title}</p>
+        <div className="mt-1 flex items-center gap-1.5 text-[11px] text-ink-muted">
+          <span className="truncate">{song.genre ?? "—"}</span>
+          <span aria-hidden>·</span>
+          <span className="shrink-0">{formatDuration(song.duration)}</span>
+          <span className={`inline-flex shrink-0 items-center rounded-md px-1.5 py-0.5 text-[10px] font-medium ${meta.bg} ${meta.text}`}>
+            {meta.label}
+          </span>
         </div>
-        <span className={`inline-flex shrink-0 items-center gap-1.5 rounded-full px-2 py-0.5 text-[10px] font-medium ${meta.bg} ${meta.text}`}>
-          <span className={`h-1.5 w-1.5 rounded-full ${meta.dot}`} aria-hidden /> {meta.label}
-        </span>
+        <div className="mt-1.5 flex items-center gap-3 text-[11px] text-ink-muted">
+          <span className="flex items-center gap-1">
+            <Play size={11} /> {formatCompactNumber(song.playsCount ?? 0)}
+          </span>
+          <span className="flex items-center gap-1">
+            <Heart size={11} /> {formatCompactNumber(song.likesCount ?? 0)}
+          </span>
+          <span className="flex items-center gap-1">
+            <Share2 size={11} /> {formatCompactNumber(song.sharesCount ?? 0)}
+          </span>
+        </div>
       </div>
 
-      <div className="mt-3 flex items-center gap-3 text-xs text-ink-muted">
-        <span className="flex items-center gap-1">
-          <Headphones size={12} /> {formatCompactNumber(song.playsCount ?? 0)}
-        </span>
-        <span className="flex items-center gap-1">
-          <Heart size={12} /> {formatCompactNumber(song.likesCount ?? 0)}
-        </span>
-        <span className="flex items-center gap-1">
-          <Share2 size={12} /> {formatCompactNumber(song.sharesCount ?? 0)}
-        </span>
-        <span className="ml-auto">{formatDate(song.releaseDate)}</span>
-      </div>
-
-      <div className="mt-3 grid grid-cols-4 gap-2">
-        <button
-          onClick={onPlay}
-          aria-label={isCurrent && isPlaying ? "Mettre en pause" : `Lire ${song.title}`}
-          className="flex items-center justify-center gap-1 rounded-lg bg-accent py-2 text-xs font-medium text-base"
-        >
-          {isCurrent && isPlaying ? <Pause size={13} fill="currentColor" /> : <Play size={13} fill="currentColor" />}
-        </button>
-        <Link
-          href={`/son/${song._id}/modifier`}
-          aria-label={`Modifier ${song.title}`}
-          className="flex items-center justify-center rounded-lg border border-border py-2 text-ink-muted"
-        >
-          <Pencil size={13} />
-        </Link>
-        <button onClick={onDelete} aria-label={`Supprimer ${song.title}`} className="flex items-center justify-center rounded-lg border border-border py-2 text-ink-muted">
-          <Trash2 size={13} />
-        </button>
-        <button
-          onClick={(e) => {
-            const rect = e.currentTarget.getBoundingClientRect();
-            onOpenMenu(rect.right, rect.bottom + 4);
-          }}
-          aria-label={`Plus d'options pour ${song.title}`}
-          className="flex items-center justify-center rounded-lg border border-border py-2 text-ink-muted"
-        >
-          <MoreVertical size={13} />
-        </button>
-      </div>
+      <button
+        onClick={(e) => {
+          const rect = e.currentTarget.getBoundingClientRect();
+          onOpenMenu(rect.right, rect.bottom + 4);
+        }}
+        aria-label={`Plus d'options pour ${song.title}`}
+        className="grid h-9 w-9 shrink-0 place-items-center rounded-full text-ink-muted transition-colors hover:text-accent"
+      >
+        <MoreVertical size={16} />
+      </button>
     </div>
   );
 });

@@ -108,6 +108,7 @@ function ContenuLecteur({ song }: { song: PlayableSong }) {
   const {
     isFullPlayerOpen,
     queue,
+    reserveCount,
     isPlaying,
     progress,
     duration,
@@ -501,7 +502,7 @@ function ContenuLecteur({ song }: { song: PlayableSong }) {
           icon={ListMusic}
           actif={false}
           label="File"
-          valeur={String(queue.length)}
+          valeur={String(queue.length + reserveCount)}
           onClick={() => setShowQueueSheet(true)}
         />
       )}

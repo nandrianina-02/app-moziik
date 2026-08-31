@@ -32,7 +32,7 @@ type Onglet = "file" | "historique";
 
 export function QueuePanel({ compact = false }: { compact?: boolean }) {
   const [onglet, setOnglet] = useState<Onglet>("file");
-  const { queue, clearQueue } = usePlayer();
+  const { queue, reserveCount, clearQueue } = usePlayer();
 
   return (
     <div className="flex min-h-0 flex-col">
@@ -59,6 +59,14 @@ export function QueuePanel({ compact = false }: { compact?: boolean }) {
       <div className="min-h-0 flex-1 overflow-y-auto">
         {onglet === "file" ? <ListeFile compact={compact} /> : <ListeHistorique />}
       </div>
+
+      {/* La file ne contient qu'un lot de dix : sans cette ligne, une playlist
+          de deux cents titres aurait l'air de s'arrêter au dixième. */}
+      {onglet === "file" && reserveCount > 0 && (
+        <p className="shrink-0 pt-2 text-center text-[11px] text-ink-muted">
+          + {reserveCount} titre{reserveCount > 1 ? "s" : ""} à suivre, ajoutés dix par dix
+        </p>
+      )}
     </div>
   );
 }

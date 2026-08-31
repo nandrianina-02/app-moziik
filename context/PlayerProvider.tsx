@@ -129,6 +129,8 @@ type PlayerContextValue = {
   /** Retire un morceau de la file. La lecture en cours n'est interrompue que s'il s'agit du morceau joué. */
   removeFromQueue: (index: number) => void;
   clearQueue: () => void;
+  /** Titres en réserve, prêts à rejoindre la file par lots de dix. */
+  reserveCount: number;
   /** Vrai pendant qu'on cherche de quoi prolonger la file. */
   chargementSuite: boolean;
   /** Vrai dès que la file a été prolongée au-delà de ce qui avait été demandé. */
@@ -158,6 +160,34 @@ type PlayerContextValue = {
 const PlayerContext = createContext<PlayerContextValue | null>(null);
 
 const PLAY_RECORD_THRESHOLD_SECONDS = 30;
+
+/**
+ * La file se remplit par lots de dix, jamais d'un seul bloc.
+ *
+ * Une playlist de deux cents titres n'a aucune raison d'être chargée
+ * entièrement dans la file : on en met dix devant l'auditeur, le reste
+ * attend en réserve. Dès qu'il ne reste que trois titres à jouer, le lot
+ * suivant est préparé — donc bien avant la fin du dernier, ce qui laisse
+ * l'enchaînement se faire sans silence. Quand la réserve est vide, c'est le
+ * prolongement (lib/playbackContinuation) qui la remplit à son tour.
+ */
+const TAILLE_LOT = 10;
+const SEUIL_RECHARGE = 3;
+
+/**
+ * Les morceaux joués quittent la file. Ils ne disparaissent pas pour autant :
+ * ils rejoignent cet historique, qui alimente le bouton « précédent » et
+ * évite qu'un prolongement les resserve.
+ */
+const TAILLE_HISTORIQUE = 30;
+
+/**
+ * Reprise d'une écoute d'une session à l'autre. Deux clés plutôt qu'une : la
+ * file ne change qu'à chaque morceau, la position toutes les cinq secondes —
+ * les écrire ensemble ferait réécrire la file entière en permanence.
+ */
+const REPRISE_FILE_KEY = "moziik-lecture-file";
+const REPRISE_POSITION_KEY = "moziik-lecture-position";
 const OUTPUT_DEVICE_KEY = "moziik-audio-output";
 const BASS_BOOST_KEY = "moziik-bass-boost";
 const PLAYBACK_RATE_KEY = "moziik-playback-rate";
@@ -173,14 +203,20 @@ function shuffledOrder(length: number, keepFirst: number): number[] {
   return [keepFirst, ...rest];
 }
 
-/** Fisher-Yates sur une liste quelconque, sans la modifier. */
-function melanger<T>(liste: T[]): T[] {
-  const copie = [...liste];
-  for (let i = copie.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [copie[i], copie[j]] = [copie[j], copie[i]];
+/**
+ * Tire `combien` éléments au hasard dans une liste, et rend aussi ce qui
+ * reste. En lecture aléatoire, c'est ainsi que se compose un lot : le hasard
+ * porte sur toute la réserve, pas seulement sur les dix titres chargés — sans
+ * quoi « aléatoire » ne brasserait qu'une fenêtre glissante de dix morceaux.
+ */
+function tirerAuHasard<T>(liste: T[], combien: number): { pris: T[]; reste: T[] } {
+  const reste = [...liste];
+  const pris: T[] = [];
+  while (pris.length < combien && reste.length > 0) {
+    const [element] = reste.splice(Math.floor(Math.random() * reste.length), 1);
+    pris.push(element);
   }
-  return copie;
+  return { pris, reste };
 }
 
 // Compare deux listes de morceaux par identifiant : sert à détecter si la
@@ -232,6 +268,11 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
   } = useAudioEngine();
 
   const [queue, setQueue] = useState<PlayableSong[]>([]);
+  // Ce qui attend derrière la file : le reste de la liste demandée, puis les
+  // prolongements. Sert les lots de dix, dans l'ordre ou au hasard.
+  const [reserve, setReserve] = useState<PlayableSong[]>([]);
+  // Morceaux déjà joués, retirés de la file. Le plus récent est en dernier.
+  const [historique, setHistorique] = useState<PlayableSong[]>([]);
   // `order` est une permutation des index de `queue` représentant l'ordre de
   // lecture réel (identité quand la lecture aléatoire est désactivée).
   // `position` pointe la place courante à l'intérieur de cet ordre.
@@ -436,7 +477,7 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
       audio.removeEventListener("ended", onEnded);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [queue, order, position, repeatMode]);
+  }, [queue, order, position, repeatMode, reserve]);
 
   useEffect(() => {
     const audio = audioRef.current;
@@ -446,6 +487,23 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
     audio.playbackRate = playbackRate;
     setStreamDuration(0);
     hasRecordedPlay.current = false;
+
+    // Reprise d'une écoute interrompue : la position ne peut être posée
+    // qu'une fois les métadonnées lues — avant, le navigateur l'ignore
+    // silencieusement et le morceau repart de zéro.
+    const reprise = repriseRef.current;
+    repriseRef.current = null;
+    if (reprise !== null && reprise > 0) {
+      // L'écoute a déjà été comptée à la session précédente si le seuil était
+      // franchi : la reprendre ne doit pas la compter une deuxième fois.
+      hasRecordedPlay.current = reprise >= PLAY_RECORD_THRESHOLD_SECONDS;
+      const poserPosition = () => {
+        audio.currentTime = reprise;
+        setProgress(reprise);
+      };
+      if (audio.readyState >= 1) poserPosition();
+      else audio.addEventListener("loadedmetadata", poserPosition, { once: true });
+    }
 
     // La transformation de qualité peut échouer (Cloudinary indisponible,
     // format non transcodable) : on retombe alors une fois sur l'URL
@@ -552,10 +610,21 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
    * changer de file. Sans ref, on écrirait la suite d'une lecture qui
    * n'existe plus.
    */
-  const etatRef = useRef({ queue, order, playSource, currentSong, isOnline });
+  const etatRef = useRef({ queue, order, playSource, currentSong, isOnline, reserve, historique });
   useEffect(() => {
-    etatRef.current = { queue, order, playSource, currentSong, isOnline };
+    etatRef.current = { queue, order, playSource, currentSong, isOnline, reserve, historique };
+    // Un lot par rendu au maximum : le drapeau est levé le temps d'une
+    // fournée et retombe ici. Sans cela, l'effet d'approvisionnement pourrait
+    // servir deux lots à partir de la même photographie de la file et
+    // calculer les mêmes index deux fois.
+    lotEnCoursRef.current = false;
   });
+
+  const lotEnCoursRef = useRef(false);
+  /** La lecture est arrivée au bout de la file et attend le lot suivant. */
+  const attenteSuiteRef = useRef(false);
+  /** Seconde à laquelle reprendre le morceau restauré, une seule fois. */
+  const repriseRef = useRef<number | null>(null);
 
   /** Tours déjà servis et échecs consécutifs, pour cette file. */
   const prolongementRef = useRef({ tour: 0, echecs: 0, enCours: false });
@@ -566,12 +635,22 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
   }
 
   /**
-   * Cherche la suite et l'ajoute à la file. Renvoie false quand il n'y a
-   * rien à jouer — c'est le seul cas où la lecture s'arrête vraiment.
+   * Cherche la suite auprès de la source et la range en réserve. Renvoie
+   * false quand le catalogue n'a plus rien à offrir — c'est le seul cas où
+   * la lecture s'arrête vraiment.
+   *
+   * Elle ne touche ni à la file ni à la position : c'est l'effet
+   * d'approvisionnement qui décide quand servir le lot suivant.
    */
-  async function prolongerFile(): Promise<boolean> {
+  async function remplirReserve(): Promise<boolean> {
     const etat = prolongementRef.current;
-    const { queue: fileActuelle, order: ordreActuel, playSource: source, currentSong: dernier } = etatRef.current;
+    const {
+      queue: fileActuelle,
+      playSource: source,
+      currentSong: dernier,
+      reserve: reserveActuelle,
+      historique: dejaJoues,
+    } = etatRef.current;
     if (etat.enCours || fileActuelle.length === 0) return false;
     // Deux tours sans rien trouver : le catalogue n'a plus rien pour cette
     // source. Insister enchaînerait des requêtes vides à chaque fin de
@@ -584,7 +663,9 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
       const suite = await morceauxSuivants({
         source,
         dernier,
-        dejaVus: new Set(fileActuelle.map((s) => s._id)),
+        // Les morceaux déjà joués ont quitté la file : sans l'historique,
+        // le prolongement les resservirait aussitôt.
+        dejaVus: new Set([...fileActuelle, ...reserveActuelle, ...dejaJoues].map((s) => s._id)),
         enLigne: etatRef.current.isOnline,
         tour: etat.tour,
       });
@@ -593,24 +674,12 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
         return false;
       }
       // Pause ou minuteur pendant la requête : on jette la réponse plutôt
-      // que de relancer une lecture que plus personne n'attend.
+      // que de garnir une file que plus personne n'attend.
       if (!lectureVoulueRef.current) return false;
       etat.tour += 1;
       etat.echecs = 0;
 
-      const debut = fileActuelle.length;
-      const nouveauxIndex = suite.map((_, i) => debut + i);
-      setQueue((prev) => [...prev, ...suite]);
-      setOrder((prev) => [
-        ...prev,
-        // En lecture aléatoire, le renfort est mélangé lui aussi : le
-        // laisser dans l'ordre du catalogue trahirait le mode choisi.
-        ...(isShuffled ? melanger(nouveauxIndex) : nouveauxIndex),
-      ]);
-      // La place juste après la fin de l'ordre précédent : c'est le premier
-      // morceau du renfort.
-      setPosition(ordreActuel.length);
-      setIsPlaying(true);
+      setReserve((prev) => [...prev, ...suite]);
       setLectureProlongee(true);
       return true;
     } finally {
@@ -619,10 +688,34 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
     }
   }
 
+  /**
+   * Fait passer le lot suivant de la réserve à la file. En lecture
+   * aléatoire, le lot est tiré au hasard dans toute la réserve.
+   */
+  function servirLot() {
+    const { queue: fileActuelle, reserve: disponible } = etatRef.current;
+    if (disponible.length === 0 || lotEnCoursRef.current) return;
+    lotEnCoursRef.current = true;
+
+    const { pris, reste } = isShuffled
+      ? tirerAuHasard(disponible, TAILLE_LOT)
+      : { pris: disponible.slice(0, TAILLE_LOT), reste: disponible.slice(TAILLE_LOT) };
+
+    const debut = fileActuelle.length;
+    setReserve(reste);
+    setQueue((prev) => [...prev, ...pris]);
+    setOrder((prev) => [...prev, ...pris.map((_, i) => debut + i)]);
+  }
+
   // ---------- File d'attente ----------
 
   function playQueue(songs: PlayableSong[], startIndex = 0, source: PlaySource = null) {
+    if (songs.length === 0) return;
     ensureAudioGraph();
+
+    // Un index hors bornes viderait la file : le lot se compose à partir du
+    // morceau demandé, il faut donc qu'un morceau soit désigné.
+    const depart = Math.min(Math.max(0, startIndex), songs.length - 1);
 
     // La liste demandée est déjà la playlist active (ex : l'utilisateur
     // clique un autre titre dans les mêmes résultats de recherche) : on
@@ -631,7 +724,7 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
     lectureVoulueRef.current = true;
 
     if (isSameSongList(songs, queue)) {
-      const targetPosition = order.indexOf(startIndex);
+      const targetPosition = order.indexOf(depart);
       setPosition(targetPosition !== -1 ? targetPosition : 0);
       setIsPlaying(true);
       if (source) setPlaySource(source);
@@ -641,14 +734,26 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
     // Nouvelle playlist (nouvelle recherche, autre album, autre écran...) :
     // elle remplace entièrement la file active et devient la nouvelle
     // source de vérité pour Suivant / Précédent / lecture automatique.
-    setQueue(songs);
-    // Nouvelle intention de lecture : le compteur de prolongements repart
-    // de zéro, sinon la pagination de la file précédente sauterait des
-    // pages de celle-ci.
+    //
+    // Elle n'y entre pas d'un bloc : le morceau demandé et les neuf suivants
+    // forment le premier lot, le reste attend en réserve. Ce qui précédait le
+    // morceau demandé n'est pas perdu — il rejoint l'historique, d'où le
+    // bouton « précédent » sait le ramener.
     reinitialiserProlongement();
-    const initialOrder = isShuffled ? shuffledOrder(songs.length, startIndex) : songs.map((_, i) => i);
-    setOrder(initialOrder);
-    setPosition(initialOrder.indexOf(startIndex));
+    const aVenir = songs.slice(depart);
+    const { pris: premierLot, reste } = isShuffled
+      ? (() => {
+          // Le morceau cliqué reste le premier : c'est lui qu'on a demandé.
+          const tirage = tirerAuHasard(aVenir.slice(1), TAILLE_LOT - 1);
+          return { pris: [aVenir[0], ...tirage.pris], reste: tirage.reste };
+        })()
+      : { pris: aVenir.slice(0, TAILLE_LOT), reste: aVenir.slice(TAILLE_LOT) };
+
+    setQueue(premierLot);
+    setReserve(reste);
+    setHistorique(songs.slice(0, depart).slice(-TAILLE_HISTORIQUE));
+    setOrder(premierLot.map((_, i) => i));
+    setPosition(0);
     setIsPlaying(true);
     setPlaySource(source);
   }
@@ -681,6 +786,37 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
       apres.splice(position + 1, 0, insertion);
       return apres;
     });
+  }
+
+  /**
+   * Retire de la file le morceau qui vient d'être joué et le range dans
+   * l'historique. La place courante ne bouge pas : l'entrée disparue étant
+   * exactement celle qu'elle désignait, elle pointe désormais le morceau
+   * suivant.
+   */
+  function consommerCourant() {
+    const index = currentIndex;
+    const morceau = queue[index];
+    if (!morceau) return;
+
+    setHistorique((prev) => [...prev, morceau].slice(-TAILLE_HISTORIQUE));
+    const nouvelOrdre = order.filter((i) => i !== index).map((i) => (i > index ? i - 1 : i));
+    setQueue((prev) => prev.filter((_, i) => i !== index));
+    setOrder(nouvelOrdre);
+    setPosition((prev) => Math.min(prev, Math.max(0, nouvelOrdre.length - 1)));
+  }
+
+  /**
+   * Passe au morceau suivant de l'ordre.
+   *
+   * En répétition intégrale, rien n'est retiré : la file doit pouvoir
+   * reboucler sur ce qu'elle contient. Partout ailleurs, ce qu'on quitte
+   * quitte la file.
+   */
+  function avancerDUnCran() {
+    if (repeatMode !== "all" && order.length > 1) consommerCourant();
+    else setPosition((prev) => Math.min(prev + 1, order.length - 1));
+    setIsPlaying(true);
   }
 
   function reorderQueue(from: number, to: number) {
@@ -718,13 +854,24 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
   function clearQueue() {
     reinitialiserProlongement();
     lectureVoulueRef.current = false;
+    attenteSuiteRef.current = false;
     audioRef.current?.pause();
     setQueue([]);
+    setReserve([]);
+    setHistorique([]);
     setOrder([]);
     setPosition(0);
     setIsPlaying(false);
     setProgress(0);
     setPlaySource(null);
+    // Vider la file, c'est aussi renoncer à la reprise : au prochain
+    // démarrage, le lecteur doit être vide comme on l'a laissé.
+    try {
+      localStorage.removeItem(REPRISE_FILE_KEY);
+      localStorage.removeItem(REPRISE_POSITION_KEY);
+    } catch {
+      // Stockage indisponible (navigation privée stricte) : sans effet.
+    }
   }
 
   function togglePlay() {
@@ -750,8 +897,20 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
       return;
     }
     if (position < order.length - 1) {
-      setPosition(position + 1);
+      avancerDUnCran();
+      return;
+    }
+    // Bout de la file, mais la réserve n'est pas vide : l'effet
+    // d'approvisionnement sert le lot suivant, et la lecture enchaîne dès
+    // qu'il est là (voir `attenteSuiteRef`).
+    if (reserve.length > 0) {
+      lectureVoulueRef.current = true;
+      attenteSuiteRef.current = true;
       setIsPlaying(true);
+      // Servi ici et pas seulement par l'effet : lever le drapeau ne change
+      // aucun état, l'effet ne se rejouerait donc pas et la lecture
+      // attendrait un lot que personne n'aurait servi.
+      servirLot();
       return;
     }
     if (repeatMode === "all" && order.length > 0) {
@@ -759,13 +918,17 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
       setIsPlaying(true);
       return;
     }
-    // Fin de la file. Plutôt que de s'arrêter, on va chercher la suite
-    // auprès de la source qui a lancé la lecture. `isPlaying` reste vrai
-    // pendant la recherche : le lecteur affiche un chargement au lieu de
-    // clignoter sur « en pause » puis de repartir.
+    // Plus rien nulle part : on va chercher la suite auprès de la source qui
+    // a lancé la lecture. `isPlaying` reste vrai pendant la recherche — le
+    // lecteur affiche un chargement au lieu de clignoter sur « en pause »
+    // puis de repartir.
     lectureVoulueRef.current = true;
-    void prolongerFile().then((prolonge) => {
-      if (!prolonge) setIsPlaying(false);
+    attenteSuiteRef.current = true;
+    void remplirReserve().then((prolonge) => {
+      if (!prolonge) {
+        attenteSuiteRef.current = false;
+        setIsPlaying(false);
+      }
     });
   }
 
@@ -779,7 +942,32 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
     if (position > 0) {
       setPosition(position - 1);
       setIsPlaying(true);
-    } else if (repeatMode === "all" && order.length > 0) {
+      return;
+    }
+
+    // Les morceaux joués ne sont plus dans la file : on va rechercher le
+    // dernier dans l'historique et on le réinsère juste devant le morceau en
+    // cours, pour que « précédent » reste « précédent ».
+    const precedent = historique[historique.length - 1];
+    if (precedent) {
+      const insertion = currentIndex;
+      setHistorique((prev) => prev.slice(0, -1));
+      setQueue((prev) => {
+        const copie = [...prev];
+        copie.splice(insertion, 0, precedent);
+        return copie;
+      });
+      setOrder((prev) => {
+        const remappe = prev.map((i) => (i >= insertion ? i + 1 : i));
+        const apres = [...remappe];
+        apres.splice(position, 0, insertion);
+        return apres;
+      });
+      setIsPlaying(true);
+      return;
+    }
+
+    if (repeatMode === "all" && order.length > 0) {
       setPosition(order.length - 1);
       setIsPlaying(true);
     }
@@ -791,6 +979,10 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
   }
 
   function toggleShuffle() {
+    // L'ordre ne porte que sur le lot chargé ; la réserve, elle, garde
+    // l'ordre de la liste d'origine et c'est le tirage des lots suivants qui
+    // devient aléatoire. Le hasard couvre ainsi toute la playlist, et le
+    // désactiver la rend intacte.
     if (!isShuffled) {
       setOrder(shuffledOrder(queue.length, currentIndex));
       setPosition(0);
@@ -804,6 +996,132 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
   function cycleRepeatMode() {
     setRepeatMode((prev) => (prev === "off" ? "all" : prev === "all" ? "one" : "off"));
   }
+
+  // ---------- Approvisionnement de la file ----------
+
+  /**
+   * Garde toujours quelques titres devant l'auditeur.
+   *
+   * Attendre la fin du dernier morceau pour aller chercher la suite laissait
+   * un silence le temps de l'aller-retour réseau. Ici le lot suivant est
+   * préparé dès qu'il ne reste que trois titres à jouer : quand la fin
+   * arrive, ce qui suit est déjà là.
+   */
+  useEffect(() => {
+    const restants = order.length - position - 1;
+
+    // Le lot attendu vient d'arriver : la lecture reprend son cours.
+    if (attenteSuiteRef.current && restants > 0) {
+      attenteSuiteRef.current = false;
+      // Une pause pendant l'attente du lot vaut refus : son arrivée ne doit
+      // pas relancer une lecture qu'on vient d'arrêter.
+      if (lectureVoulueRef.current) avancerDUnCran();
+      return;
+    }
+
+    if (queue.length === 0 || restants >= SEUIL_RECHARGE) return;
+
+    if (reserve.length > 0) {
+      servirLot();
+      return;
+    }
+
+    // Réserve vide : on demande la suite à la source. Seulement si une
+    // lecture est en cours — un lecteur en pause n'a aucune raison de
+    // continuer à grossir tout seul.
+    if (lectureVoulueRef.current) void remplirReserve();
+    // `queue` et `order` entiers plutôt que leurs longueurs : l'avance retire un
+    // morceau et remappe l'ordre, deux changements qu'une longueur ne voit pas
+    // toujours passer, et le gestionnaire refermerait alors sur un état périmé.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [queue, order, position, reserve]);
+
+  // ---------- Reprise d'une session à l'autre ----------
+
+  /**
+   * Restaure la dernière écoute au montage : le morceau revient dans la barre
+   * de lecture, à l'arrêt, à la seconde où on l'avait laissé. Rien ne
+   * redémarre tout seul — la lecture reprend au premier appui sur « lire ».
+   */
+  useEffect(() => {
+    try {
+      const brutFile = localStorage.getItem(REPRISE_FILE_KEY);
+      if (!brutFile) return;
+      const sauvegarde = JSON.parse(brutFile) as {
+        queue?: PlayableSong[];
+        order?: number[];
+        position?: number;
+        source?: PlaySource;
+      };
+
+      // Une sauvegarde peut dater d'une version antérieure du format : on ne
+      // garde que ce qui est réellement jouable.
+      const fileSauvee = (sauvegarde.queue ?? []).filter(
+        (s) => !!s && typeof s._id === "string" && typeof s.audioUrl === "string" && s.audioUrl.length > 0
+      );
+      if (fileSauvee.length === 0) return;
+
+      const ordre =
+        Array.isArray(sauvegarde.order) && sauvegarde.order.length === fileSauvee.length
+          ? sauvegarde.order
+          : fileSauvee.map((_, i) => i);
+      const place = Math.min(Math.max(0, sauvegarde.position ?? 0), ordre.length - 1);
+
+      setQueue(fileSauvee);
+      setOrder(ordre);
+      setPosition(place);
+      setPlaySource(sauvegarde.source ?? null);
+
+      const brutPosition = localStorage.getItem(REPRISE_POSITION_KEY);
+      const marque = brutPosition ? (JSON.parse(brutPosition) as { songId?: string; seconds?: number }) : null;
+      const morceau = fileSauvee[ordre[place]];
+      if (!morceau || marque?.songId !== morceau._id || typeof marque?.seconds !== "number") return;
+
+      // Une reprise à trois secondes de la fin ne rend service à personne, pas
+      // plus qu'une reprise à la première seconde.
+      const duree = morceau.duration ?? 0;
+      if (marque.seconds <= 1 || (duree > 0 && marque.seconds >= duree - 5)) return;
+
+      repriseRef.current = marque.seconds;
+      setProgress(marque.seconds);
+    } catch {
+      // Sauvegarde illisible : on repart d'un lecteur vide plutôt que de
+      // laisser une donnée corrompue empêcher toute lecture.
+      localStorage.removeItem(REPRISE_FILE_KEY);
+      localStorage.removeItem(REPRISE_POSITION_KEY);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  /** La file : courte (un lot), écrite seulement quand elle change. */
+  useEffect(() => {
+    if (queue.length === 0) return;
+    try {
+      // Les paroles sont retirées avant l'écriture : elles pèsent parfois
+      // plus que tout le reste de la file, et le lecteur les redemande de
+      // toute façon morceau par morceau (useSongDetails).
+      const allegee = queue.map(({ lyrics: _paroles, ...reste }) => reste);
+      localStorage.setItem(REPRISE_FILE_KEY, JSON.stringify({ queue: allegee, order, position, source: playSource }));
+    } catch {
+      // Quota atteint ou stockage refusé : la reprise sera simplement absente.
+    }
+  }, [queue, order, position, playSource]);
+
+  /**
+   * La position : écrite toutes les cinq secondes d'écoute, et à chaque
+   * pause. `progress` change quatre fois par seconde — l'arrondi évite
+   * d'écrire autant de fois dans le stockage local.
+   */
+  const marqueSecondes = Math.floor(progress / 5);
+  useEffect(() => {
+    if (!currentSong) return;
+    try {
+      localStorage.setItem(REPRISE_POSITION_KEY, JSON.stringify({ songId: currentSong._id, seconds: progress }));
+    } catch {
+      // Voir ci-dessus : sans stockage, on perd la reprise, pas la lecture.
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentSong?._id, marqueSecondes, isPlaying]);
 
   // Métadonnées "en cours de lecture" : titre de l'onglet, favicon (pochette
   // du son), et Media Session (contrôles système / écran de verrouillage,
@@ -882,6 +1200,7 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
         reorderQueue,
         removeFromQueue,
         clearQueue,
+        reserveCount: reserve.length,
         chargementSuite,
         lectureProlongee,
         togglePlay,

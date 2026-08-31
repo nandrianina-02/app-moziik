@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   ListPlus,
+  ListStart,
   ListMusic,
   Heart,
   DownloadCloud,
@@ -53,7 +54,7 @@ export function SongContextMenu({
   const router = useRouter();
   const pushToast = useToast();
   const { isOnline } = useOnlineStatus();
-  const { enqueue } = usePlayer();
+  const { enqueue, playNextInQueue, currentSong } = usePlayer();
   const [showAddToPlaylist, setShowAddToPlaylist] = useState(false);
   const [showCredits, setShowCredits] = useState(false);
   const [showShareModal, setShowShareModal] = useState(false);
@@ -161,6 +162,21 @@ export function SongContextMenu({
     <>
       {!showSubModal && (
         <ContextMenuShell anchor={position} onClose={onClose}>
+          {/* « Écouter le prochain » se glisse juste derrière le morceau en
+              cours, là où « Ajouter à la file » range en dernier. L'entrée
+              n'a de sens que si quelque chose joue déjà — sinon les deux
+              reviendraient au même. */}
+          {currentSong && currentSong._id !== song._id && (
+            <MenuItem
+              icon={ListStart}
+              label="Écouter le prochain"
+              onClick={() => {
+                playNextInQueue(song);
+                pushToast("success", "Sera lu juste après le morceau en cours.");
+                onClose();
+              }}
+            />
+          )}
           <MenuItem
             icon={ListPlus}
             label="Ajouter à la file d'attente"

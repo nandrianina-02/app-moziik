@@ -9,6 +9,7 @@ import {
   type NiveauBass,
 } from "@/components/player/constants/bassBoost";
 import { markOfflineSongPlayed } from "@/lib/offlineCache";
+import { marquerJoue } from "@/lib/journalDuJour";
 import { idbPut, STORES } from "@/lib/offlineDb";
 import { enqueueSyncAction } from "@/lib/syncQueue";
 import {
@@ -542,6 +543,12 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
         playedAt: Date.now(),
       }).catch(() => {});
       markOfflineSongPlayed(currentSong._id).catch(() => {});
+
+      // Le journal du jour se remplit ici, au même seuil que tout le
+      // reste : ce qui compte comme une écoute pour les statistiques
+      // compte comme une écoute pour la répétition. Un titre sauté au
+      // bout de trois secondes n'y entre pas et pourra revenir.
+      marquerJoue(currentSong._id);
 
       fetch(`/api/songs/${currentSong._id}/play`, {
         method: "POST",

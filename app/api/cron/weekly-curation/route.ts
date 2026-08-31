@@ -3,6 +3,8 @@ import { withApiErrors, ApiError } from "@/lib/apiError";
 import { lancerAnalyseHebdomadaire, CurationIndisponible } from "@/lib/curation/run";
 import { purgerJournal } from "@/lib/searchJournal";
 
+export const dynamic = "force-dynamic";
+
 /**
  * Analyse hebdomadaire des écoutes, des recherches et des sorties.
  *
@@ -65,3 +67,23 @@ export const POST = withApiErrors(async (req: Request) => {
     throw err;
   }
 });
+
+/**
+ * Durée maximale d'exécution. Deux univers, une quarantaine de sélections, et le nommage par lots :
+ * c'est de loin le plus long des cinq.
+ *
+ * Au-delà de la valeur par défaut de l'hébergeur, l'exécution serait
+ * coupée en plein milieu — et une analyse interrompue laisse un verrou
+ * derrière elle (voir lib/curation/run.ts).
+ */
+export const maxDuration = 800;
+
+/**
+ * Vercel Cron déclenche en GET, sans corps.
+ *
+ * Le même traitement répond aux deux verbes : POST reste employé par un
+ * ordonnanceur externe ou un appel à la main, GET par la planification de
+ * l'hébergeur. Le contrôle du secret est dans le corps commun, si bien
+ * qu'ouvrir ce verbe n'ouvre rien à personne.
+ */
+export const GET = POST;

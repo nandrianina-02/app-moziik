@@ -3,6 +3,7 @@ import { withApiErrors } from "@/lib/apiError";
 import { getAuthUser } from "@/lib/mobileAuth";
 import { checkRateLimitByIp } from "@/lib/rateLimit";
 import { modeDeLaRequete } from "@/lib/modesServer";
+import { titresEcoutesAujourdhui } from "@/lib/ecoutesDuJour";
 import { libelleMotif } from "@/lib/taste/motifs";
 import { profilDe, profilVide, genresPreferes } from "@/lib/taste/profile";
 import { construireStation, PAR_TOUR } from "@/lib/taste/station";
@@ -67,7 +68,23 @@ export const GET = withApiErrors(async (req: Request) => {
   // dit (`personnalisee: false`).
   const profil = authUser ? await profilDe(authUser.id, univers) : profilVide();
 
-  const station = await construireStation({ profil, mode, univers, exclus, taille });
+  // Ce que ce compte a déjà entendu aujourd'hui, quel que soit l'appareil
+  // (lib/ecoutesDuJour.ts). `exclus` ne porte que la file en cours : les
+  // deux listes restent séparées, faute de quoi la soupape ci-dessous ne
+  // saurait plus laquelle relâcher. Un visiteur anonyme n'a pas
+  // d'historique ici ; son propre journal filtre la réponse côté
+  // navigateur (lib/journalDuJour.ts).
+  const duJour = authUser ? await titresEcoutesAujourdhui(authUser.id) : new Set<string>();
+  const evites = new Set([...exclus, ...duJour]);
+
+  let station = await construireStation({ profil, mode, univers, exclus: evites, taille });
+
+  // Tout le catalogue de cet univers a déjà tourné aujourd'hui : on
+  // relâche le filtre du jour plutôt que de rendre une station vide. Une
+  // répétition vaut mieux qu'un silence.
+  if (station.titres.length === 0 && duJour.size > 0) {
+    station = await construireStation({ profil, mode, univers, exclus, taille });
+  }
 
   const songs = station.titres.map((t) => t.song);
   const motifs = station.titres.map((t) => ({

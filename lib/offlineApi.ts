@@ -22,6 +22,7 @@
  */
 
 import { idbDelete, idbGet, idbGetAll, idbPut, STORES } from "@/lib/offlineDb";
+import { oublierLeJour } from "@/lib/journalDuJour";
 
 export type EntreeApiCache = {
   cle: string;
@@ -230,6 +231,9 @@ export async function oublierCompte() {
   } catch {
     /* rien à effacer */
   }
+  // Le journal du jour part avec le compte : la personne suivante sur cet
+  // appareil ne doit pas hériter de ce qui a déjà tourné.
+  oublierLeJour();
   utilisateurCourant = "anonyme";
   comptePret = true;
   if (precedent !== "anonyme") await viderCacheApi(precedent).catch(() => 0);

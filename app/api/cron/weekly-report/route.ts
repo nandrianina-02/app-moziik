@@ -7,6 +7,8 @@ import { notifyMany } from "@/lib/notify";
 import { construireRapport } from "@/lib/insights/report";
 import { analyserRapport } from "@/lib/ai/analyst";
 
+export const dynamic = "force-dynamic";
+
 /**
  * Le rapport hebdomadaire, établi et archivé sans qu'on le demande.
  *
@@ -76,3 +78,22 @@ export const POST = withApiErrors(async (req: Request) => {
     previsionDisponible: rapport.prevision !== null,
   });
 });
+
+/**
+ * Durée maximale d'exécution. Agrégations sur toute la période, et appels au modèle pour la lecture des mesures.
+ *
+ * Au-delà de la valeur par défaut de l'hébergeur, l'exécution serait
+ * coupée en plein milieu — et une analyse interrompue laisse un verrou
+ * derrière elle (voir lib/curation/run.ts).
+ */
+export const maxDuration = 300;
+
+/**
+ * Vercel Cron déclenche en GET, sans corps.
+ *
+ * Le même traitement répond aux deux verbes : POST reste employé par un
+ * ordonnanceur externe ou un appel à la main, GET par la planification de
+ * l'hébergeur. Le contrôle du secret est dans le corps commun, si bien
+ * qu'ouvrir ce verbe n'ouvre rien à personne.
+ */
+export const GET = POST;

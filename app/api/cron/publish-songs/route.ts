@@ -5,6 +5,8 @@ import Artist from "@/models/Artist";
 import { notifyMany } from "@/lib/notify";
 import { withApiErrors, ApiError } from "@/lib/apiError";
 
+export const dynamic = "force-dynamic";
+
 /**
  * À appeler périodiquement (ex: Vercel Cron toutes les 5 minutes) avec
  * l'en-tête Authorization: Bearer <CRON_SECRET>.
@@ -48,3 +50,22 @@ export const POST = withApiErrors(async (req: Request) => {
 
   return NextResponse.json({ published: due.length });
 });
+
+/**
+ * Durée maximale d'exécution. Le travail est court : republier ce dont la date est passée.
+ *
+ * Au-delà de la valeur par défaut de l'hébergeur, l'exécution serait
+ * coupée en plein milieu — et une analyse interrompue laisse un verrou
+ * derrière elle (voir lib/curation/run.ts).
+ */
+export const maxDuration = 60;
+
+/**
+ * Vercel Cron déclenche en GET, sans corps.
+ *
+ * Le même traitement répond aux deux verbes : POST reste employé par un
+ * ordonnanceur externe ou un appel à la main, GET par la planification de
+ * l'hébergeur. Le contrôle du secret est dans le corps commun, si bien
+ * qu'ouvrir ce verbe n'ouvre rien à personne.
+ */
+export const GET = POST;

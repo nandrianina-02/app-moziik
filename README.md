@@ -107,16 +107,34 @@ Tous les modèles vivent dans `models/` : `User`, `Artist`, `Song`,
 - Renseigner les identifiants MVola (`MVOLA_CONSUMER_KEY`,
   `MVOLA_CONSUMER_SECRET`, `MVOLA_MERCHANT_MSISDN`) — `MVOLA_ENV=sandbox`
   par défaut, passer à `production` une fois validé par MVola
-- Cinq cron à planifier en dehors de Next.js (Vercel Cron ou autre) :
-  - `/api/cron/publish-songs` (Phase 5) — toutes les 5 minutes
-  - `/api/cron/compute-royalties` — une fois par jour
-  - `/api/cron/moderate-comments` — une fois par heure, facultatif : la
+- Cinq cron, déclenchés par un ordonnanceur **externe** (horaires en UTC) :
+  - `/api/cron/publish-songs` — toutes les 5 minutes
+  - `/api/cron/moderate-comments` — toutes les heures, facultatif : la
     file se vide aussi à l'ouverture de `/admin/commentaires`
-  - `/api/cron/weekly-curation` — une fois par semaine (le lundi : la
-    fenêtre couvre alors les sept jours pleins de la semaine écoulée)
-  - `/api/cron/weekly-report` — une fois par semaine, même jour : il
-    archive le rapport d'exploitation et prévient les administrateurs
-  - Tous exigent l'en-tête `Authorization: Bearer <CRON_SECRET>`
+  - `/api/cron/compute-royalties` — chaque nuit à 02 h 15 UTC
+  - `/api/cron/weekly-curation` — le lundi à 03 h 00 UTC : la fenêtre
+    couvre alors les sept jours pleins de la semaine écoulée
+  - `/api/cron/weekly-report` — le lundi à 03 h 45 UTC, après la curation :
+    il archive le rapport d'exploitation et prévient les administrateurs
+  - Tous exigent l'en-tête `Authorization: Bearer <CRON_SECRET>`. Sans
+    cette variable côté serveur, la route répond 500 ; sans l'en-tête côté
+    appelant, elle répond 401.
+  - Ils répondent en `POST` comme en `GET` : le premier est le verbe de
+    référence, le second existe pour les ordonnanceurs qui ne savent
+    envoyer que des `GET`.
+  - **Il n'y a volontairement pas de `vercel.json`.** Déclarer les mêmes
+    tâches dans Vercel Cron les ferait partir deux fois, et l'offre Hobby
+    refuse d'ailleurs le déploiement au-delà de deux cron.
+  - **Délai d'attente de l'ordonnanceur** : `weekly-curation` prend
+    plusieurs minutes (deux univers, une quarantaine de sélections, le
+    nommage par lots). Un service qui coupe à trente secondes signalera un
+    échec alors que le travail se termine normalement côté serveur. Régler
+    le délai à cinq minutes au moins, et **désactiver les reprises
+    automatiques** — une relance pendant l'exécution est refusée par le
+    verrou (409), ce qui produirait une alerte pour rien.
+  - Réponses attendues : 200 dans tous les cas nominaux, y compris quand
+    il n'y a rien à faire (semaine trop calme, aucun titre à publier). Un
+    échec réel remonte en 4xx ou 5xx.
 - Les prix affichés sur `/abonnement` viennent de `/api/site-config`
   (public), donc toujours synchronisés avec `/admin/parametres`
 

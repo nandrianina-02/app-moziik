@@ -7,6 +7,7 @@ import { getAuthUser } from "@/lib/mobileAuth";
 import { libelleMotif, type Motif } from "@/lib/taste/motifs";
 import { universDeLaRequete } from "@/lib/universServer";
 import { modeDeLaRequete } from "@/lib/modesServer";
+import { titresEcoutesAujourdhui } from "@/lib/ecoutesDuJour";
 import { MODES_INFO, raisonAmbiance, scoreAmbiance } from "@/lib/modes";
 import type { Mode } from "@/lib/modes";
 
@@ -76,6 +77,10 @@ export const GET = withApiErrors(async (req: Request) => {
   await connectDB();
   const univers = await universDeLaRequete(req, { compte: authUser?.id });
   const mode = await modeDeLaRequete(req, { compte: authUser?.id });
+  // Une recommandation n'a pas à reproposer ce qu'on vient d'écouter le
+  // matin même : cette route alimente le prolongement automatique de la
+  // file (lib/playbackContinuation.ts).
+  const duJour = authUser ? await titresEcoutesAujourdhui(authUser.id) : new Set<string>();
 
   if (!authUser) {
     // Utilisateur anonyme : on renvoie simplement les sons les plus populaires.
@@ -119,7 +124,7 @@ export const GET = withApiErrors(async (req: Request) => {
     status: "published",
     univers,
     genre: { $in: topGenres },
-    _id: { $nin: [...listenedSongIds] },
+    _id: { $nin: [...new Set([...listenedSongIds, ...duJour])] },
   })
     .populate("artist", "stageName verified")
     .sort({ playsCount: -1 })

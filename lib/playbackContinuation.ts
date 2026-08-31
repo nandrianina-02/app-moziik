@@ -1,5 +1,6 @@
 import type { PlayableSong, PlaySource } from "@/context/PlayerProvider";
 import { listOfflineSongs } from "@/lib/offlineCache";
+import { titresDuJour } from "@/lib/journalDuJour";
 
 /**
  * De quoi prolonger la lecture quand la file arrive à son terme.
@@ -21,6 +22,21 @@ import { listOfflineSongs } from "@/lib/offlineCache";
  * service worker ne met jamais `/api/` en cache (deux comptes sur un même
  * appareil se reverraient l'un l'autre), donc tout appel réseau échoue
  * franchement et il n'y a rien à récupérer ailleurs.
+ *
+ * CE QUI A DÉJÀ ÉTÉ ENTENDU AUJOURD'HUI NE REVIENT PAS
+ *
+ * Un titre n'est servi automatiquement qu'une fois par jour
+ * (lib/journalDuJour.ts). C'est ici, et nulle part ailleurs, que le
+ * filtre s'applique : lancer un album, une playlist ou un titre reste un
+ * geste de l'auditeur, et rien ne le lui refuse.
+ *
+ * MAIS LA MUSIQUE NE S'ARRÊTE JAMAIS POUR AUTANT
+ *
+ * Sur un petit catalogue, une journée d'écoute suffit à tout épuiser. Si
+ * chaque stratégie revient vide une fois le filtre appliqué, un second
+ * passage le lève. Une répétition vaut mieux qu'un silence — c'est le
+ * même arbitrage que la station, qui relâche ses contraintes une par une
+ * plutôt que de rendre une file trop courte.
  */
 
 /** Taille d'un tour de prolongement : environ une heure d'écoute. */
@@ -73,6 +89,17 @@ function retenir(candidats: unknown[], dejaVus: Set<string>, limite = PAR_TOUR):
   return sortie;
 }
 
+/**
+ * Les exclusions d'un passage : ce qui est déjà dans la file, et — au
+ * premier passage seulement — ce qui a été entendu aujourd'hui.
+ */
+function exclusions(ctx: ContexteProlongement, avecLeJour: boolean): Set<string> {
+  if (!avecLeJour) return ctx.dejaVus;
+  const tout = new Set(ctx.dejaVus);
+  for (const id of titresDuJour()) tout.add(id);
+  return tout;
+}
+
 // ---------- Stratégies par source ----------
 
 /** La suite du catalogue de l'artiste, page après page. */
@@ -113,6 +140,13 @@ function recommandations() {
  * moment de la journée.
  */
 function suiteDeLaStation(dejaVus: Set<string>) {
+  // Seule la file part ici, pas le journal du jour. Deux raisons : le
+  // serveur tient déjà ce registre pour les comptes connectés, avec
+  // l'avantage de couvrir tous leurs appareils ; et surtout, mélanger les
+  // deux listes lui retirerait le moyen de distinguer « déjà dans la
+  // file » de « déjà entendu aujourd'hui » — donc de relâcher le second
+  // quand le catalogue est épuisé. Pour un visiteur anonyme, le filtrage
+  // se fait au retour, dans `retenir`.
   const exclus = [...dejaVus].slice(0, 400).join(",");
   const heure = new Date().getHours();
   return titres(`/api/station?suite=1&heure=${heure}&exclus=${encodeURIComponent(exclus)}`);
@@ -170,34 +204,50 @@ async function selonLaSource(ctx: ContexteProlongement): Promise<unknown[]> {
  * Les morceaux à ajouter à la file, ou une liste vide si le catalogue n'a
  * plus rien à proposer pour cette source.
  */
+/** Un passage complet des stratégies, avec un jeu d'exclusions donné. */
+async function unPassage(ctx: ContexteProlongement, exclus: Set<string>): Promise<PlayableSong[]> {
+  const principale = retenir(await selonLaSource(ctx), exclus);
+  if (principale.length > 0) return principale;
+
+  // Repli commun, du plus ciblé au plus large.
+  if (ctx.dernier) {
+    const voisins = retenir(await proches(ctx.dernier._id), exclus);
+    if (voisins.length > 0) return voisins;
+  }
+
+  const conseils = retenir(await recommandations(), exclus);
+  if (conseils.length > 0) return conseils;
+
+  if (ctx.dernier?.genre) {
+    const memeGenre = retenir(await davantageDuGenre(ctx.dernier.genre, ctx.tour), exclus);
+    if (memeGenre.length > 0) return memeGenre;
+  }
+
+  return retenir(await plusEcoutes(ctx.tour), exclus);
+}
+
 export async function morceauxSuivants(ctx: ContexteProlongement): Promise<PlayableSong[]> {
   // Hors-ligne : seuls les téléchargements existent, et c'est vrai quelle
-  // que soit la source d'origine.
+  // que soit la source d'origine. Le filtre du jour s'y applique aussi,
+  // mais il cède immédiatement — une bibliothèque téléchargée est petite,
+  // et elle est faite pour tourner en boucle.
   if (!ctx.enLigne || ctx.source?.type === "downloads") {
     try {
-      const telecharges = await listOfflineSongs();
-      return retenir(telecharges as unknown[], ctx.dejaVus);
+      const telecharges = (await listOfflineSongs()) as unknown[];
+      const inedits = retenir(telecharges, exclusions(ctx, true));
+      return inedits.length > 0 ? inedits : retenir(telecharges, ctx.dejaVus);
     } catch {
       return [];
     }
   }
 
-  const principale = retenir(await selonLaSource(ctx), ctx.dejaVus);
-  if (principale.length > 0) return principale;
+  const inedits = await unPassage(ctx, exclusions(ctx, true));
+  if (inedits.length > 0) return inedits;
 
-  // Repli commun, du plus ciblé au plus large.
-  if (ctx.dernier) {
-    const voisins = retenir(await proches(ctx.dernier._id), ctx.dejaVus);
-    if (voisins.length > 0) return voisins;
-  }
-
-  const conseils = retenir(await recommandations(), ctx.dejaVus);
-  if (conseils.length > 0) return conseils;
-
-  if (ctx.dernier?.genre) {
-    const memeGenre = retenir(await davantageDuGenre(ctx.dernier.genre, ctx.tour), ctx.dejaVus);
-    if (memeGenre.length > 0) return memeGenre;
-  }
-
-  return retenir(await plusEcoutes(ctx.tour), ctx.dejaVus);
+  // Tout ce que le catalogue avait à offrir a déjà tourné aujourd'hui. On
+  // relâche le filtre du jour plutôt que de laisser le silence : la file
+  // reprendra des titres entendus ce matin, ce qui reste préférable à un
+  // lecteur qui s'arrête sans rien dire.
+  return unPassage(ctx, ctx.dejaVus);
 }
+

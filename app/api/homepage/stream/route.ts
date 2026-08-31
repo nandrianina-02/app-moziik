@@ -3,6 +3,7 @@ import { streamPageSections } from "@/lib/sectionStream";
 import { recordHomepageView } from "@/lib/homepageStats";
 import { getAuthUser } from "@/lib/mobileAuth";
 import { universDeLaRequete } from "@/lib/universServer";
+import { modeDeLaRequete } from "@/lib/modesServer";
 
 /** Accueil diffusé section par section. Format et intention : lib/sectionStream.ts. */
 export const GET = withApiErrors(async (req: Request) => {
@@ -11,7 +12,8 @@ export const GET = withApiErrors(async (req: Request) => {
   const response = await streamPageSections(
     "home",
     authUser ? { id: authUser.id, role: authUser.role } : null,
-    univers
+    univers,
+    await modeDeLaRequete(req, { compte: authUser?.id })
   );
 
   recordHomepageView().catch(() => {});

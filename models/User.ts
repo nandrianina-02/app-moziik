@@ -1,5 +1,6 @@
 import { Schema, models, model, Types, Model } from "mongoose";
 import { UNIVERS, type Univers } from "@/lib/univers";
+import { MODES } from "@/lib/modes";
 
 export type UserRole = "member" | "artist" | "admin";
 
@@ -38,6 +39,11 @@ export interface IUserPreferences {
    * le fait suivre d'un appareil à l'autre.
    */
   univers?: Univers;
+  /**
+   * Mode d'écoute retenu par le compte, ou « auto » quand l'heure locale
+   * décide. Voyage avec le compte, comme l'univers.
+   */
+  mode?: string;
 }
 
 export interface IUser {
@@ -94,6 +100,7 @@ const UserSchema = new Schema<IUser>({
         timezone: { type: String },
         dateFormat: { type: String },
         univers: { type: String, enum: UNIVERS },
+        mode: { type: String, enum: [...MODES, "auto"] },
       },
       { _id: false }
     ),

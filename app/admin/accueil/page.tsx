@@ -29,6 +29,8 @@ import {
   SECTION_PAGE_PREVIEW,
   type SectionPage,
 } from "@/lib/sectionPages";
+import { MODES_INFO, type Mode } from "@/lib/modes";
+import { UNIVERS_INFO, type Univers } from "@/lib/univers";
 
 type SectionFilters = { publicOnly: boolean; verifiedOnly: boolean; premiumOnly: boolean };
 
@@ -42,6 +44,9 @@ type Section = {
   mode: "auto" | "manual";
   limit: number;
   filters: SectionFilters;
+  /** Renseignés sur les sections produites par la curation. */
+  univers?: Univers;
+  modeEcoute?: Mode;
 };
 
 type Settings = {
@@ -527,8 +532,31 @@ export default function AdminHomepagePage() {
                         )}
                       </td>
                       <td className="py-3 pr-4">
-                        <p className="font-medium text-ink">{section.title}</p>
-                        <p className="text-xs text-ink-muted">{section.key === "hero" ? "Toujours en premier" : `Ordre ${i + 1}`}</p>
+                        <p className="flex flex-wrap items-center gap-1.5 font-medium text-ink">
+                          {section.title}
+                          {/* Une section réservée à un univers ou à un mode ne
+                              s'affiche que pour lui. Sans cette mention, la
+                              liste ressemble à vingt-six blocs empilés sur la
+                              même page. */}
+                          {section.univers && (
+                            <span className="rounded-full border border-border px-1.5 py-0.5 text-[10px] font-normal text-ink-muted">
+                              {UNIVERS_INFO[section.univers].label}
+                            </span>
+                          )}
+                          {section.modeEcoute && (
+                            <span className="rounded-full border border-accent/40 px-1.5 py-0.5 text-[10px] font-normal text-accent">
+                              Mode {MODES_INFO[section.modeEcoute].label}
+                            </span>
+                          )}
+                        </p>
+                        <p className="text-xs text-ink-muted">
+                          {section.key === "hero" ? "Toujours en premier" : `Ordre ${i + 1}`}
+                          {section.modeEcoute
+                            ? " · visible seulement dans ce mode"
+                            : section.univers
+                              ? " · visible seulement dans cet univers"
+                              : ""}
+                        </p>
                       </td>
                       <td className="py-3 pr-4">
                         <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${typeBadgeColor[section.key] ?? "bg-surface text-ink-muted"}`}>

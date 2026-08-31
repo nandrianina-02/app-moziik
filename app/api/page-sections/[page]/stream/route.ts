@@ -2,6 +2,7 @@ import { withApiErrors } from "@/lib/apiError";
 import { streamPageSections } from "@/lib/sectionStream";
 import { getAuthUser } from "@/lib/mobileAuth";
 import { universDeLaRequete } from "@/lib/universServer";
+import { modeDeLaRequete } from "@/lib/modesServer";
 import { parseSectionPage } from "@/lib/sectionPage";
 
 /**
@@ -16,5 +17,10 @@ export const GET = withApiErrors(async (req: Request, ctx: { params: { page: str
   const page = parseSectionPage(ctx.params.page);
   const authUser = await getAuthUser(req);
   const univers = await universDeLaRequete(req, { compte: authUser?.id });
-  return streamPageSections(page, authUser ? { id: authUser.id, role: authUser.role } : null, univers);
+  return streamPageSections(
+    page,
+    authUser ? { id: authUser.id, role: authUser.role } : null,
+    univers,
+    await modeDeLaRequete(req, { compte: authUser?.id })
+  );
 });

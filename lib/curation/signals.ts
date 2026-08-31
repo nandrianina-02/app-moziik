@@ -7,6 +7,7 @@ import { rechercheGlobale } from "@/lib/search";
 import { termesLesPlusCherches, volumeRecherches } from "@/lib/searchJournal";
 import type { Fenetre } from "@/lib/curation/window";
 import type { Univers } from "@/lib/univers";
+import { getSiteConfig } from "@/lib/siteConfig";
 
 /**
  * Ce que la semaine dit, en chiffres.
@@ -175,6 +176,87 @@ export async function volumeEcoutes(
   };
 }
 
+/**
+ * Quand, dans la journée, un titre est réellement écouté.
+ *
+ * C'est la mesure qui fonde les modes « Matin » et « Nuit ». Les autres
+ * modes se déduisent de ce qu'un titre EST — son tempo, ses mots-clés ;
+ * ceux-là se déduisent de ce que le public en FAIT, ce qui est un signal
+ * plus fort et beaucoup plus difficile à contrefaire.
+ *
+ * L'heure est calculée dans le fuseau du site, pas en UTC : à
+ * Antananarivo, minuit UTC est trois heures du matin. Grouper sur l'heure
+ * UTC décalerait tous les créneaux d'un tiers de nuit, et « Matin »
+ * contiendrait ce qu'on écoute au petit jour.
+ */
+export type MesureHoraire = {
+  /** Écoutes du créneau, sur les écoutes de la fenêtre. 0 à 1. */
+  partMatin: number;
+  partNuit: number;
+  /** Écoutes brutes de la fenêtre : une part calculée sur trois écoutes ne dit rien. */
+  total: number;
+};
+
+/** Créneaux mesurés, en heures locales. `a` est inclus ; « nuit » passe minuit. */
+const CRENEAU_MATIN = { de: 5, a: 10 };
+const CRENEAU_NUIT = { de: 22, a: 4 };
+
+export async function mesurerHeures(
+  from: Date,
+  to: Date,
+  univers: Univers
+): Promise<Map<string, MesureHoraire>> {
+  await connectDB();
+
+  // Le fuseau du site sert de référence commune. Prendre celui de chaque
+  // auditeur serait plus juste mais n'est pas mesurable : `Play` porte un
+  // pays, pas un fuseau, et la très grande majorité du public est ici.
+  const config = await getSiteConfig().catch(() => null);
+  const timezone = config?.timezone || "Indian/Antananarivo";
+
+  const heure = { $hour: { date: "$playedAt", timezone } };
+
+  const lignes = await Play.aggregate<{ _id: Types.ObjectId; matin: number; nuit: number; total: number }>([
+    { $match: { playedAt: { $gte: from, $lt: to }, univers } },
+    {
+      $group: {
+        _id: "$song",
+        total: { $sum: 1 },
+        matin: {
+          $sum: {
+            $cond: [
+              { $and: [{ $gte: [heure, CRENEAU_MATIN.de] }, { $lte: [heure, CRENEAU_MATIN.a] }] },
+              1,
+              0,
+            ],
+          },
+        },
+        nuit: {
+          // Le créneau passe minuit : la condition est un OU, pas un ET.
+          $sum: {
+            $cond: [
+              { $or: [{ $gte: [heure, CRENEAU_NUIT.de] }, { $lte: [heure, CRENEAU_NUIT.a] }] },
+              1,
+              0,
+            ],
+          },
+        },
+      },
+    },
+  ]);
+
+  return new Map(
+    lignes.map((l) => [
+      l._id.toString(),
+      {
+        partMatin: l.total > 0 ? l.matin / l.total : 0,
+        partNuit: l.total > 0 ? l.nuit / l.total : 0,
+        total: l.total,
+      },
+    ])
+  );
+}
+
 /** Un titre publié, avec ce qu'il faut pour le trier et l'expliquer. */
 export type TitreCandidat = {
   id: string;
@@ -183,9 +265,13 @@ export type TitreCandidat = {
   artisteId: string;
   genre: string;
   langue: string;
-  /** Tempo déclaré, absent sur une bonne part du catalogue. Sert à la recette « Adoration ». */
+  /** Tempo déclaré, absent sur une bonne part du catalogue. Sert aux recettes d'ambiance. */
   bpm?: number;
   tags: string[];
+  /** Durée en secondes : un mode « Sport » ne veut pas d'un morceau de neuf minutes. */
+  duree: number;
+  /** Écarté d'office des modes Étude, Travail et Sommeil. */
+  explicite: boolean;
   /** Pochette du titre : celle du premier sert de pochette à la playlist. */
   pochette: string;
   sortiLe: Date;
@@ -203,7 +289,7 @@ export type TitreCandidat = {
 export async function catalogueCandidats(univers: Univers): Promise<Map<string, TitreCandidat>> {
   await connectDB();
   const titres = await Song.find({ status: "published", univers })
-    .select("title artist genre language coverUrl releaseDate playsCount likesCount bpm tags")
+    .select("title artist genre language coverUrl releaseDate playsCount likesCount bpm tags duration explicit")
     .populate("artist", "stageName")
     .lean();
 
@@ -220,6 +306,8 @@ export async function catalogueCandidats(univers: Univers): Promise<Map<string, 
     likesCount?: number;
     bpm?: number;
     tags?: string[];
+    duration?: number;
+    explicit?: boolean;
   }[]) {
     // Un titre dont l'artiste a été supprimé ne peut ni s'afficher ni
     // s'attribuer : il n'a rien à faire dans une sélection éditoriale.
@@ -233,6 +321,8 @@ export async function catalogueCandidats(univers: Univers): Promise<Map<string, 
       langue: t.language ?? "",
       bpm: t.bpm,
       tags: t.tags ?? [],
+      duree: t.duration ?? 0,
+      explicite: t.explicit === true,
       pochette: t.coverUrl ?? "",
       sortiLe: t.releaseDate,
       ecoutesTotales: t.playsCount ?? 0,
@@ -314,6 +404,8 @@ export type Signaux = {
   /** Mesures des sept jours précédents, pour la progression. */
   precedente: Map<string, MesureTitre>;
   catalogue: Map<string, TitreCandidat>;
+  /** Répartition horaire des écoutes de la fenêtre, par titre. */
+  heures: Map<string, MesureHoraire>;
   recherches: TermeResolu[];
   volumeRecherches: number;
   ecoutes: number;
@@ -322,10 +414,11 @@ export type Signaux = {
 
 /** Rassemble tout ce que les recettes auront à consulter. */
 export async function collecterSignaux(fenetre: Fenetre, univers: Univers): Promise<Signaux> {
-  const [semaine, precedente, catalogue, recherches, volumes, nbRecherches] = await Promise.all([
+  const [semaine, precedente, catalogue, heures, recherches, volumes, nbRecherches] = await Promise.all([
     mesurerEcoutes(fenetre.from, fenetre.to, univers),
     mesurerEcoutes(fenetre.precedenteFrom, fenetre.precedenteTo, univers),
     catalogueCandidats(univers),
+    mesurerHeures(fenetre.from, fenetre.to, univers),
     resoudreRecherches(fenetre.from, fenetre.to, univers),
     volumeEcoutes(fenetre.from, fenetre.to, univers),
     // Le volume de recherches n'est pas ventilé par univers : le journal
@@ -340,6 +433,7 @@ export async function collecterSignaux(fenetre: Fenetre, univers: Univers): Prom
     semaine,
     precedente,
     catalogue,
+    heures,
     recherches,
     volumeRecherches: nbRecherches,
     ecoutes: volumes.ecoutes,

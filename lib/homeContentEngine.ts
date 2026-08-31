@@ -15,6 +15,7 @@ import { getForYouCards } from "@/lib/homepageHubCards";
 import { hasPremiumAccess } from "@/lib/premium";
 import { IHomepageSection, SectionPage } from "@/models/HomepageSection";
 import { UNIVERS_PAR_DEFAUT, type Univers } from "@/lib/univers";
+import { MODE_PAR_DEFAUT, type Mode } from "@/lib/modes";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
@@ -733,7 +734,12 @@ async function buildSection(section: IHomepageSection, ctx: SectionContext): Pro
  * diffuser chaque section dès qu'elle est prête (voir
  * app/api/homepage/stream/route.ts) au lieu d'attendre la plus lente.
  */
-export async function preparePageSections(page: SectionPage, viewer: HomepageViewer, univers: Univers) {
+export async function preparePageSections(
+  page: SectionPage,
+  viewer: HomepageViewer,
+  univers: Univers,
+  mode: Mode = MODE_PAR_DEFAUT
+) {
   await connectDB();
 
   const [sections, settings, siteConfig] = await Promise.all([
@@ -743,7 +749,23 @@ export async function preparePageSections(page: SectionPage, viewer: HomepageVie
   ]);
 
   const ctx: SectionContext = { viewer, univers, settings, siteConfig };
-  const enabled = sections.filter((s) => s.enabled);
+
+  /**
+   * Une section peut être réservée à un univers, à un mode d'écoute, ou
+   * aux deux. Sans marque, elle s'affiche toujours — ce qui est le cas de
+   * toutes les sections antérieures aux modes, et ce qui garantit qu'un
+   * accueil déjà configuré ne change pas.
+   *
+   * C'est ce filtre qui permet d'avoir douze sections de mode par univers
+   * en base sans que l'accueil en montre plus d'une : les vingt-quatre
+   * autres sont simplement écartées ici.
+   */
+  const enabled = sections.filter(
+    (s) =>
+      s.enabled &&
+      (!s.univers || s.univers === univers) &&
+      (!s.modeEcoute || s.modeEcoute === mode)
+  );
 
   return {
     // La bannière est propre à l'accueil : ailleurs, la page a déjà son
@@ -763,13 +785,18 @@ export async function preparePageSections(page: SectionPage, viewer: HomepageVie
 }
 
 /** Raccourci pour l'accueil. */
-export function prepareHomepage(viewer: HomepageViewer, univers: Univers) {
-  return preparePageSections("home", viewer, univers);
+export function prepareHomepage(viewer: HomepageViewer, univers: Univers, mode?: Mode) {
+  return preparePageSections("home", viewer, univers, mode);
 }
 
 /** Construit l'intégralité du payload d'une page à partir de la config admin et des données live. */
-export async function getPageSectionsData(page: SectionPage, viewer: HomepageViewer, univers: Univers) {
-  const prepared = await preparePageSections(page, viewer, univers);
+export async function getPageSectionsData(
+  page: SectionPage,
+  viewer: HomepageViewer,
+  univers: Univers,
+  mode?: Mode
+) {
+  const prepared = await preparePageSections(page, viewer, univers, mode);
   const [hero, sections] = await Promise.all([
     prepared.hero,
     Promise.all(prepared.sections.map((s) => s.payload)),
@@ -779,6 +806,6 @@ export async function getPageSectionsData(page: SectionPage, viewer: HomepageVie
 }
 
 /** Construit l'intégralité du payload /api/homepage. */
-export function getHomepageData(viewer: HomepageViewer, univers: Univers) {
-  return getPageSectionsData("home", viewer, univers);
+export function getHomepageData(viewer: HomepageViewer, univers: Univers, mode?: Mode) {
+  return getPageSectionsData("home", viewer, univers, mode);
 }

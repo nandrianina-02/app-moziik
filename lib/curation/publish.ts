@@ -6,6 +6,7 @@ import HomepageSection from "@/models/HomepageSection";
 import HomepagePinned from "@/models/HomepagePinned";
 import { getSiteConfig } from "@/lib/siteConfig";
 import { UNIVERS_PAR_DEFAUT, type Univers } from "@/lib/univers";
+import { MODES_INFO, libelleModeUnivers, slugSectionMode, type Mode } from "@/lib/modes";
 
 /**
  * Publier une analyse : rendre visible ce qui a été validé, retirer ce
@@ -137,11 +138,16 @@ async function installerSection(
   titrePrecedent: string,
   playlists: { _id: Types.ObjectId; rang: number }[],
   createdBy: Types.ObjectId,
-  univers: Univers
+  univers: Univers,
+  modeEcoute?: Mode
 ): Promise<string> {
   const config = await getSiteConfig();
-  const position = config.curation?.sectionPosition ?? 6;
-  const slug = slugSection(univers);
+  const base = config.curation?.sectionPosition ?? 6;
+  // Les sections de mode se placent juste après la sélection générale.
+  // Une seule s'affiche à la fois : leur donner des positions distinctes
+  // n'apporterait rien et compliquerait le réordonnancement en admin.
+  const position = modeEcoute ? base + 1 : base;
+  const slug = modeEcoute ? slugSectionMode(modeEcoute, univers) : slugSection(univers);
 
   const existante = await HomepageSection.findOne({ slug });
 
@@ -151,6 +157,11 @@ async function installerSection(
       page: "home",
       slug,
       title: titre,
+      // Ces deux champs sont ce qui fait qu'une section de mode ne
+      // s'affiche que pour son mode, et une section gospel que dans son
+      // univers. Sans eux, l'accueil montrerait douze blocs vides.
+      univers,
+      modeEcoute,
       enabled: true,
       position,
       // `manual` : le contenu vient exclusivement des épinglés
@@ -164,6 +175,11 @@ async function installerSection(
   } else {
     if (!titrePrecedent || existante.title === titrePrecedent) existante.title = titre;
     existante.limit = Math.max(playlists.length, 1);
+    // Rattrapage pour les sections créées avant les modes et les univers :
+    // sans ces deux champs, la sélection gospel s'afficherait — vide —
+    // dans l'univers général.
+    existante.univers = univers;
+    existante.modeEcoute = modeEcoute;
     // Une analyse retirée a éteint la section (voir `retirerAnalyse`) :
     // publier de nouveau doit la rallumer, sans quoi la publication
     // suivante n'aurait aucun effet visible.
@@ -242,15 +258,40 @@ export async function publierAnalyse({
   );
 
   const proprietaire = (run.lancePar ?? publiables[0]?.owner) as Types.ObjectId | undefined;
-  const section = proprietaire
-    ? await installerSection(
-        run.titreSection || titreParDefaut(univers),
-        precedente?.titreSection ?? "",
-        publiables.map((p) => ({ _id: p._id as Types.ObjectId, rang: p.auto?.rang ?? 0 })),
+
+  // Les sélections se répartissent en sections : celles sans mode dans la
+  // section générale de la semaine, les autres dans la section de leur
+  // mode d'écoute. Une playlist « Sommeil » n'a rien à faire à côté du
+  // top de la semaine.
+  const parSection = new Map<Mode | "", { _id: Types.ObjectId; rang: number }[]>();
+  for (const p of publiables) {
+    const cle = (p.auto?.mode ?? "") as Mode | "";
+    const liste = parSection.get(cle);
+    const entree = { _id: p._id as Types.ObjectId, rang: p.auto?.rang ?? 0 };
+    if (liste) liste.push(entree);
+    else parSection.set(cle, [entree]);
+  }
+
+  let section = slugSection(univers);
+  if (proprietaire) {
+    for (const [cle, liste] of parSection) {
+      const mode = cle === "" ? undefined : cle;
+      const pose = await installerSection(
+        mode
+          ? libelleModeUnivers(mode, univers)
+          : run.titreSection || titreParDefaut(univers),
+        // Le titre d'une section de mode est calculé, pas rédigé : il n'y
+        // a donc pas de « titre précédent » à comparer, et un renommage
+        // par l'admin tient tout seul.
+        mode ? libelleModeUnivers(mode, univers) : precedente?.titreSection ?? "",
+        liste,
         proprietaire,
-        univers
-      )
-    : slugSection(univers);
+        univers,
+        mode
+      );
+      if (!mode) section = pose;
+    }
+  }
 
   const config = await getSiteConfig();
   const supprimees = await purgerAnciennes(config.curation?.retentionWeeks ?? 4);
@@ -286,11 +327,19 @@ export async function retirerAnalyse(runId: string): Promise<number> {
     { $set: { isPublic: false } }
   );
 
-  const slug = slugSection((run.univers ?? UNIVERS_PAR_DEFAUT) as Univers);
-  await HomepagePinned.deleteMany({ section: slug });
-  // La section reste en place, vide : la supprimer perdrait le titre et
-  // la position que l'admin y a peut-être ajustés.
-  await HomepageSection.updateOne({ slug }, { $set: { enabled: false } });
+  // Toutes les sections de cet univers — la générale et celles des
+  // modes — sont vidées ensemble : retirer l'analyse doit tout retirer,
+  // pas laisser douze sections de mode pointer vers des playlists
+  // devenues privées.
+  const universRun = (run.univers ?? UNIVERS_PAR_DEFAUT) as Univers;
+  const slugs = [
+    slugSection(universRun),
+    ...(Object.keys(MODES_INFO) as Mode[]).map((m) => slugSectionMode(m, universRun)),
+  ];
+  await HomepagePinned.deleteMany({ section: { $in: slugs } });
+  // Les sections restent en place, vides : les supprimer perdrait les
+  // titres et les positions que l'admin y a peut-être ajustés.
+  await HomepageSection.updateMany({ slug: { $in: slugs } }, { $set: { enabled: false } });
 
   run.statut = "annulee";
   run.updatedAt = new Date();

@@ -1,5 +1,7 @@
 import { Schema, models, model, Model } from "mongoose";
 import { SECTION_PAGES, type SectionPage } from "@/lib/sectionPages";
+import { MODES, type Mode } from "@/lib/modes";
+import { UNIVERS, type Univers } from "@/lib/univers";
 
 export type HomepageSectionType =
   | "hero"
@@ -44,6 +46,25 @@ export interface IHomepageSection {
   // peuvent coexister, donc slug est généré (ex: "custom-collection-ete").
   slug: string;
   title: string; // libellé affiché, modifiable par l'admin
+  /**
+   * Section réservée à un univers. Absent : visible des deux côtés.
+   *
+   * Sans ce champ, la section gospel de la semaine s'afficherait vide
+   * dans l'univers général — le moteur écarte bien son contenu, mais le
+   * titre et le squelette resteraient là, ce qui se voit.
+   */
+  univers?: Univers;
+  /**
+   * Section réservée à un mode d'écoute. Absent : visible quel que soit
+   * le mode. C'est ce qui permet d'avoir douze sections « Voyage »,
+   * « Sport », « Sommeil »… en base sans que l'accueil en affiche plus
+   * d'une à la fois.
+   *
+   * Nommé `modeEcoute` et non `mode` : ce dernier est pris depuis
+   * l'origine par le mode d'alimentation de la section (auto / manuel),
+   * qui n'a rien à voir.
+   */
+  modeEcoute?: Mode;
   enabled: boolean;
   position: number; // ordre d'affichage (drag & drop admin)
   mode: HomepageSectionMode; // auto = alimenté par l'algorithme, manual = uniquement le contenu épinglé
@@ -79,6 +100,8 @@ const HomepageSectionSchema = new Schema<IHomepageSection>({
   page: { type: String, enum: SECTION_PAGES, default: "home", required: true },
   slug: { type: String, unique: true, sparse: true },
   title: { type: String, required: true },
+  univers: { type: String, enum: UNIVERS },
+  modeEcoute: { type: String, enum: MODES },
   enabled: { type: Boolean, default: true },
   position: { type: Number, required: true, default: 0 },
   mode: { type: String, enum: ["auto", "manual"], default: "auto" },
@@ -94,6 +117,8 @@ const HomepageSectionSchema = new Schema<IHomepageSection>({
 });
 
 HomepageSectionSchema.index({ page: 1, position: 1 });
+// Les sections de mode sont nombreuses et lues une à la fois.
+HomepageSectionSchema.index({ page: 1, modeEcoute: 1, univers: 1 });
 
 export default (models.HomepageSection as Model<IHomepageSection>) ||
   model<IHomepageSection>("HomepageSection", HomepageSectionSchema);

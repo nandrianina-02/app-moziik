@@ -2,7 +2,7 @@ import { z } from "zod";
 import { ApiError } from "@/lib/apiError";
 import { IDS_RESEAUX, urlSocialeValide } from "@/lib/socialPlatforms";
 import { IDS_FONCTIONNALITES_IA } from "@/lib/ai/features";
-import { IDS_RECETTES } from "@/lib/curation/labels";
+import { IDS_RECETTES, IDS_SELECTIONS } from "@/lib/curation/labels";
 
 /**
  * Valide `data` contre `schema` et lève une ApiError 400 lisible en cas
@@ -612,11 +612,17 @@ export const adminCurationSettingsSchema = z.object({
     .min(1, "Il faut conserver les sélections au moins une semaine.")
     .max(52)
     .optional(),
-  // Même parti pris que pour l'IA : un identifiant de recette inconnu
-  // est refusé, pas ignoré. Éteindre en silence une recette mal
-  // orthographiée la ferait disparaître sans que personne ne sache
-  // pourquoi.
-  disabled: z.array(z.enum(IDS_RECETTES as [string, ...string[]])).max(IDS_RECETTES.length).optional(),
+  // Même parti pris que pour l'IA : un identifiant inconnu est refusé,
+  // pas ignoré. Éteindre en silence une recette mal orthographiée la
+  // ferait disparaître sans que personne ne sache pourquoi.
+  //
+  // La liste couvre trois choses : les recettes globales, les modes
+  // d'écoute entiers (« sommeil » éteint ses trois playlists d'un coup),
+  // et une sélection de mode isolée (« mode:sommeil:nouveautes »).
+  disabled: z
+    .array(z.enum(IDS_SELECTIONS as [string, ...string[]]))
+    .max(IDS_SELECTIONS.length)
+    .optional(),
   sectionPosition: z.number().int().min(0).max(50).optional(),
 });
 

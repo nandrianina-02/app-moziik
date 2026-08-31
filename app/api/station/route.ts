@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { withApiErrors } from "@/lib/apiError";
 import { getAuthUser } from "@/lib/mobileAuth";
 import { checkRateLimitByIp } from "@/lib/rateLimit";
-import { estMoment, momentDeLHeure, type Moment } from "@/lib/taste/context";
+import { modeDeLaRequete } from "@/lib/modesServer";
 import { libelleMotif } from "@/lib/taste/motifs";
 import { profilDe, profilVide, genresPreferes } from "@/lib/taste/profile";
 import { construireStation, PAR_TOUR } from "@/lib/taste/station";
@@ -19,8 +19,9 @@ import { universDeLaRequete } from "@/lib/universServer";
  * Le serveur ne sait pas quelle heure il est *chez l'auditeur*. Lire
  * l'horloge du serveur proposerait de la musique de nuit à quelqu'un qui
  * prend son petit-déjeuner, selon l'endroit où l'application est
- * déployée. Le navigateur envoie donc son heure locale ; une valeur
- * absente ou aberrante retombe simplement sur « dans la journée ».
+ * déployée. Le navigateur envoie donc son heure locale, dont on déduit un
+ * mode d'écoute — sauf s'il en a explicitement choisi un, auquel cas son
+ * cookie prime et l'heure ne sert plus à rien.
  *
  * `exclus` porte ce que l'auditeur a déjà dans sa file, ce qui permet de
  * prolonger la station indéfiniment sans jamais resservir un morceau.
@@ -44,31 +45,29 @@ function lireExclus(brut: string | null): Set<string> {
   );
 }
 
-function lireMoment(brut: string | null): Moment {
-  if (brut && estMoment(brut)) return brut;
-  const heure = Number(brut);
-  return Number.isFinite(heure) ? momentDeLHeure(heure) : "journee";
-}
-
 export const GET = withApiErrors(async (req: Request) => {
   // Une station coûte plusieurs agrégations : sans plafond, un
   // rechargement en boucle suffirait à occuper la base.
   checkRateLimitByIp("station", { limit: 60, windowMs: 10 * 60 * 1000 });
 
   const { searchParams } = new URL(req.url);
-  const moment = lireMoment(searchParams.get("heure") ?? searchParams.get("moment"));
   const exclus = lireExclus(searchParams.get("exclus"));
   const suite = searchParams.get("suite") === "1";
   const taille = Math.min(Math.max(Number(searchParams.get("limit")) || PAR_TOUR, 5), 40);
 
   const authUser = await getAuthUser(req);
   const univers = await universDeLaRequete(req, { compte: authUser?.id });
+  // Le mode vient du cookie, ou de `?heure=` pour les clients qui
+  // envoient leur horloge locale plutôt qu'un mode — c'est ce que faisait
+  // déjà cette route avant que les modes n'existent, et le lecteur
+  // continue de le faire à chaque prolongement de file.
+  const mode = await modeDeLaRequete(req, { compte: authUser?.id });
   // Un visiteur non connecté n'a pas d'historique : la station existe
   // quand même, elle est simplement la même pour tout le monde — et le
   // dit (`personnalisee: false`).
   const profil = authUser ? await profilDe(authUser.id, univers) : profilVide();
 
-  const station = await construireStation({ profil, moment, univers, exclus, taille });
+  const station = await construireStation({ profil, mode, univers, exclus, taille });
 
   const songs = station.titres.map((t) => t.song);
   const motifs = station.titres.map((t) => ({
@@ -81,7 +80,7 @@ export const GET = withApiErrors(async (req: Request) => {
 
   if (suite) {
     return NextResponse.json(
-      { songs, motifs, personnalisee: station.personnalisee, moment, univers },
+      { songs, motifs, personnalisee: station.personnalisee, mode, univers },
       { headers: { "Cache-Control": "no-store" } }
     );
   }
@@ -97,13 +96,13 @@ export const GET = withApiErrors(async (req: Request) => {
   const presentation = await presenterStation({
     genres: profil.assezDeDonnees ? genresPreferes(profil, 5) : [],
     artistes: noms,
-    moment,
+    mode,
     personnalisee: station.personnalisee,
     compte: authUser?.id ?? "anonyme",
   });
 
   return NextResponse.json(
-    { songs, motifs, personnalisee: station.personnalisee, moment, univers, presentation },
+    { songs, motifs, personnalisee: station.personnalisee, mode, univers, presentation },
     { headers: { "Cache-Control": "no-store" } }
   );
 });

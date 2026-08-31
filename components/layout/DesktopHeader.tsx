@@ -10,6 +10,7 @@ import { SearchBar } from "@/components/search/SearchBar";
 import { NotificationBell } from "@/components/ui/NotificationBell";
 import { ThemeToggle } from "@/components/ui/ThemeToggle";
 import { UniversToggle } from "@/components/ui/UniversToggle";
+import { ModeSelector } from "@/components/ui/ModeSelector";
 import { useEscapeClose } from "@/hooks/useEscapeClose";
 
 /**
@@ -79,6 +80,7 @@ export function DesktopHeader() {
         {/* Avant la bascule sombre/clair : ce choix-là décide de ce que la
             page contient, l'autre seulement de son apparence. */}
         <UniversToggle />
+        <ModeSelector />
         <ThemeToggle />
         <NotificationBell variant="desktop" />
 

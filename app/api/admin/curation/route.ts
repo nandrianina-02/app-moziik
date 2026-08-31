@@ -10,7 +10,7 @@ import { getSiteConfig } from "@/lib/siteConfig";
 import { lancerAnalyseHebdomadaire, CurationIndisponible } from "@/lib/curation/run";
 import { publierAnalyse, retirerAnalyse } from "@/lib/curation/publish";
 import { libelleFenetre } from "@/lib/curation/window";
-import { RECETTES_INFO, estIdRecette, libelleRecette } from "@/lib/curation/labels";
+import { RECETTES_INFO, libelleSelection } from "@/lib/curation/labels";
 import { UNIVERS, UNIVERS_INFO, normaliserUnivers, type Univers } from "@/lib/univers";
 
 /**
@@ -44,7 +44,7 @@ type PlaylistDoc = {
     artist?: { stageName?: string };
   }[];
   followers: unknown[];
-  auto?: { kind: string; statut: string; motif: string; rang: number };
+  auto?: { kind: string; mode?: string; statut: string; motif: string; rang: number };
 };
 
 /** Les playlists d'une analyse, dans l'ordre prévu pour l'accueil. */
@@ -64,7 +64,10 @@ async function playlistsDeLAnalyse(runId: Types.ObjectId, univers: Univers) {
     kind: p.auto?.kind ?? "",
     // Le libellé de la recette et le titre de la playlist diffèrent dès
     // que l'IA a écrit : l'admin doit pouvoir rattacher l'un à l'autre.
-    recette: p.auto ? libelleRecette(p.auto.kind, univers) : "",
+    // Recette globale ou sélection de mode : le libellé se lit de la
+    // même façon dans les deux cas.
+    recette: p.auto ? libelleSelection(p.auto.kind, univers) : "",
+    mode: p.auto?.mode ?? null,
     statut: p.auto?.statut ?? "brouillon",
     motif: p.auto?.motif ?? "",
     rang: p.auto?.rang ?? 0,

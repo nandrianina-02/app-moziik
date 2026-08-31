@@ -25,6 +25,7 @@ import { SafeImage } from "@/components/ui/SafeImage";
 import { useToast } from "@/context/ToastProvider";
 import { readApiError } from "@/lib/readApiError";
 import { RECETTES_INFO, IDS_RECETTES } from "@/lib/curation/labels";
+import { MODES, MODES_INFO } from "@/lib/modes";
 import { AdminTabs } from "@/components/admin/AdminChrome";
 import { UNIVERS, UNIVERS_INFO, type Univers } from "@/lib/univers";
 
@@ -691,6 +692,45 @@ export default function AdminSelectionsPage() {
                         checked={!eteinte}
                         disabled={occupe !== null}
                         label={`Produire « ${RECETTES_INFO[id].libelle} »`}
+                        onChange={(v) =>
+                          enregistrerReglage("disabled", {
+                            disabled: v
+                              ? reglages.disabled.filter((d) => d !== id)
+                              : [...reglages.disabled, id],
+                          })
+                        }
+                      />
+                    </li>
+                  );
+                })}
+              </ul>
+            </div>
+
+            {/* ---- modes d'écoute ---- */}
+            <div className="border-t border-border pt-4">
+              <p className="text-sm text-ink">Modes d&apos;écoute</p>
+              <p className="mt-0.5 text-sm text-ink-muted">
+                Chaque mode actif produit jusqu&apos;à trois playlists — les plus écoutées, celles qui montent,
+                les nouveautés — et sa propre section d&apos;accueil, visible seulement des auditeurs qui ont
+                choisi ce mode. Un mode qui n&apos;a pas cinq titres à réunir dans cet univers ne produit rien
+                et n&apos;affiche aucune section : c&apos;est le cas normal d&apos;un catalogue jeune.
+              </p>
+              <ul className="mt-3 grid gap-2 lg:grid-cols-2">
+                {MODES.map((id) => {
+                  const eteint = reglages.disabled.includes(id);
+                  return (
+                    <li
+                      key={id}
+                      className="flex items-start justify-between gap-4 rounded-xl border border-border bg-base p-3"
+                    >
+                      <div className="min-w-0">
+                        <p className="text-sm text-ink">{MODES_INFO[id].label}</p>
+                        <p className="mt-0.5 text-xs text-ink-muted">{MODES_INFO[id].detail}</p>
+                      </div>
+                      <Switch
+                        checked={!eteint}
+                        disabled={occupe !== null}
+                        label={`Produire le mode « ${MODES_INFO[id].label} »`}
                         onChange={(v) =>
                           enregistrerReglage("disabled", {
                             disabled: v

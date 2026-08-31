@@ -1,5 +1,6 @@
 import { Schema, models, model, Types, Model } from "mongoose";
 import { UNIVERS, UNIVERS_PAR_DEFAUT, type Univers } from "@/lib/univers";
+import { MODES, type Mode } from "@/lib/modes";
 
 /**
  * Marque d'une playlist produite par la curation hebdomadaire.
@@ -15,8 +16,13 @@ import { UNIVERS, UNIVERS_PAR_DEFAUT, type Univers } from "@/lib/univers";
  * validée ne repose ainsi sur aucun code nouveau.
  */
 export interface IPlaylistAuto {
-  /** Identifiant de la recette (lib/curation/recipes.ts). */
+  /** Identifiant de la recette (lib/curation/recipes.ts, lib/curation/modes.ts). */
   kind: string;
+  /**
+   * Mode d'écoute de la sélection. Absent sur les sélections générales
+   * de la semaine, qui ne visent aucune situation particulière.
+   */
+  mode?: Mode;
   /** Analyse dont elle est issue. */
   run: Types.ObjectId;
   statut: "brouillon" | "publiee" | "archivee";
@@ -64,6 +70,7 @@ const PlaylistSchema = new Schema<IPlaylist>({
     type: new Schema<IPlaylistAuto>(
       {
         kind: { type: String, required: true },
+        mode: { type: String, enum: MODES },
         run: { type: Schema.Types.ObjectId, ref: "CurationRun", required: true },
         statut: { type: String, enum: ["brouillon", "publiee", "archivee"], default: "brouillon" },
         motif: { type: String, default: "" },

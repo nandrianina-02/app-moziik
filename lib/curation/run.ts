@@ -8,7 +8,9 @@ import { notifyMany } from "@/lib/notify";
 import { fenetreHebdomadaire, libelleFenetre, type Fenetre } from "@/lib/curation/window";
 import { collecterSignaux, type Signaux, type TitreCandidat } from "@/lib/curation/signals";
 import { recettesDe } from "@/lib/curation/recipes";
-import { libelleRecette } from "@/lib/curation/labels";
+import { selectionsDesModes } from "@/lib/curation/modes";
+import { intentionRecette, libelleRecette } from "@/lib/curation/labels";
+import { MODES_INFO, type Mode } from "@/lib/modes";
 import { UNIVERS, UNIVERS_INFO, type Univers } from "@/lib/univers";
 import { nommerLaSemaine, type PlaylistANommer } from "@/lib/curation/naming";
 import { publierAnalyse } from "@/lib/curation/publish";
@@ -136,9 +138,19 @@ async function avertirAdministrateurs(nb: number, fenetre: Fenetre, univers: Uni
   );
 }
 
-/** Construit les sélections des recettes actives. */
-function selectionner(signaux: Signaux, eteintes: Set<string>, univers: Univers) {
-  const retenues: (PlaylistANommer & { titres: string[]; rang: number })[] = [];
+type SelectionRetenue = PlaylistANommer & { titres: string[]; rang: number; mode?: Mode };
+
+/**
+ * Construit les sélections de la semaine : les recettes globales
+ * d'abord, les modes d'écoute ensuite.
+ *
+ * L'ordre compte : les sélections générales occupent la section
+ * historique de l'accueil, celle que tout le monde voit quel que soit son
+ * mode. Les sections de mode viennent après, et une seule s'affiche à la
+ * fois (lib/homeContentEngine.ts).
+ */
+function selectionner(signaux: Signaux, eteintes: Set<string>, univers: Univers): SelectionRetenue[] {
+  const retenues: SelectionRetenue[] = [];
 
   recettesDe(univers).forEach((recette) => {
     if (eteintes.has(recette.id)) return;
@@ -153,23 +165,40 @@ function selectionner(signaux: Signaux, eteintes: Set<string>, univers: Univers)
     }
     if (!selection) return;
 
-    const extraits = selection.titres
-      .map((id) => signaux.catalogue.get(id))
-      .filter((t): t is TitreCandidat => Boolean(t));
-
     retenues.push({
-      recette,
+      id: recette.id,
       // Le libellé de repli dépend de l'univers : « Top de la semaine »
       // d'un côté, « Gospel de la semaine » de l'autre.
       libelle: selection.libelle ?? libelleRecette(recette.id, univers),
+      detail: recette.detail,
+      intention: intentionRecette(recette.id, univers),
       motif: selection.motif,
-      extraits,
+      extraits: extraitsDe(signaux, selection.titres),
       titres: selection.titres,
       rang: retenues.length,
     });
   });
 
+  for (const selection of selectionsDesModes(signaux, univers, eteintes)) {
+    retenues.push({
+      id: selection.id,
+      mode: selection.mode,
+      libelle: selection.libelle,
+      detail: MODES_INFO[selection.mode].detail,
+      intention: selection.intention,
+      motif: selection.motif,
+      extraits: extraitsDe(signaux, selection.titres),
+      titres: selection.titres,
+      rang: retenues.length,
+    });
+  }
+
   return retenues;
+}
+
+/** Les titres d'une sélection, résolus sur le catalogue mesuré. */
+function extraitsDe(signaux: Signaux, ids: string[]): TitreCandidat[] {
+  return ids.map((id) => signaux.catalogue.get(id)).filter((t): t is TitreCandidat => Boolean(t));
 }
 
 /**
@@ -244,17 +273,18 @@ export async function lancerAnalyse({
     // qu'aucune page n'ait à connaître la curation.
     const creees = await Promise.all(
       selections.map(async (s, index) => {
-        const mots = nommage.playlists.get(s.recette.id);
+        const mots = nommage.playlists.get(s.id);
         return Playlist.create({
           title: mots?.titre || s.libelle,
-          description: mots?.description || s.recette.detail,
+          description: mots?.description || s.detail,
           coverUrl: s.extraits[0]?.pochette || undefined,
           owner,
           songs: s.titres.map((id) => new Types.ObjectId(id)),
           isPublic: false,
           univers,
           auto: {
-            kind: s.recette.id,
+            kind: s.id,
+            mode: s.mode,
             run: run._id,
             statut: "brouillon",
             motif: s.motif,
@@ -265,7 +295,7 @@ export async function lancerAnalyse({
       })
     );
 
-    const nouveautes = selections.find((s) => s.recette.id === "nouveautes")?.titres.length ?? 0;
+    const nouveautes = selections.find((s) => s.id === "nouveautes")?.titres.length ?? 0;
 
     run.stats = {
       ecoutes: signaux.ecoutes,

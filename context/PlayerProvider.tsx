@@ -20,6 +20,7 @@ import {
 import { useSiteConfig } from "@/context/SiteConfigProvider";
 import { useOnlineStatus } from "@/context/OnlineStatusProvider";
 import { useUnivers } from "@/context/UniversProvider";
+import { useMode } from "@/context/ModeProvider";
 import { morceauxSuivants } from "@/lib/playbackContinuation";
 
 export type PlayableSong = {
@@ -311,6 +312,7 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
   const [lectureProlongee, setLectureProlongee] = useState(false);
   const { isOnline } = useOnlineStatus();
   const { univers } = useUnivers();
+  const { mode } = useMode();
   const hasRecordedPlay = useRef(false);
   // Lu depuis le gestionnaire « ended », qui est posé une fois : sans ref,
   // il verrait toujours la valeur du premier rendu.
@@ -854,7 +856,7 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
   }
 
   /**
-   * Changer d'univers change la SUITE, pas ce qui joue.
+   * Changer d'univers ou de mode change la SUITE, pas ce qui joue.
    *
    * Couper le morceau en cours pour appliquer un réglage serait le plus
    * mauvais moment de le faire, et la file que l'auditeur a lancée lui-même
@@ -872,7 +874,11 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
     prolongementRef.current = { tour: 0, echecs: 0, enCours: false };
     // Premier rendu compris : la réserve y est déjà vide, l'effet ne coûte
     // rien et il évite d'avoir à distinguer le montage d'une bascule.
-  }, [univers]);
+    //
+    // Le mode compte autant que l'univers : passer en « Sommeil » à
+    // vingt-trois heures ne doit pas laisser jouer dix titres de fête déjà
+    // téléchargés, que rien à l'écran ne signale.
+  }, [univers, mode]);
 
   function clearQueue() {
     reinitialiserProlongement();

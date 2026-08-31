@@ -1,7 +1,7 @@
 import { Types } from "mongoose";
 import { connectDB } from "@/lib/db";
 import Song from "@/models/Song";
-import { DESCRIPTION_MOMENTS, type Moment } from "@/lib/taste/context";
+import { MODES_INFO, type Mode } from "@/lib/modes";
 import { familleDuMotif, type Famille, type Motif } from "@/lib/taste/motifs";
 import { artistesPreferes, genresPreferes, profilVide, type ProfilGouts } from "@/lib/taste/profile";
 import type { Univers } from "@/lib/univers";
@@ -100,15 +100,18 @@ function identifiants(ids: Iterable<string>): Types.ObjectId[] {
 }
 
 /**
- * Départage deux titres également plausibles selon le moment.
+ * Départage deux titres également plausibles selon le mode d'écoute.
  *
  * Un titre sans `bpm` obtient 0 : ni bonus ni malus. La moitié du
  * catalogue n'a pas cette donnée, et la pénaliser reviendrait à ne
- * proposer que les morceaux dont la fiche est bien remplie.
+ * proposer que les morceaux dont la fiche est bien remplie. Les modes
+ * qui ne se définissent pas par un tempo — Découverte, Tendance —
+ * obtiennent 0 pour la même raison : ils ne départagent pas ici.
  */
-function bonusDuMoment(bpm: number | undefined, moment: Moment): number {
-  if (!bpm || bpm <= 0) return 0;
-  const { min, max } = DESCRIPTION_MOMENTS[moment].bpm;
+function bonusDuMode(bpm: number | undefined, mode: Mode): number {
+  const fourchette = MODES_INFO[mode].bpm;
+  if (!bpm || bpm <= 0 || !fourchette) return 0;
+  const { min, max } = fourchette;
   if (bpm >= min && bpm <= max) return 1;
   const ecart = bpm < min ? min - bpm : bpm - max;
   // Au-delà de 40 bpm d'écart, le malus cesse de croître : un morceau
@@ -139,7 +142,7 @@ function nomArtiste(song: Record<string, unknown>): string {
 async function familier(
   profil: ProfilGouts,
   exclus: Set<string>,
-  moment: Moment,
+  mode: Mode,
   univers: Univers
 ): Promise<Candidat[]> {
   const connus = [...profil.connus.entries()]
@@ -163,7 +166,7 @@ async function familier(
     return {
       song,
       motif,
-      score: (profil.favoris.has(id) ? 3 : 1) + fois * 0.2 + bonusDuMoment(song.bpm as number, moment),
+      score: (profil.favoris.has(id) ? 3 : 1) + fois * 0.2 + bonusDuMode(song.bpm as number, mode),
     };
   });
 }
@@ -172,7 +175,7 @@ async function familier(
 async function voisin(
   profil: ProfilGouts,
   exclus: Set<string>,
-  moment: Moment,
+  mode: Mode,
   univers: Univers
 ): Promise<Candidat[]> {
   const artistes = identifiants(artistesPreferes(profil, 10));
@@ -211,7 +214,7 @@ async function voisin(
     return {
       song,
       motif,
-      score: affiniteArtiste * 2 + affiniteGenre + bonusDuMoment(song.bpm as number, moment) * 0.5,
+      score: affiniteArtiste * 2 + affiniteGenre + bonusDuMode(song.bpm as number, mode) * 0.5,
     };
   });
 }
@@ -227,7 +230,7 @@ async function voisin(
 async function decouverte(
   profil: ProfilGouts,
   exclus: Set<string>,
-  moment: Moment,
+  mode: Mode,
   univers: Univers
 ): Promise<Candidat[]> {
   const siens = genresPreferes(profil, 4);
@@ -246,7 +249,7 @@ async function decouverte(
     return {
       song,
       motif,
-      score: Math.log10((song.playsCount as number) + 10) + bonusDuMoment(song.bpm as number, moment) * 0.5,
+      score: Math.log10((song.playsCount as number) + 10) + bonusDuMode(song.bpm as number, mode) * 0.5,
     };
   });
 }
@@ -350,7 +353,7 @@ export type Station = {
   titres: TitreDeStation[];
   /** Faux quand l'historique ne permettait aucune personnalisation. */
   personnalisee: boolean;
-  moment: Moment;
+  mode: Mode;
 };
 
 /**
@@ -362,13 +365,13 @@ export type Station = {
  */
 export async function construireStation({
   profil,
-  moment,
+  mode,
   univers,
   exclus = new Set<string>(),
   taille = PAR_TOUR,
 }: {
   profil: ProfilGouts;
-  moment: Moment;
+  mode: Mode;
   univers: Univers;
   exclus?: Set<string>;
   taille?: number;
@@ -379,21 +382,21 @@ export async function construireStation({
   // le public écoute. Le dire plutôt que d'habiller du populaire en
   // « choisi pour vous ».
   if (!profil.assezDeDonnees) {
-    const populaires = await decouverte(profilVide(), exclus, moment, univers);
+    const populaires = await decouverte(profilVide(), exclus, mode, univers);
     return {
       titres: monter({ familier: [], voisin: [], decouverte: populaires }, taille),
       personnalisee: false,
-      moment,
+      mode,
     };
   }
 
   const [f, v, d] = await Promise.all([
-    familier(profil, exclus, moment, univers),
-    voisin(profil, exclus, moment, univers),
-    decouverte(profil, exclus, moment, univers),
+    familier(profil, exclus, mode, univers),
+    voisin(profil, exclus, mode, univers),
+    decouverte(profil, exclus, mode, univers),
   ]);
 
   const titres = monter({ familier: f, voisin: v, decouverte: d }, taille);
 
-  return { titres, personnalisee: titres.some((t) => familleDuMotif(t.motif) !== "decouverte"), moment };
+  return { titres, personnalisee: titres.some((t) => familleDuMotif(t.motif) !== "decouverte"), mode };
 }

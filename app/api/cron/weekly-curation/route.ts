@@ -10,6 +10,19 @@ import { purgerJournal } from "@/lib/searchJournal";
  * `Authorization: Bearer <CRON_SECRET>` — le lundi convient : la fenêtre
  * couvre alors les sept jours pleins de la semaine écoulée.
  *
+ * CE QU'UNE EXÉCUTION PRODUIT
+ *
+ * Pour chacun des deux univers : les sélections générales de la semaine,
+ * puis jusqu'à trois playlists par mode d'écoute actif — les plus
+ * écoutées, celles qui montent, les nouveautés. Chaque groupe reçoit son
+ * nom et sa description du modèle, par lots de dix, et sa propre section
+ * d'accueil. Les sélections de la semaine précédente sont archivées à la
+ * publication, jamais supprimées tant que quelqu'un les suit.
+ *
+ * Un mode qui n'a pas de quoi réunir cinq titres ne produit rien et
+ * n'affiche aucune section : c'est le cas normal d'un catalogue jeune, et
+ * de la plupart des modes d'un univers évangélique qui démarre.
+ *
  * Elle PRODUIT, elle ne publie pas. Les playlists arrivent en brouillon
  * dans /admin/selections, et rien n'apparaît sur l'accueil tant qu'un
  * humain n'a pas validé — sauf si `autoPublish` a été activé dans les

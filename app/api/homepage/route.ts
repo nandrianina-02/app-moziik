@@ -4,6 +4,7 @@ import { getHomepageData } from "@/lib/homeContentEngine";
 import { recordHomepageView } from "@/lib/homepageStats";
 import { getAuthUser } from "@/lib/mobileAuth";
 import { universDeLaRequete } from "@/lib/universServer";
+import { modeDeLaRequete } from "@/lib/modesServer";
 
 /**
  * Payload complet en une réponse. Conservé pour les clients qui ne peuvent
@@ -14,7 +15,11 @@ import { universDeLaRequete } from "@/lib/universServer";
 export const GET = withApiErrors(async (req: Request) => {
   const authUser = await getAuthUser(req);
   const univers = await universDeLaRequete(req, { compte: authUser?.id });
-  const data = await getHomepageData(authUser ? { id: authUser.id, role: authUser.role } : null, univers);
+  const data = await getHomepageData(
+    authUser ? { id: authUser.id, role: authUser.role } : null,
+    univers,
+    await modeDeLaRequete(req, { compte: authUser?.id })
+  );
 
   recordHomepageView().catch(() => {});
 

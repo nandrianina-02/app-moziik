@@ -4,6 +4,7 @@ import { Sora, Plus_Jakarta_Sans, JetBrains_Mono } from "next/font/google";
 import "./globals.css";
 import { ThemeProvider } from "@/context/ThemeProvider";
 import { UniversProvider } from "@/context/UniversProvider";
+import { ModeProvider } from "@/context/ModeProvider";
 import { AuthProvider } from "@/context/AuthProvider";
 import { ToastProvider } from "@/context/ToastProvider";
 import { OnlineStatusProvider } from "@/context/OnlineStatusProvider";
@@ -133,6 +134,10 @@ export default async function RootLayout({ children }: { children: React.ReactNo
               {/* Au-dessus du lecteur : changer d'univers vide la réserve de
                   morceaux déjà chargés, qui vient de l'autre répertoire. */}
               <UniversProvider>
+              {/* Sous l'univers : le mode se croise avec lui, il ne le
+                  remplace pas. Au-dessus du lecteur, pour la même raison
+                  que l'univers — changer de mode vide la réserve. */}
+              <ModeProvider>
               <ToastProvider>
                 <OnlineStatusProvider>
                   <PlayerProvider>
@@ -175,6 +180,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
                   </PlayerProvider>
                 </OnlineStatusProvider>
               </ToastProvider>
+              </ModeProvider>
               </UniversProvider>
             </ThemeProvider>
           </AuthProvider>

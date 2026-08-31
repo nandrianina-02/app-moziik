@@ -6,7 +6,9 @@ import { usePlayer, type PlayableSong } from "@/context/PlayerProvider";
 import { useToast } from "@/context/ToastProvider";
 import { SafeImage } from "@/components/ui/SafeImage";
 import { Skeleton } from "@/components/ui/Skeleton";
-import { momentCourant } from "@/lib/taste/context";
+import { useUnivers } from "@/context/UniversProvider";
+import { useMode } from "@/context/ModeProvider";
+import { MODES_INFO } from "@/lib/modes";
 
 /**
  * La station bâtie pour l'auditeur.
@@ -19,9 +21,10 @@ import { momentCourant } from "@/lib/taste/context";
  * interroger se subit ; celle-ci se discute, et se corrige en écoutant
  * autre chose.
  *
- * **L'heure vient d'ici.** Le serveur ignore quelle heure il est chez
- * l'auditeur ; c'est l'horloge du navigateur qui décide du moment de la
- * journée (voir lib/taste/context.ts).
+ * **Le mode et l'univers viennent d'ici.** Ils sont choisis dans le
+ * navigateur et transmis à la requête ; l'heure locale n'est envoyée
+ * qu'en repli, pour la toute première visite d'un appareil qui n'a pas
+ * encore de mode (voir lib/modes.ts et lib/univers.ts).
  */
 
 type Motif = { songId: string; libelle: string };
@@ -39,13 +42,23 @@ const APERCU = 4;
 export function StationPersonnelle() {
   const { playQueue } = usePlayer();
   const pushToast = useToast();
+  // La station suit le mode et l'univers : en changer recompose la file,
+  // sans quoi l'écran garderait la sélection du mode précédent.
+  const { mode } = useMode();
+  const { univers } = useUnivers();
   const [data, setData] = useState<Reponse | null>(null);
   const [erreur, setErreur] = useState(false);
   const [rafraichit, setRafraichit] = useState(false);
 
   const charger = useCallback(async () => {
     try {
-      const res = await fetch(`/api/station?heure=${new Date().getHours()}`);
+      // Mode et univers sont transmis explicitement plutôt que laissés au
+      // cookie : ils viennent d'être écrits, et la requête ne doit pas
+      // dépendre de l'ordre dans lequel le navigateur les a posés.
+      // L'heure reste en repli pour la toute première visite d'un appareil.
+      const res = await fetch(
+        `/api/station?heure=${new Date().getHours()}&mode=${mode}&univers=${univers}`
+      );
       if (!res.ok) throw new Error();
       setData((await res.json()) as Reponse);
       setErreur(false);
@@ -54,7 +67,7 @@ export function StationPersonnelle() {
       // laisserait des squelettes tourner indéfiniment.
       setErreur(true);
     }
-  }, []);
+  }, [mode, univers]);
 
   useEffect(() => {
     charger();
@@ -97,7 +110,7 @@ export function StationPersonnelle() {
 
   const parId = new Map(data.motifs.map((m) => [m.songId, m.libelle]));
   const apercu = data.songs.slice(0, APERCU);
-  const moment = momentCourant();
+
 
   return (
     <section className="rounded-xl2 border border-border bg-surface p-5">
@@ -177,9 +190,8 @@ export function StationPersonnelle() {
       )}
 
       <p className="mt-3 text-xs text-ink-muted">
-        {data.songs.length} titre{data.songs.length > 1 ? "s" : ""} pour commencer · {moment === "nuit"
-          ? "adaptée à cette heure-ci"
-          : "adaptée au moment de la journée"} · elle se prolonge toute seule
+        {data.songs.length} titre{data.songs.length > 1 ? "s" : ""} pour commencer · {MODES_INFO[mode].label.toLowerCase()}
+        {univers === "christian" ? " · répertoire évangélique" : ""} · elle se prolonge toute seule
       </p>
     </section>
   );

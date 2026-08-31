@@ -1,11 +1,21 @@
+import {
+  IDS_SOUS_RECETTES,
+  MODES,
+  MODES_INFO,
+  estMode,
+  idRecetteMode,
+  libelleRecetteMode,
+  lireIdRecetteMode,
+} from "@/lib/modes";
+
 /**
  * Les mots qui décrivent les recettes de la curation.
  *
- * Ce fichier n'importe RIEN, et c'est sa raison d'être : l'écran
- * /admin/selections tourne dans le navigateur et a besoin de ces
- * libellés. Les lire depuis lib/curation/recipes.ts y embarquerait
- * mongoose, comme lib/ai/labels.ts et lib/sectionPages.ts l'évitent
- * déjà chacun de leur côté.
+ * Ce fichier n'importe que d'autres modules purs, et c'est sa raison
+ * d'être : l'écran /admin/selections tourne dans le navigateur et a
+ * besoin de ces libellés. Les lire depuis lib/curation/recipes.ts y
+ * embarquerait mongoose, comme lib/ai/labels.ts et lib/sectionPages.ts
+ * l'évitent déjà chacun de leur côté. lib/modes.ts obéit à la même règle.
  *
  * `libelle` sert de deux façons : titre affiché dans les réglages, et
  * titre de repli de la playlist quand l'IA n'écrit pas. Les deux doivent
@@ -112,4 +122,31 @@ export function libelleRecette(id: string, univers: "general" | "christian" = "g
 export function intentionRecette(id: IdRecette, univers: "general" | "christian"): string {
   const info = RECETTES_INFO[id] as { intention: string; evangelique?: { intention: string } };
   return univers === "christian" && info.evangelique ? info.evangelique.intention : info.intention;
+}
+
+/**
+ * Tout ce qu'une administration peut éteindre dans la curation.
+ *
+ * Trois familles, et le mélange est voulu : une recette globale
+ * (« trending »), un mode d'écoute entier (« sommeil », qui éteint ses
+ * trois playlists d'un coup), ou une sélection de mode isolée
+ * (« mode:sommeil:nouveautes »). Le moteur teste les trois formes contre
+ * le même ensemble (lib/curation/modes.ts), si bien qu'aucun de ces
+ * niveaux n'a de code à lui.
+ */
+export const IDS_SELECTIONS: string[] = [
+  ...IDS_RECETTES,
+  ...MODES,
+  ...MODES.flatMap((mode) => IDS_SOUS_RECETTES.map((sous) => idRecetteMode(mode, sous))),
+];
+
+/**
+ * Libellé lisible de n'importe quelle sélection, quelle que soit sa
+ * famille. Employé partout où l'administration affiche un identifiant.
+ */
+export function libelleSelection(id: string, univers: "general" | "christian" = "general"): string {
+  const deMode = lireIdRecetteMode(id);
+  if (deMode) return libelleRecetteMode(deMode.mode, deMode.sous, univers);
+  if (estMode(id)) return MODES_INFO[id].label;
+  return libelleRecette(id, univers);
 }

@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { memoriserManuellement } from "@/lib/offlineApi";
 import { readNdjson } from "@/lib/readNdjson";
 import { useUnivers } from "@/context/UniversProvider";
+import { useMode } from "@/context/ModeProvider";
 
 export type HomepageSlot = {
   key: string;
@@ -50,6 +51,10 @@ export function useSectionStream(streamUrl: string, fallbackUrl: string) {
   // compteur du fournisseur rejoue donc le flux — c'est le seul moyen de
   // ne pas laisser un accueil général affiché à qui vient de basculer.
   const { version, univers } = useUnivers();
+  // Le mode change les sections affichées autant que l'univers : les deux
+  // sont lus par le serveur dans des cookies, et les deux doivent
+  // relancer le flux.
+  const { mode, version: versionMode } = useMode();
 
   useEffect(() => {
     // Repartir des squelettes plutôt que de laisser les sections de
@@ -162,7 +167,7 @@ export function useSectionStream(streamUrl: string, fallbackUrl: string) {
     };
     // `univers` figure ici avec `version` : le premier couvre la lecture
     // initiale du cookie, le second les bascules qui suivent.
-  }, [streamUrl, fallbackUrl, version, univers]);
+  }, [streamUrl, fallbackUrl, version, univers, versionMode, mode]);
 
   return state;
 }

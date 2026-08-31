@@ -34,6 +34,7 @@ import { useToast } from "@/context/ToastProvider";
 import { useFormatDate, useSiteConfig } from "@/context/SiteConfigProvider";
 import { DEVISES, FORMATS_DATE, FUSEAUX, LANGUES, deviseDe } from "@/lib/locales";
 import { UniversToggle } from "@/components/ui/UniversToggle";
+import { ModeSelector } from "@/components/ui/ModeSelector";
 
 type Profil = {
   id: string;
@@ -623,6 +624,13 @@ export default function AccountPage() {
             description="Général ou évangélique : ce choix décide de tout ce que vous entendez — recommandations, lecture automatique, playlists, accueil. Il s'applique immédiatement, sans passer par le bouton d'enregistrement, et suit votre compte d'un appareil à l'autre."
           >
             <UniversToggle />
+          </AdminCard>
+
+          <AdminCard
+            title="Mode d'écoute"
+            description="Ce que vous êtes en train de faire pendant que vous écoutez. Il oriente les recommandations, la lecture automatique et les sections de l'accueil, sans jamais franchir la frontière entre les deux univers. Laissé sur « Automatique », il suit l'heure qu'il est chez vous."
+          >
+            <ModeSelector />
           </AdminCard>
 
           <AdminCard

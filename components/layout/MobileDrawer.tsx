@@ -11,6 +11,7 @@ import { useToast } from "@/context/ToastProvider";
 import { primaryLinks, accountLinks, useRoleLinks, isLinkActive, type NavLink } from "@/components/layout/navLinks";
 import { useEscapeClose } from "@/hooks/useEscapeClose";
 import { UniversToggle } from "@/components/ui/UniversToggle";
+import { ModeSelector } from "@/components/ui/ModeSelector";
 
 export function MobileDrawer({ onClose }: { onClose: () => void }) {
   useEscapeClose(onClose);
@@ -100,9 +101,15 @@ export function MobileDrawer({ onClose }: { onClose: () => void }) {
               celui-ci porte déjà cinq commandes sur quatorze pixels de
               haut, et deux libellés en toutes lettres n'y tiendraient
               qu'en devenant illisibles. */}
-          <div className="border-b border-border px-5 py-3">
-            <p className="mb-2 text-xs text-ink-muted">Univers musical</p>
-            <UniversToggle compact />
+          <div className="space-y-3 border-b border-border px-5 py-3">
+            <div>
+              <p className="mb-2 text-xs text-ink-muted">Univers musical</p>
+              <UniversToggle compact />
+            </div>
+            <div>
+              <p className="mb-2 text-xs text-ink-muted">Mode d&apos;écoute</p>
+              <ModeSelector pleineLargeur />
+            </div>
           </div>
 
           <nav className="flex-1 overflow-y-auto px-3 py-4">

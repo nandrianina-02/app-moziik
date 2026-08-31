@@ -65,17 +65,28 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         {/*
           Applique le thème stocké AVANT le premier paint, en bloquant
           (`beforeInteractive`) — sans ça, ThemeProvider ne lit
-          localStorage que dans un useEffect (après hydratation), donc un
-          visiteur en thème clair voyait un flash sombre à chaque
-          chargement de page. Next.js injecte les scripts
-          `beforeInteractive` dans le <head> quel que soit leur
-          emplacement dans l'arbre JSX.
+          localStorage et les préférences qu'après hydratation, donc un
+          visiteur en thème clair, ou avec ses propres couleurs, voyait un
+          flash de la palette par défaut à chaque chargement. Next.js
+          injecte les scripts `beforeInteractive` dans le <head> quel que
+          soit leur emplacement dans l'arbre JSX.
+
+          Le lecteur relit les variables telles que ThemeProvider les a
+          calculées la dernière fois : rien n'est recalculé ici, ce script
+          doit rester minuscule et ne jamais échouer.
         */}
         <Script id="theme-init" strategy="beforeInteractive">
           {`
             try {
-              var theme = localStorage.getItem('moziik-theme');
-              if (theme === 'light') document.documentElement.classList.add('light');
+              var racine = document.documentElement;
+              var brut = localStorage.getItem('moziik-theme-vars');
+              var etat = brut ? JSON.parse(brut) : null;
+              if (etat && etat.variables) {
+                for (var nom in etat.variables) racine.style.setProperty(nom, etat.variables[nom]);
+                if (etat.clair) racine.classList.add('light');
+              } else if (localStorage.getItem('moziik-theme') === 'light') {
+                racine.classList.add('light');
+              }
             } catch (e) {}
           `}
         </Script>

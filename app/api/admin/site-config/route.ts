@@ -23,7 +23,7 @@ export const PATCH = withApiErrors(async (req: Request) => {
     "plans",
     "genres",
     "payPerListenRateUSD",
-    "defaultTheme",
+    "theme",
     "legalEntityName",
     "legalCapital",
     "legalRcsCity",

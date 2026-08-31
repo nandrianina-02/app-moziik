@@ -2,6 +2,21 @@ import { Schema, models, model, Types, Model } from "mongoose";
 
 export type UserRole = "member" | "artist" | "admin";
 
+/**
+ * Thème personnel, réservé aux comptes Premium (lib/premium.ts).
+ *
+ * Absent, le compte suit le thème du site. Le champ reste en base même si
+ * l'abonnement s'arrête : on rend alors l'apparence du site sans effacer
+ * des couleurs que l'auditeur retrouvera s'il se réabonne.
+ */
+export interface IUserTheme {
+  preset: string;
+  mode: "dark" | "light";
+  accent: string;
+  backgroundDark: string;
+  backgroundLight: string;
+}
+
 export interface IUser {
   name: string;
   email: string;
@@ -15,6 +30,7 @@ export interface IUser {
   verificationToken?: string;
   verificationTokenExpires?: Date;
   badges: string[];
+  theme?: IUserTheme;
   likedSongs: Types.ObjectId[];
   savedAlbums: Types.ObjectId[];
   resetToken?: string;
@@ -39,6 +55,21 @@ const UserSchema = new Schema<IUser>({
   verificationToken: { type: String },
   verificationTokenExpires: { type: Date },
   badges: { type: [String], default: [] },
+  theme: {
+    type: new Schema<IUserTheme>(
+      {
+        preset: { type: String, required: true },
+        mode: { type: String, enum: ["dark", "light"], required: true },
+        accent: { type: String, required: true },
+        backgroundDark: { type: String, required: true },
+        backgroundLight: { type: String, required: true },
+      },
+      { _id: false }
+    ),
+    // Pas de valeur par défaut : « rien » veut dire « suit le site », et
+    // c'est une information en soi.
+    default: undefined,
+  },
   likedSongs: [{ type: Schema.Types.ObjectId, ref: "Song" }],
   savedAlbums: [{ type: Schema.Types.ObjectId, ref: "Album" }],
   resetToken: { type: String },

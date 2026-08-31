@@ -2,6 +2,7 @@
 
 import { createContext, useCallback, useContext, useEffect, useState } from "react";
 import { defaultSiteConfig, type SiteConfig } from "@/config/site";
+import { THEME_PAR_DEFAUT, type ThemePreference } from "@/lib/theme";
 
 type PublicSiteConfig = Pick<
   SiteConfig,
@@ -20,6 +21,8 @@ type PublicSiteConfig = Pick<
 > & {
   copyrightText?: string;
   legalUpdatedAt?: string;
+  /** Thème par défaut du site, appliqué par ThemeProvider. */
+  theme?: ThemePreference;
   /**
    * Identifiants des fonctionnalités d'IA servables en ce moment
    * (lib/ai/features.ts). Vide tant que /api/site-config n'a pas répondu,
@@ -29,7 +32,7 @@ type PublicSiteConfig = Pick<
   aiFeatures?: string[];
 };
 
-const SiteConfigContext = createContext<PublicSiteConfig>(defaultSiteConfig);
+const SiteConfigContext = createContext<PublicSiteConfig>({ ...defaultSiteConfig, theme: THEME_PAR_DEFAUT });
 
 export function SiteConfigProvider({ children }: { children: React.ReactNode }) {
   const [config, setConfig] = useState<PublicSiteConfig>(defaultSiteConfig);

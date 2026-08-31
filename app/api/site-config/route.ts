@@ -3,6 +3,7 @@ import { getSiteConfig } from "@/lib/siteConfig";
 import { withApiErrors } from "@/lib/apiError";
 import { liensSociauxUtilisables } from "@/lib/socialPlatforms";
 import { fonctionnalitesIADisponibles } from "@/lib/ai/client";
+import { normaliserTheme } from "@/lib/theme";
 
 // Sans ça, cette route (qui ne lit ni cookies ni headers) est traitée
 // comme statique par Next.js et figée au build : les modifications de
@@ -25,6 +26,9 @@ export const GET = withApiErrors(async () => {
       copyrightText: config.copyrightText,
       plans: config.plans,
       genres: config.genres,
+      // Le thème par défaut du site : c'est lui que voit tout visiteur qui
+      // n'a rien personnalisé, y compris déconnecté.
+      theme: normaliserTheme(config.theme),
       legalEntityName: config.legalEntityName,
       legalCapital: config.legalCapital,
       legalRcsCity: config.legalRcsCity,

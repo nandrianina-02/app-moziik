@@ -2,6 +2,7 @@ import { connectDB } from "@/lib/db";
 import SiteConfigModel from "@/models/SiteConfig";
 import { defaultSiteConfig } from "@/config/site";
 import { PLAFOND_JOURNALIER_DEFAUT } from "@/lib/ai/features";
+import { THEME_PAR_DEFAUT } from "@/lib/theme";
 
 const SITE_CONFIG_ID = "000000000000000000000001";
 
@@ -27,7 +28,7 @@ function fallbackSiteConfig() {
     ],
     genres: defaultSiteConfig.genres,
     payPerListenRateUSD: 0.003,
-    defaultTheme: "dark" as const,
+    theme: { ...THEME_PAR_DEFAUT },
     legalEntityName: `${defaultSiteConfig.siteName} SAS`,
     legalCapital: "10 000€",
     legalRcsCity: "Antananarivo",

@@ -428,6 +428,26 @@ export const helpArticlePatchSchema = z.object({
   published: z.boolean().optional(),
 });
 
+/**
+ * Un thème, tel qu'il arrive d'un formulaire — celui de l'administration
+ * comme celui d'un membre Premium. Les couleurs sont vérifiées ici, à
+ * l'entrée : une valeur qui n'est pas un hexadécimal se retrouverait
+ * injectée telle quelle dans une variable CSS.
+ */
+const COULEUR_HEX = /^#[0-9a-fA-F]{6}$/;
+const couleurHex = z
+  .string()
+  .trim()
+  .regex(COULEUR_HEX, "Couleur invalide : attendu un hexadécimal comme #FF6B4A.");
+
+export const themePreferenceSchema = z.object({
+  preset: z.string().trim().min(1).max(40),
+  mode: z.enum(["dark", "light"]),
+  accent: couleurHex,
+  backgroundDark: couleurHex,
+  backgroundLight: couleurHex,
+});
+
 export const adminSiteConfigPatchSchema = z.object({
   siteName: z.string().trim().min(1).max(80).optional(),
   tagline: z.string().max(200).optional(),
@@ -445,7 +465,7 @@ export const adminSiteConfigPatchSchema = z.object({
     .optional(),
   genres: z.array(z.string().trim().max(60)).max(60).optional(),
   payPerListenRateUSD: z.number().min(0).optional(),
-  defaultTheme: z.enum(["dark", "light"]).optional(),
+  theme: themePreferenceSchema.optional(),
   legalEntityName: z.string().max(200).optional(),
   legalCapital: z.string().max(60).optional(),
   legalRcsCity: z.string().max(100).optional(),

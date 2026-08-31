@@ -32,6 +32,19 @@ export interface ICurationSettings {
   sectionPosition: number;
 }
 
+/**
+ * Thème par défaut du site, celui que voit tout visiteur qui n'a rien
+ * personnalisé. Les couleurs libres ne servent que si `preset` vaut
+ * "custom" ; sinon le préréglage fait foi (lib/theme.ts).
+ */
+export interface IThemeSettings {
+  preset: string;
+  mode: "dark" | "light";
+  accent: string;
+  backgroundDark: string;
+  backgroundLight: string;
+}
+
 export interface IPlanPricing {
   plan: "premium" | "premium_annual";
   amountUSD: number; // prix de référence, converti selon la région
@@ -49,7 +62,8 @@ export interface ISiteConfig {
   // codée en dur et dupliquée dans les pages son/nouveau et son/[id]/modifier.
   genres: string[];
   payPerListenRateUSD: number; // rémunération artiste par écoute complète
-  defaultTheme: "dark" | "light";
+  /** Thème par défaut du site — mode et couleurs. */
+  theme: IThemeSettings;
   // Mentions légales — éditables dans /admin/parametres, affichées sur /mentions-legales
   legalEntityName: string; // raison sociale complète, ex. "Moziik SAS"
   legalCapital: string; // capital social affiché tel quel, ex. "10 000€"
@@ -85,7 +99,25 @@ const SiteConfigSchema = new Schema<ISiteConfig>({
   ],
   genres: { type: [String], default: [] },
   payPerListenRateUSD: { type: Number, default: 0.003 },
-  defaultTheme: { type: String, enum: ["dark", "light"], default: "dark" },
+  theme: {
+    type: new Schema<IThemeSettings>(
+      {
+        preset: { type: String, default: "moziik" },
+        mode: { type: String, enum: ["dark", "light"], default: "dark" },
+        accent: { type: String, default: "#FF6B4A" },
+        backgroundDark: { type: String, default: "#0D0F1A" },
+        backgroundLight: { type: String, default: "#FBF9F4" },
+      },
+      { _id: false }
+    ),
+    default: () => ({
+      preset: "moziik",
+      mode: "dark",
+      accent: "#FF6B4A",
+      backgroundDark: "#0D0F1A",
+      backgroundLight: "#FBF9F4",
+    }),
+  },
   legalEntityName: { type: String, default: "" },
   legalCapital: { type: String, default: "" },
   legalRcsCity: { type: String, default: "" },

@@ -9,6 +9,8 @@ import { TagInput } from "@/components/ui/TagInput";
 import { useToast } from "@/context/ToastProvider";
 import { uploadToCloudinaryClient } from "@/lib/cloudinaryClient";
 import { RESEAUX, urlSocialeValide, type IdentifiantReseau } from "@/lib/socialPlatforms";
+import { ThemeEditor } from "@/components/theme/ThemeEditor";
+import { normaliserTheme, type ThemePreference } from "@/lib/theme";
 
 type PlanPricing = { plan: "premium" | "premium_annual"; amountUSD: number; amountMGA: number };
 
@@ -29,6 +31,7 @@ type SiteConfigForm = {
   legalWebsite: string;
   legalUpdatedAt: string;
   socialLinks: { platform: IdentifiantReseau; url: string }[];
+  theme: ThemePreference;
 };
 
 export default function AdminSettingsPage() {
@@ -44,7 +47,13 @@ export default function AdminSettingsPage() {
         const res = await fetch("/api/admin/site-config");
         if (!res.ok) throw new Error();
         const data = await res.json();
-        setConfig({ ...data.config, socialLinks: data.config.socialLinks ?? [] });
+        setConfig({
+          ...data.config,
+          socialLinks: data.config.socialLinks ?? [],
+          // Un document enregistré avant l'arrivée du thème n'en a pas :
+          // la normalisation retombe alors sur la palette d'origine.
+          theme: normaliserTheme(data.config.theme),
+        });
         setLogoUrlInput(data.config.logoUrl ?? "");
       } catch {
         pushToast("error", "Impossible de charger les paramètres.");
@@ -215,6 +224,18 @@ export default function AdminSettingsPage() {
           value={config.copyrightText}
           onChange={(e) => setConfig({ ...config, copyrightText: e.target.value })}
         />
+      </section>
+
+      <section className="space-y-3">
+        <h2 className="text-sm uppercase tracking-wide text-ink-muted">Thème du site</h2>
+        <p className="-mt-1 text-xs text-ink-muted">
+          Ce que voient les visiteurs et les comptes gratuits. Les membres Premium peuvent lui préférer
+          leurs propres couleurs, depuis leur compte. L&apos;aperçu ci-dessous ne change pas votre
+          affichage : le thème s&apos;applique après enregistrement.
+        </p>
+        <div className="rounded-xl2 border border-border bg-surface p-4">
+          <ThemeEditor value={config.theme} onChange={(theme) => setConfig({ ...config, theme })} />
+        </div>
       </section>
 
       <section className="space-y-3">

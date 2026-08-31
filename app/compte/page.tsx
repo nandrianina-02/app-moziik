@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useSession, signOut } from "next-auth/react";
 import { oublierCompte } from "@/lib/offlineApi";
-import { LogOut, Wallet, Shield, Mic2, Crown, ChevronRight, Pencil, Share2 } from "lucide-react";
+import { LogOut, Wallet, Shield, Mic2, Crown, ChevronRight, Pencil, Share2, Palette } from "lucide-react";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { SafeImage } from "@/components/ui/SafeImage";
 import { ShareModal } from "@/components/share/ShareModal";
@@ -175,6 +175,28 @@ export default function AccountPage() {
               {hasPremium ? "Gérer l'abonnement" : "Passer en Premium"}
             </Link>
           )}
+        </div>
+      </div>
+
+      {/* Apparence */}
+      <div className="mb-6 rounded-xl2 border border-border bg-surface p-6">
+        <div className="flex flex-wrap items-center justify-between gap-4">
+          <div>
+            <p className="mb-1 flex items-center gap-2 text-base font-semibold text-ink">
+              <Palette size={18} className="text-accent" /> Apparence
+            </p>
+            <p className="text-sm text-ink-muted">
+              {hasPremium
+                ? "Choisis un thème ou compose tes propres couleurs."
+                : "Thème du site. La personnalisation des couleurs est incluse dans Premium."}
+            </p>
+          </div>
+          <Link
+            href="/compte/apparence"
+            className="flex shrink-0 items-center gap-1.5 rounded-xl border border-border px-4 py-2 text-sm font-medium text-ink transition-colors hover:border-ink-muted"
+          >
+            Personnaliser <ChevronRight size={15} />
+          </Link>
         </div>
       </div>
 

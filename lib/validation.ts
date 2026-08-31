@@ -451,6 +451,19 @@ export const themePreferenceSchema = z.object({
   radius: z.number().int().min(0).max(24),
 });
 
+/**
+ * Création d un compte depuis l administration. Le mot de passe est
+ * facultatif : sans lui, le serveur en tire un provisoire et le renvoie une
+ * seule fois. Le minimum de huit caractères vaut ici comme à l inscription —
+ * un compte créé par l équipe n est pas moins exposé.
+ */
+export const adminUserCreateSchema = z.object({
+  name: z.string().trim().min(2, "Le nom doit faire au moins 2 caractères.").max(80),
+  email: z.string().trim().toLowerCase().email("Adresse email invalide.").max(254),
+  role: z.enum(["member", "artist", "admin"]),
+  password: z.string().min(8, "Le mot de passe doit faire au moins 8 caractères.").max(200).optional(),
+});
+
 export const adminSiteConfigPatchSchema = z.object({
   siteName: z.string().trim().min(1).max(80).optional(),
   tagline: z.string().max(200).optional(),

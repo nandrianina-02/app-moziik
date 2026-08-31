@@ -8,6 +8,7 @@ import { Play, Pause, BadgeCheck, MoreVertical } from "lucide-react";
 import { usePlayer, type PlayableSong, type PlaySource } from "@/context/PlayerProvider";
 import { SongContextMenu } from "@/components/music/SongContextMenu";
 import { useLongPress } from "@/components/music/useLongPress";
+import { ShowMoreButton, useProgressiveList } from "@/components/ui/ShowMore";
 
 function formatTime(seconds: number) {
   const m = Math.floor(seconds / 60);
@@ -139,12 +140,23 @@ export function SongTable({
   onDeleted,
   showHeader = true,
   source,
+  initialCount = 0,
 }: {
   songs: PlayableSong[];
   onDeleted?: () => void;
   showHeader?: boolean;
   source?: PlaySource;
+  /** Nombre de morceaux affichés avant « Voir plus » (0 pour tout dérouler). */
+  initialCount?: number;
 }) {
+  // La file de lecture reste la liste entière : `queue` reçoit `songs`,
+  // pas la part visible — un morceau lancé depuis l'aperçu enchaîne sur
+  // ceux qui ne sont pas encore dépliés.
+  const { visible, hasMore, remaining, showMore } = useProgressiveList(songs, {
+    initial: initialCount || songs.length,
+    step: 25,
+  });
+
   return (
     <div>
       {showHeader && (
@@ -157,10 +169,16 @@ export function SongTable({
         </div>
       )}
       <div className="space-y-0.5">
-        {songs.map((song, index) => (
+        {visible.map((song, index) => (
           <SongTableRow key={song._id} song={song} queue={songs} index={index} onDeleted={onDeleted} source={source} />
         ))}
       </div>
+
+      {hasMore && (
+        <div className="flex justify-center pt-3">
+          <ShowMoreButton label="Voir plus de titres" remaining={remaining} onClick={showMore} />
+        </div>
+      )}
     </div>
   );
 }

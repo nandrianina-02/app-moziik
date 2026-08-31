@@ -7,6 +7,7 @@ import { Play, Pause, BadgeCheck, Heart, MoreVertical } from "lucide-react";
 import { usePlayer, type PlayableSong, type PlaySource } from "@/context/PlayerProvider";
 import { SongContextMenu } from "@/components/music/SongContextMenu";
 import { useLongPress } from "@/components/music/useLongPress";
+import { ShowMoreButton, useProgressiveList } from "@/components/ui/ShowMore";
 
 function formatTime(seconds: number) {
   const m = Math.floor(seconds / 60);
@@ -123,17 +124,27 @@ export function ArtistSongList({
   showRankFrom,
   source,
   onDeleted,
+  initialCount = 0,
 }: {
   songs: PlayableSong[];
   queue?: PlayableSong[];
   showRankFrom?: number;
   source?: PlaySource;
   onDeleted?: () => void;
+  /** Nombre de morceaux affichés avant « Voir plus » (0 pour tout dérouler). */
+  initialCount?: number;
 }) {
   const effectiveQueue = queue ?? songs;
+  // La discographie complète d'un artiste dépasse vite l'écran ; la file de
+  // lecture, elle, garde tous les morceaux — seul l'affichage se déroule.
+  const { visible, hasMore, remaining, showMore } = useProgressiveList(songs, {
+    initial: initialCount || songs.length,
+    step: 20,
+  });
+
   return (
     <div className="space-y-0.5">
-      {songs.map((song, i) => {
+      {visible.map((song, i) => {
         const queueIndex = effectiveQueue.findIndex((s) => s._id === song._id);
         return (
           <ArtistSongRow
@@ -147,6 +158,12 @@ export function ArtistSongList({
           />
         );
       })}
+
+      {hasMore && (
+        <div className="flex justify-center pt-3">
+          <ShowMoreButton label="Voir plus de morceaux" remaining={remaining} onClick={showMore} />
+        </div>
+      )}
     </div>
   );
 }

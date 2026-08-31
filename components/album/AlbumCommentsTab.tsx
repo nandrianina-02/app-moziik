@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { SafeImage } from "@/components/ui/SafeImage";
 import { MessageSquare } from "lucide-react";
+import { ShowMoreButton, useProgressiveList } from "@/components/ui/ShowMore";
 import type { AlbumComment } from "@/components/album/types";
 
 function timeAgo(iso: string) {
@@ -28,6 +29,10 @@ export function AlbumCommentsTab({ albumId }: { albumId: string }) {
       .finally(() => setLoading(false));
   }, [albumId]);
 
+  // Appelé avant les retours anticipés : un crochet ne peut pas dépendre
+  // de l'état de chargement.
+  const { visible, hasMore, remaining, showMore } = useProgressiveList(comments, { initial: 10, step: 20 });
+
   if (loading) {
     return <p className="rounded-xl2 border border-border bg-surface p-6 text-sm text-ink-muted">Chargement...</p>;
   }
@@ -47,7 +52,7 @@ export function AlbumCommentsTab({ albumId }: { albumId: string }) {
         Commentaires laissés sur les titres de l&apos;album — ouvre un titre pour répondre.
       </p>
       <ul className="space-y-4">
-        {comments.map((c) => (
+        {visible.map((c) => (
           <li key={c._id} className="flex items-start gap-3">
             <SafeImage
               src={c.user.avatarUrl}
@@ -71,6 +76,12 @@ export function AlbumCommentsTab({ albumId }: { albumId: string }) {
           </li>
         ))}
       </ul>
+
+      {hasMore && (
+        <div className="flex justify-center pt-4">
+          <ShowMoreButton label="Voir plus de commentaires" remaining={remaining} onClick={showMore} />
+        </div>
+      )}
     </div>
   );
 }

@@ -23,6 +23,7 @@ import {
 import { SongTable } from "@/components/music/SongTable";
 import { SongCard } from "@/components/home/SongCard";
 import { SkeletonCard, SkeletonRows } from "@/components/ui/Skeleton";
+import { ShowMoreButton, useProgressiveList } from "@/components/ui/ShowMore";
 import { PageSections } from "@/components/home/PageSections";
 import { SafeImage } from "@/components/ui/SafeImage";
 import { LibraryTabs, type LibraryTabKey } from "@/components/library/LibraryTabs";
@@ -171,6 +172,13 @@ export default function LibraryPage() {
   }
 
   const activeTabs = useMemo(() => TABS, []);
+
+  // Les trois collections d'une bibliothèque grandissent sans limite avec
+  // l'usage : chaque onglet s'ouvre sur un aperçu que « Voir plus » déroule.
+  // Le changement d'onglet replie l'aperçu — les listes restent montées.
+  const playlistsList = useProgressiveList(playlists, { initial: 12, step: 24, resetKey: tab });
+  const albumsList = useProgressiveList(savedAlbums, { initial: 10, step: 20, resetKey: tab });
+  const artistsList = useProgressiveList(followedArtists, { initial: 12, step: 24, resetKey: tab });
 
   return (
     <div className="mx-auto w-full max-w-[1600px] px-6 py-8 md:px-10 md:py-10">
@@ -395,38 +403,45 @@ export default function LibraryPage() {
         )}
 
         {isAuthed && tab === "playlists" && (
-          <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
-            {/* La tuile de création reste utilisable pendant le chargement :
-                elle ne dépend d'aucune donnée distante. */}
-            <CreatePlaylistTile onCreated={handlePlaylistCreated} />
-            {/* Tuile jumelle : meme place, meme forme. Absente quand
-                l'assistance n'est pas disponible, plutot qu'affichee et
-                inerte. */}
-            {iaPlaylist && (
-              <button
-                type="button"
-                onClick={() => setComposerOuvert(true)}
-                className="flex aspect-square w-full flex-col items-center justify-center gap-2 rounded-xl2 border border-dashed border-border text-ink-muted transition-colors hover:border-accent hover:text-accent"
-              >
-                <Sparkles size={22} />
-                <span className="px-2 text-center text-xs font-medium">Composer avec l&apos;IA</span>
-              </button>
+          <>
+            <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
+              {/* La tuile de création reste utilisable pendant le chargement :
+                  elle ne dépend d'aucune donnée distante. */}
+              <CreatePlaylistTile onCreated={handlePlaylistCreated} />
+              {/* Tuile jumelle : meme place, meme forme. Absente quand
+                  l'assistance n'est pas disponible, plutot qu'affichee et
+                  inerte. */}
+              {iaPlaylist && (
+                <button
+                  type="button"
+                  onClick={() => setComposerOuvert(true)}
+                  className="flex aspect-square w-full flex-col items-center justify-center gap-2 rounded-xl2 border border-dashed border-border text-ink-muted transition-colors hover:border-accent hover:text-accent"
+                >
+                  <Sparkles size={22} />
+                  <span className="px-2 text-center text-xs font-medium">Composer avec l&apos;IA</span>
+                </button>
+              )}
+              {playlistsLoading && Array.from({ length: 4 }).map((_, i) => <SkeletonCard key={i} />)}
+              {playlistsList.visible.map((playlist) => (
+                <Link key={playlist._id} href={`/playlist/${playlist._id}`}>
+                  <SafeImage
+                    src={playlist.coverUrl}
+                    alt={playlist.title}
+                    width={160}
+                    height={160}
+                    className="mb-2 aspect-square w-full rounded-xl2 object-cover"
+                  />
+                  <p className="truncate text-sm">{playlist.title}</p>
+                  <p className="text-xs text-ink-muted">{playlist.songs.length} son(s)</p>
+                </Link>
+              ))}
+            </div>
+            {playlistsList.hasMore && (
+              <div className="mt-6 flex justify-center">
+                <ShowMoreButton label="Voir plus de playlists" remaining={playlistsList.remaining} onClick={playlistsList.showMore} />
+              </div>
             )}
-            {playlistsLoading && Array.from({ length: 4 }).map((_, i) => <SkeletonCard key={i} />)}
-            {playlists.map((playlist) => (
-              <Link key={playlist._id} href={`/playlist/${playlist._id}`}>
-                <SafeImage
-                  src={playlist.coverUrl}
-                  alt={playlist.title}
-                  width={160}
-                  height={160}
-                  className="mb-2 aspect-square w-full rounded-xl2 object-cover"
-                />
-                <p className="truncate text-sm">{playlist.title}</p>
-                <p className="text-xs text-ink-muted">{playlist.songs.length} son(s)</p>
-              </Link>
-            ))}
-          </div>
+          </>
         )}
 
         {isAuthed && tab === "titres" && (
@@ -436,7 +451,7 @@ export default function LibraryPage() {
             ) : likedSongs.length === 0 ? (
               <p className="text-sm text-ink-muted">Aucun son aimé pour l&apos;instant.</p>
             ) : (
-              <SongTable songs={likedSongs} source={{ type: "favorites", label: "Titres likés" }} />
+              <SongTable songs={likedSongs} initialCount={15} source={{ type: "favorites", label: "Titres likés" }} />
             )}
           </div>
         )}
@@ -454,11 +469,18 @@ export default function LibraryPage() {
                 Aucun album enregistré — utilise l&apos;icône marque-page sur la page d&apos;un album pour l&apos;ajouter ici.
               </p>
             ) : (
-              <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
-                {savedAlbums.map((album) => (
-                  <AlbumCard key={album._id} album={album} onUnsave={handleUnsaveAlbum} />
-                ))}
-              </div>
+              <>
+                <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
+                  {albumsList.visible.map((album) => (
+                    <AlbumCard key={album._id} album={album} onUnsave={handleUnsaveAlbum} />
+                  ))}
+                </div>
+                {albumsList.hasMore && (
+                  <div className="mt-6 flex justify-center">
+                    <ShowMoreButton label="Voir plus d'albums" remaining={albumsList.remaining} onClick={albumsList.showMore} />
+                  </div>
+                )}
+              </>
             )}
           </div>
         )}
@@ -472,9 +494,16 @@ export default function LibraryPage() {
                 Tu ne suis encore aucun artiste — retrouve-les depuis la recherche ou leur page.
               </p>
             ) : (
-              followedArtists.map((artist) => (
-                <ArtistListItem key={artist._id} artist={artist} onToggleFollow={handleUnfollowArtist} />
-              ))
+              <>
+                {artistsList.visible.map((artist) => (
+                  <ArtistListItem key={artist._id} artist={artist} onToggleFollow={handleUnfollowArtist} />
+                ))}
+                {artistsList.hasMore && (
+                  <div className="flex justify-center pt-3">
+                    <ShowMoreButton label="Voir plus d'artistes" remaining={artistsList.remaining} onClick={artistsList.showMore} />
+                  </div>
+                )}
+              </>
             )}
           </div>
         )}
@@ -498,7 +527,12 @@ export default function LibraryPage() {
                   ou télécharge un album/une playlist entière depuis sa page.
                 </p>
               ) : (
-                <SongTable songs={offlineSongs as PlayableSong[]} onDeleted={loadOfflineSongs} source={{ type: "downloads", label: "Téléchargements" }} />
+                <SongTable
+                  songs={offlineSongs as PlayableSong[]}
+                  initialCount={15}
+                  onDeleted={loadOfflineSongs}
+                  source={{ type: "downloads", label: "Téléchargements" }}
+                />
               )}
             </section>
 

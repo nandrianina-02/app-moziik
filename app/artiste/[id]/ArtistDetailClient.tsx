@@ -34,6 +34,7 @@ import { ArtistContextMenu } from "@/components/artist/ArtistContextMenu";
 import { ArtistDetailSkeleton } from "@/components/artist/ArtistDetailSkeleton";
 import { PageSections } from "@/components/home/PageSections";
 import { ArtistSongList } from "@/components/artist/ArtistSongList";
+import { ExpandableText, ShowMoreButton, useProgressiveList } from "@/components/ui/ShowMore";
 import { EditArtistProfileModal } from "@/components/artist/EditArtistProfileModal";
 import { ShareModal } from "@/components/share/ShareModal";
 import { buildArtistSubject } from "@/components/share/shareSubject";
@@ -106,6 +107,42 @@ function timeAgo(iso?: string) {
   if (weeks < 5) return `Il y a ${weeks} semaine${weeks > 1 ? "s" : ""}`;
   const months = Math.floor(days / 30);
   return `Il y a ${months} mois`;
+}
+
+/**
+ * Grille de pochettes (albums, singles, playlists) déroulée par paliers.
+ * Composant à part plutôt que trois grilles inline : le crochet de déroulé
+ * ne peut pas être appelé après le retour anticipé du squelette de
+ * chargement, et les trois onglets affichaient déjà la même chose.
+ */
+function CoverGrid({
+  items,
+  moreLabel,
+}: {
+  items: { id: string; href: string; coverUrl?: string; title: string; subtitle: string }[];
+  moreLabel: string;
+}) {
+  const { visible, hasMore, remaining, showMore } = useProgressiveList(items, { initial: 10, step: 20 });
+
+  return (
+    <div>
+      <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
+        {visible.map((item) => (
+          <Link key={item.id} href={item.href}>
+            <SafeImage src={item.coverUrl} alt={item.title} width={160} height={160} className="mb-2 aspect-square w-full rounded-xl2 object-cover" />
+            <p className="truncate text-sm">{item.title}</p>
+            <p className="text-xs text-ink-muted">{item.subtitle}</p>
+          </Link>
+        ))}
+      </div>
+
+      {hasMore && (
+        <div className="mt-6 flex justify-center">
+          <ShowMoreButton label={moreLabel} remaining={remaining} onClick={showMore} />
+        </div>
+      )}
+    </div>
+  );
 }
 
 function formatCompact(n: number) {
@@ -454,7 +491,10 @@ export function ArtistDetailClient() {
                   {artist.bio && (
                     <section className="rounded-xl2 border border-border bg-surface p-5">
                       <h2 className="mb-2 text-sm font-medium">À propos</h2>
-                      <p className="whitespace-pre-line text-sm text-ink-muted">{artist.bio}</p>
+                      {/* Repliée ici, entière dans l'onglet « À propos » :
+                          une biographie longue ne doit pas repousser les
+                          sections qui suivent hors de l'écran. */}
+                      <ExpandableText text={artist.bio} className="text-sm text-ink-muted" />
                       {artist.socialLinks.length > 0 && (
                         <div className="mt-4 flex gap-3">
                           {artist.socialLinks.map((link, i) => {
@@ -613,7 +653,13 @@ export function ArtistDetailClient() {
               {songs.length === 0 ? (
                 <p className="text-sm text-ink-muted">Pas encore de son publié.</p>
               ) : (
-                <ArtistSongList songs={songs} showRankFrom={1} source={{ type: "artist", label: artist.stageName }} onDeleted={load} />
+                <ArtistSongList
+                  songs={songs}
+                  showRankFrom={1}
+                  initialCount={10}
+                  source={{ type: "artist", label: artist.stageName }}
+                  onDeleted={load}
+                />
               )}
             </div>
           )}
@@ -623,15 +669,16 @@ export function ArtistDetailClient() {
               {albums.length === 0 ? (
                 <p className="text-sm text-ink-muted">Pas encore d&apos;album.</p>
               ) : (
-                <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
-                  {albums.map((album) => (
-                    <Link key={album._id} href={`/album/${album._id}`}>
-                      <SafeImage src={album.coverUrl} alt={album.title} width={160} height={160} className="mb-2 aspect-square w-full rounded-xl2 object-cover" />
-                      <p className="truncate text-sm">{album.title}</p>
-                      <p className="text-xs text-ink-muted">{album.releaseDate ? new Date(album.releaseDate).getFullYear() : ""}</p>
-                    </Link>
-                  ))}
-                </div>
+                <CoverGrid
+                  items={albums.map((album) => ({
+                    id: album._id,
+                    href: `/album/${album._id}`,
+                    coverUrl: album.coverUrl,
+                    title: album.title,
+                    subtitle: album.releaseDate ? String(new Date(album.releaseDate).getFullYear()) : "",
+                  }))}
+                  moreLabel="Voir plus d'albums"
+                />
               )}
             </div>
           )}
@@ -641,15 +688,16 @@ export function ArtistDetailClient() {
               {singles.length === 0 ? (
                 <p className="text-sm text-ink-muted">Pas encore de single.</p>
               ) : (
-                <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
-                  {singles.map((single) => (
-                    <Link key={single._id} href={`/album/${single._id}`}>
-                      <SafeImage src={single.coverUrl} alt={single.title} width={160} height={160} className="mb-2 aspect-square w-full rounded-xl2 object-cover" />
-                      <p className="truncate text-sm">{single.title}</p>
-                      <p className="text-xs text-ink-muted">{single.releaseDate ? new Date(single.releaseDate).getFullYear() : ""}</p>
-                    </Link>
-                  ))}
-                </div>
+                <CoverGrid
+                  items={singles.map((single) => ({
+                    id: single._id,
+                    href: `/album/${single._id}`,
+                    coverUrl: single.coverUrl,
+                    title: single.title,
+                    subtitle: single.releaseDate ? String(new Date(single.releaseDate).getFullYear()) : "",
+                  }))}
+                  moreLabel="Voir plus de singles"
+                />
               )}
             </div>
           )}
@@ -659,15 +707,16 @@ export function ArtistDetailClient() {
               {playlistsFeaturing.length === 0 ? (
                 <p className="text-sm text-ink-muted">Cet artiste n&apos;apparaît dans aucune playlist publique pour l&apos;instant.</p>
               ) : (
-                <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
-                  {playlistsFeaturing.map((p) => (
-                    <Link key={p._id} href={`/playlist/${p._id}`}>
-                      <SafeImage src={p.coverUrl} alt={p.title} width={160} height={160} className="mb-2 aspect-square w-full rounded-xl2 object-cover" />
-                      <p className="truncate text-sm">{p.title}</p>
-                      <p className="text-xs text-ink-muted">{p.songsCount} titres</p>
-                    </Link>
-                  ))}
-                </div>
+                <CoverGrid
+                  items={playlistsFeaturing.map((p) => ({
+                    id: p._id,
+                    href: `/playlist/${p._id}`,
+                    coverUrl: p.coverUrl,
+                    title: p.title,
+                    subtitle: `${p.songsCount} titres`,
+                  }))}
+                  moreLabel="Voir plus de playlists"
+                />
               )}
             </div>
           )}

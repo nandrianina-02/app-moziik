@@ -11,6 +11,7 @@ import { useSession } from "next-auth/react";
 import { usePlayer, type PlayableSong } from "@/context/PlayerProvider";
 import { SongContextMenu } from "@/components/music/SongContextMenu";
 import { useLongPress } from "@/components/music/useLongPress";
+import { ShowMoreButton, useProgressiveList } from "@/components/ui/ShowMore";
 
 type Period = "day" | "week" | "month" | "year" | "all";
 type ChartType = "songs" | "artists" | "albums" | "listeners";
@@ -140,6 +141,16 @@ export default function ChartsPage() {
 
   const podium = ranking.slice(0, 3);
   const rest = ranking.slice(3);
+
+  // Le tableau s'ouvre sur une vingtaine de places, podium compris ; changer
+  // de type, de période ou de genre le replie. La file de lecture, elle,
+  // reste le classement entier — `playFrom` travaille sur `ranking`.
+  const {
+    visible: visibleRest,
+    hasMore,
+    remaining,
+    showMore,
+  } = useProgressiveList(rest, { initial: 17, step: 25, resetKey: `${type}|${period}|${genre}` });
 
   return (
     <div className="mx-auto w-full max-w-[1600px] px-6 py-8 md:px-10 md:py-10">
@@ -287,7 +298,7 @@ export default function ChartsPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {rest.map((item, i) => (
+                  {visibleRest.map((item, i) => (
                     <RankingRow
                       key={item._id}
                       item={item}
@@ -300,6 +311,12 @@ export default function ChartsPage() {
                   ))}
                 </tbody>
               </table>
+
+              {hasMore && (
+                <div className="border-t border-border">
+                  <ShowMoreButton label="Voir plus de places" remaining={remaining} onClick={showMore} full />
+                </div>
+              )}
             </Reveal>
           )}
         </>

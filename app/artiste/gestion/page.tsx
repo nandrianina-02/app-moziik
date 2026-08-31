@@ -31,6 +31,7 @@ import {
   Inbox,
 } from "lucide-react";
 import { SafeImage } from "@/components/ui/SafeImage";
+import { ShowMoreButton, useProgressiveList } from "@/components/ui/ShowMore";
 import { Skeleton, SkeletonRows } from "@/components/ui/Skeleton";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { CreateAlbumModal } from "@/components/modals/CreateAlbumModal";
@@ -146,7 +147,6 @@ export default function ArtistManagementPage() {
   const [showSortMenu, setShowSortMenu] = useState(false);
   const [showFilterMenu, setShowFilterMenu] = useState(false);
   const [viewMode, setViewMode] = useState<"list" | "grid">("list");
-  const [visibleCount, setVisibleCount] = useState(SONGS_PAGE_SIZE);
 
   const { currentSong, isPlaying, playQueue, togglePlay } = usePlayer();
 
@@ -194,13 +194,6 @@ export default function ArtistManagementPage() {
     loadAll();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [status]);
-
-  // Tout changement de recherche, de filtre ou de tri replie la liste :
-  // sans cela, « Voir plus » resterait déroulé sur un résultat qui n'a
-  // plus rien à voir avec celui qu'on venait d'ouvrir.
-  useEffect(() => {
-    setVisibleCount(SONGS_PAGE_SIZE);
-  }, [search, category, sortKey, sortDir, tab]);
 
   const confirmDelete = useCallback((song: OwnSong) => {
     setMenuState(null);
@@ -301,6 +294,20 @@ export default function ArtistManagementPage() {
 
     return list;
   }, [songs, search, category, sortKey, sortDir]);
+
+  // Aperçu court déroulé par paliers, comme les listes longues des pages
+  // album, playlist et artiste. La clé de repli rassemble tout ce qui change
+  // le contenu de la liste.
+  const {
+    visible: visibleSongs,
+    hasMore: hasMoreSongs,
+    remaining: remainingSongs,
+    showMore: showMoreSongs,
+  } = useProgressiveList(filteredSongs, {
+    initial: SONGS_PAGE_SIZE,
+    step: SONGS_PAGE_STEP,
+    resetKey: `${search}|${category}|${sortKey}|${sortDir}|${tab}`,
+  });
 
   if (status !== "authenticated") {
     return (
@@ -549,8 +556,10 @@ export default function ArtistManagementPage() {
                 totalCount={songs.length}
                 hasSearch={search.trim().length > 0 || category !== "all"}
                 viewMode={viewMode}
-                visibleCount={visibleCount}
-                onShowMore={() => setVisibleCount((n) => n + SONGS_PAGE_STEP)}
+                visible={visibleSongs}
+                hasMore={hasMoreSongs}
+                remaining={remainingSongs}
+                onShowMore={showMoreSongs}
                 onPlay={handlePlaySong}
                 onOpenMenu={(song, x, y) => setMenuState({ song, x, y })}
                 onDelete={confirmDelete}
@@ -847,21 +856,27 @@ function EmptyState({ icon: Icon, message }: { icon: typeof Inbox; message: stri
 
 function SongsPanel({
   songs,
+  visible,
+  hasMore,
+  remaining,
+  onShowMore,
   totalCount,
   hasSearch,
   viewMode,
-  visibleCount,
-  onShowMore,
   onPlay,
   onOpenMenu,
   onDelete,
 }: {
+  /** Liste filtrée complète : elle sert de file de lecture. */
   songs: OwnSong[];
+  /** Part déroulée de cette liste, seule affichée. */
+  visible: OwnSong[];
+  hasMore: boolean;
+  remaining: number;
+  onShowMore: () => void;
   totalCount: number;
   hasSearch: boolean;
   viewMode: "list" | "grid";
-  visibleCount: number;
-  onShowMore: () => void;
   onPlay: (song: OwnSong, queue: OwnSong[], index: number) => void;
   onOpenMenu: (song: OwnSong, x: number, y: number) => void;
   onDelete: (song: OwnSong) => void;
@@ -869,9 +884,6 @@ function SongsPanel({
   // On tronque l'affichage, jamais la file de lecture : `onPlay` reçoit
   // toujours la liste filtrée complète, si bien qu'un son lancé depuis
   // l'aperçu enchaîne sur ceux qui ne sont pas encore dépliés.
-  const visible = songs.slice(0, visibleCount);
-  const hasMore = songs.length > visible.length;
-
   if (totalCount === 0) {
     return <EmptyState icon={Inbox} message="Tu n'as encore publié aucun son." />;
   }
@@ -889,7 +901,7 @@ function SongsPanel({
         </div>
         {hasMore && (
           <div className="mt-4 flex justify-center">
-            <ShowMoreButton remaining={songs.length - visible.length} onClick={onShowMore} />
+            <ShowMoreButton label="Voir plus de sons" remaining={remaining} onClick={onShowMore} />
           </div>
         )}
       </div>
@@ -925,7 +937,7 @@ function SongsPanel({
         </div>
         {hasMore && (
           <div className="border-t border-border">
-            <ShowMoreButton remaining={songs.length - visible.length} onClick={onShowMore} full />
+            <ShowMoreButton label="Voir plus de sons" remaining={remaining} onClick={onShowMore} full />
           </div>
         )}
       </div>
@@ -940,24 +952,9 @@ function SongsPanel({
         ))}
         {/* Pas de filet supplémentaire ici : la dernière rangée visible
             n'est plus l'enfant final, elle garde donc le sien. */}
-        {hasMore && <ShowMoreButton remaining={songs.length - visible.length} onClick={onShowMore} full />}
+        {hasMore && <ShowMoreButton label="Voir plus de sons" remaining={remaining} onClick={onShowMore} full />}
       </div>
     </>
-  );
-}
-
-function ShowMoreButton({ remaining, onClick, full }: { remaining: number; onClick: () => void; full?: boolean }) {
-  return (
-    <button
-      onClick={onClick}
-      className={`flex items-center justify-center gap-1.5 text-sm font-semibold text-accent transition-colors hover:bg-base ${
-        full ? "w-full py-3.5" : "rounded-2xl border border-border px-5 py-2.5"
-      }`}
-    >
-      Voir plus de sons
-      <ChevronDown size={16} />
-      <span className="sr-only">({remaining} restants)</span>
-    </button>
   );
 }
 

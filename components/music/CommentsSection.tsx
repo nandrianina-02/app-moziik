@@ -14,6 +14,7 @@ import {
   CornerDownRight,
 } from "lucide-react";
 import { SafeImage } from "@/components/ui/SafeImage";
+import { ShowMoreButton, useProgressiveList } from "@/components/ui/ShowMore";
 import { useToast } from "@/context/ToastProvider";
 import { useOnlineStatus } from "@/context/OnlineStatusProvider";
 import { enqueueSyncAction } from "@/lib/syncQueue";
@@ -100,6 +101,14 @@ export function CommentsSection({ songId }: { songId: string }) {
     }
     return { roots, repliesByParent };
   }, [comments]);
+
+  // Un fil de cent commentaires enterrait tout ce qui suit : la section
+  // s'ouvre sur les dix premiers. Les réponses d'un commentaire, elles,
+  // restent entières — elles se lisent avec celui auquel elles répondent.
+  const { visible: visibleRoots, hasMore, remaining, showMore } = useProgressiveList(roots, {
+    initial: 10,
+    step: 20,
+  });
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -325,9 +334,15 @@ export function CommentsSection({ songId }: { songId: string }) {
 
       <ul className="space-y-4">
         <AnimatePresence initial={false}>
-          {roots.map((c) => renderComment(c, false))}
+          {visibleRoots.map((c) => renderComment(c, false))}
         </AnimatePresence>
       </ul>
+
+      {hasMore && (
+        <div className="flex justify-center pt-4">
+          <ShowMoreButton label="Voir plus de commentaires" remaining={remaining} onClick={showMore} />
+        </div>
+      )}
     </div>
   );
 }

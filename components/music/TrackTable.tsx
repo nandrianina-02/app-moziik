@@ -9,6 +9,7 @@ import { usePlayer, type PlayableSong, type PlaySource } from "@/context/PlayerP
 import { useToast } from "@/context/ToastProvider";
 import { SongContextMenu } from "@/components/music/SongContextMenu";
 import { useLongPress } from "@/components/music/useLongPress";
+import { ShowMoreButton, useProgressiveList } from "@/components/ui/ShowMore";
 
 function formatDuration(seconds: number) {
   if (!Number.isFinite(seconds)) return "0:00";
@@ -44,13 +45,24 @@ export function TrackTable({
   source,
   albumFallback,
   onReload,
+  initialCount = 12,
 }: {
   songs: PlayableSong[];
   source?: PlaySource;
   /** Titre d'album à afficher quand les morceaux ne le portent pas (page album). */
   albumFallback?: { id: string; title: string };
   onReload?: () => void;
+  /** Nombre de titres affichés avant « Voir plus » (0 pour tout dérouler). */
+  initialCount?: number;
 }) {
+  // Une playlist de deux cents titres repoussait les commentaires et les
+  // suggestions à un écran qu'on n'atteint jamais. La file de lecture, elle,
+  // reste entière : `queue` reçoit toujours `songs`.
+  const { visible, hasMore, remaining, showMore } = useProgressiveList(songs, {
+    initial: initialCount || songs.length,
+    step: 25,
+  });
+
   return (
     <div className="rounded-xl2 border border-border bg-surface p-2 sm:p-3">
       <div className={`${GRID} border-b border-border px-2.5 pb-2 text-[11px] uppercase tracking-wide text-ink-muted`}>
@@ -69,7 +81,7 @@ export function TrackTable({
       </div>
 
       <div className="mt-1 space-y-0.5">
-        {songs.map((song, index) => (
+        {visible.map((song, index) => (
           <TrackRow
             key={song._id}
             song={song}
@@ -81,6 +93,12 @@ export function TrackTable({
           />
         ))}
       </div>
+
+      {hasMore && (
+        <div className="mt-1 border-t border-border pt-1">
+          <ShowMoreButton label="Voir plus de titres" remaining={remaining} onClick={showMore} full />
+        </div>
+      )}
     </div>
   );
 }

@@ -1,4 +1,5 @@
 import { Schema, models, model, Types, Model } from "mongoose";
+import { UNIVERS, type Univers } from "@/lib/univers";
 
 export type UserRole = "member" | "artist" | "admin";
 
@@ -28,6 +29,15 @@ export interface IUserPreferences {
   language?: string;
   timezone?: string;
   dateFormat?: string;
+  /**
+   * Univers musical du compte : général ou évangélique.
+   *
+   * Absent, le compte suit l'univers par défaut du site. Le choix est
+   * aussi porté par un cookie (lib/univers.ts) pour que le serveur
+   * puisse filtrer sans lire la base à chaque requête ; la base, elle,
+   * le fait suivre d'un appareil à l'autre.
+   */
+  univers?: Univers;
 }
 
 export interface IUser {
@@ -83,6 +93,7 @@ const UserSchema = new Schema<IUser>({
         language: { type: String },
         timezone: { type: String },
         dateFormat: { type: String },
+        univers: { type: String, enum: UNIVERS },
       },
       { _id: false }
     ),

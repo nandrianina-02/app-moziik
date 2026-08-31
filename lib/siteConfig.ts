@@ -3,6 +3,7 @@ import SiteConfigModel from "@/models/SiteConfig";
 import { defaultSiteConfig } from "@/config/site";
 import { PLAFOND_JOURNALIER_DEFAUT } from "@/lib/ai/features";
 import { THEME_PAR_DEFAUT } from "@/lib/theme";
+import { UNIVERS_PAR_DEFAUT } from "@/lib/univers";
 
 const SITE_CONFIG_ID = "000000000000000000000001";
 
@@ -22,6 +23,7 @@ function fallbackSiteConfig() {
     description: "",
     siteUrl: "",
     defaultLanguage: "fr",
+    defaultUnivers: UNIVERS_PAR_DEFAUT,
     currency: "EUR",
     timezone: "Indian/Antananarivo",
     dateFormat: "DD/MM/YYYY",

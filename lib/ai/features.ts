@@ -142,6 +142,21 @@ export const FONCTIONNALITES_IA = {
     limite: { limit: 10, windowMs: 30 * MINUTE },
     acces: "admin",
   },
+  univers: {
+    label: "Classement général / évangélique",
+    detail:
+      "Tranche les titres que le lexique ne classe pas seul. Ne classe pas le catalogue : il l'est par mesure, pas par modèle.",
+    // Un verdict et une phrase par titre : rien à rédiger, tout à juger
+    // sur des données courtes.
+    niveau: "rapide",
+    // Vingt verdicts avec leur motif tiennent largement ici.
+    maxTokens: 1500,
+    // Une passe de détection en traite le catalogue par lots ; le plafond
+    // laisse passer un rattrapage complet sans ouvrir la porte à une
+    // boucle.
+    limite: { limit: 30, windowMs: 15 * MINUTE },
+    acces: "admin",
+  },
   traduction: {
     label: "Traduction des paroles",
     detail: "Traduit les paroles d'un titre dans la langue de l'auditeur.",

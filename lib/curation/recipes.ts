@@ -1,5 +1,7 @@
 import { estMalgache, type MesureTitre, type Signaux, type TitreCandidat } from "@/lib/curation/signals";
 import { RECETTES_INFO, IDS_RECETTES, type IdRecette } from "@/lib/curation/labels";
+import { estAdoration } from "@/lib/universDetection";
+import type { Univers } from "@/lib/univers";
 
 /**
  * Les recettes : ce qui décide du contenu de chaque playlist.
@@ -16,6 +18,15 @@ import { RECETTES_INFO, IDS_RECETTES, type IdRecette } from "@/lib/curation/labe
  * playlist de trois morceaux affichée sur l'accueil dit surtout que la
  * plateforme est vide — mieux vaut que la semaine en propose six que
  * sept dont une bancale.
+ *
+ * LES RECETTES NE CONNAISSENT PAS LES UNIVERS
+ *
+ * Presque aucune, en tout cas : `Signaux` arrive déjà restreint à un seul
+ * répertoire, si bien que « les titres les plus écoutés » veut dire « les
+ * plus écoutés de cet univers » sans qu'une seule ligne de calcul change.
+ * Seul `univers` sur la recette fait exception, pour les deux ou trois
+ * sélections qui n'ont de sens que d'un côté — « Adoration » n'en a
+ * aucun dans le catalogue général.
  */
 
 /** En dessous, la sélection ne vaut pas d'être publiée. */
@@ -40,6 +51,10 @@ export type Recette = {
   detail: string;
   /** Consigne donnée au modèle pour qu'il nomme cette playlist. */
   intention: string;
+  /** Variante de nom et d'intention dans l'univers évangélique, s'il en faut une. */
+  evangelique?: { libelle: string; intention: string };
+  /** Univers où la recette s'applique. Absent : les deux. */
+  univers?: Univers[];
   min: number;
   max: number;
   construire: (s: Signaux) => Selection | null;
@@ -274,6 +289,50 @@ const genre: Recette = {
   },
 };
 
+/* ----------------------------------------------------------- adoration -- */
+
+/**
+ * Les titres lents du répertoire chrétien.
+ *
+ * « Adoration » n'est pas un genre déclaré à la publication : c'est une
+ * manière d'écouter. Elle se mesure malgré tout — un tempo sous 85 bpm,
+ * ou un mot-clé posé par l'artiste. La sélection est donc vérifiable,
+ * contrairement à ce qu'un modèle aurait produit en devinant l'intention
+ * de chaque morceau.
+ *
+ * Le repli sur les mots-clés compte plus qu'il n'en a l'air : le `bpm`
+ * est absent d'une bonne moitié du catalogue, et une recette qui ne
+ * regarderait que lui écarterait des titres dont l'artiste a pourtant
+ * écrit « adoration » de sa main.
+ */
+const adoration: Recette = {
+  id: "adoration",
+  ...RECETTES_INFO.adoration,
+  univers: ["christian"],
+  min: MIN_TITRES,
+  max: 20,
+  construire(s) {
+    const candidats = parScoreHebdo(s, (t) =>
+      estAdoration({ bpm: t.bpm, genre: t.genre, tags: t.tags, titre: t.titre })
+    );
+
+    // Comme pour « Gospel malgache » : une semaine creuse ne doit pas
+    // vider la playlist, mais un cumul lui aussi nul ne classe rien.
+    const ecouteRecente = candidats.some((t) => mesure(s, t.id).score > 0);
+    const ordonnes = ecouteRecente
+      ? candidats
+      : [...candidats].sort((a, b) => b.ecoutesTotales - a.ecoutesTotales);
+    if (!ecouteRecente && !ordonnes.some((t) => t.ecoutesTotales > 0)) return null;
+
+    const titres = borner(ordonnes.map((t) => t.id), this.min, this.max);
+    if (!titres) return null;
+    return {
+      titres,
+      motif: "Titres du répertoire chrétien au tempo lent (85 bpm ou moins) ou déclarés adoration par leur artiste.",
+    };
+  },
+};
+
 /**
  * Ordre de la liste = ordre proposé sur l'accueil.
  *
@@ -281,7 +340,12 @@ const genre: Recette = {
  * écoute d'abord, une sélection de niche ensuite. L'admin le change à
  * la validation, mais c'est un défaut sur lequel s'appuyer.
  */
-export const RECETTES: Recette[] = [top, trending, nouveautes, recherches, malgache, aimes, genre];
+export const RECETTES: Recette[] = [top, trending, nouveautes, recherches, malgache, aimes, adoration, genre];
+
+/** Les recettes applicables à un univers, dans l'ordre proposé. */
+export function recettesDe(univers: Univers): Recette[] {
+  return RECETTES.filter((r) => !r.univers || r.univers.includes(univers));
+}
 
 // Ré-exporté depuis les libellés : une seule liste d'identifiants, et
 // elle reste lisible côté navigateur.

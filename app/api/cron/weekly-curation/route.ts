@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { withApiErrors, ApiError } from "@/lib/apiError";
-import { lancerAnalyse, CurationIndisponible } from "@/lib/curation/run";
+import { lancerAnalyseHebdomadaire, CurationIndisponible } from "@/lib/curation/run";
 import { purgerJournal } from "@/lib/searchJournal";
 
 /**
@@ -32,7 +32,13 @@ export const POST = withApiErrors(async (req: Request) => {
   const journalPurge = await purgerJournal();
 
   try {
-    const resultat = await lancerAnalyse({ declencheur: "cron" });
+    // Les deux univers sont analysés à la suite. Un univers sans résultat
+    // — catalogue trop mince, semaine trop calme — figure dans `echecs`
+    // sans empêcher l'autre d'aboutir.
+    const resultat = await lancerAnalyseHebdomadaire({ declencheur: "cron" });
+    for (const echec of resultat.echecs) {
+      console.warn(`[curation] univers ${echec.univers} sans résultat : ${echec.raison}`);
+    }
     return NextResponse.json({ ...resultat, journalPurge });
   } catch (err) {
     // Une semaine trop calme pour remplir la moindre sélection n'est pas
@@ -41,7 +47,7 @@ export const POST = withApiErrors(async (req: Request) => {
     // être ignorée le jour où elle compte.
     if (err instanceof CurationIndisponible) {
       console.warn("[curation] analyse hebdomadaire sans résultat :", err.message);
-      return NextResponse.json({ run: null, playlists: 0, raison: err.message, journalPurge });
+      return NextResponse.json({ analyses: [], playlists: 0, raison: err.message, journalPurge });
     }
     throw err;
   }

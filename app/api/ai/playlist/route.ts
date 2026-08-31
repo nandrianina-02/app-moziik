@@ -4,6 +4,7 @@ import { requireAuthUser } from "@/lib/mobileAuth";
 import { getSiteConfig } from "@/lib/siteConfig";
 import { parseOrThrow, aiPlaylistSchema } from "@/lib/validation";
 import { composerPlaylist } from "@/lib/ai/playlistBuilder";
+import { universDeLaRequete } from "@/lib/universServer";
 
 /**
  * Une playlist proposée à partir d'une phrase.
@@ -29,6 +30,7 @@ export const POST = withApiErrors(async (req: Request) => {
     demande,
     genresConnus: config.genres ?? [],
     compte: authUser.id,
+    univers: await universDeLaRequete(req, { compte: authUser.id }),
   });
 
   return NextResponse.json({ proposition }, { headers: { "Cache-Control": "no-store" } });

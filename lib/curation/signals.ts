@@ -6,6 +6,7 @@ import { normaliser } from "@/lib/searchText";
 import { rechercheGlobale } from "@/lib/search";
 import { termesLesPlusCherches, volumeRecherches } from "@/lib/searchJournal";
 import type { Fenetre } from "@/lib/curation/window";
+import type { Univers } from "@/lib/univers";
 
 /**
  * Ce que la semaine dit, en chiffres.
@@ -31,6 +32,14 @@ import type { Fenetre } from "@/lib/curation/window";
  * permet de savoir *quand* un titre a été aimé. La recette « les plus
  * aimés » s'appuie donc sur un taux d'appréciation cumulé, ce qui est
  * autre chose — et c'est dit à l'écran plutôt que laissé à croire.
+ *
+ * TOUT EST MESURÉ DANS UN SEUL UNIVERS
+ *
+ * Chaque fonction de ce fichier prend l'univers analysé et ne regarde que
+ * lui. Sans cela, un classement unique verrait le gospel et la variété se
+ * disputer les mêmes places, et l'univers le moins fourni des deux
+ * n'apparaîtrait jamais dans les sélections — précisément l'inverse de ce
+ * que la séparation cherche à obtenir.
  */
 
 /** Écoutes retenues d'un même compte sur un même titre, par semaine. */
@@ -61,7 +70,7 @@ export type MesureTitre = {
  * plafond s'applique, et il ne peut pas s'appliquer ailleurs — une fois
  * les écoutes additionnées par titre, on ne sait plus qui les a lancées.
  */
-export async function mesurerEcoutes(from: Date, to: Date): Promise<Map<string, MesureTitre>> {
+export async function mesurerEcoutes(from: Date, to: Date, univers: Univers): Promise<Map<string, MesureTitre>> {
   await connectDB();
 
   const lignes = await Play.aggregate<{
@@ -71,7 +80,7 @@ export async function mesurerEcoutes(from: Date, to: Date): Promise<Map<string, 
     auditeurs: number;
     score: number;
   }>([
-    { $match: { playedAt: { $gte: from, $lt: to } } },
+    { $match: { playedAt: { $gte: from, $lt: to }, univers } },
     {
       $group: {
         _id: { song: "$song", user: "$user" },
@@ -146,10 +155,14 @@ export async function mesurerEcoutes(from: Date, to: Date): Promise<Map<string, 
 }
 
 /** Nombre total d'écoutes et d'auditeurs distincts sur la période. */
-export async function volumeEcoutes(from: Date, to: Date): Promise<{ ecoutes: number; auditeurs: number }> {
+export async function volumeEcoutes(
+  from: Date,
+  to: Date,
+  univers: Univers
+): Promise<{ ecoutes: number; auditeurs: number }> {
   await connectDB();
   const [ligne] = await Play.aggregate<{ ecoutes: number; auditeurs: string[] }>([
-    { $match: { playedAt: { $gte: from, $lt: to } } },
+    { $match: { playedAt: { $gte: from, $lt: to }, univers } },
     { $group: { _id: null, ecoutes: { $sum: 1 }, auditeurs: { $addToSet: "$user" } } },
   ]);
   if (!ligne) return { ecoutes: 0, auditeurs: 0 };
@@ -170,6 +183,9 @@ export type TitreCandidat = {
   artisteId: string;
   genre: string;
   langue: string;
+  /** Tempo déclaré, absent sur une bonne part du catalogue. Sert à la recette « Adoration ». */
+  bpm?: number;
+  tags: string[];
   /** Pochette du titre : celle du premier sert de pochette à la playlist. */
   pochette: string;
   sortiLe: Date;
@@ -184,10 +200,10 @@ export type TitreCandidat = {
  * besoin de presque tout le catalogue, et sept requêtes distinctes
  * coûteraient plus que ce seul chargement.
  */
-export async function catalogueCandidats(): Promise<Map<string, TitreCandidat>> {
+export async function catalogueCandidats(univers: Univers): Promise<Map<string, TitreCandidat>> {
   await connectDB();
-  const titres = await Song.find({ status: "published" })
-    .select("title artist genre language coverUrl releaseDate playsCount likesCount")
+  const titres = await Song.find({ status: "published", univers })
+    .select("title artist genre language coverUrl releaseDate playsCount likesCount bpm tags")
     .populate("artist", "stageName")
     .lean();
 
@@ -202,6 +218,8 @@ export async function catalogueCandidats(): Promise<Map<string, TitreCandidat>> 
     releaseDate: Date;
     playsCount?: number;
     likesCount?: number;
+    bpm?: number;
+    tags?: string[];
   }[]) {
     // Un titre dont l'artiste a été supprimé ne peut ni s'afficher ni
     // s'attribuer : il n'a rien à faire dans une sélection éditoriale.
@@ -213,6 +231,8 @@ export async function catalogueCandidats(): Promise<Map<string, TitreCandidat>> 
       artisteId: t.artist._id.toString(),
       genre: t.genre ?? "",
       langue: t.language ?? "",
+      bpm: t.bpm,
+      tags: t.tags ?? [],
       pochette: t.coverUrl ?? "",
       sortiLe: t.releaseDate,
       ecoutesTotales: t.playsCount ?? 0,
@@ -250,6 +270,7 @@ export type TermeResolu = {
 export async function resoudreRecherches(
   from: Date,
   to: Date,
+  univers: Univers,
   { termesMax = 40, titresParTerme = 3 } = {}
 ): Promise<TermeResolu[]> {
   const termes = await termesLesPlusCherches(from, to, termesMax);
@@ -261,8 +282,12 @@ export async function resoudreRecherches(
         q: t.libelle,
         type: "songs",
         page: 1,
-        limit: titresParTerme,
+        // La recherche hiérarchise sans exclure : on lit plus large que
+        // nécessaire, puis on ne retient que les titres de l'univers
+        // analysé, filtrés contre le catalogue quelques lignes plus bas.
+        limit: titresParTerme * 3,
         sort: "relevance",
+        univers,
       });
       const section = resultat.sections.find((s) => s.kind === "song");
       const titres = ((section?.items ?? []) as { _id?: unknown }[])
@@ -282,6 +307,8 @@ export async function resoudreRecherches(
 
 export type Signaux = {
   fenetre: Fenetre;
+  /** Univers analysé. Toutes les mesures qui suivent ne portent que sur lui. */
+  univers: Univers;
   /** Mesures de la semaine analysée. */
   semaine: Map<string, MesureTitre>;
   /** Mesures des sept jours précédents, pour la progression. */
@@ -294,18 +321,22 @@ export type Signaux = {
 };
 
 /** Rassemble tout ce que les recettes auront à consulter. */
-export async function collecterSignaux(fenetre: Fenetre): Promise<Signaux> {
+export async function collecterSignaux(fenetre: Fenetre, univers: Univers): Promise<Signaux> {
   const [semaine, precedente, catalogue, recherches, volumes, nbRecherches] = await Promise.all([
-    mesurerEcoutes(fenetre.from, fenetre.to),
-    mesurerEcoutes(fenetre.precedenteFrom, fenetre.precedenteTo),
-    catalogueCandidats(),
-    resoudreRecherches(fenetre.from, fenetre.to),
-    volumeEcoutes(fenetre.from, fenetre.to),
+    mesurerEcoutes(fenetre.from, fenetre.to, univers),
+    mesurerEcoutes(fenetre.precedenteFrom, fenetre.precedenteTo, univers),
+    catalogueCandidats(univers),
+    resoudreRecherches(fenetre.from, fenetre.to, univers),
+    volumeEcoutes(fenetre.from, fenetre.to, univers),
+    // Le volume de recherches n'est pas ventilé par univers : le journal
+    // enregistre une saisie, pas le répertoire de celui qui l'a tapée.
+    // C'est un indicateur d'activité affiché tel quel, il ne décide rien.
     volumeRecherches(fenetre.from, fenetre.to),
   ]);
 
   return {
     fenetre,
+    univers,
     semaine,
     precedente,
     catalogue,

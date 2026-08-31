@@ -516,6 +516,7 @@ export const adminSiteConfigPatchSchema = z.object({
     .refine((v) => v === "" || /^https?:\/\//.test(v), "L'adresse doit commencer par http:// ou https://.")
     .optional(),
   defaultLanguage: z.string().trim().max(10).optional(),
+  defaultUnivers: z.enum(["general", "christian"]).optional(),
   currency: z.string().trim().max(10).optional(),
   timezone: z.string().trim().max(60).optional(),
   dateFormat: z.string().trim().max(20).optional(),

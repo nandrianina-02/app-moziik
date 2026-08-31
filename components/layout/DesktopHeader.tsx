@@ -9,6 +9,7 @@ import { ChevronDown, User, CreditCard, Settings, LogOut, Shield, Mic2 } from "l
 import { SearchBar } from "@/components/search/SearchBar";
 import { NotificationBell } from "@/components/ui/NotificationBell";
 import { ThemeToggle } from "@/components/ui/ThemeToggle";
+import { UniversToggle } from "@/components/ui/UniversToggle";
 import { useEscapeClose } from "@/hooks/useEscapeClose";
 
 /**
@@ -75,6 +76,9 @@ export function DesktopHeader() {
       </div>
 
       <div className="flex shrink-0 items-center gap-2">
+        {/* Avant la bascule sombre/clair : ce choix-là décide de ce que la
+            page contient, l'autre seulement de son apparence. */}
+        <UniversToggle />
         <ThemeToggle />
         <NotificationBell variant="desktop" />
 

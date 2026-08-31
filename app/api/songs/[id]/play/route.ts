@@ -21,7 +21,7 @@ export const POST = withApiErrors(
     const authUser = await getAuthUser(req);
 
     await connectDB();
-    const song = await Song.findById(params.id).select("duration playsCount");
+    const song = await Song.findById(params.id).select("duration playsCount univers");
     if (!song) throw new ApiError("Son introuvable.", 404);
 
     // Une écoute ne peut être marquée "complétée" (et donc monétisée) que
@@ -62,6 +62,11 @@ export const POST = withApiErrors(
     await Play.create({
       song: song._id,
       user: authUser?.id,
+      // L'univers est recopié du titre, pas lu du cookie : c'est ce qui a
+      // été écouté qui compte, pas l'onglet dans lequel on se trouvait.
+      // Un lien partagé ouvert depuis l'autre univers alimente donc bien
+      // l'historique auquel le morceau appartient.
+      univers: song.univers,
       country,
       city,
       device,

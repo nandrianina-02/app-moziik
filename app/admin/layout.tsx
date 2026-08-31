@@ -19,6 +19,7 @@ import {
   Sparkles,
   Wand2,
   LineChart,
+  Church,
 } from "lucide-react";
 import { AdminHeaderSlot } from "@/components/admin/AdminChrome";
 
@@ -91,6 +92,13 @@ const links = [
     icon: Wand2,
     titre: "Sélections automatiques",
     description: "Les playlists proposées chaque semaine, à valider.",
+  },
+  {
+    href: "/admin/univers",
+    label: "Général / Évangélique",
+    icon: Church,
+    titre: "Général / Évangélique",
+    description: "Le classement du catalogue en deux univers musicaux.",
   },
   {
     href: "/admin/commentaires",

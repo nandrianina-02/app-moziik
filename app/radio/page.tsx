@@ -35,6 +35,7 @@ import { ContextMenuShell, MenuItem } from "@/components/ui/ContextMenuShell";
 import { ShareModal } from "@/components/share/ShareModal";
 import { StationPersonnelle } from "@/components/radio/StationPersonnelle";
 import type { ShareSubject } from "@/components/share/shareSubject";
+import { useUnivers } from "@/context/UniversProvider";
 
 function shuffle<T>(items: T[]): T[] {
   const copy = [...items];
@@ -87,6 +88,7 @@ type RadioData = {
 
 export default function RadioPage() {
   const pushToast = useToast();
+  const { univers } = useUnivers();
   const { playQueue, currentSong, queue, isPlaying, togglePlay, progress } = usePlayer();
   const [loadingStation, setLoadingStation] = useState<string | null>(null);
   const [data, setData] = useState<RadioData | null>(null);
@@ -104,7 +106,10 @@ export default function RadioPage() {
         setRecoFailed(true);
         pushToast("error", "Impossible de charger les recommandations radio.");
       });
-  }, [pushToast]);
+    // `univers` en dépendance : le serveur le lit dans le cookie, mais
+    // cette page a déjà ses données. Basculer d'univers doit donc
+    // relancer la requête, sinon l'écran garde le catalogue précédent.
+  }, [pushToast, univers]);
 
   async function launchStation(station: Station | null) {
     const key = station?.key ?? "default";

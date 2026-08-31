@@ -2,6 +2,7 @@ import { connectDB } from "@/lib/db";
 import HomepageHubCardModel, { IHomepageHubCard } from "@/models/HomepageHubCard";
 import Song from "@/models/Song";
 import Play from "@/models/Play";
+import type { Univers } from "@/lib/univers";
 
 export const DEFAULT_HUB_CARDS: Pick<
   IHomepageHubCard,
@@ -58,20 +59,24 @@ export async function getHubCards() {
  * pas défini de pochette personnalisée. Une seule requête par type de
  * carte présente, peu importe le nombre de cartes qui la partagent.
  */
-async function resolveAutoCovers(autoKeys: IHomepageHubCard["autoKey"][], userId?: string) {
+async function resolveAutoCovers(
+  autoKeys: IHomepageHubCard["autoKey"][],
+  userId: string | undefined,
+  univers: Univers
+) {
   const covers = new Map<string, string | undefined>();
   const need = new Set(autoKeys.filter(Boolean));
 
   if (need.has("new_releases")) {
-    const song = await Song.findOne({ status: "published" }).sort({ releaseDate: -1 }).select("coverUrl");
+    const song = await Song.findOne({ status: "published", univers }).sort({ releaseDate: -1 }).select("coverUrl");
     covers.set("new_releases", song?.coverUrl);
   }
   if (need.has("top_tracks")) {
-    const song = await Song.findOne({ status: "published" }).sort({ playsCount: -1 }).select("coverUrl");
+    const song = await Song.findOne({ status: "published", univers }).sort({ playsCount: -1 }).select("coverUrl");
     covers.set("top_tracks", song?.coverUrl);
   }
   if (need.has("chill")) {
-    const song = await Song.findOne({ status: "published", genre: /chill/i }).select("coverUrl");
+    const song = await Song.findOne({ status: "published", univers, genre: /chill/i }).select("coverUrl");
     covers.set("chill", song?.coverUrl);
   }
   if (need.has("daily_mix")) {
@@ -81,14 +86,14 @@ async function resolveAutoCovers(autoKeys: IHomepageHubCard["autoKey"][], userId
     const since = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
     let song = null;
     if (userId) {
-      const recentPlay = await Play.findOne({ user: userId, playedAt: { $gte: since } })
+      const recentPlay = await Play.findOne({ user: userId, univers, playedAt: { $gte: since } })
         .sort({ playedAt: -1 })
         .populate({ path: "song", select: "coverUrl status" });
       const playedSong = recentPlay?.song as unknown as { coverUrl?: string; status?: string } | null;
       if (playedSong && playedSong.status === "published") song = playedSong;
     }
     if (!song) {
-      song = await Song.findOne({ status: "published" }).sort({ playsCount: -1 }).select("coverUrl");
+      song = await Song.findOne({ status: "published", univers }).sort({ playsCount: -1 }).select("coverUrl");
     }
     covers.set("daily_mix", song?.coverUrl);
   }
@@ -106,11 +111,16 @@ export type HubCardPayload = {
 };
 
 /** Construit la liste finale des cartes "Pour vous" pour le payload de la home. */
-export async function getForYouCards(limit: number, userId?: string): Promise<HubCardPayload[]> {
+export async function getForYouCards(
+  limit: number,
+  userId: string | undefined,
+  univers: Univers
+): Promise<HubCardPayload[]> {
   const cards = (await getHubCards()).filter((c) => c.enabled).slice(0, limit);
   const autoCovers = await resolveAutoCovers(
     cards.map((c) => c.autoKey),
-    userId
+    userId,
+    univers
   );
 
   return cards.map((c) => ({

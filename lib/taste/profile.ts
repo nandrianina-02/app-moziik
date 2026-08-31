@@ -2,6 +2,7 @@ import { Types } from "mongoose";
 import { connectDB } from "@/lib/db";
 import Play from "@/models/Play";
 import User from "@/models/User";
+import type { Univers } from "@/lib/univers";
 
 /**
  * Ce qu'un auditeur écoute, mesuré plutôt que déclaré.
@@ -27,6 +28,15 @@ import User from "@/models/User";
  *    permet aucune personnalisation. `assezDeDonnees` vaut alors faux, et
  *    l'appelant sert ce que tout le monde écoute plutôt qu'une
  *    recommandation batie sur rien.
+ *
+ * UN PROFIL PAR UNIVERS, ET NON UN PROFIL PARTAGÉ
+ *
+ * Le profil se lit dans un seul univers à la fois. C'est la condition
+ * pour que les deux répertoires soient réellement indépendants : sans
+ * cela, quelqu'un qui écoute du gospel le dimanche et de la variété le
+ * reste de la semaine verrait ses deux stations converger vers le même
+ * milieu, celui qui ne ressemble à aucune des deux. Un compte a donc
+ * deux profils, mesurés sur deux historiques disjoints.
  */
 
 /** Fenêtre d'observation. Au-delà, une écoute ne dit plus rien du goût actuel. */
@@ -108,12 +118,12 @@ type LigneEcoute = {
  * cette fonction est appelée à chaque lancement de station, elle ne doit
  * pas coûter davantage.
  */
-export async function profilDe(userId: string): Promise<ProfilGouts> {
+export async function profilDe(userId: string, univers: Univers): Promise<ProfilGouts> {
   await connectDB();
 
   const depuis = new Date(Date.now() - FENETRE_JOURS * 86_400_000);
   const [ecoutes, utilisateur] = await Promise.all([
-    Play.find({ user: userId, playedAt: { $gte: depuis } })
+    Play.find({ user: userId, univers, playedAt: { $gte: depuis } })
       .select("playedAt secondsListened completed song")
       .populate({ path: "song", select: "genre language duration artist" })
       .lean() as unknown as Promise<LigneEcoute[]>,

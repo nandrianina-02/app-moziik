@@ -5,6 +5,7 @@ import Playlist from "@/models/Playlist";
 import Song from "@/models/Song";
 import User from "@/models/User";
 import { motsDe, normaliser, regexMot, regexMotAncre, ressemblance } from "@/lib/searchText";
+import type { Univers } from "@/lib/univers";
 
 /**
  * Recherche globale de Moziik.
@@ -56,6 +57,11 @@ export type OptionsRecherche = {
   genre?: string;
   artistId?: string;
   albumId?: string;
+  /**
+   * Univers de l'auditeur. Il hiérarchise les résultats, il ne les coupe
+   * pas — voir FACTEUR_AUTRE_UNIVERS.
+   */
+  univers?: Univers;
 };
 
 export type KindResultat = "song" | "artist" | "album" | "playlist" | "event" | "user" | "genre";
@@ -101,6 +107,26 @@ const APERCU = 8;
 const SEUIL_RESSEMBLANCE = 0.62;
 /** Score minimal pour qu'une entité soit considérée comme la cible de la recherche. */
 const SEUIL_FOCUS = 260;
+
+/**
+ * Ce que devient le score d'un résultat de l'autre univers.
+ *
+ * POURQUOI ON N'EXCLUT PAS
+ *
+ * Partout ailleurs, les deux répertoires sont étanches : recommandations,
+ * lecture automatique, playlists, accueil. La recherche est le seul
+ * endroit où quelqu'un DEMANDE explicitement quelque chose, par son nom.
+ * Répondre « aucun résultat » à qui tape le nom exact d'un artiste parce
+ * qu'il est rangé de l'autre côté serait un bug pour l'auditeur, pas une
+ * séparation réussie — d'autant qu'un même compte passe d'un univers à
+ * l'autre en un clic.
+ *
+ * Diviser le score par quatre suffit : dans une recherche par mot-clé,
+ * l'univers courant occupe tout le haut de chaque section, et l'autre
+ * n'apparaît qu'en fin de liste ou lorsqu'il est le seul à répondre — ce
+ * qui est précisément le cas d'une recherche par nom.
+ */
+const FACTEUR_AUTRE_UNIVERS = 0.25;
 
 /** Poids de base par champ — c'est lui qui impose l'ordre demandé au cahier des charges. */
 const POIDS = {
@@ -239,10 +265,10 @@ function estTronque(type: string, taille: number): boolean {
 /* ------------------------------------------- projections des documents -- */
 
 const CHAMPS_SONG =
-  "title coverUrl audioUrl duration genre tags releaseDate playsCount likesCount explicit artist album featuring composer producer";
-const CHAMPS_ARTIST = "stageName verified coverUrl bannerUrl genres totalPlays followers bio user";
-const CHAMPS_ALBUM = "title coverUrl type releaseDate songs artist description";
-const CHAMPS_PLAYLIST = "title coverUrl description tags owner songs followers createdAt";
+  "title coverUrl audioUrl duration genre tags releaseDate playsCount likesCount explicit artist album featuring composer producer univers";
+const CHAMPS_ARTIST = "stageName verified coverUrl bannerUrl genres totalPlays followers bio user univers";
+const CHAMPS_ALBUM = "title coverUrl type releaseDate songs artist description univers";
+const CHAMPS_PLAYLIST = "title coverUrl description tags owner songs followers createdAt univers";
 const CHAMPS_EVENT = "title coverUrl location date price ticketUrl artist description";
 
 /* ------------------------------------------------------------ moteur ---- */
@@ -330,7 +356,13 @@ export async function rechercheGlobale(opts: OptionsRecherche): Promise<Resultat
       .limit(VIVIER.events)
       .lean(),
 
-    Song.aggregate([{ $match: { status: "published" } }, { $group: { _id: "$genre", count: { $sum: 1 } } }]),
+    // Le filtre « Genre » de l'interface ne propose que les genres de
+    // l'univers courant : proposer « Gospel » à qui parcourt le catalogue
+    // général mènerait à une liste vide.
+    Song.aggregate([
+      { $match: { status: "published", ...(opts.univers ? { univers: opts.univers } : {}) } },
+      { $group: { _id: "$genre", count: { $sum: 1 } } },
+    ]),
 
     // Les comptes ayant publié une playlist publique : ils passent devant
     // les autres profils, s'étant déjà rendus visibles d'eux-mêmes.
@@ -353,9 +385,19 @@ export async function rechercheGlobale(opts: OptionsRecherche): Promise<Resultat
   /* --- 3. Notation ----------------------------------------------------- */
 
   type Note<T> = T & { score: number; direct: boolean };
+
+  // Les entités sans univers — comptes, genres, évènements — gardent leur
+  // score intact : elles n'appartiennent à aucun des deux répertoires.
+  const facteurUnivers = (item: Record<string, unknown>) => {
+    if (!opts.univers) return 1;
+    const univers = item.univers;
+    if (typeof univers !== "string") return 1;
+    return univers === opts.univers ? 1 : FACTEUR_AUTRE_UNIVERS;
+  };
+
   const noteDe = <T extends Record<string, unknown>>(item: T, r: { score: number; direct: boolean }): Note<T> => ({
     ...item,
-    score: r.score,
+    score: r.score * facteurUnivers(item),
     direct: r.direct,
   });
 
@@ -690,30 +732,36 @@ export type Suggestion = {
  * aucune requête de relation. Une suggestion qui arrive après la frappe
  * suivante ne sert à rien.
  */
-export async function suggestionsRapides(q: string, limite = 8): Promise<Suggestion[]> {
+export async function suggestionsRapides(q: string, limite = 8, univers?: Univers): Promise<Suggestion[]> {
   const phrase = normaliser(q);
   const mots = motsDe(q);
   if (mots.length === 0) return [];
 
+  // Même règle que la recherche complète : on hiérarchise, on n'exclut
+  // pas. Taper le nom exact d'un artiste doit le faire apparaître, de
+  // quelque côté de la frontière qu'il soit rangé.
+  const facteur = (item: { univers?: unknown }) =>
+    !univers || typeof item.univers !== "string" || item.univers === univers ? 1 : FACTEUR_AUTRE_UNIVERS;
+
   const [songs, artists, albums, playlists] = await Promise.all([
     Song.find(filtreOu({ status: "published" }, conditionsTexte(mots, ["title"])))
       .populate("artist", "stageName verified")
-      .select("title coverUrl playsCount likesCount artist")
+      .select("title coverUrl playsCount likesCount artist univers")
       .sort({ playsCount: -1 })
       .limit(30)
       .lean(),
     Artist.find(filtreOu({}, conditionsTexte(mots, ["stageName"])))
-      .select("stageName verified coverUrl totalPlays")
+      .select("stageName verified coverUrl totalPlays univers")
       .sort({ totalPlays: -1 })
       .limit(20)
       .lean(),
     Album.find(filtreOu({}, conditionsTexte(mots, ["title"])))
       .populate("artist", "stageName")
-      .select("title coverUrl type artist")
+      .select("title coverUrl type artist univers")
       .limit(20)
       .lean(),
     Playlist.find(filtreOu({ isPublic: true }, conditionsTexte(mots, ["title"])))
-      .select("title coverUrl songs")
+      .select("title coverUrl songs univers")
       .limit(20)
       .lean(),
   ]);
@@ -727,7 +775,9 @@ export async function suggestionsRapides(q: string, limite = 8): Promise<Suggest
       coverUrl: s(a.coverUrl) || undefined,
       verified: !!a.verified,
       href: `/artiste/${s(a._id)}`,
-      score: noter(mots, phrase, [{ valeur: s(a.stageName), poids: POIDS.titre }], notePopularite(a.totalPlays)).score,
+      score:
+        noter(mots, phrase, [{ valeur: s(a.stageName), poids: POIDS.titre }], notePopularite(a.totalPlays)).score *
+        facteur(a),
     })),
     ...songs.map((so) => {
       const artiste = so.artist as unknown as { stageName?: string; verified?: boolean } | null;
@@ -747,7 +797,7 @@ export async function suggestionsRapides(q: string, limite = 8): Promise<Suggest
             { valeur: artiste?.stageName, poids: POIDS.artiste },
           ],
           notePopularite(so.playsCount, so.likesCount)
-        ).score,
+        ).score * facteur(so),
       };
     }),
     ...albums.map((al) => {
@@ -761,7 +811,7 @@ export async function suggestionsRapides(q: string, limite = 8): Promise<Suggest
         }`,
         coverUrl: s(al.coverUrl) || undefined,
         href: `/album/${s(al._id)}`,
-        score: noter(mots, phrase, [{ valeur: s(al.title), poids: POIDS.titre }]).score,
+        score: noter(mots, phrase, [{ valeur: s(al.title), poids: POIDS.titre }]).score * facteur(al),
       };
     }),
     ...playlists.map((p) => ({
@@ -771,7 +821,7 @@ export async function suggestionsRapides(q: string, limite = 8): Promise<Suggest
       subtitle: `Playlist · ${(p.songs ?? []).length} titre${(p.songs ?? []).length > 1 ? "s" : ""}`,
       coverUrl: s(p.coverUrl) || undefined,
       href: `/playlist/${s(p._id)}`,
-      score: noter(mots, phrase, [{ valeur: s(p.title), poids: POIDS.playlist }]).score,
+      score: noter(mots, phrase, [{ valeur: s(p.title), poids: POIDS.playlist }]).score * facteur(p),
     })),
   ];
 

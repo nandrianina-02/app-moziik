@@ -10,6 +10,7 @@ import { useSiteConfig } from "@/context/SiteConfigProvider";
 import { useToast } from "@/context/ToastProvider";
 import { primaryLinks, accountLinks, useRoleLinks, isLinkActive, type NavLink } from "@/components/layout/navLinks";
 import { useEscapeClose } from "@/hooks/useEscapeClose";
+import { UniversToggle } from "@/components/ui/UniversToggle";
 
 export function MobileDrawer({ onClose }: { onClose: () => void }) {
   useEscapeClose(onClose);
@@ -94,6 +95,15 @@ export function MobileDrawer({ onClose }: { onClose: () => void }) {
               </span>
             </Link>
           )}
+
+          {/* La bascule d'univers vit ici plutôt que dans l'en-tête :
+              celui-ci porte déjà cinq commandes sur quatorze pixels de
+              haut, et deux libellés en toutes lettres n'y tiendraient
+              qu'en devenant illisibles. */}
+          <div className="border-b border-border px-5 py-3">
+            <p className="mb-2 text-xs text-ink-muted">Univers musical</p>
+            <UniversToggle compact />
+          </div>
 
           <nav className="flex-1 overflow-y-auto px-3 py-4">
             <div className="flex flex-col gap-1">{primaryLinks.map(renderLink)}</div>

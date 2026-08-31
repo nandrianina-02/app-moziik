@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { withApiErrors } from "@/lib/apiError";
 import { getPageSectionsData } from "@/lib/homeContentEngine";
 import { getAuthUser } from "@/lib/mobileAuth";
+import { universDeLaRequete } from "@/lib/universServer";
 import { parseSectionPage } from "@/lib/sectionPage";
 
 /**
@@ -12,7 +13,8 @@ import { parseSectionPage } from "@/lib/sectionPage";
 export const GET = withApiErrors(async (req: Request, ctx: { params: { page: string } }) => {
   const page = parseSectionPage(ctx.params.page);
   const authUser = await getAuthUser(req);
-  const data = await getPageSectionsData(page, authUser ? { id: authUser.id, role: authUser.role } : null);
+  const univers = await universDeLaRequete(req, { compte: authUser?.id });
+  const data = await getPageSectionsData(page, authUser ? { id: authUser.id, role: authUser.role } : null, univers);
 
   return NextResponse.json(data);
 });

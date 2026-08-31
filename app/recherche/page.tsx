@@ -35,6 +35,7 @@ import {
   removeRecentSearch,
   type RecentSearchItem,
 } from "@/lib/recentSearches";
+import { useUnivers } from "@/context/UniversProvider";
 
 /* ----------------------------------------------------------------- types - */
 
@@ -99,6 +100,7 @@ function SearchPageContent() {
   const [tri, setTri] = useState(() => searchParams.get("sort") ?? "relevance");
   const [genre, setGenre] = useState(() => searchParams.get("genre") ?? "");
   const [filtresOuverts, setFiltresOuverts] = useState(false);
+  const { univers } = useUnivers();
 
   const [resultat, setResultat] = useState<Resultat | null>(null);
   const [chargement, setChargement] = useState(false);
@@ -283,7 +285,10 @@ function SearchPageContent() {
     }, DEBOUNCE_MS);
 
     return () => clearTimeout(minuteur);
-  }, [terme, type, tri, genre, isOnline, enRecherche]);
+    // `univers` en dépendance : le serveur le lit dans le cookie, mais
+    // cette page a déjà ses données. Basculer d'univers doit donc
+    // relancer la requête, sinon l'écran garde le catalogue précédent.
+  }, [terme, type, tri, genre, isOnline, enRecherche, univers]);
 
   /* --- ce que le public cherche, pour la curation hebdomadaire --------- */
 

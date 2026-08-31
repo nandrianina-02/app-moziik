@@ -2,6 +2,8 @@ import { z } from "zod";
 import { demanderStructure, etatIA } from "@/lib/ai/client";
 import { listeBornee, texteAccessoire, texteRequis } from "@/lib/ai/schema";
 import { libelleFenetre } from "@/lib/curation/window";
+import { intentionRecette } from "@/lib/curation/labels";
+import type { Univers } from "@/lib/univers";
 import type { Recette } from "@/lib/curation/recipes";
 import type { TitreCandidat } from "@/lib/curation/signals";
 
@@ -109,7 +111,7 @@ const EXTRAITS_MAX = 6;
  */
 export async function nommerLaSemaine(
   playlists: PlaylistANommer[],
-  { from, to, compte }: { from: Date; to: Date; compte: string }
+  { from, to, compte, univers }: { from: Date; to: Date; compte: string; univers: Univers }
 ): Promise<Nommage> {
   if (playlists.length === 0) return repli(playlists, from, to);
 
@@ -127,7 +129,9 @@ export async function nommerLaSemaine(
         .join("\n");
       return [
         `- identifiant : ${p.recette.id}`,
-        `  intention : ${p.recette.intention}`,
+        // L'intention est lue selon l'univers : « les plus écoutés »
+        // et « le gospel le plus écouté » ne s'écrivent pas pareil.
+        `  intention : ${intentionRecette(p.recette.id, univers)}`,
         `  nombre de titres : ${p.extraits.length}`,
         `  extraits :`,
         extraits,

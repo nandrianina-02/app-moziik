@@ -7,6 +7,7 @@ import { libelleMotif } from "@/lib/taste/motifs";
 import { profilDe, profilVide, genresPreferes } from "@/lib/taste/profile";
 import { construireStation, PAR_TOUR } from "@/lib/taste/station";
 import { presenterStation } from "@/lib/ai/dj";
+import { universDeLaRequete } from "@/lib/universServer";
 
 /**
  * La station personnalisée d'un auditeur.
@@ -61,12 +62,13 @@ export const GET = withApiErrors(async (req: Request) => {
   const taille = Math.min(Math.max(Number(searchParams.get("limit")) || PAR_TOUR, 5), 40);
 
   const authUser = await getAuthUser(req);
+  const univers = await universDeLaRequete(req, { compte: authUser?.id });
   // Un visiteur non connecté n'a pas d'historique : la station existe
   // quand même, elle est simplement la même pour tout le monde — et le
   // dit (`personnalisee: false`).
-  const profil = authUser ? await profilDe(authUser.id) : profilVide();
+  const profil = authUser ? await profilDe(authUser.id, univers) : profilVide();
 
-  const station = await construireStation({ profil, moment, exclus, taille });
+  const station = await construireStation({ profil, moment, univers, exclus, taille });
 
   const songs = station.titres.map((t) => t.song);
   const motifs = station.titres.map((t) => ({
@@ -79,7 +81,7 @@ export const GET = withApiErrors(async (req: Request) => {
 
   if (suite) {
     return NextResponse.json(
-      { songs, motifs, personnalisee: station.personnalisee, moment },
+      { songs, motifs, personnalisee: station.personnalisee, moment, univers },
       { headers: { "Cache-Control": "no-store" } }
     );
   }
@@ -101,7 +103,7 @@ export const GET = withApiErrors(async (req: Request) => {
   });
 
   return NextResponse.json(
-    { songs, motifs, personnalisee: station.personnalisee, moment, presentation },
+    { songs, motifs, personnalisee: station.personnalisee, moment, univers, presentation },
     { headers: { "Cache-Control": "no-store" } }
   );
 });

@@ -19,6 +19,7 @@ import {
 } from "@/lib/offlineSettings";
 import { useSiteConfig } from "@/context/SiteConfigProvider";
 import { useOnlineStatus } from "@/context/OnlineStatusProvider";
+import { useUnivers } from "@/context/UniversProvider";
 import { morceauxSuivants } from "@/lib/playbackContinuation";
 
 export type PlayableSong = {
@@ -309,6 +310,7 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
   const [chargementSuite, setChargementSuite] = useState(false);
   const [lectureProlongee, setLectureProlongee] = useState(false);
   const { isOnline } = useOnlineStatus();
+  const { univers } = useUnivers();
   const hasRecordedPlay = useRef(false);
   // Lu depuis le gestionnaire « ended », qui est posé une fois : sans ref,
   // il verrait toujours la valeur du premier rendu.
@@ -850,6 +852,27 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
       return positionDansOrdre < prev ? prev - 1 : prev;
     });
   }
+
+  /**
+   * Changer d'univers change la SUITE, pas ce qui joue.
+   *
+   * Couper le morceau en cours pour appliquer un réglage serait le plus
+   * mauvais moment de le faire, et la file que l'auditeur a lancée lui-même
+   * — un album, une playlist — reste la sienne : il l'a demandée, elle ne
+   * lui est pas imposée par un algorithme.
+   *
+   * Ce qui part, c'est la réserve : des morceaux déjà téléchargés du
+   * répertoire précédent, que rien ne signale à l'écran et qui se
+   * mettraient à jouer d'eux-mêmes dix minutes plus tard. Le prochain
+   * prolongement les remplace par des titres du bon univers — les routes
+   * lisent le cookie, qui vient de changer.
+   */
+  useEffect(() => {
+    setReserve([]);
+    prolongementRef.current = { tour: 0, echecs: 0, enCours: false };
+    // Premier rendu compris : la réserve y est déjà vide, l'effet ne coûte
+    // rien et il évite d'avoir à distinguer le montage d'une bascule.
+  }, [univers]);
 
   function clearQueue() {
     reinitialiserProlongement();

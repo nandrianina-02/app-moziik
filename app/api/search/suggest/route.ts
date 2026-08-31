@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { connectDB } from "@/lib/db";
 import { withApiErrors } from "@/lib/apiError";
 import { suggestionsRapides } from "@/lib/search";
+import { universDeLaRequete } from "@/lib/universServer";
 
 /**
  * Suggestions instantanées : GET /api/search/suggest?q=…
@@ -18,6 +19,6 @@ export const GET = withApiErrors(async (req: Request) => {
   if (q.length < 2) return NextResponse.json({ suggestions: [] });
 
   await connectDB();
-  const suggestions = await suggestionsRapides(q, limit);
+  const suggestions = await suggestionsRapides(q, limit, await universDeLaRequete(req));
   return NextResponse.json({ suggestions });
 });

@@ -1,4 +1,5 @@
 import { Schema, models, model, Model } from "mongoose";
+import { UNIVERS, UNIVERS_PAR_DEFAUT, type Univers } from "@/lib/univers";
 
 export interface IAiSettings {
   /** Coupe tous les appels d'un coup, sans toucher à la clé d'API. */
@@ -64,6 +65,20 @@ export interface ISiteConfig {
   description: string; // présentation longue, reprise par défaut en méta description
   siteUrl: string; // adresse publique, utilisée par les liens absolus et le sitemap
   defaultLanguage: string; // code ISO posé sur <html lang>
+  /**
+   * Univers servi à qui n'a rien choisi — visiteur de passage compris.
+   *
+   * Le site s'adresse d'abord à Madagascar, où le répertoire de louange
+   * pèse lourd : l'exploitant doit pouvoir décider sur quel univers on
+   * atterrit, plutôt que de subir un défaut posé dans le code.
+   */
+  defaultUnivers: Univers;
+  /**
+   * Instant du rattrapage qui a posé un univers sur les documents
+   * antérieurs à la séparation (lib/universBackfill.ts). Absent, le
+   * rattrapage n'a pas encore eu lieu.
+   */
+  universBackfilledAt?: Date;
   currency: string; // devise d'affichage des prix (EUR, USD, MGA…)
   timezone: string; // fuseau de référence pour l'affichage des dates
   dateFormat: string; // gabarit d'affichage des dates (voir lib/dates.ts)
@@ -111,6 +126,8 @@ const SiteConfigSchema = new Schema<ISiteConfig>({
   description: { type: String, default: "" },
   siteUrl: { type: String, default: "" },
   defaultLanguage: { type: String, default: "fr" },
+  defaultUnivers: { type: String, enum: UNIVERS, default: UNIVERS_PAR_DEFAUT },
+  universBackfilledAt: { type: Date },
   currency: { type: String, default: "EUR" },
   timezone: { type: String, default: "Indian/Antananarivo" },
   dateFormat: { type: String, default: "DD/MM/YYYY" },

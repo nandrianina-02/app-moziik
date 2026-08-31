@@ -23,6 +23,7 @@ import { ThemeEditor } from "@/components/theme/ThemeEditor";
 import { useToast } from "@/context/ToastProvider";
 import { uploadToCloudinaryClient } from "@/lib/cloudinaryClient";
 import { RESEAUX, urlSocialeValide, type IdentifiantReseau } from "@/lib/socialPlatforms";
+import { UNIVERS, UNIVERS_INFO, normaliserUnivers, type Univers } from "@/lib/univers";
 import { normaliserTheme, type ThemePreference } from "@/lib/theme";
 import { DEVISES, FORMATS_DATE, FUSEAUX, LANGUES } from "@/lib/locales";
 
@@ -34,6 +35,7 @@ type SiteConfigForm = {
   description: string;
   siteUrl: string;
   defaultLanguage: string;
+  defaultUnivers: Univers;
   currency: string;
   timezone: string;
   dateFormat: string;
@@ -276,6 +278,18 @@ export default function AdminSettingsPage() {
                 onChange={(defaultLanguage) => modifier({ defaultLanguage })}
                 options={LANGUES}
               />
+              <div>
+                <Selecteur
+                  label="Univers musical par défaut"
+                  value={config.defaultUnivers}
+                  onChange={(v) => modifier({ defaultUnivers: normaliserUnivers(v) })}
+                  options={UNIVERS.map((u) => ({ value: u, label: UNIVERS_INFO[u].label }))}
+                />
+                <p className="mt-1 text-xs text-ink-muted">
+                  Ce que voit un visiteur qui n&apos;a rien choisi. Chacun peut ensuite basculer depuis
+                  l&apos;en-tête, et son choix le suit d&apos;un appareil à l&apos;autre s&apos;il a un compte.
+                </p>
+              </div>
               <Selecteur
                 label="Devise"
                 value={config.currency}

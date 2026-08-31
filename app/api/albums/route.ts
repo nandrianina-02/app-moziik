@@ -35,6 +35,9 @@ export const POST = withApiErrors(async (req: Request) => {
     type: type ?? "album",
     releaseDate,
     artist: artistProfile._id,
+    // Un album appartient entièrement à son auteur : il suit son univers,
+    // sans exception (lib/universClassify.ts).
+    univers: artistProfile.univers,
   });
 
   return NextResponse.json({ album }, { status: 201 });

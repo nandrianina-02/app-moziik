@@ -24,6 +24,9 @@ export const GET = withApiErrors(async () => {
       description: config.description,
       siteUrl: config.siteUrl,
       defaultLanguage: config.defaultLanguage,
+      // L'univers servi à qui n'a rien choisi : le sélecteur s'en sert
+      // comme valeur de départ (context/UniversProvider.tsx).
+      defaultUnivers: config.defaultUnivers,
       currency: config.currency,
       timezone: config.timezone,
       dateFormat: config.dateFormat,

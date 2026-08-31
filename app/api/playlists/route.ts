@@ -5,6 +5,7 @@ import { withApiErrors } from "@/lib/apiError";
 import { parseOrThrow, createPlaylistSchema } from "@/lib/validation";
 import { idsPublies } from "@/lib/publishedSongs";
 import { getAuthUser, requireAuthUser } from "@/lib/mobileAuth";
+import { recalculerUniversPlaylist } from "@/lib/universClassify";
 
 export const GET = withApiErrors(async (req: Request) => {
   const { searchParams } = new URL(req.url);
@@ -60,6 +61,13 @@ export const POST = withApiErrors(async (req: Request) => {
     owner: authUser.id,
     songs,
   });
+
+  // Une playlist créée avec son contenu est déjà située : la classer tout
+  // de suite évite qu'elle apparaisse une fois du mauvais côté avant sa
+  // première modification.
+  if (songs.length > 0) {
+    await recalculerUniversPlaylist(String(playlist._id)).catch(() => {});
+  }
 
   return NextResponse.json({ playlist }, { status: 201 });
 });

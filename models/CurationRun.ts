@@ -1,4 +1,5 @@
 import { Schema, models, model, Types, Model } from "mongoose";
+import { UNIVERS, UNIVERS_PAR_DEFAUT, type Univers } from "@/lib/univers";
 
 /**
  * Une analyse hebdomadaire : ce qu'elle a mesuré, ce qu'elle a proposé,
@@ -29,6 +30,12 @@ export interface ICurationRun {
   /** Fenêtre analysée : `from` inclus, `to` exclu. */
   from: Date;
   to: Date;
+  /**
+   * Univers analysé. Chaque semaine en produit un par univers : les
+   * mêmes mesures sur deux catalogues disjoints donneraient sinon un
+   * classement où le gospel et la variété se disputent les mêmes places.
+   */
+  univers: Univers;
   statut: StatutRun;
   /** `cron` pour l'exécution hebdomadaire, `admin` pour un lancement manuel. */
   declencheur: "cron" | "admin";
@@ -53,6 +60,7 @@ export interface ICurationRun {
 const CurationRunSchema = new Schema<ICurationRun>({
   from: { type: Date, required: true },
   to: { type: Date, required: true },
+  univers: { type: String, enum: UNIVERS, default: UNIVERS_PAR_DEFAUT, index: true },
   statut: {
     type: String,
     enum: ["en_cours", "a_valider", "publiee", "annulee", "echouee"],
@@ -81,6 +89,7 @@ const CurationRunSchema = new Schema<ICurationRun>({
 // analyse, puis les précédentes.
 CurationRunSchema.index({ createdAt: -1 });
 CurationRunSchema.index({ statut: 1, createdAt: -1 });
+CurationRunSchema.index({ univers: 1, statut: 1, createdAt: -1 });
 
 export default (models.CurationRun as Model<ICurationRun>) ||
   model<ICurationRun>("CurationRun", CurationRunSchema);

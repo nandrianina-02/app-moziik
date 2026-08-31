@@ -1,6 +1,16 @@
 import { Schema, models, model, Types, Model } from "mongoose";
+import { UNIVERS, UNIVERS_PAR_DEFAUT, type Univers } from "@/lib/univers";
 
 export type SongStatus = "draft" | "scheduled" | "published" | "rejected";
+
+/**
+ * D'où vient le classement d'un titre.
+ *
+ * `artiste` : hérité de son auteur, et il suit ses changements.
+ * `auto` : reconnu par la détection sur ses propres données.
+ * `admin` : décidé à la main — plus rien ne le modifie ensuite.
+ */
+export type SourceUnivers = "artiste" | "auto" | "admin";
 
 export interface ISongFeaturing {
   artist: Types.ObjectId;
@@ -27,6 +37,9 @@ export interface ISong {
   isrc?: string;
   copyright?: string;
   explicit: boolean;
+  /** Univers musical du titre : général ou évangélique (lib/univers.ts). */
+  univers: Univers;
+  universSource: SourceUnivers;
   status: SongStatus;
   releaseDate: Date; // peut être future : planification de sortie
   publishedBy: Types.ObjectId; // artiste ou admin ayant publié
@@ -63,6 +76,12 @@ const SongSchema = new Schema<ISong>({
   isrc: { type: String },
   copyright: { type: String },
   explicit: { type: Boolean, default: false },
+  // Dénormalisé depuis l'artiste plutôt que résolu par jointure : c'est le
+  // filtre le plus fréquent du site — accueil, recherche, station,
+  // prolongement de file — et un `$lookup` sur Artist à chaque requête de
+  // catalogue coûterait bien plus que ce champ à tenir à jour.
+  univers: { type: String, enum: UNIVERS, default: UNIVERS_PAR_DEFAUT, index: true },
+  universSource: { type: String, enum: ["artiste", "auto", "admin"], default: "artiste" },
   status: { type: String, enum: ["draft", "scheduled", "published", "rejected"], default: "draft" },
   releaseDate: { type: Date, required: true },
   publishedBy: { type: Schema.Types.ObjectId, ref: "User", required: true },
@@ -83,5 +102,12 @@ SongSchema.index({ status: 1, releaseDate: 1 });
 // status+genre : filtrés ensemble par /api/songs, /api/charts, /api/radio,
 // et le moteur de la page d'accueil (sections genre/radio).
 SongSchema.index({ status: 1, genre: 1 });
+// Les trois index qui portent l'univers. Depuis la séparation, presque
+// toute lecture de catalogue filtre sur `status` ET `univers` : sans eux,
+// chaque section d'accueil balaierait la collection entière pour en
+// écarter la moitié.
+SongSchema.index({ status: 1, univers: 1, releaseDate: -1 });
+SongSchema.index({ status: 1, univers: 1, playsCount: -1 });
+SongSchema.index({ status: 1, univers: 1, genre: 1 });
 
 export default (models.Song as Model<ISong>) || model<ISong>("Song", SongSchema);

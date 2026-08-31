@@ -1,4 +1,5 @@
 import { Schema, models, model, Types, Model } from "mongoose";
+import { UNIVERS, UNIVERS_PAR_DEFAUT, type Univers } from "@/lib/univers";
 
 /**
  * Marque d'une playlist produite par la curation hebdomadaire.
@@ -34,6 +35,15 @@ export interface IPlaylist {
   owner: Types.ObjectId; // ref User
   songs: Types.ObjectId[]; // ref Song
   isPublic: boolean;
+  /**
+   * Univers de la playlist.
+   *
+   * Pour une sélection produite, c'est celui de l'analyse qui l'a faite.
+   * Pour une playlist de membre, il est recalculé à partir de ses titres
+   * (lib/universClassify.ts) : une playlist majoritairement gospel est
+   * une playlist gospel, quel que soit son auteur.
+   */
+  univers: Univers;
   followers: Types.ObjectId[]; // Users qui suivent la playlist publique
   /** Absent sur toute playlist créée par un membre. */
   auto?: IPlaylistAuto;
@@ -48,6 +58,7 @@ const PlaylistSchema = new Schema<IPlaylist>({
   owner: { type: Schema.Types.ObjectId, ref: "User", required: true, index: true },
   songs: [{ type: Schema.Types.ObjectId, ref: "Song" }],
   isPublic: { type: Boolean, default: false },
+  univers: { type: String, enum: UNIVERS, default: UNIVERS_PAR_DEFAUT, index: true },
   followers: [{ type: Schema.Types.ObjectId, ref: "User" }],
   auto: {
     type: new Schema<IPlaylistAuto>(

@@ -6,6 +6,7 @@ import {
   type TriRecherche,
   type TypeFiltre,
 } from "@/lib/search";
+import { universDeLaRequete } from "@/lib/universServer";
 
 /**
  * Recherche globale : GET /api/search?q=…
@@ -70,6 +71,7 @@ export const GET = withApiErrors(async (req: Request) => {
     genre: searchParams.get("genre") ?? undefined,
     artistId: searchParams.get("artist") ?? undefined,
     albumId: searchParams.get("album") ?? undefined,
+    univers: await universDeLaRequete(req),
   });
 
   // Compatibilité : les appelants historiques lisent `songs` / `artists`.

@@ -5,14 +5,18 @@ import Play from "@/models/Play";
 import Song from "@/models/Song";
 import { withApiErrors } from "@/lib/apiError";
 import { requireAuthUser } from "@/lib/mobileAuth";
+import { universDeLaRequete } from "@/lib/universServer";
 
 export const GET = withApiErrors(async (req: Request) => {
   const authUser = await requireAuthUser(req);
 
   await connectDB();
+  // Deux historiques, comme deux catalogues : une écoute de louange n'a
+  // pas sa place dans la reprise de l'univers général, et inversement.
+  const univers = await universDeLaRequete(req, { compte: authUser.id });
 
   const grouped = await Play.aggregate([
-    { $match: { user: new Types.ObjectId(authUser.id) } },
+    { $match: { user: new Types.ObjectId(authUser.id), univers } },
     { $sort: { playedAt: -1 } },
     { $group: { _id: "$song", lastPlayedAt: { $first: "$playedAt" } } },
     { $sort: { lastPlayedAt: -1 } },
@@ -20,7 +24,7 @@ export const GET = withApiErrors(async (req: Request) => {
   ]);
 
   const songIds = grouped.map((g) => g._id);
-  const songs = await Song.find({ _id: { $in: songIds }, status: "published" }).populate(
+  const songs = await Song.find({ _id: { $in: songIds }, status: "published", univers }).populate(
     "artist",
     "stageName verified"
   );

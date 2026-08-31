@@ -7,7 +7,9 @@ import { getSiteConfig } from "@/lib/siteConfig";
 import { notifyMany } from "@/lib/notify";
 import { fenetreHebdomadaire, libelleFenetre, type Fenetre } from "@/lib/curation/window";
 import { collecterSignaux, type Signaux, type TitreCandidat } from "@/lib/curation/signals";
-import { RECETTES } from "@/lib/curation/recipes";
+import { recettesDe } from "@/lib/curation/recipes";
+import { libelleRecette } from "@/lib/curation/labels";
+import { UNIVERS, UNIVERS_INFO, type Univers } from "@/lib/univers";
 import { nommerLaSemaine, type PlaylistANommer } from "@/lib/curation/naming";
 import { publierAnalyse } from "@/lib/curation/publish";
 
@@ -25,7 +27,16 @@ import { publierAnalyse } from "@/lib/curation/publish";
  * seconde exécution produirait un second jeu de playlists sur les mêmes
  * données, et l'admin en validerait un sans savoir que l'autre existe.
  * Une analyse déjà `en_cours` fait donc échouer la suivante, sans rien
- * écrire.
+ * écrire. Le verrou porte sur un univers : les deux analyses de la
+ * semaine peuvent se dérouler l'une après l'autre sans se bloquer.
+ *
+ * UNE ANALYSE PAR UNIVERS
+ *
+ * Les mêmes recettes tournent deux fois, sur deux catalogues disjoints,
+ * et produisent deux jeux de playlists nommés différemment. Une analyse
+ * unique classerait le gospel et la variété dans le même palmarès : le
+ * répertoire le moins fourni n'apparaîtrait jamais, et l'auditeur qui a
+ * choisi cet univers verrait une section d'accueil vide.
  */
 
 /** Au-delà, une analyse `en_cours` est tenue pour morte (processus interrompu). */
@@ -33,6 +44,7 @@ const VERROU_MS = 15 * 60 * 1000;
 
 export type ResultatAnalyse = {
   run: string;
+  univers: Univers;
   playlists: number;
   publiee: boolean;
   parIA: boolean;
@@ -55,13 +67,15 @@ async function proprietaire(lancePar?: string): Promise<Types.ObjectId> {
   return admin._id as Types.ObjectId;
 }
 
-/** Refuse de démarrer si une analyse est déjà en route. */
-async function verifierVerrou() {
-  const encours = await CurationRun.findOne({ statut: "en_cours" }).sort({ createdAt: -1 });
+/** Refuse de démarrer si une analyse est déjà en route pour cet univers. */
+async function verifierVerrou(univers: Univers) {
+  const encours = await CurationRun.findOne({ statut: "en_cours", univers }).sort({ createdAt: -1 });
   if (!encours) return;
 
   if (Date.now() - encours.createdAt.getTime() < VERROU_MS) {
-    throw new CurationIndisponible("Une analyse est déjà en cours. Réessaie dans quelques minutes.");
+    throw new CurationIndisponible(
+      `Une analyse est déjà en cours pour l'univers ${UNIVERS_INFO[univers].label.toLowerCase()}. Réessaie dans quelques minutes.`
+    );
   }
 
   // Plus vieille que le verrou : le processus qui l'a lancée n'existe
@@ -85,8 +99,8 @@ async function verifierVerrou() {
  * Une nouvelle analyse remplace donc la proposition en attente : c'est
  * aussi ce qu'on attend d'elle, puisqu'elle porte sur les mêmes données.
  */
-async function ecarterPropositionEnAttente(): Promise<number> {
-  const enAttente = await CurationRun.find({ statut: "a_valider" }).select("_id");
+async function ecarterPropositionEnAttente(univers: Univers): Promise<number> {
+  const enAttente = await CurationRun.find({ statut: "a_valider", univers }).select("_id");
   if (enAttente.length === 0) return 0;
 
   const ids = enAttente.map((r) => r._id);
@@ -108,25 +122,25 @@ async function ecarterPropositionEnAttente(): Promise<number> {
 }
 
 /** Prévient les administrateurs qu'une sélection attend leur avis. */
-async function avertirAdministrateurs(nb: number, fenetre: Fenetre) {
+async function avertirAdministrateurs(nb: number, fenetre: Fenetre, univers: Univers) {
   const admins = await User.find({ role: "admin" }).select("_id");
   if (admins.length === 0) return;
   await notifyMany(
     admins.map((a) => a._id.toString()),
     {
       type: "system",
-      title: "Sélections de la semaine à valider",
-      message: `${nb} playlist(s) proposée(s) ${libelleFenetre(fenetre.from, fenetre.to)}. Rien n'est publié tant que tu n'as pas validé.`,
-      link: "/admin/selections",
+      title: `Sélections ${UNIVERS_INFO[univers].label.toLowerCase()} à valider`,
+      message: `${nb} playlist(s) proposée(s) ${libelleFenetre(fenetre.from, fenetre.to)} pour l'univers ${UNIVERS_INFO[univers].label.toLowerCase()}. Rien n'est publié tant que tu n'as pas validé.`,
+      link: `/admin/selections?univers=${univers}`,
     }
   );
 }
 
 /** Construit les sélections des recettes actives. */
-function selectionner(signaux: Signaux, eteintes: Set<string>) {
+function selectionner(signaux: Signaux, eteintes: Set<string>, univers: Univers) {
   const retenues: (PlaylistANommer & { titres: string[]; rang: number })[] = [];
 
-  RECETTES.forEach((recette) => {
+  recettesDe(univers).forEach((recette) => {
     if (eteintes.has(recette.id)) return;
 
     let selection;
@@ -145,7 +159,9 @@ function selectionner(signaux: Signaux, eteintes: Set<string>) {
 
     retenues.push({
       recette,
-      libelle: selection.libelle ?? recette.libelle,
+      // Le libellé de repli dépend de l'univers : « Top de la semaine »
+      // d'un côté, « Gospel de la semaine » de l'autre.
+      libelle: selection.libelle ?? libelleRecette(recette.id, univers),
       motif: selection.motif,
       extraits,
       titres: selection.titres,
@@ -166,10 +182,12 @@ export async function lancerAnalyse({
   declencheur,
   lancePar,
   reference,
+  univers,
 }: {
   declencheur: "cron" | "admin";
   lancePar?: string;
   reference?: Date;
+  univers: Univers;
 }): Promise<ResultatAnalyse> {
   await connectDB();
 
@@ -179,8 +197,8 @@ export async function lancerAnalyse({
     throw new CurationIndisponible("La curation hebdomadaire est désactivée dans les réglages.");
   }
 
-  await verifierVerrou();
-  await ecarterPropositionEnAttente();
+  await verifierVerrou(univers);
+  await ecarterPropositionEnAttente(univers);
 
   const fenetre = fenetreHebdomadaire(reference);
   const owner = await proprietaire(lancePar);
@@ -188,20 +206,20 @@ export async function lancerAnalyse({
   const run = await CurationRun.create({
     from: fenetre.from,
     to: fenetre.to,
+    univers,
     statut: "en_cours",
     declencheur,
     lancePar: lancePar ? new Types.ObjectId(lancePar) : undefined,
   });
 
   try {
-    const signaux = await collecterSignaux(fenetre);
+    const signaux = await collecterSignaux(fenetre, univers);
     const eteintes = new Set(reglages?.disabled ?? []);
-    const selections = selectionner(signaux, eteintes);
+    const selections = selectionner(signaux, eteintes, univers);
 
     if (selections.length === 0) {
       run.statut = "echouee";
-      run.erreur =
-        "Aucune sélection n'atteint son minimum de titres. La semaine est trop calme, ou le catalogue trop petit.";
+      run.erreur = `Aucune sélection n'atteint son minimum de titres dans l'univers ${UNIVERS_INFO[univers].label.toLowerCase()}. La semaine est trop calme, ou le catalogue trop petit de ce côté.`;
       run.stats = {
         ecoutes: signaux.ecoutes,
         auditeurs: signaux.auditeurs,
@@ -218,6 +236,7 @@ export async function lancerAnalyse({
       from: fenetre.from,
       to: fenetre.to,
       compte: lancePar ?? "cron",
+      univers,
     });
 
     // Les playlists arrivent en brouillon : `isPublic: false` les rend
@@ -233,6 +252,7 @@ export async function lancerAnalyse({
           owner,
           songs: s.titres.map((id) => new Types.ObjectId(id)),
           isPublic: false,
+          univers,
           auto: {
             kind: s.recette.id,
             run: run._id,
@@ -263,11 +283,11 @@ export async function lancerAnalyse({
 
     if (reglages?.autoPublish) {
       await publierAnalyse({ runId: run._id.toString() });
-      return { run: run._id.toString(), playlists: creees.length, publiee: true, parIA: nommage.parIA };
+      return { run: run._id.toString(), univers, playlists: creees.length, publiee: true, parIA: nommage.parIA };
     }
 
-    await avertirAdministrateurs(creees.length, fenetre);
-    return { run: run._id.toString(), playlists: creees.length, publiee: false, parIA: nommage.parIA };
+    await avertirAdministrateurs(creees.length, fenetre, univers);
+    return { run: run._id.toString(), univers, playlists: creees.length, publiee: false, parIA: nommage.parIA };
   } catch (err) {
     if (run.statut === "en_cours") {
       run.statut = "echouee";
@@ -277,4 +297,53 @@ export async function lancerAnalyse({
     }
     throw err;
   }
+}
+
+export type ResultatSemaine = {
+  analyses: ResultatAnalyse[];
+  /** Univers pour lesquels rien n'a pu être produit, et pourquoi. */
+  echecs: { univers: Univers; raison: string }[];
+};
+
+/**
+ * L'analyse de la semaine, pour les deux univers.
+ *
+ * Séquentielle, et non parallèle : les deux passes lisent la même
+ * collection d'écoutes avec des agrégations lourdes, et le nommage passe
+ * par le même plafond d'appels au modèle. Les enchaîner coûte quelques
+ * secondes de plus et évite de doubler la charge d'un coup — sur une
+ * tâche qui tourne une fois par semaine, c'est le bon arbitrage.
+ *
+ * Un univers qui n'a rien à proposer — catalogue trop mince, semaine trop
+ * calme — n'empêche pas l'autre d'aboutir. C'est le cas normal d'un
+ * démarrage : le répertoire évangélique peut être vide pendant que le
+ * général tourne déjà.
+ */
+export async function lancerAnalyseHebdomadaire({
+  declencheur,
+  lancePar,
+  reference,
+}: {
+  declencheur: "cron" | "admin";
+  lancePar?: string;
+  reference?: Date;
+}): Promise<ResultatSemaine> {
+  const analyses: ResultatAnalyse[] = [];
+  const echecs: { univers: Univers; raison: string }[] = [];
+
+  for (const univers of UNIVERS) {
+    try {
+      analyses.push(await lancerAnalyse({ declencheur, lancePar, reference, univers }));
+    } catch (err) {
+      const raison = err instanceof Error ? err.message : "Échec inattendu.";
+      echecs.push({ univers, raison });
+      // La curation entièrement désactivée vaut pour les deux univers :
+      // insister sur le second n'apporterait qu'un second message
+      // identique.
+      if (err instanceof CurationIndisponible && raison.includes("désactivée")) break;
+      if (!(err instanceof CurationIndisponible)) console.error(`[curation] univers ${univers} en échec`, err);
+    }
+  }
+
+  return { analyses, echecs };
 }

@@ -24,7 +24,7 @@ export const GET = withApiErrors(async (req: Request, { params }: { params: { id
 
   const limite = Math.min(Number(new URL(req.url).searchParams.get("limit")) || RETOUR_MAX, 30);
 
-  const song = await Song.findById(params.id).select("artist featuring album genre tags title");
+  const song = await Song.findById(params.id).select("artist featuring album genre tags title univers");
   if (!song) throw new ApiError("Son introuvable.", 404);
 
   const artistesLies = [
@@ -40,8 +40,13 @@ export const GET = withApiErrors(async (req: Request, { params }: { params: { id
   if (song.tags?.length) criteres.push({ tags: { $in: song.tags } });
   if (song.album) criteres.push({ album: song.album });
 
+  // Les voisins d'un titre sont cherchés dans SON univers, pas dans celui
+  // du visiteur : ouvrir un titre de louange depuis un lien partagé doit
+  // proposer d'autres titres de louange, sans quoi la page « vous aimerez
+  // aussi » n'aurait aucun sens.
   const vivier = await Song.find({
     status: "published",
+    univers: song.univers,
     _id: { $ne: song._id },
     $or: criteres,
   })

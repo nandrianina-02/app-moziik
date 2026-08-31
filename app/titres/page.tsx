@@ -10,6 +10,7 @@ import { Reveal } from "@/components/layout/Reveal";
 import { useInfiniteList } from "@/hooks/useInfiniteScroll";
 import { useSiteConfig } from "@/context/SiteConfigProvider";
 import type { PlayableSong } from "@/context/PlayerProvider";
+import { useUnivers } from "@/context/UniversProvider";
 
 /**
  * Parcourt tous les titres publiés, page par page, en préchargeant la
@@ -25,6 +26,7 @@ function BrowseSongsPageContent() {
   // inconnu se traduit simplement par "Aucun titre pour ce genre"
   // ci-dessous, sans état incohérent.
   const [genre, setGenre] = useState(searchParams.get("genre") || "Tous");
+  const { univers } = useUnivers();
 
   const fetchPage = useCallback(
     async (page: number) => {
@@ -38,7 +40,12 @@ function BrowseSongsPageContent() {
     [genre]
   );
 
-  const { items: songs, loading, initialLoading, hasMore, sentinelRef } = useInfiniteList(fetchPage, genre);
+  // La clé de la liste porte l'univers : la changer remet la pagination à
+  // zéro et repart du bon catalogue, comme un changement de genre.
+  const { items: songs, loading, initialLoading, hasMore, sentinelRef } = useInfiniteList(
+    fetchPage,
+    `${genre}:${univers}`
+  );
 
   return (
     <div className="mx-auto w-full max-w-[1600px] px-6 py-8 md:px-10 md:py-10">

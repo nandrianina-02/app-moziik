@@ -20,6 +20,7 @@ export const PATCH = withApiErrors(async (req: Request) => {
     "description",
     "siteUrl",
     "defaultLanguage",
+    "defaultUnivers",
     "currency",
     "timezone",
     "dateFormat",

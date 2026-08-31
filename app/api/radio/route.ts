@@ -4,12 +4,14 @@ import Play from "@/models/Play";
 import Song from "@/models/Song";
 import Artist from "@/models/Artist";
 import { withApiErrors } from "@/lib/apiError";
+import { universDeLaRequete } from "@/lib/universServer";
+import type { Univers } from "@/lib/univers";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
-async function topSongs(since: Date, limit: number, withEvolution: boolean) {
+async function topSongs(since: Date, limit: number, withEvolution: boolean, univers: Univers) {
   const ranking = await Play.aggregate([
-    { $match: { playedAt: { $gte: since }, completed: true } },
+    { $match: { playedAt: { $gte: since }, completed: true, univers } },
     { $group: { _id: "$song", plays: { $sum: 1 } } },
     { $sort: { plays: -1 } },
     { $limit: limit },
@@ -33,7 +35,7 @@ async function topSongs(since: Date, limit: number, withEvolution: boolean) {
   const spanMs = Date.now() - since.getTime();
   const previousSince = new Date(since.getTime() - spanMs);
   const previousRanking = await Play.aggregate([
-    { $match: { playedAt: { $gte: previousSince, $lt: since }, completed: true } },
+    { $match: { playedAt: { $gte: previousSince, $lt: since }, completed: true, univers } },
     { $group: { _id: "$song", plays: { $sum: 1 } } },
     { $sort: { plays: -1 } },
   ]);
@@ -46,21 +48,23 @@ async function topSongs(since: Date, limit: number, withEvolution: boolean) {
   });
 }
 
-export const GET = withApiErrors(async () => {
+export const GET = withApiErrors(async (req: Request) => {
   await connectDB();
+  const univers = await universDeLaRequete(req);
   const since24h = new Date(Date.now() - DAY_MS);
   const sinceWeek = new Date(Date.now() - 7 * DAY_MS);
 
   const [topToday, trending, genreCounts, artists] = await Promise.all([
-    topSongs(since24h, 5, false),
-    topSongs(sinceWeek, 4, true),
+    topSongs(since24h, 5, false, univers),
+    topSongs(sinceWeek, 4, true, univers),
     Song.aggregate([
-      { $match: { status: "published" } },
+      { $match: { status: "published", univers } },
       { $group: { _id: "$genre", count: { $sum: 1 } } },
       { $sort: { count: -1 } },
       { $limit: 8},
     ]),
     Artist.aggregate([
+      { $match: { univers } },
       { $lookup: { from: "songs", localField: "_id", foreignField: "artist", as: "songs" } },
       {
         $project: {

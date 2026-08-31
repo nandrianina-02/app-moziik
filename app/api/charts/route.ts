@@ -6,6 +6,8 @@ import Artist from "@/models/Artist";
 import Song from "@/models/Song";
 import { withApiErrors } from "@/lib/apiError";
 import { getAuthUser } from "@/lib/mobileAuth";
+import { universDeLaRequete } from "@/lib/universServer";
+import type { Univers } from "@/lib/univers";
 
 type Period = "day" | "week" | "month" | "year" | "all";
 type ChartType = "songs" | "artists" | "albums" | "listeners";
@@ -33,8 +35,17 @@ function previousWindow(period: Period, since: Date | null): { start: Date | nul
   return { start: new Date(since.getTime() - spanMs), end: since };
 }
 
-async function buildRanking(type: ChartType, since: Date | null, until: Date | null, genre: string | null) {
-  const match: Record<string, unknown> = { completed: true };
+async function buildRanking(
+  type: ChartType,
+  since: Date | null,
+  until: Date | null,
+  genre: string | null,
+  univers: Univers
+) {
+  // Un palmarès mêlant les deux répertoires n'a de sens pour personne :
+  // le public du gospel et celui de la variété ne se disputent pas les
+  // mêmes places. L'univers vient du `Play`, qui le porte déjà.
+  const match: Record<string, unknown> = { completed: true, univers };
   if (since || until) {
     match.playedAt = {};
     if (since) (match.playedAt as Record<string, unknown>).$gte = since;
@@ -126,15 +137,18 @@ export const GET = withApiErrors(async (req: Request) => {
   const genre = searchParams.get("genre");
 
   await connectDB();
+  const univers = await universDeLaRequete(req);
   const since = periodStart(period);
   const { start: prevStart, end: prevEnd } = previousWindow(period, since);
 
   const [fullRanking, previousRanking, totalPlaysAgg, previousPlaysAgg, genres] = await Promise.all([
-    buildRanking(type, since, null, genre),
-    since ? buildRanking(type, prevStart, prevEnd, genre) : Promise.resolve([]),
-    Play.countDocuments({ completed: true, ...(since ? { playedAt: { $gte: since } } : {}) }),
-    prevStart ? Play.countDocuments({ completed: true, playedAt: { $gte: prevStart, $lt: prevEnd! } }) : Promise.resolve(0),
-    Song.distinct("genre", { status: "published" }),
+    buildRanking(type, since, null, genre, univers),
+    since ? buildRanking(type, prevStart, prevEnd, genre, univers) : Promise.resolve([]),
+    Play.countDocuments({ completed: true, univers, ...(since ? { playedAt: { $gte: since } } : {}) }),
+    prevStart
+      ? Play.countDocuments({ completed: true, univers, playedAt: { $gte: prevStart, $lt: prevEnd! } })
+      : Promise.resolve(0),
+    Song.distinct("genre", { status: "published", univers }),
   ]);
 
   const previousRankById = new Map(previousRanking.map((item, i) => [String(item._id), i + 1]));

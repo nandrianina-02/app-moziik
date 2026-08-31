@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { preparePageSections, type HomepageViewer } from "@/lib/homeContentEngine";
 import type { SectionPage } from "@/models/HomepageSection";
+import type { Univers } from "@/lib/univers";
 
 /**
  * Diffuse les sections d'une page en NDJSON : une ligne JSON par
@@ -20,11 +21,15 @@ import type { SectionPage } from "@/models/HomepageSection";
  * Une seule requête HTTP : pas de démarrage à froid supplémentaire par
  * section, contrairement à un point d'entrée par section.
  */
-export async function streamPageSections(page: SectionPage, viewer: HomepageViewer): Promise<NextResponse> {
+export async function streamPageSections(
+  page: SectionPage,
+  viewer: HomepageViewer,
+  univers: Univers
+): Promise<NextResponse> {
   // Volontairement avant la création du flux : une base injoignable doit
   // encore produire un vrai 503 via withApiErrors. Une fois les en-têtes
   // envoyés, il n'est plus possible de changer le code de statut.
-  const prepared = await preparePageSections(page, viewer);
+  const prepared = await preparePageSections(page, viewer, univers);
 
   // Les calculs sont déjà lancés. On leur attache un gestionnaire dans la
   // même continuation que le `await` ci-dessus : sans cela, une section qui

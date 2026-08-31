@@ -25,6 +25,8 @@ import { SafeImage } from "@/components/ui/SafeImage";
 import { useToast } from "@/context/ToastProvider";
 import { readApiError } from "@/lib/readApiError";
 import { RECETTES_INFO, IDS_RECETTES } from "@/lib/curation/labels";
+import { AdminTabs } from "@/components/admin/AdminChrome";
+import { UNIVERS, UNIVERS_INFO, type Univers } from "@/lib/univers";
 
 /**
  * Les sélections de la semaine, avant qu'elles n'atteignent l'accueil.
@@ -121,10 +123,13 @@ export default function AdminSelectionsPage() {
     action: () => Promise<void>;
   } | null>(null);
   const [deplie, setDeplie] = useState<string | null>(null);
+  // Une analyse par univers : les deux portent sur des catalogues
+  // disjoints et se valident séparément, l'écran en montre une à la fois.
+  const [univers, setUnivers] = useState<Univers>("general");
 
   const charger = useCallback(async () => {
     try {
-      const res = await fetch("/api/admin/curation");
+      const res = await fetch(`/api/admin/curation?univers=${univers}`);
       if (!res.ok) throw new Error(await readApiError(res, "Chargement impossible."));
       const data: Donnees = await res.json();
       setDonnees(data);
@@ -135,7 +140,7 @@ export default function AdminSelectionsPage() {
     } catch (err) {
       pushToast("error", err instanceof Error ? err.message : "Chargement impossible.");
     }
-  }, [pushToast]);
+  }, [pushToast, univers]);
 
   useEffect(() => {
     charger();
@@ -176,11 +181,17 @@ export default function AdminSelectionsPage() {
       });
       if (!res.ok) throw new Error(await readApiError(res, "L'opération a échoué."));
       const data = await res.json();
+      // « Analyser » couvre les deux univers d'un seul geste : le message
+      // additionne ce que chacun a produit plutôt que de n'en montrer qu'un.
+      const proposees: number =
+        action === "analyser"
+          ? ((data.analyses ?? []) as { playlists: number }[]).reduce((n, a) => n + a.playlists, 0)
+          : 0;
       pushToast(
         "success",
         succes ??
           (action === "analyser"
-            ? `${data.playlists} sélection${pluriel(data.playlists)} proposée${pluriel(data.playlists)}.`
+            ? `${proposees} sélection${pluriel(proposees)} proposée${pluriel(proposees)} sur les deux univers.`
             : "C'est fait.")
       );
       await charger();
@@ -256,6 +267,14 @@ export default function AdminSelectionsPage() {
 
   return (
     <div className="space-y-6">
+      {/* L'univers d'abord : tout ce qui suit en dépend, y compris les
+          chiffres de la semaine. */}
+      <AdminTabs
+        tabs={UNIVERS.map((u) => ({ value: u, label: UNIVERS_INFO[u].label }))}
+        value={univers}
+        onChange={setUnivers}
+      />
+
       {/* ------------------------------------------------- présentation ---- */}
       <section className="rounded-xl2 border border-border bg-surface p-5">
         <div className="flex flex-wrap items-start justify-between gap-4">

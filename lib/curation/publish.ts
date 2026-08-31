@@ -5,6 +5,7 @@ import CurationRun from "@/models/CurationRun";
 import HomepageSection from "@/models/HomepageSection";
 import HomepagePinned from "@/models/HomepagePinned";
 import { getSiteConfig } from "@/lib/siteConfig";
+import { UNIVERS_PAR_DEFAUT, type Univers } from "@/lib/univers";
 
 /**
  * Publier une analyse : rendre visible ce qui a été validé, retirer ce
@@ -27,8 +28,29 @@ import { getSiteConfig } from "@/lib/siteConfig";
  * publiques et accessibles, elles quittent simplement l'accueil.
  */
 
-/** Identifiant de la section produite. Stable : une seule section, pas une par semaine. */
+/**
+ * Identifiant de la section produite. Stable : une seule section par
+ * univers, pas une par semaine.
+ *
+ * L'univers général garde le slug historique : les sections déjà en base
+ * et les réglages que l'admin y a faits restent rattachés, sans
+ * migration. L'univers évangélique reçoit sa propre section, qui
+ * n'apparaît que dans son propre accueil (le moteur écarte déjà les
+ * épinglés de l'autre univers).
+ */
 export const SLUG_SECTION = "selections-hebdo";
+const SLUG_SECTION_CHRETIEN = "selections-hebdo-gospel";
+
+export function slugSection(univers: Univers): string {
+  return univers === "christian" ? SLUG_SECTION_CHRETIEN : SLUG_SECTION;
+}
+
+/** Titre de repli de la section, quand l'analyse n'en a pas proposé. */
+function titreParDefaut(univers: Univers): string {
+  return univers === "christian"
+    ? "Les sélections gospel de la semaine"
+    : "Les sélections de la semaine";
+}
 
 /** Sécurité : au-delà, on n'épingle plus. Une section d'accueil ne défile pas à l'infini. */
 const EPINGLES_MAX = 12;
@@ -46,11 +68,15 @@ export type ResultatPublication = {
  * Elles ne sont pas supprimées ici : `purgerAnciennes` s'en charge plus
  * tard, et seulement pour celles que personne n'a gardées.
  */
-async function archiverPrecedentes(runCourant: Types.ObjectId): Promise<number> {
+async function archiverPrecedentes(runCourant: Types.ObjectId, univers: Univers): Promise<number> {
+  // Restreint à l'univers publié : sans cela, valider les sélections
+  // gospel retirerait de l'accueil général celles de la semaine, qui
+  // n'ont rien à voir avec elles.
   const { modifiedCount } = await Playlist.updateMany(
     {
       "auto.statut": "publiee",
       "auto.run": { $ne: runCourant },
+      univers,
     },
     { $set: { "auto.statut": "archivee" } }
   );
@@ -110,18 +136,20 @@ async function installerSection(
   titre: string,
   titrePrecedent: string,
   playlists: { _id: Types.ObjectId; rang: number }[],
-  createdBy: Types.ObjectId
+  createdBy: Types.ObjectId,
+  univers: Univers
 ): Promise<string> {
   const config = await getSiteConfig();
   const position = config.curation?.sectionPosition ?? 6;
+  const slug = slugSection(univers);
 
-  const existante = await HomepageSection.findOne({ slug: SLUG_SECTION });
+  const existante = await HomepageSection.findOne({ slug });
 
   if (!existante) {
     await HomepageSection.create({
       key: "custom",
       page: "home",
-      slug: SLUG_SECTION,
+      slug,
       title: titre,
       enabled: true,
       position,
@@ -146,14 +174,14 @@ async function installerSection(
 
   // Remplacement, pas ajout : sans cette suppression, les playlists de
   // la semaine passée resteraient épinglées sous celles de la nouvelle.
-  await HomepagePinned.deleteMany({ section: SLUG_SECTION });
+  await HomepagePinned.deleteMany({ section: slug });
 
   if (playlists.length > 0) {
     await HomepagePinned.insertMany(
       playlists.slice(0, EPINGLES_MAX).map((p) => ({
         contentType: "playlist",
         contentId: p._id,
-        section: SLUG_SECTION,
+        section: slug,
         // `priority` décroissante : le rang 0 doit s'afficher en
         // premier, et l'accueil trie par priorité décroissante.
         priority: EPINGLES_MAX - p.rang,
@@ -162,7 +190,7 @@ async function installerSection(
     );
   }
 
-  return SLUG_SECTION;
+  return slug;
 }
 
 /**
@@ -184,10 +212,13 @@ export async function publierAnalyse({
   const run = await CurationRun.findById(runId);
   if (!run) throw new Error("Analyse introuvable.");
 
+  const univers = (run.univers ?? UNIVERS_PAR_DEFAUT) as Univers;
+
   // Lu AVANT d'archiver quoi que ce soit : c'est le titre que la
-  // publication précédente avait posé sur la section.
+  // publication précédente avait posé sur la section de CET univers.
   const precedente = await CurationRun.findOne({
     statut: "publiee",
+    univers,
     _id: { $ne: run._id },
   }).sort({ publieeLe: -1 });
 
@@ -200,7 +231,7 @@ export async function publierAnalyse({
   // la publier mettrait une pochette vide sur l'accueil.
   const publiables = brouillons.filter((p) => p.songs.length > 0);
 
-  const archivees = await archiverPrecedentes(run._id as Types.ObjectId);
+  const archivees = await archiverPrecedentes(run._id as Types.ObjectId, univers);
 
   await Promise.all(
     publiables.map((p) => {
@@ -213,12 +244,13 @@ export async function publierAnalyse({
   const proprietaire = (run.lancePar ?? publiables[0]?.owner) as Types.ObjectId | undefined;
   const section = proprietaire
     ? await installerSection(
-        run.titreSection || "Les sélections de la semaine",
+        run.titreSection || titreParDefaut(univers),
         precedente?.titreSection ?? "",
         publiables.map((p) => ({ _id: p._id as Types.ObjectId, rang: p.auto?.rang ?? 0 })),
-        proprietaire
+        proprietaire,
+        univers
       )
-    : SLUG_SECTION;
+    : slugSection(univers);
 
   const config = await getSiteConfig();
   const supprimees = await purgerAnciennes(config.curation?.retentionWeeks ?? 4);
@@ -254,10 +286,11 @@ export async function retirerAnalyse(runId: string): Promise<number> {
     { $set: { isPublic: false } }
   );
 
-  await HomepagePinned.deleteMany({ section: SLUG_SECTION });
+  const slug = slugSection((run.univers ?? UNIVERS_PAR_DEFAUT) as Univers);
+  await HomepagePinned.deleteMany({ section: slug });
   // La section reste en place, vide : la supprimer perdrait le titre et
   // la position que l'admin y a peut-être ajustés.
-  await HomepageSection.updateOne({ slug: SLUG_SECTION }, { $set: { enabled: false } });
+  await HomepageSection.updateOne({ slug }, { $set: { enabled: false } });
 
   run.statut = "annulee";
   run.updatedAt = new Date();

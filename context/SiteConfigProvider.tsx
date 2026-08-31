@@ -4,6 +4,7 @@ import { createContext, useCallback, useContext, useEffect, useState } from "rea
 import { defaultSiteConfig, type SiteConfig } from "@/config/site";
 import { THEME_PAR_DEFAUT, type ThemePreference } from "@/lib/theme";
 import { formatDate } from "@/lib/dates";
+import type { Univers } from "@/lib/univers";
 
 type PublicSiteConfig = Pick<
   SiteConfig,
@@ -28,6 +29,8 @@ type PublicSiteConfig = Pick<
   description?: string;
   siteUrl?: string;
   defaultLanguage?: string;
+  /** Univers musical servi par défaut (lib/univers.ts). */
+  defaultUnivers?: Univers;
   /** Devise d'affichage des prix internationaux. */
   currency?: string;
   timezone?: string;
@@ -52,7 +55,7 @@ const CONFIG_PAR_DEFAUT: PublicSiteConfig = { ...defaultSiteConfig, currency: "E
 
 const SiteConfigContext = createContext<PublicSiteConfig>(CONFIG_PAR_DEFAUT);
 
-type Preferences = { language?: string; timezone?: string; dateFormat?: string };
+type Preferences = { language?: string; timezone?: string; dateFormat?: string; univers?: Univers };
 
 /**
  * Réglages régionaux du compte connecté, s'il en a. Ils recouvrent ceux du

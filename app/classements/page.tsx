@@ -12,6 +12,7 @@ import { usePlayer, type PlayableSong } from "@/context/PlayerProvider";
 import { SongContextMenu } from "@/components/music/SongContextMenu";
 import { useLongPress } from "@/components/music/useLongPress";
 import { ShowMoreButton, useProgressiveList } from "@/components/ui/ShowMore";
+import { useUnivers } from "@/context/UniversProvider";
 
 type Period = "day" | "week" | "month" | "year" | "all";
 type ChartType = "songs" | "artists" | "albums" | "listeners";
@@ -75,6 +76,7 @@ function itemToPlayableSong(item: RankingItem): PlayableSong {
 
 export default function ChartsPage() {
   const pushToast = useToast();
+  const { univers } = useUnivers();
   const { data: session } = useSession();
   const [period, setPeriod] = useState<Period>("week");
   const [type, setType] = useState<ChartType>("songs");
@@ -107,7 +109,10 @@ export default function ChartsPage() {
       }
     }
     load();
-  }, [period, type, genre, pushToast]);
+    // `univers` en dépendance : le serveur le lit dans le cookie, mais
+    // cette page a déjà ses données. Basculer d'univers doit donc
+    // relancer la requête, sinon l'écran garde le catalogue précédent.
+  }, [period, type, genre, pushToast, univers]);
 
   const { currentSong, isPlaying, playQueue, togglePlay } = usePlayer();
 

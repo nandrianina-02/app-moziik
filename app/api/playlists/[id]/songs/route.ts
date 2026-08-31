@@ -9,6 +9,7 @@ import {
   playlistReorderSchema,
 } from "@/lib/validation";
 import { requireAuthUser, type AuthUser } from "@/lib/mobileAuth";
+import { recalculerUniversPlaylist } from "@/lib/universClassify";
 
 /**
  * Charge une playlist que l'utilisateur a le droit de modifier.
@@ -28,8 +29,20 @@ async function loadManagedPlaylist(id: string, user: AuthUser) {
   return playlist;
 }
 
-/** Renvoie la playlist repeuplée : le client remplace son état d'un bloc. */
+/**
+ * Renvoie la playlist repeuplée : le client remplace son état d'un bloc.
+ *
+ * L'univers est recalculé au passage : c'est le contenu qui situe une
+ * playlist, et il vient de changer. Le faire ici plutôt que dans chaque
+ * verbe garantit qu'aucun ajout, retrait ou réorganisation ne l'oublie.
+ */
 async function respondWithPopulated(playlist: { _id: unknown }) {
+  await recalculerUniversPlaylist(playlist._id as string).catch((err) => {
+    // Un classement qui échoue ne doit pas faire échouer l'ajout d'un
+    // titre : la playlist reste dans son univers précédent jusqu'à la
+    // prochaine modification ou à la prochaine passe de classement.
+    console.error("[univers] recalcul de playlist impossible", err);
+  });
   const populated = await Playlist.findById(playlist._id)
     .populate({
       path: "songs",

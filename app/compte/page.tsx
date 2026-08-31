@@ -33,6 +33,7 @@ import { AvatarPicker } from "@/components/account/AvatarPicker";
 import { useToast } from "@/context/ToastProvider";
 import { useFormatDate, useSiteConfig } from "@/context/SiteConfigProvider";
 import { DEVISES, FORMATS_DATE, FUSEAUX, LANGUES, deviseDe } from "@/lib/locales";
+import { UniversToggle } from "@/components/ui/UniversToggle";
 
 type Profil = {
   id: string;
@@ -617,6 +618,13 @@ export default function AccountPage() {
       {/* -------------------------------------------------- Préférences */}
       {onglet === "preferences" && (
         <div className="mt-4 space-y-4">
+          <AdminCard
+            title="Univers musical"
+            description="Général ou évangélique : ce choix décide de tout ce que vous entendez — recommandations, lecture automatique, playlists, accueil. Il s'applique immédiatement, sans passer par le bouton d'enregistrement, et suit votre compte d'un appareil à l'autre."
+          >
+            <UniversToggle />
+          </AdminCard>
+
           <AdminCard
             title="Affichage"
             description="Ces réglages ne valent que pour votre compte. Laissés sur « Réglage du site », ils suivent ce que l'équipe a choisi."

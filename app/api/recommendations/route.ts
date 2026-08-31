@@ -5,6 +5,7 @@ import Song from "@/models/Song";
 import { withApiErrors } from "@/lib/apiError";
 import { getAuthUser } from "@/lib/mobileAuth";
 import { libelleMotif, type Motif } from "@/lib/taste/motifs";
+import { universDeLaRequete } from "@/lib/universServer";
 
 /**
  * Recommandation par contenu : on regarde les genres des sons écoutés
@@ -22,10 +23,11 @@ function motifsPopulaires(songs: { _id: { toString: () => string } }[]) {
 export const GET = withApiErrors(async (req: Request) => {
   const authUser = await getAuthUser(req);
   await connectDB();
+  const univers = await universDeLaRequete(req, { compte: authUser?.id });
 
   if (!authUser) {
     // Utilisateur anonyme : on renvoie simplement les sons les plus populaires.
-    const popular = await Song.find({ status: "published" })
+    const popular = await Song.find({ status: "published", univers })
       .populate("artist", "stageName verified")
       .sort({ playsCount: -1 })
       .limit(12);
@@ -33,7 +35,9 @@ export const GET = withApiErrors(async (req: Request) => {
   }
 
   const since = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
-  const recentPlays = await Play.find({ user: authUser.id, playedAt: { $gte: since } })
+  // Historique du seul univers courant : les deux profils de goût
+  // restent étanches, comme les catalogues qu'ils décrivent.
+  const recentPlays = await Play.find({ user: authUser.id, univers, playedAt: { $gte: since } })
     .populate({ path: "song", select: "genre" });
 
   const genreCounts = new Map<string, number>();
@@ -48,7 +52,7 @@ export const GET = withApiErrors(async (req: Request) => {
   const topGenres = [...genreCounts.entries()].sort((a, b) => b[1] - a[1]).slice(0, 3).map(([g]) => g);
 
   if (topGenres.length === 0) {
-    const popular = await Song.find({ status: "published" })
+    const popular = await Song.find({ status: "published", univers })
       .populate("artist", "stageName verified")
       .sort({ playsCount: -1 })
       .limit(12);
@@ -57,6 +61,7 @@ export const GET = withApiErrors(async (req: Request) => {
 
   const recommendations = await Song.find({
     status: "published",
+    univers,
     genre: { $in: topGenres },
     _id: { $nin: [...listenedSongIds] },
   })

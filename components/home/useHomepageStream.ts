@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { memoriserManuellement } from "@/lib/offlineApi";
 import { readNdjson } from "@/lib/readNdjson";
+import { useUnivers } from "@/context/UniversProvider";
 
 export type HomepageSlot = {
   key: string;
@@ -44,8 +45,16 @@ const INITIAL: State = { slots: [], hero: null, heroPending: true, starting: tru
  */
 export function useSectionStream(streamUrl: string, fallbackUrl: string) {
   const [state, setState] = useState<State>(INITIAL);
+  // Changer d'univers change tout ce que ces sections contiennent : le
+  // serveur lit le cookie, mais la page, elle, a déjà ses données. Le
+  // compteur du fournisseur rejoue donc le flux — c'est le seul moyen de
+  // ne pas laisser un accueil général affiché à qui vient de basculer.
+  const { version, univers } = useUnivers();
 
   useEffect(() => {
+    // Repartir des squelettes plutôt que de laisser les sections de
+    // l'univers précédent à l'écran pendant que les nouvelles arrivent.
+    setState(INITIAL);
     let cancelled = false;
     // Quitter la page doit interrompre le flux : sans cela le serveur
     // continue de calculer et d'émettre des sections que plus personne
@@ -103,6 +112,9 @@ export function useSectionStream(streamUrl: string, fallbackUrl: string) {
 
     async function loadWhole() {
       const res = await fetch(fallbackUrl, { signal: controller.signal });
+      // Note : le repli hors-ligne relit la dernière page rangée, quel que
+      // soit l'univers alors actif. Sans réseau, il n'y a rien d'autre à
+      // servir — et une page vide serait pire qu'une page de l'autre bord.
       if (!res.ok) throw new Error("Chargement impossible.");
       const data = (await res.json()) as { hero: unknown; sections: { key: string; title: string; data: unknown }[] };
       apply(() => ({
@@ -148,7 +160,9 @@ export function useSectionStream(streamUrl: string, fallbackUrl: string) {
       cancelled = true;
       controller.abort();
     };
-  }, [streamUrl, fallbackUrl]);
+    // `univers` figure ici avec `version` : le premier couvre la lecture
+    // initiale du cookie, le second les bascules qui suivent.
+  }, [streamUrl, fallbackUrl, version, univers]);
 
   return state;
 }

@@ -7,6 +7,8 @@ import { notify } from "@/lib/notify";
 import { ApiError, withApiErrors } from "@/lib/apiError";
 import { parseOrThrow, createSongSchema } from "@/lib/validation";
 import { requireAuthUser } from "@/lib/mobileAuth";
+import { universDeLaRequete } from "@/lib/universServer";
+import { universALaPublication } from "@/lib/universClassify";
 
 export const GET = withApiErrors(async (req: Request) => {
   const { searchParams } = new URL(req.url);
@@ -21,7 +23,11 @@ export const GET = withApiErrors(async (req: Request) => {
   const page = Math.max(1, Number(searchParams.get("page") ?? 1));
 
   await connectDB();
-  const query: Record<string, unknown> = { status: "published" };
+  // Toute liste de titres est celle d'un seul univers. C'est aussi cette
+  // route que le prolongement de file interroge (lib/playbackContinuation.ts) :
+  // sans ce filtre, une lecture automatique finirait par basculer d'un
+  // répertoire à l'autre au bout de vingt morceaux.
+  const query: Record<string, unknown> = { status: "published", univers: await universDeLaRequete(req) };
   if (genre) query.genre = genre;
   if (artistId) query.artist = artistId;
 
@@ -113,10 +119,24 @@ export const POST = withApiErrors(async (req: Request) => {
         .map((id: string) => ({ artist: id, confirmed: false }))
     : [];
 
+  // L'univers du titre : celui de son artiste, sauf si ses propres
+  // données le rangent franchement ailleurs (le gospel d'un artiste de
+  // variété). Décidé ici plutôt qu'à la prochaine passe de classement,
+  // pour qu'un titre ne passe jamais une journée du mauvais côté.
+  const classement = universALaPublication(artistProfile.univers, {
+    titre: title,
+    genre,
+    tags,
+    paroles: lyrics,
+    description,
+  });
+
   const song = await Song.create({
     title,
     artist: artistProfile._id,
     featuring,
+    univers: classement.univers,
+    universSource: classement.source,
     album: albumId || undefined,
     audioUrl,
     coverUrl,

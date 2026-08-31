@@ -14,6 +14,7 @@ import { getSiteConfig } from "@/lib/siteConfig";
 import { getForYouCards } from "@/lib/homepageHubCards";
 import { hasPremiumAccess } from "@/lib/premium";
 import { IHomepageSection, SectionPage } from "@/models/HomepageSection";
+import { UNIVERS_PAR_DEFAUT, type Univers } from "@/lib/univers";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
@@ -36,11 +37,11 @@ async function activePinnedForSection(sectionKey: string) {
 }
 
 /** Dernières sorties : tri par date décroissante, filtrées sur le statut publié (+ vérifié en option). */
-async function getNewReleases(limit: number, verifiedOnly: boolean) {
+async function getNewReleases(limit: number, verifiedOnly: boolean, univers: Univers) {
   const artistFilter = verifiedOnly ? { verified: true } : {};
   const verifiedArtistIds = verifiedOnly ? await Artist.find(artistFilter).distinct("_id") : null;
 
-  const query: Record<string, unknown> = { status: "published" };
+  const query: Record<string, unknown> = { status: "published", univers };
   if (verifiedArtistIds) query.artist = { $in: verifiedArtistIds };
 
   return Song.find(query)
@@ -54,11 +55,11 @@ async function getNewReleases(limit: number, verifiedOnly: boolean) {
  * On part d'un lot de candidats (les 150 sons les plus écoutés) pour rester performant,
  * puis on normalise chaque métrique sur ce lot avant de pondérer.
  */
-async function getTopTracks(limit: number, verifiedOnly: boolean) {
+async function getTopTracks(limit: number, verifiedOnly: boolean, univers: Univers) {
   const artistFilter = verifiedOnly ? { verified: true } : {};
   const verifiedArtistIds = verifiedOnly ? await Artist.find(artistFilter).distinct("_id") : null;
 
-  const query: Record<string, unknown> = { status: "published" };
+  const query: Record<string, unknown> = { status: "published", univers };
   if (verifiedArtistIds) query.artist = { $in: verifiedArtistIds };
 
   const candidates = await Song.find(query)
@@ -100,8 +101,8 @@ async function getTopTracks(limit: number, verifiedOnly: boolean) {
  * croissance récente (écoutes 7 derniers jours vs 7 précédents) et les
  * commentaires sur les titres de l'album.
  */
-async function getPopularAlbums(limit: number) {
-  const albums = await Album.find({})
+async function getPopularAlbums(limit: number, univers: Univers) {
+  const albums = await Album.find({ univers })
     .populate("artist", "stageName verified")
     .populate("songs", "playsCount likesCount")
     .sort({ releaseDate: -1 })
@@ -164,15 +165,15 @@ async function getPopularAlbums(limit: number) {
  * l'engagement (commentaires + likes sur leurs titres) et les nouvelles
  * sorties (30 derniers jours).
  */
-async function getTrendingArtists(limit: number, verifiedOnly: boolean) {
-  const query: Record<string, unknown> = verifiedOnly ? { verified: true } : {};
+async function getTrendingArtists(limit: number, verifiedOnly: boolean, univers: Univers) {
+  const query: Record<string, unknown> = verifiedOnly ? { verified: true, univers } : { univers };
   const artists = await Artist.find(query).limit(80);
   if (artists.length === 0) return [];
 
   const since30 = new Date(Date.now() - 30 * DAY_MS);
   const artistIds = artists.map((a) => a._id);
 
-  const songs = await Song.find({ artist: { $in: artistIds }, status: "published" }).select(
+  const songs = await Song.find({ artist: { $in: artistIds }, status: "published", univers }).select(
     "artist playsCount likesCount releaseDate createdAt"
   );
   const songIds = songs.map((s) => s._id);
@@ -213,8 +214,8 @@ async function getTrendingArtists(limit: number, verifiedOnly: boolean) {
 }
 
 /** Playlists populaires : playlists publiques triées par nombre d'abonnés puis taille. */
-async function getPopularPlaylists(limit: number) {
-  const playlists = await Playlist.find({ isPublic: true })
+async function getPopularPlaylists(limit: number, univers: Univers) {
+  const playlists = await Playlist.find({ isPublic: true, univers })
     .sort({ followers: -1, createdAt: -1 })
     .limit(limit)
     .populate({ path: "songs", select: "artist", populate: { path: "artist", select: "stageName coverUrl" } });
@@ -243,9 +244,9 @@ async function getPopularPlaylists(limit: number) {
 }
 
 /** Genres / ambiances : genres distincts des titres publiés, triés par popularité (nombre de titres). */
-async function getGenreTiles(limit: number) {
+async function getGenreTiles(limit: number, univers: Univers) {
   const results = await Song.aggregate([
-    { $match: { status: "published" } },
+    { $match: { status: "published", univers } },
     { $group: { _id: "$genre", count: { $sum: 1 } } },
     { $sort: { count: -1 } },
     { $limit: limit },
@@ -258,13 +259,19 @@ async function getGenreTiles(limit: number) {
  * (historique de lecture). Anonyme ou sans historique -> les titres les
  * plus populaires en repli.
  */
-async function getRecommendations(userId: string | undefined, limit: number) {
+async function getRecommendations(userId: string | undefined, limit: number, univers: Univers) {
   if (!userId) {
-    return Song.find({ status: "published" }).populate("artist", "stageName verified").sort({ playsCount: -1 }).limit(limit);
+    return Song.find({ status: "published", univers })
+      .populate("artist", "stageName verified")
+      .sort({ playsCount: -1 })
+      .limit(limit);
   }
 
   const since = new Date(Date.now() - 30 * DAY_MS);
-  const recentPlays = await Play.find({ user: userId, playedAt: { $gte: since } }).populate({
+  // L'historique est lu dans le seul univers courant : une écoute de
+  // louange ne doit pas peser sur une recommandation générale, ni
+  // l'inverse.
+  const recentPlays = await Play.find({ user: userId, univers, playedAt: { $gte: since } }).populate({
     path: "song",
     select: "genre",
   });
@@ -281,11 +288,15 @@ async function getRecommendations(userId: string | undefined, limit: number) {
   const topGenres = [...genreCounts.entries()].sort((a, b) => b[1] - a[1]).slice(0, 3).map(([g]) => g);
 
   if (topGenres.length === 0) {
-    return Song.find({ status: "published" }).populate("artist", "stageName verified").sort({ playsCount: -1 }).limit(limit);
+    return Song.find({ status: "published", univers })
+      .populate("artist", "stageName verified")
+      .sort({ playsCount: -1 })
+      .limit(limit);
   }
 
   return Song.find({
     status: "published",
+    univers,
     genre: { $in: topGenres },
     _id: { $nin: [...listenedSongIds] },
   })
@@ -300,12 +311,12 @@ async function getRecommendations(userId: string | undefined, limit: number) {
  * réécouté plusieurs fois n'apparaît qu'une fois, à sa position la plus
  * récente. Vide pour un visiteur non connecté (section personnelle).
  */
-async function getRecentlyPlayed(userId: string | undefined, limit: number) {
+async function getRecentlyPlayed(userId: string | undefined, limit: number, univers: Univers) {
   if (!userId) return [];
 
   // On lit un peu plus large que `limit` pour absorber les doublons
   // (le même titre réécouté plusieurs fois) avant de dédupliquer.
-  const plays = await Play.find({ user: userId })
+  const plays = await Play.find({ user: userId, univers })
     .sort({ playedAt: -1 })
     .limit(limit * 5)
     .populate({ path: "song", populate: { path: "artist", select: "stageName verified" } });
@@ -342,9 +353,12 @@ async function getEventsSummary(limit: number) {
  * dédié pour l'instant, donc les abonnements/paliers d'écoutes n'y
  * figurent pas encore.
  */
-async function getRecentActivity(limit: number) {
+async function getRecentActivity(limit: number, univers: Univers) {
   const [songs, events] = await Promise.all([
-    Song.find({ status: "published" }).populate("artist", "stageName verified").sort({ createdAt: -1 }).limit(limit),
+    Song.find({ status: "published", univers })
+      .populate("artist", "stageName verified")
+      .sort({ createdAt: -1 })
+      .limit(limit),
     Event.find({ status: "published" }).populate("artist", "stageName verified").sort({ createdAt: -1 }).limit(limit),
   ]);
 
@@ -384,28 +398,32 @@ async function getRecentActivity(limit: number) {
  * 2) nouvelle sortie marquante (la plus écoutée des 14 derniers jours),
  * 3) titre le plus populaire toutes périodes, 4) playlist tendance.
  */
-async function getHero(heroMode: "auto" | "manual") {
+async function getHero(heroMode: "auto" | "manual", univers: Univers) {
   const pinned = await activePinnedForSection("hero");
-  if (pinned.length > 0) {
-    const top = pinned[0];
-    const resolved = await resolvePinnedContent(top);
-    if (resolved) return { source: "pinned" as const, ...resolved };
+  // Une bannière épinglée hors de l'univers courant est passée plutôt
+  // qu'affichée : l'admin la pose pour l'un des deux publics, et la
+  // montrer à l'autre serait exactement le mélange qu'on évite.
+  for (const candidat of pinned) {
+    const resolved = await resolvePinnedContent(candidat);
+    if (resolved && appartientALUnivers(resolved, univers)) {
+      return { source: "pinned" as const, ...resolved };
+    }
   }
 
   if (heroMode === "manual") return null;
 
   const since14 = new Date(Date.now() - 14 * DAY_MS);
-  const recentImportant = await Song.findOne({ status: "published", releaseDate: { $gte: since14 } })
+  const recentImportant = await Song.findOne({ status: "published", univers, releaseDate: { $gte: since14 } })
     .populate("artist", "stageName verified")
     .sort({ playsCount: -1 });
   if (recentImportant) return { source: "new_release" as const, contentType: "song" as const, song: recentImportant };
 
-  const mostPopular = await Song.findOne({ status: "published" })
+  const mostPopular = await Song.findOne({ status: "published", univers })
     .populate("artist", "stageName verified")
     .sort({ playsCount: -1 });
   if (mostPopular) return { source: "popular" as const, contentType: "song" as const, song: mostPopular };
 
-  const trendingPlaylist = await Playlist.findOne({ isPublic: true }).sort({ followers: -1 });
+  const trendingPlaylist = await Playlist.findOne({ isPublic: true, univers }).sort({ followers: -1 });
   if (trendingPlaylist) return { source: "playlist" as const, contentType: "playlist" as const, playlist: trendingPlaylist };
 
   return null;
@@ -455,6 +473,29 @@ async function resolvePinnedContent(pinned: IHomepagePinned) {
 }
 
 type ResolvedPinnedContent = NonNullable<Awaited<ReturnType<typeof resolvePinnedContent>>>;
+
+/**
+ * Un contenu épinglé par l'administration a-t-il sa place dans cet univers ?
+ *
+ * Épingler est une décision éditoriale, mais elle vise un public : mettre
+ * en avant un titre de louange auprès de qui a choisi l'univers général
+ * annulerait la séparation là où elle se voit le plus — en haut de la
+ * page d'accueil. Les bannières libres (« custom ») n'ont pas d'univers
+ * puisqu'elles n'ont pas de contenu derrière : elles restent visibles des
+ * deux côtés, ce qui est la seule réponse possible.
+ */
+function appartientALUnivers(resolved: ResolvedPinnedContent, univers: Univers): boolean {
+  const porteur = resolved as {
+    contentType: string;
+    song?: { univers?: Univers };
+    album?: { univers?: Univers };
+    artist?: { univers?: Univers };
+    playlist?: { univers?: Univers };
+  };
+  const contenu = porteur.song ?? porteur.album ?? porteur.artist ?? porteur.playlist;
+  if (!contenu) return true;
+  return (contenu.univers ?? UNIVERS_PAR_DEFAUT) === univers;
+}
 
 /** Convertit une liste de contenus épinglés résolus dans la forme exacte attendue par le frontend pour cette section. */
 function formatManualSection(key: IHomepageSection["key"], resolved: ResolvedPinnedContent[]) {
@@ -590,6 +631,8 @@ const MANUAL_CAPABLE_KEYS: IHomepageSection["key"][] = [
 
 type SectionContext = {
   viewer: HomepageViewer;
+  /** Univers musical de ce visiteur : il filtre absolument toutes les sections. */
+  univers: Univers;
   settings: Awaited<ReturnType<typeof getHomepageSettings>>;
   siteConfig: Awaited<ReturnType<typeof getSiteConfig>>;
 };
@@ -604,40 +647,52 @@ async function isSubscriber(viewer: HomepageViewer) {
 /** Calcule les données d'une seule section. Ne rejette jamais pour une panne isolée : voir buildSection. */
 async function computeSection(section: IHomepageSection, ctx: SectionContext): Promise<unknown> {
   const userId = ctx.viewer?.id;
+  const univers = ctx.univers;
 
   if (section.mode === "manual" && MANUAL_CAPABLE_KEYS.includes(section.key)) {
+    // On résout plus large que la limite : les contenus de l'autre
+    // univers sont écartés ensuite, et une section n'a pas à se vider
+    // parce que les premiers épinglés visaient l'autre public.
     const pinned = await activePinnedForSection(section.slug ?? section.key);
-    const resolved = (await Promise.all(pinned.slice(0, section.limit).map(resolvePinnedContent))).filter(
-      (r): r is NonNullable<typeof r> => Boolean(r)
-    );
+    const resolved = (await Promise.all(pinned.map(resolvePinnedContent)))
+      .filter((r): r is NonNullable<typeof r> => Boolean(r))
+      .filter((r) => appartientALUnivers(r, univers))
+      .slice(0, section.limit);
     return formatManualSection(section.key, resolved);
   }
 
   switch (section.key) {
     case "for_you":
-      return getForYouCards(section.limit, userId);
+      return getForYouCards(section.limit, userId, univers);
     case "recently_played":
-      return getRecentlyPlayed(userId, section.limit);
+      return getRecentlyPlayed(userId, section.limit, univers);
     case "new_releases":
-      return getNewReleases(section.limit, section.filters.verifiedOnly);
+      return getNewReleases(section.limit, section.filters.verifiedOnly, univers);
     case "top_tracks":
-      return getTopTracks(section.limit, section.filters.verifiedOnly);
+      return getTopTracks(section.limit, section.filters.verifiedOnly, univers);
     case "albums":
-      return getPopularAlbums(section.limit);
+      return getPopularAlbums(section.limit, univers);
     case "trending_artists":
-      return getTrendingArtists(section.limit, section.filters.verifiedOnly);
+      return getTrendingArtists(section.limit, section.filters.verifiedOnly, univers);
     case "recommendations":
-      return ctx.settings.recommendationMode === "auto" ? getRecommendations(userId, section.limit) : [];
+      return ctx.settings.recommendationMode === "auto"
+        ? getRecommendations(userId, section.limit, univers)
+        : [];
     case "playlists":
-      return getPopularPlaylists(section.limit);
+      return getPopularPlaylists(section.limit, univers);
     case "genres":
-      return getGenreTiles(section.limit);
+      return getGenreTiles(section.limit, univers);
     case "events":
+      // Volontairement non filtré : un concert n'est pas un morceau qu'on
+      // enchaîne, et le catalogue ne dit pas si une salle programme du
+      // gospel ou de la variété. Filtrer sur l'univers de l'artiste ferait
+      // disparaître des dates réelles sur une donnée qui n'a pas été
+      // saisie pour ça.
       return getEventsSummary(section.limit);
     case "radio":
       return { active: true };
     case "activity":
-      return getRecentActivity(section.limit);
+      return getRecentActivity(section.limit, univers);
     case "premium":
       return { plans: ctx.siteConfig.plans, isSubscriber: await isSubscriber(ctx.viewer) };
     default:
@@ -678,7 +733,7 @@ async function buildSection(section: IHomepageSection, ctx: SectionContext): Pro
  * diffuser chaque section dès qu'elle est prête (voir
  * app/api/homepage/stream/route.ts) au lieu d'attendre la plus lente.
  */
-export async function preparePageSections(page: SectionPage, viewer: HomepageViewer) {
+export async function preparePageSections(page: SectionPage, viewer: HomepageViewer, univers: Univers) {
   await connectDB();
 
   const [sections, settings, siteConfig] = await Promise.all([
@@ -687,7 +742,7 @@ export async function preparePageSections(page: SectionPage, viewer: HomepageVie
     getSiteConfig(),
   ]);
 
-  const ctx: SectionContext = { viewer, settings, siteConfig };
+  const ctx: SectionContext = { viewer, univers, settings, siteConfig };
   const enabled = sections.filter((s) => s.enabled);
 
   return {
@@ -695,7 +750,7 @@ export async function preparePageSections(page: SectionPage, viewer: HomepageVie
     // propre en-tête et une seconde bannière ferait doublon.
     hero:
       page === "home" && enabled.some((s) => s.key === "hero")
-        ? getHero(settings.heroMode)
+        ? getHero(settings.heroMode, univers)
         : Promise.resolve(null),
     sections: enabled
       .filter((s) => s.key !== "hero")
@@ -708,13 +763,13 @@ export async function preparePageSections(page: SectionPage, viewer: HomepageVie
 }
 
 /** Raccourci pour l'accueil. */
-export function prepareHomepage(viewer: HomepageViewer) {
-  return preparePageSections("home", viewer);
+export function prepareHomepage(viewer: HomepageViewer, univers: Univers) {
+  return preparePageSections("home", viewer, univers);
 }
 
 /** Construit l'intégralité du payload d'une page à partir de la config admin et des données live. */
-export async function getPageSectionsData(page: SectionPage, viewer: HomepageViewer) {
-  const prepared = await preparePageSections(page, viewer);
+export async function getPageSectionsData(page: SectionPage, viewer: HomepageViewer, univers: Univers) {
+  const prepared = await preparePageSections(page, viewer, univers);
   const [hero, sections] = await Promise.all([
     prepared.hero,
     Promise.all(prepared.sections.map((s) => s.payload)),
@@ -724,6 +779,6 @@ export async function getPageSectionsData(page: SectionPage, viewer: HomepageVie
 }
 
 /** Construit l'intégralité du payload /api/homepage. */
-export function getHomepageData(viewer: HomepageViewer) {
-  return getPageSectionsData("home", viewer);
+export function getHomepageData(viewer: HomepageViewer, univers: Univers) {
+  return getPageSectionsData("home", viewer, univers);
 }

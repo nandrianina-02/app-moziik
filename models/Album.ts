@@ -1,4 +1,5 @@
 import { Schema, models, model, Types, Model } from "mongoose";
+import { UNIVERS, UNIVERS_PAR_DEFAUT, type Univers } from "@/lib/univers";
 
 export type AlbumType = "album" | "ep" | "single";
 
@@ -12,6 +13,8 @@ export interface IAlbum {
   songs: Types.ObjectId[]; // ref Song
   releaseDate: Date;
   downloadsCount: number; // téléchargements de l'album complet (hors-ligne)
+  /** Suit l'univers de son artiste (lib/universClassify.ts). */
+  univers: Univers;
   createdAt: Date;
 }
 
@@ -25,6 +28,7 @@ const AlbumSchema = new Schema<IAlbum>({
   songs: [{ type: Schema.Types.ObjectId, ref: "Song" }],
   releaseDate: { type: Date, required: true },
   downloadsCount: { type: Number, default: 0 },
+  univers: { type: String, enum: UNIVERS, default: UNIVERS_PAR_DEFAUT, index: true },
   createdAt: { type: Date, default: Date.now },
 });
 

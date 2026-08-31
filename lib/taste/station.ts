@@ -4,6 +4,7 @@ import Song from "@/models/Song";
 import { DESCRIPTION_MOMENTS, type Moment } from "@/lib/taste/context";
 import { familleDuMotif, type Famille, type Motif } from "@/lib/taste/motifs";
 import { artistesPreferes, genresPreferes, profilVide, type ProfilGouts } from "@/lib/taste/profile";
+import type { Univers } from "@/lib/univers";
 
 /**
  * La station personnalisée : une file sans fin, bâtie pour un auditeur.
@@ -65,9 +66,21 @@ export type TitreDeStation = {
 
 const CHAMPS = "title coverUrl audioUrl duration genre language bpm releaseDate artist album playsCount";
 
-/** Les titres jouables correspondant à un filtre, peuplés pour le lecteur. */
-async function chercher(filtre: Record<string, unknown>, limite: number, tri: Record<string, 1 | -1>) {
-  return Song.find({ status: "published", ...filtre })
+/**
+ * Les titres jouables correspondant à un filtre, peuplés pour le lecteur.
+ *
+ * L'univers est passé par l'appelant plutôt que lu ici : une station ne
+ * mélange jamais les deux répertoires, et c'est la seule contrainte de ce
+ * fichier qui ne soit pas négociable — les autres cèdent quand le
+ * catalogue ne suffit pas, celle-là jamais.
+ */
+async function chercher(
+  univers: Univers,
+  filtre: Record<string, unknown>,
+  limite: number,
+  tri: Record<string, 1 | -1>
+) {
+  return Song.find({ status: "published", univers, ...filtre })
     .select(CHAMPS)
     .populate("artist", "stageName verified")
     .populate("album", "title")
@@ -123,7 +136,12 @@ function nomArtiste(song: Record<string, unknown>): string {
 /* ------------------------------------------------------------ familles -- */
 
 /** Ce qu'il connaît : ses favoris et ce qu'il réécoute. */
-async function familier(profil: ProfilGouts, exclus: Set<string>, moment: Moment): Promise<Candidat[]> {
+async function familier(
+  profil: ProfilGouts,
+  exclus: Set<string>,
+  moment: Moment,
+  univers: Univers
+): Promise<Candidat[]> {
   const connus = [...profil.connus.entries()]
     .filter(([id]) => !exclus.has(id) && !profil.refuses.has(id))
     .sort((a, b) => b[1] - a[1])
@@ -133,7 +151,7 @@ async function familier(profil: ProfilGouts, exclus: Set<string>, moment: Moment
   const ids = identifiants([...profil.favoris, ...connus].filter((id) => !exclus.has(id)));
   if (ids.length === 0) return [];
 
-  const titres = await chercher({ _id: { $in: ids } }, VIVIER, { playsCount: -1 });
+  const titres = await chercher(univers, { _id: { $in: ids } }, VIVIER, { playsCount: -1 });
 
   return titres.map((s) => {
     const song = s as unknown as Record<string, unknown>;
@@ -151,7 +169,12 @@ async function familier(profil: ProfilGouts, exclus: Set<string>, moment: Moment
 }
 
 /** Le voisinage : ses artistes et ses genres, mais des titres qu'il n'a pas entendus. */
-async function voisin(profil: ProfilGouts, exclus: Set<string>, moment: Moment): Promise<Candidat[]> {
+async function voisin(
+  profil: ProfilGouts,
+  exclus: Set<string>,
+  moment: Moment,
+  univers: Univers
+): Promise<Candidat[]> {
   const artistes = identifiants(artistesPreferes(profil, 10));
   const genres = genresPreferes(profil, 4);
   if (artistes.length === 0 && genres.length === 0) return [];
@@ -162,6 +185,7 @@ async function voisin(profil: ProfilGouts, exclus: Set<string>, moment: Moment):
   if (genres.length) criteres.push({ genre: { $in: genres } });
 
   const titres = await chercher(
+    univers,
     { $or: criteres, _id: { $nin: dejaVus } },
     VIVIER,
     { playsCount: -1 }
@@ -200,14 +224,19 @@ async function voisin(profil: ProfilGouts, exclus: Set<string>, moment: Moment):
  * voisinage. On s'appuie sur ce que le reste du public écoute, seul
  * garde-fou disponible contre la proposition purement arbitraire.
  */
-async function decouverte(profil: ProfilGouts, exclus: Set<string>, moment: Moment): Promise<Candidat[]> {
+async function decouverte(
+  profil: ProfilGouts,
+  exclus: Set<string>,
+  moment: Moment,
+  univers: Univers
+): Promise<Candidat[]> {
   const siens = genresPreferes(profil, 4);
   const dejaVus = identifiants([...profil.connus.keys(), ...exclus, ...profil.refuses]);
 
   const filtre: Record<string, unknown> = { _id: { $nin: dejaVus } };
   if (siens.length > 0) filtre.genre = { $nin: siens };
 
-  const titres = await chercher(filtre, VIVIER, { playsCount: -1 });
+  const titres = await chercher(univers, filtre, VIVIER, { playsCount: -1 });
 
   return titres.map((s) => {
     const song = s as unknown as Record<string, unknown>;
@@ -334,11 +363,13 @@ export type Station = {
 export async function construireStation({
   profil,
   moment,
+  univers,
   exclus = new Set<string>(),
   taille = PAR_TOUR,
 }: {
   profil: ProfilGouts;
   moment: Moment;
+  univers: Univers;
   exclus?: Set<string>;
   taille?: number;
 }): Promise<Station> {
@@ -348,7 +379,7 @@ export async function construireStation({
   // le public écoute. Le dire plutôt que d'habiller du populaire en
   // « choisi pour vous ».
   if (!profil.assezDeDonnees) {
-    const populaires = await decouverte(profilVide(), exclus, moment);
+    const populaires = await decouverte(profilVide(), exclus, moment, univers);
     return {
       titres: monter({ familier: [], voisin: [], decouverte: populaires }, taille),
       personnalisee: false,
@@ -357,9 +388,9 @@ export async function construireStation({
   }
 
   const [f, v, d] = await Promise.all([
-    familier(profil, exclus, moment),
-    voisin(profil, exclus, moment),
-    decouverte(profil, exclus, moment),
+    familier(profil, exclus, moment, univers),
+    voisin(profil, exclus, moment, univers),
+    decouverte(profil, exclus, moment, univers),
   ]);
 
   const titres = monter({ familier: f, voisin: v, decouverte: d }, taille);

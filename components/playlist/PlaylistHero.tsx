@@ -151,7 +151,7 @@ export function PlaylistHero({
             <button
               onClick={onTogglePlayAll}
               aria-label={isCurrentPlaylistPlaying ? "Mettre en pause" : "Tout écouter"}
-              className="absolute inset-0 grid place-items-center rounded-xl2 bg-black/0 opacity-0 transition-all group-hover:bg-black/30 group-hover:opacity-100"
+              className="absolute inset-0 grid place-items-center rounded-xl2 bg-black/0 transition-all group-hover:bg-black/30 au-survol"
             >
               <span className="grid h-14 w-14 place-items-center rounded-full bg-accent text-base shadow-lg transition-transform hover:scale-105">
                 {isCurrentPlaylistPlaying ? (

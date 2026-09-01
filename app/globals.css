@@ -120,6 +120,35 @@ html.light {
       transition-duration: 0.01ms !important;
     }
   }
+
+  /* --- Sélection de texte au doigt ---
+     Sur un écran tactile, l'appui long sert à ouvrir les menus contextuels
+     (voir components/music/useLongPress.ts). Sans cette règle, le même
+     geste surligne le titre d'un morceau et fait surgir la bulle
+     « Copier / Partager » du système par-dessus notre propre menu.
+
+     La sélection est donc coupée sur les pointeurs grossiers, puis rendue
+     là où elle sert vraiment : les champs de saisie, et tout ce qui se lit
+     et se recopie (paroles, biographies, mentions légales, aide,
+     commentaires, coordonnées), marqué `.selectionnable`. */
+  @media (pointer: coarse) {
+    body {
+      -webkit-user-select: none;
+      user-select: none;
+      -webkit-touch-callout: none;
+    }
+
+    input,
+    textarea,
+    select,
+    [contenteditable="true"],
+    .selectionnable,
+    .selectionnable * {
+      -webkit-user-select: text;
+      user-select: text;
+      -webkit-touch-callout: default;
+    }
+  }
 }
 
 /* Barre de défilement discrète, cohérente avec le thème.
@@ -148,6 +177,32 @@ html.light {
 }
 
 @layer utilities {
+  /* --- Commandes révélées au survol ---
+     Un écran tactile n'a pas de survol : une commande en `opacity-0
+     group-hover:opacity-100` y restait invisible pour de bon, et rien
+     n'indiquait qu'elle existait. Cette classe inverse la logique — visible
+     par défaut, effacée seulement là où un vrai survol est possible.
+
+     `focus-within` la rappelle aussi à la navigation clavier, qui n'a pas
+     davantage de survol que le doigt. */
+  .au-survol {
+    opacity: 1;
+  }
+
+  @media (hover: hover) and (pointer: fine) {
+    .au-survol {
+      opacity: 0;
+      transition: opacity 0.2s ease-out;
+    }
+    .group:hover .au-survol,
+    .au-survol:hover,
+    .au-survol:focus-visible,
+    .au-survol:focus-within {
+      opacity: 1;
+    }
+  }
+
+
   .animate-fade-in {
     animation: fadeIn 0.4s ease-out both;
   }

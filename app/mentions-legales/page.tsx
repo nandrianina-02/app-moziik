@@ -370,7 +370,7 @@ export default function LegalPage() {
                   </div>
                   <div className="min-w-0 flex-1">
                     <h2 className="mb-2 text-base font-semibold text-ink md:text-lg">{section.title}</h2>
-                    <div className="space-y-3 text-sm leading-relaxed text-ink-muted">
+                    <div className="selectionnable space-y-3 text-sm leading-relaxed text-ink-muted">
                       {section.render(ctx)}
                     </div>
                   </div>

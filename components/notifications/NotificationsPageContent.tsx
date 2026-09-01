@@ -481,7 +481,7 @@ function NotificationRow({
               de survol sur un téléphone ; à la souris elles n'apparaissent
               qu'au survol, pour garder la liste aussi calme que la maquette. */}
           {hasActions && (
-            <div className="mt-2.5 flex items-center gap-2 sm:opacity-0 sm:transition-opacity sm:focus-within:opacity-100 sm:group-hover:opacity-100">
+            <div className="mt-2.5 flex items-center gap-2 au-survol">
               {songId && <LikeQuickAction songId={songId} />}
 
               {notification.link && actionLabel && (

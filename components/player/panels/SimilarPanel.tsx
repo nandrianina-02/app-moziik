@@ -79,7 +79,7 @@ export function SimilarPanel({ songId }: { songId: string }) {
                 height={40}
                 className="h-10 w-10 rounded-lg object-cover"
               />
-              <span className="absolute inset-0 grid place-items-center rounded-lg bg-black/45 opacity-0 transition-opacity group-hover:opacity-100">
+              <span className="absolute inset-0 grid place-items-center rounded-lg bg-black/0 group-hover:bg-black/45 au-survol">
                 <Play size={14} className="text-white" fill="currentColor" />
               </span>
             </span>
@@ -105,7 +105,7 @@ export function SimilarPanel({ songId }: { songId: string }) {
             }}
             aria-label="Lire ensuite"
             title="Lire ensuite"
-            className="shrink-0 rounded-full p-1.5 text-ink-muted opacity-0 transition-opacity hover:bg-base hover:text-accent focus:opacity-100 group-hover:opacity-100"
+            className="shrink-0 rounded-full p-1.5 text-ink-muted hover:bg-base hover:text-accent au-survol"
           >
             <ListPlus size={15} />
           </button>

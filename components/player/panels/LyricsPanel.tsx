@@ -235,7 +235,7 @@ export function LyricsPanel({
         className="min-h-0 flex-1 overflow-y-auto pr-1"
       >
         {afficherTraduction && traductionBloc ? (
-          <p className="whitespace-pre-line text-[15px] leading-relaxed text-ink">{traductionBloc}</p>
+          <p className="selectionnable whitespace-pre-line text-[15px] leading-relaxed text-ink">{traductionBloc}</p>
         ) : (
           <ul className="space-y-1 pb-24">
             {paroles.lignes.map((ligne, i) => {
@@ -256,7 +256,7 @@ export function LyricsPanel({
                         // plus grande, grasse et en accent — sans avoir a
                         // rendre le reste illisible.
                         "text-[15px] text-ink-muted"
-                  }`}
+                  } selectionnable`}
                 >
                   {texte}
                 </span>

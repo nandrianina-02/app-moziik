@@ -74,7 +74,7 @@ export function SongCard({
             {formatTime(song.duration)}
           </span>
           <span className="absolute inset-0 grid place-items-center bg-black/0 transition-colors group-hover:bg-black/30">
-            <span className="grid h-10 w-10 place-items-center rounded-full bg-accent text-base opacity-0 shadow-lg transition-opacity group-hover:opacity-100">
+            <span className="grid h-10 w-10 place-items-center rounded-full bg-accent text-base shadow-lg au-survol">
               {isCurrent && isPlaying ? <Pause size={16} fill="currentColor" /> : <Play size={16} fill="currentColor" />}
             </span>
           </span>

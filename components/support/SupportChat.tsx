@@ -323,7 +323,7 @@ function TexteAvecLiens({ texte }: { texte: string }) {
   // reste du texte écrit par quelqu'un d'autre.
   const morceaux = texte.split(LIEN_AIDE);
   return (
-    <p className="whitespace-pre-line break-words">
+    <p className="selectionnable whitespace-pre-line break-words">
       {morceaux.map((morceau, i) =>
         i % 2 === 1 ? (
           <Link key={i} href={morceau} className="underline underline-offset-2 hover:text-accent">

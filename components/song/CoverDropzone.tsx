@@ -75,7 +75,7 @@ export function CoverDropzone({
           </div>
         )}
 
-        <div className="absolute inset-0 flex items-center justify-center bg-black/0 opacity-0 transition-all duration-200 group-hover:bg-black/45 group-hover:opacity-100">
+        <div className="absolute inset-0 flex items-center justify-center bg-black/0 transition-all duration-200 group-hover:bg-black/45 au-survol">
           <span className="grid h-11 w-11 place-items-center rounded-full bg-white text-black shadow-lg">
             <Camera size={18} />
           </span>

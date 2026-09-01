@@ -131,7 +131,7 @@ function AProposTab({ playlist }: { playlist: PlaylistDetail }) {
       <div className="rounded-xl2 border border-border bg-surface p-5">
         <h3 className="mb-3 text-sm font-medium">À propos de cette playlist</h3>
         {playlist.description?.trim() ? (
-          <p className="whitespace-pre-line text-sm leading-relaxed text-ink-muted">{playlist.description}</p>
+          <p className="selectionnable whitespace-pre-line text-sm leading-relaxed text-ink-muted">{playlist.description}</p>
         ) : (
           <p className="text-sm italic text-ink-muted">
             {playlist.owner?.name ?? "Le créateur"} n&apos;a pas encore ajouté de description.

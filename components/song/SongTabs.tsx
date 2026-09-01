@@ -146,7 +146,7 @@ function LyricsTab({ song }: { song: SongDetail }) {
   }
   return (
     <div className="rounded-xl2 border border-border bg-surface p-6">
-      <p className="whitespace-pre-line text-sm leading-relaxed text-ink">
+      <p className="selectionnable whitespace-pre-line text-sm leading-relaxed text-ink">
         {song.lyrics}
       </p>
     </div>

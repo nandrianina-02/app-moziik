@@ -1002,7 +1002,7 @@ const SongTableRow = memo(function SongTableRow({
       <td className="py-2.5 pr-3 text-ink-muted">{formatCompactNumber(song.sharesCount ?? 0)}</td>
       <td className="py-2.5 pr-3 whitespace-nowrap text-ink-muted">{formatDate(song.releaseDate)}</td>
       <td className="py-2.5 pr-4">
-        <div className="flex items-center justify-end gap-1 opacity-0 transition-opacity focus-within:opacity-100 group-hover:opacity-100">
+        <div className="flex items-center justify-end gap-1 au-survol">
           <Link href={`/son/${song._id}/modifier`} aria-label={`Modifier ${song.title}`} className="rounded-lg p-1.5 text-ink-muted hover:bg-base hover:text-accent">
             <Pencil size={14} />
           </Link>
@@ -1112,7 +1112,7 @@ const SongGridCard = memo(function SongGridCard({
         <button
           onClick={onPlay}
           aria-label={isCurrent && isPlaying ? "Mettre en pause" : `Lire ${song.title}`}
-          className="absolute bottom-2 right-2 grid h-9 w-9 place-items-center rounded-full bg-accent text-base opacity-0 shadow-lg transition-opacity group-hover:opacity-100"
+          className="absolute bottom-2 right-2 grid h-9 w-9 place-items-center rounded-full bg-accent text-base shadow-lg au-survol"
         >
           {isCurrent && isPlaying ? <Pause size={15} fill="currentColor" /> : <Play size={15} fill="currentColor" />}
         </button>

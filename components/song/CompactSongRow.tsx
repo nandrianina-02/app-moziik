@@ -33,7 +33,7 @@ export function CompactSongRow({
           height={36}
           className="rounded-md object-cover"
         />
-        <span className="absolute inset-0 grid place-items-center rounded-md bg-black/40 opacity-0 transition-opacity group-hover:opacity-100">
+        <span className="absolute inset-0 grid place-items-center rounded-md bg-black/0 group-hover:bg-black/40 au-survol">
           {isCurrent && isPlaying ? (
             <Pause size={12} className="text-white" fill="currentColor" />
           ) : (

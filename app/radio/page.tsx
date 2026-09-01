@@ -506,7 +506,7 @@ function TopTodayTile({ song, rank }: { song: RadioData["topToday"][number]; ran
         <div className="relative aspect-square overflow-hidden rounded-xl2 bg-base">
           <SafeImage src={song.coverUrl} alt={song.title} width={120} height={120} className="h-full w-full object-cover" />
           <span className="absolute inset-0 grid place-items-center bg-black/0 transition-colors group-hover:bg-black/30">
-            <Play size={20} className="text-white opacity-0 group-hover:opacity-100" fill="currentColor" />
+            <Play size={20} className="text-white au-survol" fill="currentColor" />
           </span>
         </div>
         <p className="mt-1.5 truncate text-xs font-medium">{rank}. {song.title}</p>

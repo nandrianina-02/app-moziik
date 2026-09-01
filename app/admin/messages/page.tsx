@@ -418,7 +418,7 @@ export default function AdminMessagesPage() {
                                   : "bg-base text-ink"
                             }`}
                           >
-                            <p className="whitespace-pre-line break-words">{m.body}</p>
+                            <p className="selectionnable whitespace-pre-line break-words">{m.body}</p>
                           </div>
                         </div>
                       </div>

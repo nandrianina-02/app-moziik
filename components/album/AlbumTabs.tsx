@@ -172,7 +172,7 @@ function AProposTab({
             </div>
           </div>
         ) : album.description?.trim() ? (
-          <p className="whitespace-pre-line text-sm leading-relaxed text-ink-muted">{album.description}</p>
+          <p className="selectionnable whitespace-pre-line text-sm leading-relaxed text-ink-muted">{album.description}</p>
         ) : (
           <p className="text-sm italic text-ink-muted">
             {album.artist?.stageName ?? "L'artiste"} n&apos;a pas encore ajouté de description pour cet album.
@@ -183,7 +183,7 @@ function AProposTab({
       {album.artist?.bio?.trim() && (
         <div className="rounded-xl2 border border-border bg-surface p-5">
           <h3 className="mb-2 text-sm font-medium">À propos de l&apos;artiste</h3>
-          <p className="whitespace-pre-line text-sm leading-relaxed text-ink-muted">{album.artist.bio}</p>
+          <p className="selectionnable whitespace-pre-line text-sm leading-relaxed text-ink-muted">{album.artist.bio}</p>
         </div>
       )}
     </div>

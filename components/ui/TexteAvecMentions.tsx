@@ -13,7 +13,9 @@ export function TexteAvecMentions({ texte, className = "" }: { texte: string; cl
   const morceaux = decouperMentions(texte);
 
   return (
-    <span className={className}>
+    // `selectionnable` : un commentaire se cite, et le doigt doit pouvoir
+    // le surligner malgré la règle générale (voir app/globals.css).
+    <span className={`selectionnable ${className}`}>
       {morceaux.map((morceau, i) =>
         morceau.type === "mention" ? (
           <Link

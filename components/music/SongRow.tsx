@@ -68,7 +68,7 @@ export function SongRow({
       <button onClick={handleClick} className="flex items-center gap-3 flex-1 min-w-0 text-left">
         <div className="relative shrink-0">
           <SafeImage src={song.coverUrl} alt={song.title} width={44} height={44} className="rounded-lg object-cover" />
-          <span className="absolute inset-0 grid place-items-center rounded-lg bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity">
+          <span className="absolute inset-0 grid place-items-center rounded-lg bg-black/0 group-hover:bg-black/40 au-survol">
             {isCurrent && isPlaying ? (
               <Pause size={16} className="text-white" fill="currentColor" />
             ) : (
@@ -99,7 +99,7 @@ export function SongRow({
       <button
         onClick={(e) => openMenuAt(e.clientX, e.clientY)}
         aria-label="Options du son"
-        className="shrink-0 text-ink-muted hover:text-ink p-1.5 rounded-full hover:bg-base opacity-0 group-hover:opacity-100 focus:opacity-100 transition-opacity"
+        className="shrink-0 text-ink-muted hover:text-ink p-1.5 rounded-full hover:bg-base au-survol"
       >
         <MoreVertical size={16} />
       </button>

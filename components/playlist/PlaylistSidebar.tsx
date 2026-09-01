@@ -56,7 +56,7 @@ export function PlaylistSidebar({
           <h3 className="mb-2 flex items-center gap-1.5 text-sm font-medium">
             <Info size={14} className="text-accent" /> À propos de cette playlist
           </h3>
-          <p className="whitespace-pre-line text-sm leading-relaxed text-ink-muted">{playlist.description}</p>
+          <p className="selectionnable whitespace-pre-line text-sm leading-relaxed text-ink-muted">{playlist.description}</p>
         </div>
       )}
 

@@ -44,7 +44,7 @@ export function SectionAPropos({ event }: { event: EventDetail }) {
   const highlights = event.highlights ?? [];
   return (
     <BlocSection id="a-propos" titre="À propos de l'évènement">
-      <p className="whitespace-pre-line text-sm leading-relaxed text-ink-muted">{event.description}</p>
+      <p className="selectionnable whitespace-pre-line text-sm leading-relaxed text-ink-muted">{event.description}</p>
 
       {highlights.length > 0 && (
         <ul className="mt-5 grid grid-cols-2 gap-2.5 sm:grid-cols-3 lg:grid-cols-5">

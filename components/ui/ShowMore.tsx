@@ -110,7 +110,7 @@ export function ExpandableText({
 
   return (
     <div>
-      <p className={`whitespace-pre-line ${className} ${long && !open ? clampClasses[clamp] : ""}`}>{text}</p>
+      <p className={`selectionnable whitespace-pre-line ${className} ${long && !open ? clampClasses[clamp] : ""}`}>{text}</p>
       {long && (
         <button
           onClick={() => setOpen((v) => !v)}

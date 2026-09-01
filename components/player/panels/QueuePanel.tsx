@@ -288,7 +288,7 @@ function LigneFile({
             onDeplacer(1);
           }
         }}
-        className="shrink-0 cursor-grab rounded p-0.5 text-ink-muted opacity-0 transition-opacity focus:opacity-100 group-hover:opacity-100 active:cursor-grabbing"
+        className="shrink-0 cursor-grab rounded p-0.5 text-ink-muted active:cursor-grabbing au-survol"
       >
         <GripVertical size={14} />
       </button>
@@ -331,7 +331,7 @@ function LigneFile({
         onClick={onRemove}
         aria-label={`Retirer « ${song.title} » de la file`}
         title="Retirer de la file"
-        className="shrink-0 rounded-full p-1 text-ink-muted opacity-0 transition-opacity hover:bg-base hover:text-accent focus:opacity-100 group-hover:opacity-100"
+        className="shrink-0 rounded-full p-1 text-ink-muted hover:bg-base hover:text-accent au-survol"
       >
         <X size={14} />
       </button>
@@ -340,7 +340,7 @@ function LigneFile({
         <button
           onClick={(e) => onOpenMenu(e.clientX, e.clientY)}
           aria-label="Options du son"
-          className="shrink-0 rounded-full p-1 text-ink-muted opacity-0 transition-opacity hover:bg-base hover:text-ink focus:opacity-100 group-hover:opacity-100"
+          className="shrink-0 rounded-full p-1 text-ink-muted hover:bg-base hover:text-ink au-survol"
         >
           <MoreVertical size={14} />
         </button>

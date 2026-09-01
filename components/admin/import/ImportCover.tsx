@@ -63,7 +63,7 @@ export function ImportCover({
           {formaterDuree(ligne.meta?.duree)}
         </span>
 
-        <div className="absolute inset-0 grid place-items-center gap-1 bg-black/55 opacity-0 transition-opacity focus-within:opacity-100 group-hover/pochette:opacity-100">
+        <div className="absolute inset-0 grid place-items-center gap-1 bg-black/55 au-survol focus-within:opacity-100 group-hover/pochette:opacity-100">
           <button
             type="button"
             onClick={() => inputRef.current?.click()}

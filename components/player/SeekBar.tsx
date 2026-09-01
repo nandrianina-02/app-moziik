@@ -83,7 +83,9 @@ export function SeekBar({ progress, duration, onSeek, variant = "pill", classNam
         />
         <div
           className={`absolute top-1/2 -translate-y-1/2 -translate-x-1/2 rounded-full bg-ink shadow transition-opacity duration-150 ${thumbSize} ${
-            active ? "opacity-100" : "opacity-0"
+            // `au-survol` plutôt que `opacity-0` : au doigt, le curseur
+            // reste visible — c'est lui qui dit que la barre se déplace.
+            active ? "opacity-100" : "au-survol"
           }`}
           style={{ left: `${pct}%` }}
         />

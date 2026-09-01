@@ -87,7 +87,7 @@ function TrendingRow({
       <button
         onClick={() => (isCurrent ? togglePlay() : playQueue(songs, index, source))}
         aria-label={isCurrent && isPlaying ? `Mettre en pause ${song.title}` : `Écouter ${song.title}`}
-        className="grid h-7 w-7 shrink-0 place-items-center rounded-full text-ink-muted opacity-0 transition-all hover:bg-accent hover:text-base focus-visible:opacity-100 group-hover:opacity-100"
+        className="grid h-7 w-7 shrink-0 place-items-center rounded-full text-ink-muted transition-all hover:bg-accent hover:text-base au-survol"
       >
         {isCurrent && isPlaying ? (
           <Pause size={13} fill="currentColor" />

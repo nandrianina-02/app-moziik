@@ -152,7 +152,7 @@ export function InfoPanel({ song, details }: { song: PlayableSong; details: Song
       {details?.description && (
         <div>
           <p className="mb-1.5 text-[10px] font-semibold uppercase tracking-wide text-ink-muted">À propos</p>
-          <p className="whitespace-pre-line text-sm leading-relaxed text-ink-muted">{details.description}</p>
+          <p className="selectionnable whitespace-pre-line text-sm leading-relaxed text-ink-muted">{details.description}</p>
         </div>
       )}
 

@@ -100,7 +100,7 @@ function ArtistSongRow({
       <button
         onClick={(e) => setMenuPosition({ x: e.clientX, y: e.clientY })}
         aria-label="Options du son"
-        className="shrink-0 rounded-full p-1.5 text-ink-muted opacity-0 transition-opacity hover:bg-base hover:text-ink focus:opacity-100 group-hover:opacity-100"
+        className="shrink-0 rounded-full p-1.5 text-ink-muted hover:bg-base hover:text-ink au-survol"
       >
         <MoreVertical size={16} />
       </button>

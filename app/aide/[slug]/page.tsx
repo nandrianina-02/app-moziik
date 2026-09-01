@@ -105,7 +105,7 @@ export default function ArticleAidePage() {
             .map((p) => p.trim())
             .filter(Boolean)
             .map((paragraphe, i) => (
-              <p key={i} className="whitespace-pre-line text-sm leading-relaxed text-ink">
+              <p key={i} className="selectionnable whitespace-pre-line text-sm leading-relaxed text-ink">
                 {paragraphe}
               </p>
             ))}

@@ -112,7 +112,7 @@ export function NotificationsDrawer() {
                 <button
                   onClick={() => deleteNotification(n._id)}
                   aria-label="Supprimer la notification"
-                  className="absolute right-3 top-3.5 text-ink-muted opacity-0 transition-opacity hover:text-accent group-hover:opacity-100"
+                  className="absolute right-3 top-3.5 text-ink-muted hover:text-accent au-survol"
                 >
                   <Trash2 size={14} />
                 </button>

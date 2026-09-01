@@ -157,6 +157,25 @@ Tous les modèles vivent dans `models/` : `User`, `Artist`, `Song`,
   à sens unique et non destructif : une photo d'artiste déjà choisie
   n'est jamais écrasée par un changement d'avatar
 
+## Interface tactile
+- **La sélection de texte est coupée sur les pointeurs grossiers**
+  (`app/globals.css`). L'appui long sert à ouvrir les menus contextuels :
+  sans cette règle, le même geste surlignait le titre d'un morceau et
+  faisait surgir la bulle « Copier / Partager » du système par-dessus
+  notre propre menu. La sélection reste acquise aux champs de saisie et à
+  tout ce qui se recopie — paroles, biographies, descriptions, mentions
+  légales, aide, commentaires, messages — marqué `.selectionnable`
+- **Une commande révélée au survol n'existe pas au doigt.** La classe
+  `.au-survol` remplace le couple `opacity-0 group-hover:opacity-100` :
+  visible par défaut, effacée seulement sous `@media (hover: hover) and
+  (pointer: fine)`, et rappelée au `focus-within` pour le clavier. Les
+  voiles sombres posées sur une pochette passent en plus à `bg-black/0`
+  avec un `group-hover:bg-black/NN`, sans quoi chaque pochette se serait
+  retrouvée assombrie en permanence sur mobile
+- Une exception assumée : dans `TrackTable`, le numéro de piste et
+  l'icône de lecture occupent la même case et se remplacent au survol.
+  Au doigt, le numéro reste, et toucher la ligne lance la lecture
+
 ## Phase 7 — Monétisation
 - **L'échéance fait foi autant que le statut.** `hasPremiumAccess`
   (`lib/premium.ts`) exige `status: "active"` **et** une

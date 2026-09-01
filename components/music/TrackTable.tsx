@@ -266,7 +266,7 @@ function TrackRow({
       <button
         onClick={(e) => setMenuPosition({ x: e.clientX, y: e.clientY })}
         aria-label={`Options de ${song.title}`}
-        className="grid h-8 w-8 place-items-center rounded-full text-ink-muted transition-all hover:bg-surface hover:text-ink lg:opacity-0 lg:group-hover:opacity-100 lg:focus:opacity-100"
+        className="grid h-8 w-8 place-items-center rounded-full text-ink-muted transition-all hover:bg-surface hover:text-ink au-survol"
       >
         <MoreVertical size={16} />
       </button>

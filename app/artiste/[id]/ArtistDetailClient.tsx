@@ -314,7 +314,7 @@ export function ArtistDetailClient() {
             <button
               onClick={() => bannerInputRef.current?.click()}
               disabled={uploadingBanner}
-              className="absolute bottom-3 right-3 flex items-center gap-1.5 rounded-full bg-black/60 px-3.5 py-2 text-xs font-medium text-white opacity-0 backdrop-blur-sm transition-opacity group-hover:opacity-100 disabled:opacity-100"
+              className="absolute bottom-3 right-3 flex items-center gap-1.5 rounded-full bg-black/60 px-3.5 py-2 text-xs font-medium text-white backdrop-blur-sm disabled:opacity-100 au-survol"
             >
               <Camera size={13} /> {uploadingBanner ? "Envoi..." : "Modifier la bannière"}
             </button>
@@ -742,7 +742,7 @@ export function ArtistDetailClient() {
 
               <div>
                 <h2 className="mb-2 text-sm font-medium">Biographie</h2>
-                <p className="whitespace-pre-line text-sm text-ink-muted">{artist.bio || "Cet artiste n'a pas encore renseigné de biographie."}</p>
+                <p className="selectionnable whitespace-pre-line text-sm text-ink-muted">{artist.bio || "Cet artiste n'a pas encore renseigné de biographie."}</p>
               </div>
 
               {artist.genres.length > 0 && (

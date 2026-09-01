@@ -19,7 +19,10 @@ const nextConfig = {
       "media-src 'self' blob: https://res.cloudinary.com",
       "font-src 'self' data:",
       "connect-src 'self' https://api.cloudinary.com https://res.cloudinary.com https://api.stripe.com",
-      "frame-src 'self' https://js.stripe.com https://accounts.google.com",
+      // openstreetmap.org : le fond de carte du lieu, sur la fiche d'un
+      // évènement. Fournisseur sans traceur ni clé d'API, et le cadre est
+      // le seul moyen d'afficher une carte sans embarquer de bibliothèque.
+      "frame-src 'self' https://js.stripe.com https://accounts.google.com https://www.openstreetmap.org",
       "frame-ancestors 'none'",
       "base-uri 'self'",
       "form-action 'self'",

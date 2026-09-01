@@ -142,3 +142,17 @@ export function useIADisponible(fonctionnalite: string): boolean {
   const { aiFeatures } = useContext(SiteConfigContext);
   return Array.isArray(aiFeatures) && aiFeatures.includes(fonctionnalite);
 }
+
+/**
+ * Fuseau à utiliser pour écrire une heure : celui du compte s'il en a
+ * choisi un, celui du site sinon.
+ *
+ * Même hiérarchie que `useFormatDate`, mais pour les cas où c'est l'heure
+ * qui compte — l'horaire d'un évènement, par exemple, qui doit s'afficher
+ * dans le fuseau du lecteur et non dans celui du navigateur.
+ */
+export function useFuseauHoraire(): string | undefined {
+  const { timezone } = useSiteConfig();
+  const perso = useContext(PreferencesContext);
+  return perso?.timezone || timezone || undefined;
+}

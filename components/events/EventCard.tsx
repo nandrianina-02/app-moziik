@@ -9,6 +9,9 @@ import { useToast } from "@/context/ToastProvider";
 import { EventContextMenu } from "@/components/events/EventContextMenu";
 import { useLongPress } from "@/components/music/useLongPress";
 import { getEventTimeStatus, formatRelativeCountdown } from "@/components/events/eventStatus";
+import { jourLong, heure, formatPrix } from "@/components/events/eventPresentation";
+import { useSiteConfig, useFuseauHoraire } from "@/context/SiteConfigProvider";
+import { libelleCategorie, type EventCategory } from "@/lib/evenements";
 
 export type EventItem = {
   _id: string;
@@ -21,6 +24,7 @@ export type EventItem = {
   price?: number;
   createdBy: string;
   artist?: { stageName: string; verified?: boolean };
+  category?: EventCategory;
 };
 
 const statusBadge = {
@@ -39,6 +43,8 @@ export function EventCard({
   onDeleted: (id: string) => void;
 }) {
   const pushToast = useToast();
+  const { currency } = useSiteConfig();
+  const fuseau = useFuseauHoraire();
   const [menuPosition, setMenuPosition] = useState<{ x: number; y: number } | null>(null);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [deleting, setDeleting] = useState(false);
@@ -46,13 +52,10 @@ export function EventCard({
   const timeStatus = getEventTimeStatus(event.date);
   const badge = statusBadge[timeStatus];
 
-  const formattedDate = new Date(event.date).toLocaleDateString("fr-FR", {
-    day: "numeric",
-    month: "short",
-    year: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-  });
+  // Dans le fuseau du site, comme partout ailleurs : une soirée qui
+  // commence à 23 h à Antananarivo ne doit pas s'afficher au lendemain
+  // parce que le navigateur, lui, est resté à Paris.
+  const formattedDate = `${jourLong(event.date, fuseau)} - ${heure(event.date, fuseau)}`;
 
   function openMenuAt(x: number, y: number) {
     setMenuPosition({ x, y });
@@ -66,7 +69,7 @@ export function EventCard({
   const longPress = useLongPress((x, y) => openMenuAt(x, y));
 
   async function handleShare() {
-    const url = `${window.location.origin}/evenements#${event._id}`;
+    const url = `${window.location.origin}/evenements/${event._id}`;
     if (navigator.share) {
       await navigator.share({ title: event.title, url }).catch(() => {});
     } else {
@@ -107,18 +110,33 @@ export function EventCard({
           height={250}
           className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
         />
+        {/* Lien en recouvrement plutôt qu'un <Link> autour de l'image :
+            la pastille et le bouton d'options sont eux-mêmes cliquables, et
+            un bouton dans un lien n'est pas du HTML valide. */}
+        <Link
+          href={`/evenements/${event._id}`}
+          aria-label={`Voir la fiche de ${event.title}`}
+          className="absolute inset-0 z-0"
+        />
+
         <span
-          className={`absolute left-3 top-3 flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-medium backdrop-blur-md ${badge.className}`}
+          className={`pointer-events-none absolute left-3 top-3 z-10 flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-medium backdrop-blur-md ${badge.className}`}
         >
           {timeStatus === "live" && <Radio size={10} className="animate-pulse" />}
           {badge.label}
         </span>
 
+        {event.category && (
+          <span className="pointer-events-none absolute bottom-3 left-3 z-10 rounded-full bg-black/50 px-2.5 py-1 text-[11px] font-medium text-white backdrop-blur-md">
+            {libelleCategorie(event.category)}
+          </span>
+        )}
+
         {canManage && (
           <button
             onClick={(e) => openMenuAt(e.clientX, e.clientY)}
             aria-label="Options de l'évènement"
-            className="absolute right-3 top-3 grid h-8 w-8 place-items-center rounded-full bg-black/40 text-white opacity-0 backdrop-blur-md transition-opacity group-hover:opacity-100 focus:opacity-100"
+            className="absolute right-3 top-3 z-10 grid h-8 w-8 place-items-center rounded-full bg-black/40 text-white opacity-0 backdrop-blur-md transition-opacity group-hover:opacity-100 focus:opacity-100"
           >
             <MoreVertical size={15} />
           </button>
@@ -126,7 +144,11 @@ export function EventCard({
       </div>
 
       <div className="flex flex-1 flex-col gap-2 p-4">
-        <h3 className="truncate text-sm font-semibold leading-snug">{event.title}</h3>
+        <h3 className="truncate text-sm font-semibold leading-snug">
+          <Link href={`/evenements/${event._id}`} className="transition-colors hover:text-accent">
+            {event.title}
+          </Link>
+        </h3>
 
         {event.artist && (
           <p className="flex items-center gap-1 text-xs text-ink-muted">
@@ -158,7 +180,8 @@ export function EventCard({
               rel="noopener noreferrer"
               className="flex items-center gap-1 rounded-full bg-accent/10 px-2.5 py-1 text-[11px] font-medium text-accent hover:bg-accent/20"
             >
-              <Ticket size={11} /> {event.price ? `${event.price} $` : "Billetterie"}
+              <Ticket size={11} />{" "}
+              {typeof event.price === "number" ? formatPrix(event.price, currency ?? "EUR") : "Billetterie"}
             </a>
           ) : (
             <button

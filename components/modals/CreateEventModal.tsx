@@ -5,6 +5,7 @@ import { FormField } from "@/components/ui/FormField";
 import { useToast } from "@/context/ToastProvider";
 import { uploadToCloudinaryClient } from "@/lib/cloudinaryClient";
 import { ModalSheet } from "@/components/ui/ModalSheet";
+import { EVENT_CATEGORIES, libelleCategorie } from "@/lib/evenements";
 
 export function CreateEventModal({ onClose, onCreated }: { onClose: () => void; onCreated: () => void }) {
   const pushToast = useToast();
@@ -12,6 +13,8 @@ export function CreateEventModal({ onClose, onCreated }: { onClose: () => void; 
   const [description, setDescription] = useState("");
   const [location, setLocation] = useState("");
   const [date, setDate] = useState("");
+  const [endDate, setEndDate] = useState("");
+  const [category, setCategory] = useState("");
   const [ticketUrl, setTicketUrl] = useState("");
   const [price, setPrice] = useState("");
   const [coverFile, setCoverFile] = useState<File | null>(null);
@@ -35,6 +38,8 @@ export function CreateEventModal({ onClose, onCreated }: { onClose: () => void; 
           description,
           location,
           date,
+          endDate: endDate || undefined,
+          category: category || undefined,
           ticketUrl: ticketUrl || undefined,
           price: price ? Number(price) : undefined,
           coverUrl,
@@ -45,7 +50,9 @@ export function CreateEventModal({ onClose, onCreated }: { onClose: () => void; 
 
       pushToast(
         "success",
-        data.event.status === "published" ? "Évènement publié." : "Évènement envoyé pour validation."
+        data.event.status === "published"
+          ? "Évènement publié. Complète sa fiche pour le mettre en valeur."
+          : "Évènement envoyé pour validation."
       );
       onCreated();
       onClose();
@@ -86,8 +93,25 @@ export function CreateEventModal({ onClose, onCreated }: { onClose: () => void; 
             />
           </label>
 
+          <label className="block">
+            <span className="mb-1.5 block text-sm text-ink-muted">Catégorie</span>
+            <select
+              value={category}
+              onChange={(e) => setCategory(e.target.value)}
+              className="w-full rounded-xl border border-border bg-base px-4 py-2.5 text-sm outline-none focus:border-accent"
+            >
+              <option value="">Non précisée</option>
+              {EVENT_CATEGORIES.map((valeur) => (
+                <option key={valeur} value={valeur}>
+                  {libelleCategorie(valeur)}
+                </option>
+              ))}
+            </select>
+          </label>
+
           <FormField label="Lieu" required value={location} onChange={(e) => setLocation(e.target.value)} />
-          <FormField label="Date" type="datetime-local" required value={date} onChange={(e) => setDate(e.target.value)} />
+          <FormField label="Début" type="datetime-local" required value={date} onChange={(e) => setDate(e.target.value)} />
+          <FormField label="Fin (optionnel)" type="datetime-local" value={endDate} onChange={(e) => setEndDate(e.target.value)} />
           <FormField label="Lien billetterie (optionnel)" value={ticketUrl} onChange={(e) => setTicketUrl(e.target.value)} />
           <FormField label="Prix (optionnel)" type="number" value={price} onChange={(e) => setPrice(e.target.value)} />
 

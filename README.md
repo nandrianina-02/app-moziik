@@ -95,6 +95,20 @@ Tous les modèles vivent dans `models/` : `User`, `Artist`, `Song`,
 - Pour autoriser un artiste à publier des évènements sans validation
   a priori (ils passeront quand même par `/admin/evenements`), mets
   `eventPublishingAuthorized: true` sur son document `Artist`
+- **Fiche d'un évènement** (`/evenements/<id>`) : la création ne demande
+  que l'essentiel ; tout le reste — galerie, artistes à l'affiche,
+  programme, catégories de billets, infos pratiques, coordonnées du
+  lieu — se remplit ensuite depuis « Modifier ». Une rubrique laissée
+  vide n'apparaît pas sur la fiche, plutôt que de s'y afficher vide
+- Le compteur de participants vient de `Event.interested`, alimenté par
+  le seul bouton « Ça m'intéresse » : ce n'est jamais une estimation
+- La billetterie est **informative**. Moziik n'encaisse rien : les
+  catégories de billets décrivent l'offre, et « Choisir mes billets »
+  renvoie vers `ticketUrl`, chez l'organisateur
+- La carte du lieu n'apparaît qu'avec `latitude` **et** `longitude`.
+  Elle vient d'OpenStreetMap, autorisé pour cela en `frame-src` dans
+  la CSP de `next.config.mjs` ; sans coordonnées, « Itinéraire »
+  cherche simplement le nom du lieu
 - Les coûts d'abonnement et le taux de rémunération par écoute
   modifiés dans `/admin/parametres` sont lus par `getSiteConfig()` —
   ils seront branchés sur Stripe/Mobile Money en Phase 7

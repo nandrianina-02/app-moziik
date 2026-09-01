@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Check, X, Pencil, Trash2, MapPin, CalendarDays } from "lucide-react";
+import { Check, X, Pencil, Trash2, MapPin, CalendarDays, Eye } from "lucide-react";
 import { SafeImage } from "@/components/ui/SafeImage";
 import { AdminCardsSkeleton } from "@/components/admin/AdminSkeleton";
 import { IconActionButton, IconActionLink } from "@/components/admin/IconActionButton";
@@ -137,6 +137,10 @@ export default function AdminEventsPage() {
                     <IconActionButton icon={X} label="Rejeter" tone="danger" onClick={() => moderate(event._id, "reject")} />
                   </>
                 )}
+                {/* Voir avant d'approuver : la fiche complète est le seul
+                    endroit où le déroulé, la billetterie et la galerie
+                    s'affichent tels que le public les verra. */}
+                <IconActionLink icon={Eye} label="Voir la fiche" href={`/evenements/${event._id}`} />
                 <IconActionLink icon={Pencil} label="Modifier" href={`/evenements/${event._id}/modifier`} />
                 <IconActionButton icon={Trash2} label="Supprimer" onClick={() => deleteEvent(event._id)} />
               </div>

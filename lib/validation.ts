@@ -211,6 +211,47 @@ export const assignBadgeSchema = z.object({
 
 // ---- Évènements ---------------------------------------------------------------
 
+/** Identifiant Mongo, tel qu'il circule en JSON. */
+const identifiant = z.string().regex(/^[a-f\d]{24}$/i, "Identifiant invalide.");
+
+/** Liste de courtes phrases : pastilles, puces, bon à savoir. */
+const listeDeTextes = (max: number, longueur = 120) =>
+  z.array(z.string().trim().min(1).max(longueur)).max(max).optional();
+
+const ticketTierSchema = z.object({
+  name: z.string().trim().min(1, "Nom de billet requis.").max(60),
+  price: z.number().min(0, "Le prix ne peut pas être négatif."),
+  description: z.string().trim().max(160).optional(),
+  originalPrice: z.number().min(0).optional(),
+  availableUntil: z.coerce.date().optional(),
+  soldOut: z.boolean().optional(),
+});
+
+const programSlotSchema = z.object({
+  time: z.string().trim().min(1, "Heure requise.").max(20),
+  title: z.string().trim().min(1, "Intitulé requis.").max(120),
+  detail: z.string().trim().max(300).optional(),
+});
+
+/**
+ * Champs facultatifs de la fiche détaillée, partagés par la création et la
+ * modification : les mêmes règles des deux côtés, écrites une seule fois.
+ */
+const champsFicheEvenement = {
+  category: z.enum(["musique", "concert", "festival", "culte", "conference", "atelier", "autre"]).optional(),
+  endDate: z.coerce.date().optional(),
+  gallery: z.array(z.string().url("URL de photo invalide.")).max(20).optional(),
+  lineup: z.array(identifiant).max(50).optional(),
+  highlights: listeDeTextes(8, 60),
+  inclusions: listeDeTextes(12),
+  program: z.array(programSlotSchema).max(30).optional(),
+  practicalInfo: listeDeTextes(12, 200),
+  tickets: z.array(ticketTierSchema).max(10).optional(),
+  address: z.string().trim().max(300).optional(),
+  latitude: z.number().min(-90).max(90).optional(),
+  longitude: z.number().min(-180).max(180).optional(),
+};
+
 export const createEventSchema = z.object({
   title: z.string().trim().min(1, "Titre requis.").max(200),
   description: z.string().trim().min(1, "Description requise.").max(5000),
@@ -219,6 +260,7 @@ export const createEventSchema = z.object({
   date: z.coerce.date(),
   ticketUrl: z.string().trim().url("Lien de billetterie invalide.").max(500).optional().or(z.literal("")),
   price: z.number().min(0).optional(),
+  ...champsFicheEvenement,
 });
 
 export const patchEventSchema = z.object({
@@ -230,6 +272,7 @@ export const patchEventSchema = z.object({
   ticketUrl: z.string().trim().url("Lien de billetterie invalide.").max(500).optional().or(z.literal("")),
   price: z.number().min(0).optional(),
   status: z.enum(["pending", "published", "rejected"]).optional(),
+  ...champsFicheEvenement,
 });
 
 export const moderateDecisionSchema = z.object({

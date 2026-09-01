@@ -8,7 +8,10 @@ import { requireAuthUser } from "@/lib/mobileAuth";
 
 export const GET = withApiErrors(async () => {
   await connectDB();
+  // La liste n'affiche que des cartes : inutile de charger les blocs de la
+  // fiche détaillée (déroulé, billetterie, galerie) pour tous les évènements.
   const events = await Event.find({ status: "published" })
+    .select("-program -practicalInfo -inclusions -gallery -interested")
     .populate("artist", "stageName verified")
     .sort({ date: 1 });
   return NextResponse.json({ events });
@@ -17,10 +20,10 @@ export const GET = withApiErrors(async () => {
 export const POST = withApiErrors(async (req: Request) => {
   const authUser = await requireAuthUser(req);
 
-  const { title, description, coverUrl, location, date, ticketUrl, price } = parseOrThrow(
-    createEventSchema,
-    await req.json()
-  );
+  // Le schéma décrit déjà exactement les champs acceptés — les reprendre
+  // un à un ici ne ferait que créer un second endroit à mettre à jour à
+  // chaque nouveau champ de la fiche.
+  const donnees = parseOrThrow(createEventSchema, await req.json());
 
   await connectDB();
 
@@ -41,13 +44,7 @@ export const POST = withApiErrors(async (req: Request) => {
   }
 
   const event = await Event.create({
-    title,
-    description,
-    coverUrl,
-    location,
-    date,
-    ticketUrl,
-    price,
+    ...donnees,
     artist: artistId,
     createdBy: authUser.id,
     status,

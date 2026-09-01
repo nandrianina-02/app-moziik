@@ -3,13 +3,32 @@ import { connectDB } from "@/lib/db";
 import Event from "@/models/Event";
 import { ApiError, withApiErrors } from "@/lib/apiError";
 import { parseOrThrow, patchEventSchema } from "@/lib/validation";
-import { requireAuthUser } from "@/lib/mobileAuth";
+import { getAuthUser, requireAuthUser } from "@/lib/mobileAuth";
 
-export const GET = withApiErrors(async (_req: Request, { params }: { params: { id: string } }) => {
+/** Ce que la fiche a besoin de savoir des artistes qu'elle montre. */
+const CHAMPS_ARTISTE = "stageName verified coverUrl bio socialLinks";
+
+export const GET = withApiErrors(async (req: Request, { params }: { params: { id: string } }) => {
   await connectDB();
-  const event = await Event.findById(params.id).populate("artist", "stageName verified");
+  const event = await Event.findById(params.id)
+    .populate("artist", CHAMPS_ARTISTE)
+    .populate("lineup", "stageName verified coverUrl")
+    .lean();
   if (!event) throw new ApiError("Évènement introuvable.", 404);
-  return NextResponse.json({ event });
+
+  // La liste des membres intéressés ne sort jamais de la base : la page
+  // n'a besoin que du total, et de savoir si le visiteur en fait partie.
+  const authUser = await getAuthUser(req);
+  const interested = (event.interested ?? []).map((id) => id.toString());
+  const { interested: _liste, ...reste } = event;
+
+  return NextResponse.json({
+    event: {
+      ...reste,
+      interestedCount: interested.length,
+      viewerInterested: authUser ? interested.includes(authUser.id) : false,
+    },
+  });
 });
 
 async function assertCanManage(event: { createdBy: { toString: () => string } }, userId: string, role?: string) {
@@ -30,7 +49,27 @@ export const PATCH = withApiErrors(
 
     const parsedUpdates = parseOrThrow(patchEventSchema, await req.json());
     const updates = parsedUpdates as Record<string, unknown>;
-    const allowed = ["title", "description", "coverUrl", "location", "date", "ticketUrl", "price"];
+    const allowed = [
+      "title",
+      "description",
+      "coverUrl",
+      "location",
+      "date",
+      "ticketUrl",
+      "price",
+      "category",
+      "endDate",
+      "gallery",
+      "lineup",
+      "highlights",
+      "inclusions",
+      "program",
+      "practicalInfo",
+      "tickets",
+      "address",
+      "latitude",
+      "longitude",
+    ];
     for (const key of allowed) {
       if (key in updates) {
         (event as unknown as Record<string, unknown>)[key] = updates[key];

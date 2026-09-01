@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { Pencil, Share2, Trash2, Ticket, ExternalLink } from "lucide-react";
+import { Pencil, Share2, Trash2, Ticket, Eye } from "lucide-react";
 import { ContextMenuShell, MenuItem, MenuSeparator } from "@/components/ui/ContextMenuShell";
 
 type Position = { x: number; y: number };
@@ -31,6 +31,11 @@ export function EventContextMenu({
 
   return (
     <ContextMenuShell anchor={position} onClose={onClose}>
+      <MenuItem
+        icon={Eye}
+        label="Voir la fiche"
+        onClick={() => { router.push(`/evenements/${event._id}`); onClose(); }}
+      />
       {event.ticketUrl && (
         <MenuItem
           icon={Ticket}
@@ -58,15 +63,6 @@ export function EventContextMenu({
             onClick={() => { onRequestDelete(); onClose(); }}
           />
         </>
-      )}
-
-      {!event.ticketUrl && !canManage && (
-        <MenuItem
-          icon={ExternalLink}
-          label="Aucune autre action"
-          onClick={onClose}
-          disabled
-        />
       )}
     </ContextMenuShell>
   );

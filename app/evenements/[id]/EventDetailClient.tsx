@@ -130,8 +130,8 @@ export function EventDetailClient() {
             <SectionAPropos event={event} />
             {(event.program ?? []).length > 0 && <SectionProgramme moments={event.program ?? []} />}
             {affiche.length > 0 && <SectionAffiche artistes={affiche} />}
-            {(event.practicalInfo ?? []).length > 0 && (
-              <SectionInfosPratiques infos={event.practicalInfo ?? []} />
+            {((event.practicalInfo ?? []).length > 0 || typeof event.minAge === "number") && (
+              <SectionInfosPratiques infos={event.practicalInfo ?? []} minAge={event.minAge} />
             )}
             <SectionLieu event={event} />
           </div>
@@ -169,7 +169,7 @@ export function EventDetailClient() {
         </div>
 
         <Link
-          href="/evenements"
+          href="/evenements/nouveau"
           className="rounded-xl bg-accent px-4 py-2.5 text-sm font-medium text-base transition-colors hover:bg-accent-hover"
         >
           Créer un évènement

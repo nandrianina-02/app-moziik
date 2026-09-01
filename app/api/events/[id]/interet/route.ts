@@ -32,10 +32,13 @@ export const POST = withApiErrors(async (req: Request, { params }: { params: { i
     event.interested.push(new Types.ObjectId(authUser.id));
   }
 
+  // Recalculé depuis la liste, jamais incrémenté à l'aveugle : le
+  // compteur ne peut donc pas dériver de son contenu réel.
+  event.interestedCount = event.interested.length;
   await event.save();
 
   return NextResponse.json({
     interested: !dejaInteresse,
-    interestedCount: event.interested.length,
+    interestedCount: event.interestedCount,
   });
 });

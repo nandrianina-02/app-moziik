@@ -9,7 +9,7 @@ import { Skeleton } from "@/components/ui/Skeleton";
 import { useToast } from "@/context/ToastProvider";
 import { useSiteConfig } from "@/context/SiteConfigProvider";
 import type { PlayableSong } from "@/context/PlayerProvider";
-import { HeroBanner } from "@/components/home/HeroBanner";
+import { HeroCarousel, type HeroSlide } from "@/components/home/HeroCarousel";
 import { EventsCard, RadioCard, FeaturedArtists, ActivityFeed, SupportArtistsCard } from "@/components/home/HomeSidebar";
 import { PremiumBanner } from "@/components/home/PremiumBanner";
 import { SectionHeader } from "@/components/home/SectionHeader";
@@ -18,8 +18,6 @@ import { SectionBlock } from "@/components/home/SectionBlock";
 import { HomeSectionSkeleton, HomeSidebarSkeleton } from "@/components/home/HomeSectionSkeleton";
 import { useHomepageStream, slotData } from "@/components/home/useHomepageStream";
 import { SIDEBAR_SECTION_KEYS } from "@/components/home/sectionMeta";
-
-type Hero = Parameters<typeof HeroBanner>[0]["hero"] | null;
 
 export default function HomePage() {
   const { data: session } = useSession();
@@ -103,11 +101,12 @@ export default function HomePage() {
       <div className="grid grid-cols-1 gap-8 lg:grid-cols-[1fr_320px]">
         <div className="space-y-10 min-w-0">
           {heroPending ? (
-            <Skeleton aria-busy="true" className="min-h-[280px] w-full rounded-xl2" />
+            <Skeleton
+              aria-busy="true"
+              className="min-h-[340px] w-full rounded-xl2 sm:min-h-[400px] md:min-h-[440px] lg:min-h-[480px]"
+            />
           ) : (
-            hero !== null && (
-              <HeroBanner hero={hero as NonNullable<Hero>} newReleasesCount={newReleases.length} relatedSongs={newReleases} />
-            )
+            <HeroCarousel slides={(hero as HeroSlide[] | null) ?? []} relatedSongs={newReleases} />
           )}
 
           {/* Avant même de connaître la liste des sections (première ligne

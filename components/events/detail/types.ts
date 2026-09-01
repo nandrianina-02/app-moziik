@@ -54,8 +54,16 @@ export type EventDetail = {
   practicalInfo?: string[];
   tickets?: CategorieBillet[];
   address?: string;
+  postalCode?: string;
+  city?: string;
+  country?: string;
+  mapsUrl?: string;
   latitude?: number;
   longitude?: number;
+  tags?: string[];
+  minAge?: number;
+  visibility?: "public" | "unlisted";
+  organizer?: { name?: string; email?: string; phone?: string; website?: string };
 
   /** Calculés par l'API à partir de la liste des intéressés, jamais estimés. */
   interestedCount: number;

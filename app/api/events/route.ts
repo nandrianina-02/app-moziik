@@ -4,17 +4,31 @@ import Event from "@/models/Event";
 import Artist from "@/models/Artist";
 import { ApiError, withApiErrors } from "@/lib/apiError";
 import { parseOrThrow, createEventSchema } from "@/lib/validation";
-import { requireAuthUser } from "@/lib/mobileAuth";
+import { getAuthUser, requireAuthUser } from "@/lib/mobileAuth";
 
-export const GET = withApiErrors(async () => {
+export const GET = withApiErrors(async (req: Request) => {
   await connectDB();
   // La liste n'affiche que des cartes : inutile de charger les blocs de la
   // fiche détaillée (déroulé, billetterie, galerie) pour tous les évènements.
-  const events = await Event.find({ status: "published" })
-    .select("-program -practicalInfo -inclusions -gallery -interested")
+  //
+  // `visibility` exclut les fiches non répertoriées : elles restent
+  // accessibles par leur lien, mais n'ont rien à faire dans une liste
+  // publique. Les documents créés avant ce champ n'en ont pas du tout,
+  // d'où le `$ne` plutôt qu'un `$eq: "public"` qui les ferait disparaître.
+  const events = await Event.find({ status: "published", visibility: { $ne: "unlisted" } })
+    .select("-program -practicalInfo -inclusions -gallery -interested -tickets")
     .populate("artist", "stageName verified")
     .sort({ date: 1 });
-  return NextResponse.json({ events });
+
+  // Ce que le visiteur a déjà marqué, pour que les cœurs de la liste
+  // s'affichent dans le bon état dès le premier rendu. Une seule requête
+  // pour toute la page, plutôt qu'une par carte.
+  const authUser = await getAuthUser(req);
+  const interestedIds = authUser
+    ? (await Event.find({ interested: authUser.id }).distinct("_id")).map((id) => id.toString())
+    : [];
+
+  return NextResponse.json({ events, interestedIds });
 });
 
 export const POST = withApiErrors(async (req: Request) => {

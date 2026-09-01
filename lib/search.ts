@@ -349,7 +349,9 @@ export async function rechercheGlobale(opts: OptionsRecherche): Promise<Resultat
       .limit(VIVIER.playlists)
       .lean(),
 
-    Event.find(filtreOu({ status: "published" }, orEvents))
+    // Non répertorié veut dire introuvable autrement que par son lien :
+    // la recherche interne compte au même titre que les moteurs.
+    Event.find(filtreOu({ status: "published", visibility: { $ne: "unlisted" } }, orEvents))
       .populate("artist", "stageName verified")
       .select(CHAMPS_EVENT)
       .sort({ date: 1 })

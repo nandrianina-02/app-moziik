@@ -6,10 +6,12 @@ import {
   BadgeCheck,
   ExternalLink,
   Facebook,
+  Globe,
   Link2,
   Lock,
   Mail,
   MessageCircle,
+  Phone,
   Ticket,
   Twitter,
 } from "lucide-react";
@@ -123,12 +125,18 @@ export function CarteBillets({ event }: { event: EventDetail }) {
 export function CarteOrganisateur({ event }: { event: EventDetail }) {
   const config = useSiteConfig();
   const artiste = event.artist;
+  const saisi = event.organizer;
 
-  const nom = artiste?.stageName ?? config.siteName;
+  // Trois sources, dans cet ordre : ce que l'organisateur a écrit sur la
+  // fiche, l'artiste qui la porte, la plateforme à défaut. Sans la
+  // première, un évènement créé par l'administration affichait l'adresse
+  // de support du site pour une question de billetterie.
+  const nom = saisi?.name || artiste?.stageName || config.siteName;
   const image = artiste?.coverUrl ?? config.logoUrl;
   const presentation =
     artiste?.bio?.slice(0, 160) ?? config.tagline ?? "Organisateur d'évènements musicaux.";
   const liens = artiste?.socialLinks ?? config.socialLinks ?? [];
+  const email = saisi?.email || (artiste ? undefined : config.supportEmail);
 
   return (
     <CarteAside titre="Organisateur">
@@ -155,18 +163,48 @@ export function CarteOrganisateur({ event }: { event: EventDetail }) {
         </Link>
       )}
 
-      {(liens.length > 0 || config.supportEmail) && (
+      {(liens.length > 0 || email || saisi?.phone || saisi?.website) && (
         <ul className="mt-4 space-y-2 border-t border-border pt-4 text-xs">
-          {!artiste && config.supportEmail && (
+          {email && (
             <li>
               <a
-                href={`mailto:${config.supportEmail}`}
+                href={`mailto:${email}`}
                 className="flex items-center justify-between gap-2 text-ink-muted transition-colors hover:text-accent"
               >
                 <span className="flex items-center gap-2">
                   <Mail size={13} /> Email
                 </span>
-                <span className="truncate text-accent">{config.supportEmail}</span>
+                <span className="truncate text-accent">{email}</span>
+              </a>
+            </li>
+          )}
+
+          {saisi?.phone && (
+            <li>
+              <a
+                href={`tel:${saisi.phone.replace(/\s/g, "")}`}
+                className="flex items-center justify-between gap-2 text-ink-muted transition-colors hover:text-accent"
+              >
+                <span className="flex items-center gap-2">
+                  <Phone size={13} /> Téléphone
+                </span>
+                <span className="truncate text-accent">{saisi.phone}</span>
+              </a>
+            </li>
+          )}
+
+          {saisi?.website && (
+            <li>
+              <a
+                href={saisi.website}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center justify-between gap-2 text-ink-muted transition-colors hover:text-accent"
+              >
+                <span className="flex items-center gap-2">
+                  <Globe size={13} /> Site web
+                </span>
+                <ExternalLink size={12} className="shrink-0 text-accent" />
               </a>
             </li>
           )}

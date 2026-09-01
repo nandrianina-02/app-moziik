@@ -383,7 +383,7 @@ async function getRecentActivity(limit: number, univers: Univers) {
       return {
         type: "new_event" as const,
         message: artist ? `${artist.stageName} organise "${e.title}"` : `Nouvel évènement : "${e.title}"`,
-        link: `/evenements`,
+        link: `/evenements/${e._id}`,
         at: e.createdAt,
         verified: artist?.verified ?? false,
       };
@@ -395,11 +395,42 @@ async function getRecentActivity(limit: number, univers: Univers) {
 }
 
 /**
- * Bannière principale : priorité 1) contenu sponsorisé/épinglé actif,
- * 2) nouvelle sortie marquante (la plus écoutée des 14 derniers jours),
- * 3) titre le plus populaire toutes périodes, 4) playlist tendance.
+ * Nombre maximum de diapositives du bandeau d'accueil.
+ *
+ * Au-delà, la dernière ne serait jamais atteinte : personne ne fait
+ * défiler un carrousel sept fois. Les épinglés passent en premier, donc
+ * ce sont les remplissages automatiques qui sautent.
+ */
+const MAX_DIAPOS_HERO = 6;
+
+/** Combien d'évènements à venir le bandeau peut proposer de lui-même. */
+const EVENEMENTS_AU_HERO = 2;
+
+/**
+ * Bandeau principal : une suite de diapositives, pas un seul contenu.
+ *
+ * L'ordre dit la priorité éditoriale : d'abord tout ce que
+ * l'administration a épinglé (évènements comme musique), puis, en mode
+ * automatique, les prochains évènements, une nouvelle sortie marquante, le
+ * titre le plus écouté et une playlist tendance. Le bandeau reste donc
+ * habité même sans aucune décision d'admin.
+ *
+ * Un seul contenu par diapositive, et aucun doublon : un titre déjà
+ * épinglé ne revient pas comme « le plus populaire » deux écrans plus loin.
  */
 async function getHero(heroMode: "auto" | "manual", univers: Univers) {
+  const diapos: Record<string, unknown>[] = [];
+  const vus = new Set<string>();
+
+  const ajouter = (diapo: Record<string, unknown> | null, cle?: string) => {
+    if (!diapo || diapos.length >= MAX_DIAPOS_HERO) return;
+    if (cle) {
+      if (vus.has(cle)) return;
+      vus.add(cle);
+    }
+    diapos.push(diapo);
+  };
+
   const pinned = await activePinnedForSection("hero");
   // Une bannière épinglée hors de l'univers courant est passée plutôt
   // qu'affichée : l'admin la pose pour l'un des deux publics, et la
@@ -407,27 +438,55 @@ async function getHero(heroMode: "auto" | "manual", univers: Univers) {
   for (const candidat of pinned) {
     const resolved = await resolvePinnedContent(candidat);
     if (resolved && appartientALUnivers(resolved, univers)) {
-      return { source: "pinned" as const, ...resolved };
+      ajouter({ source: "pinned" as const, ...resolved }, candidat.contentId?.toString());
     }
   }
 
-  if (heroMode === "manual") return null;
+  if (heroMode === "manual") return diapos;
+
+  // Les évènements n'ont pas d'univers : ils s'adressent aux deux publics.
+  const evenements = await Event.find({
+    status: "published",
+    visibility: { $ne: "unlisted" },
+    date: { $gte: new Date() },
+  })
+    .populate("artist", "stageName verified")
+    .sort({ date: 1 })
+    .limit(EVENEMENTS_AU_HERO);
+  for (const event of evenements) {
+    ajouter({ source: "event" as const, contentType: "event" as const, event }, event._id.toString());
+  }
 
   const since14 = new Date(Date.now() - 14 * DAY_MS);
   const recentImportant = await Song.findOne({ status: "published", univers, releaseDate: { $gte: since14 } })
     .populate("artist", "stageName verified")
     .sort({ playsCount: -1 });
-  if (recentImportant) return { source: "new_release" as const, contentType: "song" as const, song: recentImportant };
+  if (recentImportant) {
+    ajouter(
+      { source: "new_release" as const, contentType: "song" as const, song: recentImportant },
+      recentImportant._id.toString()
+    );
+  }
 
   const mostPopular = await Song.findOne({ status: "published", univers })
     .populate("artist", "stageName verified")
     .sort({ playsCount: -1 });
-  if (mostPopular) return { source: "popular" as const, contentType: "song" as const, song: mostPopular };
+  if (mostPopular) {
+    ajouter(
+      { source: "popular" as const, contentType: "song" as const, song: mostPopular },
+      mostPopular._id.toString()
+    );
+  }
 
   const trendingPlaylist = await Playlist.findOne({ isPublic: true, univers }).sort({ followers: -1 });
-  if (trendingPlaylist) return { source: "playlist" as const, contentType: "playlist" as const, playlist: trendingPlaylist };
+  if (trendingPlaylist) {
+    ajouter(
+      { source: "playlist" as const, contentType: "playlist" as const, playlist: trendingPlaylist },
+      trendingPlaylist._id.toString()
+    );
+  }
 
-  return null;
+  return diapos;
 }
 
 async function resolvePinnedContent(pinned: IHomepagePinned) {
@@ -591,7 +650,13 @@ function formatManualSection(key: IHomepageSection["key"], resolved: ResolvedPin
           }
           case "event": {
             const event = (r as { event: { _id: unknown; title: string; coverUrl?: string } }).event;
-            return { contentType: "event", _id: event._id, title: event.title, coverUrl: event.coverUrl, href: `/evenements` };
+            return {
+              contentType: "event",
+              _id: event._id,
+              title: event.title,
+              coverUrl: event.coverUrl,
+              href: `/evenements/${event._id}`,
+            };
           }
           case "custom": {
             const custom = (r as { custom: { title: string; coverUrl?: string; href: string } }).custom;
@@ -773,7 +838,7 @@ export async function preparePageSections(
     hero:
       page === "home" && enabled.some((s) => s.key === "hero")
         ? getHero(settings.heroMode, univers)
-        : Promise.resolve(null),
+        : Promise.resolve([]),
     sections: enabled
       .filter((s) => s.key !== "hero")
       .map((section) => ({

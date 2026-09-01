@@ -67,8 +67,16 @@ export const PATCH = withApiErrors(
       "practicalInfo",
       "tickets",
       "address",
+      "postalCode",
+      "city",
+      "country",
+      "mapsUrl",
       "latitude",
       "longitude",
+      "tags",
+      "minAge",
+      "visibility",
+      "organizer",
     ];
     for (const key of allowed) {
       if (key in updates) {

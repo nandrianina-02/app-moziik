@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { BadgeCheck, CheckCircle2, Info, MapPin, Navigation } from "lucide-react";
 import { SafeImage } from "@/components/ui/SafeImage";
-import { lienCarte, urlCarteIntegree } from "@/components/events/eventPresentation";
+import { adressePostale, lienCarte, urlCarteIntegree } from "@/components/events/eventPresentation";
 import type { ArtisteAffiche, EventDetail, MomentProgramme } from "@/components/events/detail/types";
 
 /**
@@ -54,6 +54,16 @@ export function SectionAPropos({ event }: { event: EventDetail }) {
               className="rounded-xl border border-border bg-surface px-3 py-3 text-center text-xs font-medium"
             >
               {point}
+            </li>
+          ))}
+        </ul>
+      )}
+
+      {(event.tags ?? []).length > 0 && (
+        <ul className="mt-4 flex flex-wrap gap-2">
+          {event.tags?.map((tag) => (
+            <li key={tag} className="rounded-full bg-base px-2.5 py-1 text-[11px] text-ink-muted">
+              #{tag}
             </li>
           ))}
         </ul>
@@ -142,10 +152,16 @@ export function SectionProgramme({ moments }: { moments: MomentProgramme[] }) {
   );
 }
 
-export function SectionInfosPratiques({ infos }: { infos: string[] }) {
+export function SectionInfosPratiques({ infos, minAge }: { infos: string[]; minAge?: number }) {
   return (
     <BlocSection id="infos-pratiques" titre="Infos pratiques">
       <ul className="space-y-2.5">
+        {typeof minAge === "number" && minAge > 0 && (
+          <li className="flex items-start gap-2.5 text-sm">
+            <Info size={16} className="mt-0.5 shrink-0 text-ink-muted" />
+            <span className="text-ink-muted">Réservé aux {minAge} ans et plus.</span>
+          </li>
+        )}
         {infos.map((info) => (
           <li key={info} className="flex items-start gap-2.5 text-sm">
             <Info size={16} className="mt-0.5 shrink-0 text-ink-muted" />
@@ -160,6 +176,9 @@ export function SectionInfosPratiques({ infos }: { infos: string[] }) {
 export function SectionLieu({ event }: { event: EventDetail }) {
   const carte = lienCarte(event);
   const pointConnu = typeof event.latitude === "number" && typeof event.longitude === "number";
+  // Le nom de la salle est déjà le titre du bloc : le répéter dans
+  // l'adresse en dessous n'apprendrait rien.
+  const postale = adressePostale({ ...event, location: undefined });
 
   return (
     <BlocSection id="lieu" titre="Lieu">
@@ -169,7 +188,7 @@ export function SectionLieu({ event }: { event: EventDetail }) {
             <MapPin size={16} className="mt-0.5 shrink-0 text-accent" />
             <div className="min-w-0">
               <p className="text-sm font-medium">{event.location}</p>
-              {event.address && <p className="mt-0.5 text-xs text-ink-muted">{event.address}</p>}
+              {postale && <p className="mt-0.5 text-xs text-ink-muted">{postale}</p>}
             </div>
           </div>
 
@@ -204,7 +223,7 @@ export function sectionsDisponibles(event: EventDetail): { id: string; label: st
   const sections = [{ id: "a-propos", label: "À propos" }];
   if ((event.program ?? []).length > 0) sections.push({ id: "programme", label: "Programme" });
   if (afficheDe(event).length > 0) sections.push({ id: "artistes", label: "Artistes" });
-  if ((event.practicalInfo ?? []).length > 0) {
+  if ((event.practicalInfo ?? []).length > 0 || typeof event.minAge === "number") {
     sections.push({ id: "infos-pratiques", label: "Infos pratiques" });
   }
   sections.push({ id: "lieu", label: "Lieu" });

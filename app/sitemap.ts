@@ -38,7 +38,9 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     const [albums, artists, events, playlists] = await Promise.all([
       Album.find({}, "_id createdAt").lean(),
       Artist.find({}, "_id createdAt").lean(),
-      Event.find({ status: "published" }, "_id createdAt").lean(),
+      // Non répertorié veut dire non référencé : le lien circule de la main
+      // à la main, pas par les moteurs de recherche.
+      Event.find({ status: "published", visibility: { $ne: "unlisted" } }, "_id createdAt").lean(),
       Playlist.find({ isPublic: true }, "_id createdAt").lean(),
     ]);
 

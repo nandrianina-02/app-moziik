@@ -248,8 +248,26 @@ const champsFicheEvenement = {
   practicalInfo: listeDeTextes(12, 200),
   tickets: z.array(ticketTierSchema).max(10).optional(),
   address: z.string().trim().max(300).optional(),
+  postalCode: z.string().trim().max(20).optional(),
+  city: z.string().trim().max(120).optional(),
+  country: z.string().trim().max(120).optional(),
+  mapsUrl: z.string().trim().url("Lien de carte invalide.").max(500).optional().or(z.literal("")),
   latitude: z.number().min(-90).max(90).optional(),
   longitude: z.number().min(-180).max(180).optional(),
+  tags: z.array(z.string().trim().min(1).max(40)).max(15).optional(),
+  // Un âge minimum au-delà de 21 ans ne correspond à aucune réglementation
+  // courante : la borne attrape surtout les saisies erronées (année de
+  // naissance tapée dans le champ).
+  minAge: z.number().int().min(0).max(21).optional(),
+  visibility: z.enum(["public", "unlisted"]).optional(),
+  organizer: z
+    .object({
+      name: z.string().trim().max(120).optional(),
+      email: z.string().trim().email("Adresse email invalide.").max(254).optional().or(z.literal("")),
+      phone: z.string().trim().max(40).optional(),
+      website: z.string().trim().url("Site web invalide.").max(300).optional().or(z.literal("")),
+    })
+    .optional(),
 };
 
 export const createEventSchema = z.object({

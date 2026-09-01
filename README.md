@@ -95,16 +95,33 @@ Tous les modèles vivent dans `models/` : `User`, `Artist`, `Song`,
 - Pour autoriser un artiste à publier des évènements sans validation
   a priori (ils passeront quand même par `/admin/evenements`), mets
   `eventPublishingAuthorized: true` sur son document `Artist`
-- **Fiche d'un évènement** (`/evenements/<id>`) : la création ne demande
-  que l'essentiel ; tout le reste — galerie, artistes à l'affiche,
-  programme, catégories de billets, infos pratiques, coordonnées du
-  lieu — se remplit ensuite depuis « Modifier ». Une rubrique laissée
-  vide n'apparaît pas sur la fiche, plutôt que de s'y afficher vide
+- **Fiche d'un évènement** (`/evenements/<id>`) : galerie, artistes à
+  l'affiche, programme, catégories de billets, infos pratiques,
+  coordonnées du lieu. Une rubrique laissée vide n'apparaît pas sur la
+  fiche, plutôt que de s'y afficher vide
+- **Création et modification** partagent le même formulaire
+  (`components/events/EventForm.tsx`), servi en pleine page par
+  `/evenements/nouveau` et `/evenements/<id>/modifier`. Il n'y a plus de
+  modale : la fiche compte trop de champs pour tenir dans une fenêtre
+- **Poste de travail** `/admin/evenements` : compteurs de la plateforme,
+  onglets à venir / en cours / passés, recherche, filtres catégorie,
+  statut et lieu, table paginée, export CSV des filtres en cours, et
+  répartition par catégorie. Les compteurs décrivent toute la
+  plateforme — les filtres de la table ne les modifient pas
+- Pas de graphique de vues ni d'inscriptions : rien n'enregistre les
+  consultations d'une fiche, et un tel graphique aurait été inventé
 - Le compteur de participants vient de `Event.interested`, alimenté par
   le seul bouton « Ça m'intéresse » : ce n'est jamais une estimation
 - La billetterie est **informative**. Moziik n'encaisse rien : les
   catégories de billets décrivent l'offre, et « Choisir mes billets »
   renvoie vers `ticketUrl`, chez l'organisateur
+- `visibility: "unlisted"` garde la fiche accessible par son lien mais la
+  retire des listes, de la recherche interne et du sitemap
+- Le bandeau d'accueil est un carrousel (`components/home/HeroCarousel.tsx`)
+  : d'abord tout ce qui est épinglé sur la section « hero » depuis
+  `/admin/accueil`, évènements comme musique, puis — en mode automatique —
+  les deux prochains évènements, une nouvelle sortie, le titre le plus
+  écouté et une playlist tendance, six diapositives au plus
 - La carte du lieu n'apparaît qu'avec `latitude` **et** `longitude`.
   Elle vient d'OpenStreetMap, autorisé pour cela en `frame-src` dans
   la CSP de `next.config.mjs` ; sans coordonnées, « Itinéraire »

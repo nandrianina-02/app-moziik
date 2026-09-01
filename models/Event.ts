@@ -106,6 +106,16 @@ export interface IEvent {
   organizer?: IOrganizer;
   /** Membres qui se déclarent intéressés — la source du compteur de la page. */
   interested: Types.ObjectId[];
+  /**
+   * Taille de `interested`, tenue à jour à chaque bascule.
+   *
+   * Dénormalisée pour que les listes puissent afficher un nombre de
+   * participants sans charger la liste entière des identifiants de chaque
+   * évènement — sur une page qui en affiche vingt, cela représenterait
+   * plusieurs milliers d'identifiants transmis pour n'écrire que vingt
+   * nombres.
+   */
+  interestedCount: number;
 }
 
 const TicketTierSchema = new Schema<ITicketTier>(
@@ -174,6 +184,7 @@ const EventSchema = new Schema<IEvent>({
   visibility: { type: String, enum: ["public", "unlisted"], default: "public", index: true },
   organizer: { type: OrganizerSchema },
   interested: [{ type: Schema.Types.ObjectId, ref: "User" }],
+  interestedCount: { type: Number, default: 0 },
 });
 
 // Requête la plus fréquente de tout le projet pour ce modèle : les

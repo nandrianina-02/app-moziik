@@ -113,7 +113,9 @@ Tous les modèles vivent dans `models/` : `User`, `Artist`, `Song`,
     file se vide aussi à l'ouverture de `/admin/commentaires`
   - `/api/cron/compute-royalties` — chaque nuit à 02 h 15 UTC
   - `/api/cron/weekly-curation` — le lundi à 03 h 00 UTC : la fenêtre
-    couvre alors les sept jours pleins de la semaine écoulée
+    couvre alors les sept jours pleins de la semaine écoulée. Accepte
+    `?univers=general` ou `?univers=christian` pour n'analyser qu'un
+    répertoire ; sans paramètre, les deux passent à la suite
   - `/api/cron/weekly-report` — le lundi à 03 h 45 UTC, après la curation :
     il archive le rapport d'exploitation et prévient les administrateurs
   - Tous exigent l'en-tête `Authorization: Bearer <CRON_SECRET>`. Sans
@@ -135,6 +137,19 @@ Tous les modèles vivent dans `models/` : `User`, `Artist`, `Song`,
   - Réponses attendues : 200 dans tous les cas nominaux, y compris quand
     il n'y a rien à faire (semaine trop calme, aucun titre à publier). Un
     échec réel remonte en 4xx ou 5xx.
+  - **Plafond de durée de l'hébergeur.** Les routes déclarent leur
+    `maxDuration`, plafonné à 300 s — la limite de l'offre Hobby de
+    Vercel, qui refuse le déploiement au-delà. Si la curation approche ce
+    plafond (gros catalogue, modèle lent), la scinder en deux
+    déclenchements espacés de cinq minutes :
+
+    ```
+    0 3 * * 1   /api/cron/weekly-curation?univers=general
+    5 3 * * 1   /api/cron/weekly-curation?univers=christian
+    ```
+
+    Chacun tient alors largement dans le plafond, et un univers en échec
+    n'emporte plus l'autre.
 - Les prix affichés sur `/abonnement` viennent de `/api/site-config`
   (public), donc toujours synchronisés avec `/admin/parametres`
 

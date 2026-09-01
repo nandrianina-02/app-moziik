@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { withApiErrors, ApiError } from "@/lib/apiError";
-import { lancerAnalyseHebdomadaire, CurationIndisponible } from "@/lib/curation/run";
+import { lancerAnalyse, lancerAnalyseHebdomadaire, CurationIndisponible } from "@/lib/curation/run";
+import { estUnivers } from "@/lib/univers";
 import { purgerJournal } from "@/lib/searchJournal";
 
 export const dynamic = "force-dynamic";
@@ -11,6 +12,10 @@ export const dynamic = "force-dynamic";
  * À appeler une fois par semaine avec
  * `Authorization: Bearer <CRON_SECRET>` — le lundi convient : la fenêtre
  * couvre alors les sept jours pleins de la semaine écoulée.
+ *
+ * `?univers=general` ou `?univers=christian` n'analyse que celui-là. Sans
+ * ce paramètre, les deux passent à la suite. Voir `maxDuration` plus bas
+ * pour la raison de ce découpage.
  *
  * CE QU'UNE EXÉCUTION PRODUIT
  *
@@ -46,11 +51,23 @@ export const POST = withApiErrors(async (req: Request) => {
   // collection ne serait jamais purgée.
   const journalPurge = await purgerJournal();
 
+  // Un univers à la fois, quand l'appelant le demande.
+  //
+  // Les deux analyses tiennent normalement dans une seule exécution, mais
+  // « normalement » dépend de la taille du catalogue et du temps de
+  // réponse du modèle — et le plafond de l'hébergeur, lui, ne bouge pas.
+  // Deux appels espacés de quelques minutes divisent la durée par deux et
+  // isolent les pannes : un univers qui échoue n'emporte plus l'autre.
+  const demande = new URL(req.url).searchParams.get("univers");
+  const univers = estUnivers(demande) ? demande : null;
+
   try {
-    // Les deux univers sont analysés à la suite. Un univers sans résultat
-    // — catalogue trop mince, semaine trop calme — figure dans `echecs`
-    // sans empêcher l'autre d'aboutir.
-    const resultat = await lancerAnalyseHebdomadaire({ declencheur: "cron" });
+    // Sans précision, les deux univers sont analysés à la suite. Un
+    // univers sans résultat — catalogue trop mince, semaine trop calme —
+    // figure dans `echecs` sans empêcher l'autre d'aboutir.
+    const resultat = univers
+      ? { analyses: [await lancerAnalyse({ declencheur: "cron", univers })], echecs: [] }
+      : await lancerAnalyseHebdomadaire({ declencheur: "cron" });
     for (const echec of resultat.echecs) {
       console.warn(`[curation] univers ${echec.univers} sans résultat : ${echec.raison}`);
     }
@@ -69,14 +86,18 @@ export const POST = withApiErrors(async (req: Request) => {
 });
 
 /**
- * Durée maximale d'exécution. Deux univers, une quarantaine de sélections, et le nommage par lots :
- * c'est de loin le plus long des cinq.
+ * Durée maximale d'exécution.
  *
- * Au-delà de la valeur par défaut de l'hébergeur, l'exécution serait
- * coupée en plein milieu — et une analyse interrompue laisse un verrou
- * derrière elle (voir lib/curation/run.ts).
+ * 300 secondes, et pas davantage : c'est le plafond de l'offre Hobby de
+ * Vercel, qui refuse le déploiement au-delà — l'erreur est explicite et
+ * bloque tout le site, pas seulement cette route.
+ *
+ * C'est aussi ce qui justifie `?univers=` ci-dessus. Une analyse coupée
+ * en plein milieu laisse un verrou derrière elle (lib/curation/run.ts) et
+ * fait perdre les sélections de la semaine ; scinder l'exécution en deux
+ * appels ramène chacun bien en dessous du plafond.
  */
-export const maxDuration = 800;
+export const maxDuration = 300;
 
 /**
  * Vercel Cron déclenche en GET, sans corps.

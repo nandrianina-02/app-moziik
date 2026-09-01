@@ -80,11 +80,11 @@ export const POST = withApiErrors(async (req: Request) => {
 });
 
 /**
- * Durée maximale d'exécution. Agrégations sur toute la période, et appels au modèle pour la lecture des mesures.
+ * Durée maximale d'exécution.
  *
- * Au-delà de la valeur par défaut de l'hébergeur, l'exécution serait
- * coupée en plein milieu — et une analyse interrompue laisse un verrou
- * derrière elle (voir lib/curation/run.ts).
+ * Les mesures de la semaine, puis leur lecture par le modèle. Rien n'est
+ * publié ni modifié : une exécution coupée ne laisse qu'un rapport
+ * manquant, que la semaine suivante remplacera.
  */
 export const maxDuration = 300;
 

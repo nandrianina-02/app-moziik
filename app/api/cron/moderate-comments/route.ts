@@ -35,11 +35,11 @@ export const POST = withApiErrors(async (req: Request) => {
 });
 
 /**
- * Durée maximale d'exécution. Agrégations sur toute la période, et appels au modèle pour la lecture des mesures.
+ * Durée maximale d'exécution.
  *
- * Au-delà de la valeur par défaut de l'hébergeur, l'exécution serait
- * coupée en plein milieu — et une analyse interrompue laisse un verrou
- * derrière elle (voir lib/curation/run.ts).
+ * Trois lots de dix commentaires envoyés au modèle, à la suite. C'est lui
+ * qui fixe la durée, et elle varie ; le plafond de lots (LOTS) borne déjà
+ * la dépense, celui-ci borne l'attente.
  */
 export const maxDuration = 300;
 

@@ -108,11 +108,16 @@ export const POST = withApiErrors(async (req: Request) => {
 });
 
 /**
- * Durée maximale d'exécution. Agrégations sur toute la période, et appels au modèle pour la lecture des mesures.
+ * Durée maximale d'exécution.
  *
- * Au-delà de la valeur par défaut de l'hébergeur, l'exécution serait
- * coupée en plein milieu — et une analyse interrompue laisse un verrou
- * derrière elle (voir lib/curation/run.ts).
+ * Le regroupement porte sur toutes les écoutes complètes non encore
+ * monétisées : un rattrapage après plusieurs jours d'arrêt en balaie
+ * beaucoup d'un coup. Aucun appel au modèle ici, seulement des
+ * agrégations.
+ *
+ * Une exécution coupée en cours de route n'abîme rien : les écoutes ne
+ * sont marquées « monetized » qu'une fois leur relevé écrit, et celles
+ * qui restent seront reprises au passage suivant.
  */
 export const maxDuration = 300;
 

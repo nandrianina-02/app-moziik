@@ -52,11 +52,12 @@ export const POST = withApiErrors(async (req: Request) => {
 });
 
 /**
- * Durée maximale d'exécution. Le travail est court : republier ce dont la date est passée.
+ * Durée maximale d'exécution.
  *
- * Au-delà de la valeur par défaut de l'hébergeur, l'exécution serait
- * coupée en plein milieu — et une analyse interrompue laisse un verrou
- * derrière elle (voir lib/curation/run.ts).
+ * Le travail est court — publier les titres dont la date est passée et
+ * prévenir les abonnés — mais il grandit avec le nombre de notifications
+ * à écrire. Soixante secondes laissent de la marge pour une sortie très
+ * attendue sans jamais s'en approcher en usage normal.
  */
 export const maxDuration = 60;
 

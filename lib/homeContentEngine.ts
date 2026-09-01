@@ -707,7 +707,7 @@ type SectionContext = {
 async function isSubscriber(viewer: HomepageViewer) {
   if (!viewer) return false;
   const subscription = await Subscription.findOne({ user: viewer.id }).sort({ startedAt: -1 });
-  return hasPremiumAccess({ role: viewer.role, subscriptionStatus: subscription?.status });
+  return hasPremiumAccess({ role: viewer.role, subscription });
 }
 
 /** Calcule les données d'une seule section. Ne rejette jamais pour une panne isolée : voir buildSection. */

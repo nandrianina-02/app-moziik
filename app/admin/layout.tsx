@@ -20,6 +20,7 @@ import {
   Wand2,
   LineChart,
   Church,
+  UserCog,
 } from "lucide-react";
 import { AdminHeaderSlot } from "@/components/admin/AdminChrome";
 
@@ -181,6 +182,20 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             </Link>
           );
         })}
+
+        {/* Sortie de l'espace d'administration.
+            L'admin y arrive par le menu du compte, mais rien ne l'y
+            ramenait : la navigation ci-dessus ne liste que des écrans
+            d'administration, et « Mon compte » n'en est pas un. Le trait
+            marque bien qu'on quitte la série. */}
+        <span aria-hidden className="mx-1 w-px shrink-0 self-stretch bg-border" />
+        <Link
+          href="/compte"
+          className="flex items-center gap-1.5 whitespace-nowrap rounded-full border border-border px-3.5 py-1.5 text-xs font-medium text-ink-muted transition-colors hover:border-accent hover:text-ink"
+        >
+          <UserCog size={14} />
+          Mon compte
+        </Link>
       </nav>
 
       {/* En-tête commun : titre, sous-titre, et le réceptacle où chaque page

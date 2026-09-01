@@ -129,8 +129,30 @@ Tous les modèles vivent dans `models/` : `User`, `Artist`, `Song`,
 - Les coûts d'abonnement et le taux de rémunération par écoute
   modifiés dans `/admin/parametres` sont lus par `getSiteConfig()` —
   ils seront branchés sur Stripe/Mobile Money en Phase 7
+- **Offrir l'accès Premium** depuis `/admin/membres` : bouton « Accès
+  Premium », dans la barre de filtres ou dans la barre de sélection. La
+  cible est soit les comptes cochés, soit **tous les résultats du filtre
+  courant** — filtre résolu côté serveur, jamais à partir d'une liste
+  envoyée par le navigateur. La durée va d'illimitée à une date précise
+- Un accès offert est un `Subscription` comme les autres —
+  `paymentMethod: "offert"`, `grantedBy` pour savoir qui l'a décidé — et
+  **sans `currentPeriodEnd` quand il est illimité** : c'est l'absence de
+  date qui dit « sans fin », plutôt qu'une date lointaine qui mentirait
+  dans « Mon compte ». Un compte déjà abonné et payant n'est jamais
+  écrasé : il est compté à part dans le retour de l'API
+- L'admin retrouve « Mon compte » depuis la barre de navigation de
+  l'espace d'administration, après le séparateur
 
 ## Phase 7 — Monétisation
+- **L'échéance fait foi autant que le statut.** `hasPremiumAccess`
+  (`lib/premium.ts`) exige `status: "active"` **et** une
+  `currentPeriodEnd` absente ou dans le futur. Elle ne regardait que le
+  statut : un accès à durée limitée n'aurait donc jamais pris fin, et un
+  paiement mobile — qui écrit `active` une fois pour toutes, sans rien
+  pour le repasser à `expired` — ouvrait le premium indéfiniment.
+  Conséquence à la mise en production : **les abonnés Mobile Money dont
+  la période est passée perdent l'accès immédiatement**, ce qui est le
+  comportement attendu mais n'était pas celui d'avant
 - Renseigner `STRIPE_SECRET_KEY` et `STRIPE_WEBHOOK_SECRET` (créer le
   webhook dans le dashboard Stripe pointant vers
   `/api/webhooks/stripe`, évènements : `checkout.session.completed`,

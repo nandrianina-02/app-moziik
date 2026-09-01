@@ -6,6 +6,7 @@ import {
   CalendarClock,
   ChevronLeft,
   ChevronRight,
+  Crown,
   Download,
   Loader2,
   Minus,
@@ -31,6 +32,7 @@ import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { ContextMenuShell, MenuItem, MenuSeparator } from "@/components/ui/ContextMenuShell";
 import { CreateUserModal } from "@/components/admin/CreateUserModal";
 import { Pagination } from "@/components/admin/Pagination";
+import { PremiumGrantModal } from "@/components/admin/PremiumGrantModal";
 import { useToast } from "@/context/ToastProvider";
 import { useFormatDate } from "@/context/SiteConfigProvider";
 import { formatCompactNumber } from "@/lib/formatNumber";
@@ -49,6 +51,13 @@ type AdminUser = {
   eventPublishingAuthorized: boolean;
   songsCount: number;
   albumsCount: number;
+  premium: {
+    actif: boolean;
+    /** Accordé par l'administration, par opposition à un abonnement payé. */
+    offert: boolean;
+    /** Absente = sans échéance. */
+    jusquAu: string | null;
+  };
 };
 
 type Stats = {
@@ -109,6 +118,7 @@ export default function AdminMembersPage() {
   const [taille, setTaille] = useState(10);
 
   const [selection, setSelection] = useState<string[]>([]);
+  const [octroiOuvert, setOctroiOuvert] = useState(false);
   const [menu, setMenu] = useState<{ user: AdminUser; x: number; y: number } | null>(null);
   const [suppression, setSuppression] = useState<AdminUser | null>(null);
   const [enCours, setEnCours] = useState(false);
@@ -374,6 +384,14 @@ export default function AdminMembersPage() {
 
         <button
           type="button"
+          onClick={() => setOctroiOuvert(true)}
+          className="flex shrink-0 items-center gap-1.5 rounded-xl border border-border bg-surface px-3.5 py-2.5 text-xs font-medium text-ink-muted transition-colors hover:border-accent hover:text-accent"
+        >
+          <Crown size={15} /> Accès Premium
+        </button>
+
+        <button
+          type="button"
           onClick={exporter}
           disabled={exportEnCours}
           aria-label="Exporter en CSV"
@@ -408,6 +426,14 @@ export default function AdminMembersPage() {
           </button>
           <button
             type="button"
+            disabled={enCours}
+            onClick={() => setOctroiOuvert(true)}
+            className="flex items-center gap-1.5 rounded-lg border border-border px-3 py-1.5 text-xs font-medium text-ink-muted transition-colors hover:border-accent hover:text-accent disabled:opacity-60"
+          >
+            <Crown size={13} /> Accès Premium
+          </button>
+          <button
+            type="button"
             onClick={() => setSelection([])}
             className="ml-auto text-xs font-medium text-ink-muted hover:text-ink"
           >
@@ -438,6 +464,7 @@ export default function AdminMembersPage() {
                   <th scope="col" className="py-3 pr-3">Rôle</th>
                   <th scope="col" className="py-3 pr-3">Statut</th>
                   <th scope="col" className="py-3 pr-3">Vérifié</th>
+                  <th scope="col" className="py-3 pr-3">Premium</th>
                   <th scope="col" className="py-3 pr-3">Morceaux</th>
                   <th scope="col" className="py-3 pr-3">Albums</th>
                   <th scope="col" className="py-3 pr-3">Inscrit le</th>
@@ -494,6 +521,9 @@ export default function AdminMembersPage() {
                           <Minus size={15} className="text-ink-muted" aria-label="Non vérifié" />
                         )}
                       </td>
+                      <td className="py-2.5 pr-3">
+                        <EtatPremium user={user} formatDate={formatDate} />
+                      </td>
                       <td className="py-2.5 pr-3 text-ink-muted">{user.role === "artist" ? user.songsCount : "—"}</td>
                       <td className="py-2.5 pr-3 text-ink-muted">{user.role === "artist" ? user.albumsCount : "—"}</td>
                       <td className="whitespace-nowrap py-2.5 pr-3 text-ink-muted">{formatDate(user.createdAt)}</td>
@@ -525,7 +555,20 @@ export default function AdminMembersPage() {
             </p>
           )}
 
-          {/* Pagination */}
+          {octroiOuvert && (
+        <PremiumGrantModal
+          ids={selection}
+          totalFiltre={total}
+          filtres={{ role, status: statut, verified: verifie, search }}
+          onClose={() => setOctroiOuvert(false)}
+          onDone={() => {
+            setSelection([]);
+            charger();
+          }}
+        />
+      )}
+
+      {/* Pagination */}
           <div className="flex flex-wrap items-center justify-between gap-3 border-t border-border px-4 py-3">
             <p className="text-xs text-ink-muted">
               {total === 0
@@ -828,3 +871,40 @@ function ActionRapide({
 }
 
 /** Pagination compacte : bornes, voisins de la page courante, et ellipses. */
+
+/**
+ * L'état Premium d'un compte, en une pastille.
+ *
+ * Trois cas se distinguent parce qu'ils appellent des gestes différents :
+ * un accès inclus au rôle ne se retire pas, un accès offert se retire
+ * d'ici, un abonnement payé se gère chez le fournisseur de paiement.
+ */
+function EtatPremium({
+  user,
+  formatDate,
+}: {
+  user: AdminUser;
+  formatDate: (valeur: string | number | Date) => string;
+}) {
+  if (user.role === "admin") {
+    return <span className="text-xs text-ink-muted">Inclus</span>;
+  }
+  if (!user.premium?.actif) {
+    return <Minus size={15} className="text-ink-muted" aria-label="Pas de Premium" />;
+  }
+
+  return (
+    <span className="flex flex-col gap-0.5">
+      <span
+        className={`w-fit rounded-full px-2.5 py-1 text-[11px] font-medium ${
+          user.premium.offert ? "bg-accent/10 text-accent" : "bg-verified/10 text-verified"
+        }`}
+      >
+        {user.premium.offert ? "Offert" : "Abonné"}
+      </span>
+      <span className="text-[11px] text-ink-muted">
+        {user.premium.jusquAu ? `jusqu'au ${formatDate(user.premium.jusquAu)}` : "sans échéance"}
+      </span>
+    </span>
+  );
+}

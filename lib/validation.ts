@@ -293,6 +293,42 @@ export const patchEventSchema = z.object({
   ...champsFicheEvenement,
 });
 
+// ---- Accès premium offert par l'administration --------------------------------
+
+/**
+ * Une durée d'accès, telle que l'administration la choisit.
+ *
+ * `illimite` n'écrit aucune échéance : c'est l'absence de date qui dit
+ * « sans fin », pas une date lointaine qui mentirait à l'affichage.
+ */
+export const dureePremiumSchema = z.discriminatedUnion("type", [
+  z.object({ type: z.literal("illimite") }),
+  z.object({ type: z.literal("jours"), jours: z.number().int().min(1).max(3650) }),
+  z.object({ type: z.literal("jusqu_au"), date: z.coerce.date() }),
+]);
+
+export const octroiPremiumSchema = z.object({
+  action: z.enum(["offrir", "retirer"]),
+  duree: dureePremiumSchema.optional(),
+  cible: z.discriminatedUnion("type", [
+    z.object({
+      type: z.literal("selection"),
+      ids: z.array(z.string().regex(/^[a-f\d]{24}$/i, "Identifiant invalide.")).min(1).max(500),
+    }),
+    z.object({
+      type: z.literal("filtre"),
+      filtres: z
+        .object({
+          role: z.string().max(20).optional(),
+          status: z.string().max(20).optional(),
+          verified: z.string().max(5).optional(),
+          search: z.string().max(200).optional(),
+        })
+        .default({}),
+    }),
+  ]),
+});
+
 export const moderateDecisionSchema = z.object({
   decision: z.enum(["approve", "reject"], { errorMap: () => ({ message: "Décision invalide." }) }),
 });

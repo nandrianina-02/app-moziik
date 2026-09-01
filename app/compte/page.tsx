@@ -54,7 +54,15 @@ type Profil = {
   preferences: { language?: string; timezone?: string; dateFormat?: string };
 };
 
-type Abonnement = { plan: string; status: string; currentPeriodEnd: string; amount?: number; currency?: string; paymentMethod?: string } | null;
+type Abonnement = {
+  plan: string;
+  status: string;
+  /** Absente = accès sans échéance (offert par l'administration). */
+  currentPeriodEnd?: string;
+  amount?: number;
+  currency?: string;
+  paymentMethod?: string;
+} | null;
 type Appareil = { id: string; device: string; createdAt: string; expiresAt: string };
 
 const roleLabels: Record<string, string> = { member: "Membre", artist: "Artiste", admin: "Administrateur" };
@@ -79,6 +87,8 @@ export default function AccountPage() {
   const [profil, setProfil] = useState<Profil | null>(null);
   const [subscription, setSubscription] = useState<Abonnement>(null);
   const [hasPremium, setHasPremium] = useState(false);
+  /** Accès accordé par l'administration : ni montant, ni échéance à honorer. */
+  const offert = subscription?.paymentMethod === "offert";
   const [appareils, setAppareils] = useState<Appareil[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -456,27 +466,44 @@ export default function AccountPage() {
                 <Crown size={16} /> Accès Premium illimité, inclus avec le compte administrateur.
               </p>
             ) : subscription ? (
-              <div className="grid gap-4 sm:grid-cols-3">
-                <Bloc label="Formule">
-                  {subscription.plan === "premium_annual" ? "Premium annuel" : "Premium"}
-                </Bloc>
-                <Bloc label="Statut">
-                  <span className={subscription.status === "active" ? "text-verified" : "text-warning"}>
-                    {subscription.status === "active" ? "Actif" : subscription.status}
-                  </span>
-                </Bloc>
-                <Bloc label="Prochaine échéance">{formatDate(subscription.currentPeriodEnd)}</Bloc>
-                {typeof subscription.amount === "number" && (
-                  <Bloc label="Montant">
-                    {subscription.amount.toFixed(2)} {subscription.currency ?? devise.symbole}
-                  </Bloc>
+              <>
+                {offert && (
+                  <p className="mb-4 flex items-center gap-2 rounded-xl border border-accent/30 bg-accent/[0.06] px-3.5 py-3 text-sm text-ink">
+                    <Crown size={15} className="shrink-0 text-accent" />
+                    Accès Premium offert par l&apos;équipe — rien à régler.
+                  </p>
                 )}
-                {subscription.paymentMethod && (
-                  <Bloc label="Moyen de paiement">
-                    {subscription.paymentMethod === "stripe" ? "Carte bancaire" : "Mobile Money"}
+
+                <div className="grid gap-4 sm:grid-cols-3">
+                  <Bloc label="Formule">
+                    {subscription.plan === "premium_annual" ? "Premium annuel" : "Premium"}
                   </Bloc>
-                )}
-              </div>
+                  <Bloc label="Statut">
+                    <span className={hasPremium ? "text-verified" : "text-warning"}>
+                      {hasPremium ? "Actif" : subscription.status === "active" ? "Échu" : subscription.status}
+                    </span>
+                  </Bloc>
+                  {/* Sans date, l'accès n'a pas de fin — et le dire vaut mieux
+                      qu'afficher un tiret qu'on lirait comme une donnée
+                      manquante. */}
+                  <Bloc label={offert ? "Fin de l'accès" : "Prochaine échéance"}>
+                    {subscription.currentPeriodEnd ? formatDate(subscription.currentPeriodEnd) : "Sans échéance"}
+                  </Bloc>
+
+                  {/* Un accès offert n'a ni montant ni moyen de paiement :
+                      ces deux blocs n'ont rien à dire dans ce cas. */}
+                  {!offert && typeof subscription.amount === "number" && (
+                    <Bloc label="Montant">
+                      {subscription.amount.toFixed(2)} {subscription.currency ?? devise.symbole}
+                    </Bloc>
+                  )}
+                  {!offert && subscription.paymentMethod && (
+                    <Bloc label="Moyen de paiement">
+                      {subscription.paymentMethod === "stripe" ? "Carte bancaire" : "Mobile Money"}
+                    </Bloc>
+                  )}
+                </div>
+              </>
             ) : (
               <p className="text-sm text-ink-muted">Aucun abonnement actif pour l&apos;instant.</p>
             )}
@@ -487,7 +514,7 @@ export default function AccountPage() {
                   href="/abonnement"
                   className="rounded-xl bg-accent px-4 py-2.5 text-sm font-semibold text-base transition-colors hover:bg-accent-hover"
                 >
-                  {hasPremium ? "Gérer l'abonnement" : "Passer en Premium"}
+                  {offert ? "Découvrir les formules" : hasPremium ? "Gérer l'abonnement" : "Passer en Premium"}
                 </Link>
               </div>
             )}

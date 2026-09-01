@@ -20,7 +20,7 @@ import { normaliserTheme } from "@/lib/theme";
 
 async function premiumDe(userId: string, role?: string) {
   const subscription = await Subscription.findOne({ user: userId }).sort({ startedAt: -1 }).select("status");
-  return hasPremiumAccess({ role, subscriptionStatus: subscription?.status });
+  return hasPremiumAccess({ role, subscription });
 }
 
 export const GET = withApiErrors(async (req: Request) => {

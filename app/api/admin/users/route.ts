@@ -11,6 +11,9 @@ import { requireAdmin } from "@/lib/requireAdmin";
 import { ApiError, withApiErrors } from "@/lib/apiError";
 import { parseOrThrow, adminUserCreateSchema } from "@/lib/validation";
 import { genererUsername } from "@/lib/username";
+import Subscription from "@/models/Subscription";
+import { construireFiltreComptes, filtresDepuisUrl } from "@/lib/adminUserQuery";
+import { hasPremiumAccess } from "@/lib/premium";
 
 const TAILLE_PAGE_MAX = 200;
 
@@ -27,38 +30,14 @@ export const GET = withApiErrors(async (req: Request) => {
   await requireAdmin(req);
 
   const { searchParams } = new URL(req.url);
-  const role = searchParams.get("role") ?? "";
-  const statut = searchParams.get("status") ?? "";
-  const verifie = searchParams.get("verified") ?? "";
-  const search = (searchParams.get("search") ?? "").trim();
   const page = Math.max(1, Number(searchParams.get("page") ?? 1) || 1);
   const taille = Math.min(TAILLE_PAGE_MAX, Math.max(1, Number(searchParams.get("limit") ?? 10) || 10));
 
   await connectDB();
 
-  const query: Record<string, unknown> = {};
-  if (role === "member" || role === "artist" || role === "admin") query.role = role;
-
-  // Les trois états d'un compte, tels qu'ils existent vraiment : en attente
-  // tant que l'adresse n'est pas confirmée, suspendu si l'administration l'a
-  // décidé, actif sinon.
-  if (statut === "active") Object.assign(query, { suspended: false, emailVerified: true });
-  if (statut === "pending") Object.assign(query, { emailVerified: false, suspended: false });
-  if (statut === "suspended") query.suspended = true;
-
-  if (verifie === "yes") query.verifiedArtist = true;
-  if (verifie === "no") query.verifiedArtist = false;
-
-  if (search) {
-    // Les caractères spéciaux d'une recherche sont échappés : « a+b » ne doit
-    // pas devenir une expression régulière qui ne trouve rien, ou pire, qui
-    // fait travailler la base pour rien.
-    const motif = search.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-    query.$or = [
-      { name: { $regex: motif, $options: "i" } },
-      { email: { $regex: motif, $options: "i" } },
-    ];
-  }
+  // Le même filtre que celui des actions de masse, pour que « tous les
+  // résultats » désigne exactement ce que la table montre.
+  const query = construireFiltreComptes(filtresDepuisUrl(searchParams));
 
   const debutMois = new Date();
   debutMois.setDate(1);
@@ -128,15 +107,35 @@ export const GET = withApiErrors(async (req: Request) => {
   const morceauxParArtiste = new Map(morceaux.map((m) => [m._id.toString(), m.n]));
   const albumsParArtiste = new Map(albums.map((a) => [a._id.toString(), a.n]));
 
+  // L'abonnement des seuls comptes affichés : la colonne « Premium » doit
+  // dire ce qui est vrai maintenant, échéance comprise.
+  const abonnements = await Subscription.find({ user: { $in: utilisateurs.map((u) => u._id) } })
+    .select("user plan status paymentMethod currentPeriodEnd grantedBy")
+    .sort({ startedAt: -1 })
+    .lean();
+  const abonnementParUtilisateur = new Map<string, (typeof abonnements)[number]>();
+  for (const abonnement of abonnements) {
+    // Trié du plus récent au plus ancien : le premier vu fait foi.
+    const cle = abonnement.user.toString();
+    if (!abonnementParUtilisateur.has(cle)) abonnementParUtilisateur.set(cle, abonnement);
+  }
+
   const enrichis = utilisateurs.map((u) => {
     const profil = profilParUtilisateur.get(u._id.toString());
     const idProfil = profil?._id?.toString();
+    const abonnement = abonnementParUtilisateur.get(u._id.toString());
     return {
       ...u,
       artistId: profil?._id ?? null,
       eventPublishingAuthorized: profil?.eventPublishingAuthorized ?? false,
       songsCount: idProfil ? morceauxParArtiste.get(idProfil) ?? 0 : 0,
       albumsCount: idProfil ? albumsParArtiste.get(idProfil) ?? 0 : 0,
+      premium: {
+        actif: hasPremiumAccess({ role: u.role, subscription: abonnement }),
+        offert: abonnement?.paymentMethod === "offert",
+        /** Absente = sans échéance. */
+        jusquAu: abonnement?.currentPeriodEnd ?? null,
+      },
     };
   });
 

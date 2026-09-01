@@ -11,10 +11,7 @@ export const GET = withApiErrors(async (req: Request) => {
   await connectDB();
   const subscription = await Subscription.findOne({ user: authUser.id }).sort({ startedAt: -1 });
 
-  const hasPremium = hasPremiumAccess({
-    role: authUser.role,
-    subscriptionStatus: subscription?.status,
-  });
+  const hasPremium = hasPremiumAccess({ role: authUser.role, subscription });
 
   return NextResponse.json({ subscription, hasPremium, isAdmin: authUser.role === "admin" });
 });

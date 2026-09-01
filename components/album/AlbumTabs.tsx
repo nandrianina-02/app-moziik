@@ -7,6 +7,7 @@ import { TrackTable } from "@/components/music/TrackTable";
 import { AlbumCommentsTab } from "@/components/album/AlbumCommentsTab";
 import { CompactAlbumRow } from "@/components/song/CompactAlbumRow";
 import type { AlbumDetail, AlbumSummaryLite } from "@/components/album/types";
+import { estPodcast } from "@/lib/albums";
 
 type TabValue = "titres" | "apropos" | "comments" | "similar";
 
@@ -28,7 +29,9 @@ export function AlbumTabs({
   onSaveDescription: (description: string) => Promise<void>;
 }) {
   const tabs: { value: TabValue; label: string; icon: typeof Info; badge?: number }[] = [
-    { value: "titres", label: "Titres", icon: Music2 },
+    // Le libellé suit la forme : on n'écoute pas des « titres » dans un
+    // podcast. La valeur de l'onglet, elle, ne bouge pas.
+    { value: "titres", label: estPodcast(album.type) ? "Épisodes" : "Titres", icon: Music2 },
     { value: "apropos", label: "À propos", icon: Info },
     { value: "comments", label: "Commentaires", icon: MessageSquare, badge: commentsCount },
     { value: "similar", label: "Fans aussi aiment", icon: Users },

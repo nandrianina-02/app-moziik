@@ -7,6 +7,7 @@ import { AdminCardsSkeleton } from "@/components/admin/AdminSkeleton";
 import { IconActionButton, IconActionLink } from "@/components/admin/IconActionButton";
 import { AdminItemGrid } from "@/components/admin/AdminItemGrid";
 import { useToast } from "@/context/ToastProvider";
+import { libelleTypeAlbum, motPiste } from "@/lib/albums";
 
 type AdminAlbum = {
   _id: string;
@@ -98,7 +99,8 @@ export default function AdminAlbumsPage() {
                   ) : (
                     <span className="italic text-accent">Artiste supprimé</span>
                   )}
-                  {" · "}{album.type} · {album.songs.length} son(s)
+                  {" · "}{libelleTypeAlbum(album.type)} · {album.songs.length}{" "}
+                  {motPiste(album.type, album.songs.length)}
                 </p>
               </div>
               <div className="flex items-center gap-2">

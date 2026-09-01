@@ -53,6 +53,7 @@ export const POST = withApiErrors(async (req: Request) => {
   const {
     title,
     audioUrl,
+    videoUrl,
     coverUrl,
     duration,
     genre,
@@ -139,6 +140,7 @@ export const POST = withApiErrors(async (req: Request) => {
     universSource: classement.source,
     album: albumId || undefined,
     audioUrl,
+    videoUrl: videoUrl || undefined,
     coverUrl,
     duration,
     genre,

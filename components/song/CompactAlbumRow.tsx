@@ -1,8 +1,8 @@
 import Link from "next/link";
 import { SafeImage } from "@/components/ui/SafeImage";
 import type { AlbumSummary } from "@/components/song/types";
+import { libelleTypeAlbum } from "@/lib/albums";
 
-const typeLabel = { album: "Album", ep: "EP", single: "Single" };
 
 export function CompactAlbumRow({ album }: { album: AlbumSummary }) {
   return (
@@ -20,7 +20,7 @@ export function CompactAlbumRow({ album }: { album: AlbumSummary }) {
       <span className="min-w-0 flex-1">
         <span className="block truncate text-sm text-ink">{album.title}</span>
         <span className="block truncate text-xs text-ink-muted">
-          {typeLabel[album.type]} · {new Date(album.releaseDate).getFullYear()}
+          {libelleTypeAlbum(album.type)} · {new Date(album.releaseDate).getFullYear()}
         </span>
       </span>
     </Link>

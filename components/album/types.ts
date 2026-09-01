@@ -1,4 +1,5 @@
 import type { PlayableSong } from "@/context/PlayerProvider";
+import type { AlbumType } from "@/lib/albums";
 
 /**
  * Étend le album renvoyé par GET /api/albums/[id]. bannerUrl, description
@@ -12,7 +13,7 @@ export type AlbumDetail = {
   coverUrl: string;
   bannerUrl?: string | null;
   description?: string;
-  type: "album" | "ep" | "single";
+  type: AlbumType;
   releaseDate: string;
   downloadsCount?: number;
   artist: { _id: string; stageName: string; verified?: boolean; bio?: string } | null;
@@ -23,7 +24,7 @@ export type AlbumSummaryLite = {
   _id: string;
   title: string;
   coverUrl: string;
-  type: "album" | "ep" | "single";
+  type: AlbumType;
   releaseDate: string;
 };
 

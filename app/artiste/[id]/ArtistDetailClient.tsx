@@ -21,7 +21,6 @@ import {
   Instagram,
   Youtube,
   Globe,
-  Clapperboard,
   Heart,
   MessageCircle,
 } from "lucide-react";
@@ -39,6 +38,8 @@ import { EditArtistProfileModal } from "@/components/artist/EditArtistProfileMod
 import { ShareModal } from "@/components/share/ShareModal";
 import { buildArtistSubject } from "@/components/share/shareSubject";
 import { uploadToCloudinaryClient } from "@/lib/cloudinaryClient";
+import type { AlbumType } from "@/lib/albums";
+import { ArtistVideos } from "@/components/artist/ArtistVideos";
 
 const DEFAULT_BANNER = "/images/default-artist-banner.png";
 
@@ -60,7 +61,7 @@ type ArtistProfile = {
   totalLikes: number;
 };
 
-type AlbumSummary = { _id: string; title: string; coverUrl: string; type: "album" | "ep" | "single"; releaseDate?: string };
+type AlbumSummary = { _id: string; title: string; coverUrl: string; type: AlbumType; releaseDate?: string };
 type PlaylistSummary = { _id: string; title: string; coverUrl?: string; songsCount: number };
 type SimilarArtist = { _id: string; stageName: string; coverUrl?: string; verified?: boolean; followersCount: number };
 type RecentComment = { _id: string; text: string; createdAt: string; user: { name: string; avatarUrl?: string }; songTitle: string };
@@ -721,13 +722,7 @@ export function ArtistDetailClient() {
             </div>
           )}
 
-          {tab === "videos" && (
-            <div className="rounded-xl2 border border-dashed border-border p-8 text-center">
-              <Clapperboard size={28} className="mx-auto mb-3 text-ink-muted" />
-              <p className="text-sm font-medium">Vidéos bientôt disponibles</p>
-              <p className="mt-1 text-xs text-ink-muted">Cette section arrivera dans une prochaine mise à jour de Moziik.</p>
-            </div>
-          )}
+          {tab === "videos" && <ArtistVideos songs={songs} />}
 
           {tab === "apropos" && (
             <div className="max-w-2xl space-y-6">

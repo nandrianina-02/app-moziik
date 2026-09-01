@@ -1,6 +1,7 @@
 import type { LucideIcon } from "lucide-react";
 import { Play, Heart, Clock, Disc3, Music2, CalendarDays, Globe2, Lock, Users } from "lucide-react";
 import type { PlayableSong } from "@/context/PlayerProvider";
+import { libelleTypeAlbum, type AlbumType } from "@/lib/albums";
 
 const statIcons = {
   play: Play,
@@ -57,13 +58,13 @@ export function buildAlbumSubject(album: {
   _id: string;
   title: string;
   coverUrl: string;
-  type?: "album" | "ep" | "single";
+  type?: AlbumType;
   releaseDate?: string;
   artist?: { stageName: string; verified?: boolean } | null;
   songs?: unknown[];
   songsCount?: number;
 }): ShareSubject {
-  const typeLabel = album.type ? { album: "Album", ep: "EP", single: "Single" }[album.type] : undefined;
+  const typeLabel = album.type ? libelleTypeAlbum(album.type) : undefined;
   const trackCount = album.songs?.length ?? album.songsCount;
   return {
     type: "album",

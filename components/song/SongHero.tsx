@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import Link from "next/link";
 import { motion } from "framer-motion";
 import {
@@ -14,11 +15,14 @@ import {
   MoreHorizontal,
   DownloadCloud,
   Loader2,
+  Clapperboard,
 } from "lucide-react";
 import { SafeImage } from "@/components/ui/SafeImage";
+import { VideoPlayerModal } from "@/components/song/VideoPlayerModal";
 import { useDominantColor } from "@/components/song/useDominantColor";
 import { formatCompactNumber } from "@/lib/formatNumber";
 import type { SongDetail, AlbumSummary } from "@/components/song/types";
+import { libelleTypeAlbum } from "@/lib/albums";
 
 function formatDuration(seconds: number) {
   const m = Math.floor(seconds / 60);
@@ -60,6 +64,7 @@ export function SongHero({
   onOpenMore: (x: number, y: number) => void;
 }) {
   const color = useDominantColor(song.coverUrl);
+  const [clipOuvert, setClipOuvert] = useState(false);
   const gradient = color
     ? `radial-gradient(120% 120% at 15% 0%, rgba(${color.r}, ${color.g}, ${color.b}, 0.35), transparent 60%)`
     : "radial-gradient(120% 120% at 15% 0%, rgba(255, 107, 74, 0.18), transparent 60%)";
@@ -117,7 +122,7 @@ export function SongHero({
           <div className="mb-2 flex flex-wrap items-center justify-center gap-2 md:justify-start">
             <span className="rounded-full bg-accent/15 px-2.5 py-1 text-[11px] font-medium text-accent">
               {album
-                ? { album: "Album", ep: "EP", single: "Single" }[album.type]
+                ? libelleTypeAlbum(album.type)
                 : "Single"}
             </span>
             {song.explicit && (
@@ -203,6 +208,9 @@ export function SongHero({
           active={offline}
           onClick={onToggleOffline}
         />
+        {song.videoUrl && (
+          <ActionButton icon={Clapperboard} label="Regarder le clip" onClick={() => setClipOuvert(true)} />
+        )}
         <ActionButton icon={Share2} label="Partager" onClick={onShare} />
         <ActionButton
           icon={ListPlus}
@@ -239,6 +247,15 @@ export function SongHero({
           <MoreHorizontal size={16} />
         </button>
       </motion.div>
+
+      {clipOuvert && song.videoUrl && (
+        <VideoPlayerModal
+          videoUrl={song.videoUrl}
+          titre={song.title}
+          sousTitre={song.artist?.stageName}
+          onClose={() => setClipOuvert(false)}
+        />
+      )}
     </div>
   );
 }

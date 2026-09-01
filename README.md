@@ -157,6 +157,25 @@ Tous les modèles vivent dans `models/` : `User`, `Artist`, `Song`,
   à sens unique et non destructif : une photo d'artiste déjà choisie
   n'est jamais écrasée par un changement d'avatar
 
+## Podcasts et clips vidéo
+- **Un podcast est un album** de `type: "podcast"` (`lib/albums.ts`) : même
+  publication, même bibliothèque, même lecteur, même hors-ligne. Lui donner
+  son propre modèle aurait tout dupliqué pour ne rien gagner. Le
+  vocabulaire suit la forme — « épisodes » au lieu de « titres » sur la
+  page et dans l'onglet
+- L'onglet « Podcasts » de la bibliothèque montre les publications de ce
+  type parmi les albums enregistrés ; l'onglet « Albums » les en exclut,
+  pour qu'aucune n'apparaisse deux fois
+- **Un clip est un titre qui a une `videoUrl`**, pas un contenu séparé :
+  la publication, la modération et les crédits restent ceux du morceau.
+  Le champ s'ajoute sous le fichier audio, à la publication comme à la
+  modification, et le fichier part directement vers Cloudinary comme
+  l'audio (200 Mo maximum)
+- L'onglet « Vidéos » d'un artiste liste ses titres qui en ont un ; la
+  fiche d'un titre gagne un bouton « Regarder le clip ». Les deux ouvrent
+  le même lecteur (`components/song/VideoPlayerModal.tsx`), qui met la
+  lecture audio en pause — deux sons à la fois ne s'écoutent pas
+
 ## Interface tactile
 - **La sélection de texte est coupée sur les pointeurs grossiers**
   (`app/globals.css`). L'appui long sert à ouvrir les menus contextuels :

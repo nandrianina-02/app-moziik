@@ -8,12 +8,13 @@ import { useToast } from "@/context/ToastProvider";
 import { ContextMenuShell, MenuItem, MenuSeparator } from "@/components/ui/ContextMenuShell";
 import { ShareModal } from "@/components/share/ShareModal";
 import { buildAlbumSubject } from "@/components/share/shareSubject";
+import type { AlbumType } from "@/lib/albums";
 
 export type AlbumMenuTarget = {
   _id: string;
   title: string;
   coverUrl: string;
-  type: "album" | "ep" | "single";
+  type: AlbumType;
   releaseDate: string;
   artist: { _id: string; stageName: string; verified?: boolean } | null;
   songs?: PlayableSong[];

@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { BadgeCheck, CalendarDays, ListMusic, MapPin, Music2, Radio, User as UserIcon } from "lucide-react";
 import { SafeImage } from "@/components/ui/SafeImage";
+import { libelleTypeAlbum } from "@/lib/albums";
 
 /**
  * Cartes de résultats de recherche.
@@ -62,7 +63,6 @@ export type UtilisateurResultat = {
 
 export type GenreResultat = { _id: string; name: string; count: number };
 
-const LIBELLE_TYPE: Record<string, string> = { album: "Album", ep: "EP", single: "Single" };
 
 function annee(date?: string) {
   if (!date) return null;
@@ -116,7 +116,7 @@ export function CarteAlbum({ album }: { album: AlbumResultat }) {
       />
       <p className="truncate text-sm font-medium text-ink">{album.title}</p>
       <p className="truncate text-xs text-ink-muted">
-        {LIBELLE_TYPE[album.type ?? "album"] ?? "Album"}
+        {libelleTypeAlbum(album.type)}
         {annee(album.releaseDate) ? ` · ${annee(album.releaseDate)}` : ""}
         {album.artist ? ` · ${album.artist.stageName}` : nb ? ` · ${nb} titre${nb > 1 ? "s" : ""}` : ""}
       </p>

@@ -1,4 +1,5 @@
 import type { PlayableSong } from "@/context/PlayerProvider";
+import type { AlbumType } from "@/lib/albums";
 
 /**
  * Étend PlayableSong avec les champs réellement renvoyés par
@@ -11,6 +12,8 @@ import type { PlayableSong } from "@/context/PlayerProvider";
  * où ils existeront côté API, l'affichage s'activera automatiquement.
  */
 export type SongDetail = PlayableSong & {
+  /** Clip vidéo du morceau, s'il en a un. */
+  videoUrl?: string;
   explicit?: boolean;
   status?: "draft" | "scheduled" | "published" | "rejected";
   sharesCount?: number;
@@ -28,7 +31,7 @@ export type AlbumSummary = {
   _id: string;
   title: string;
   coverUrl: string;
-  type: "album" | "ep" | "single";
+  type: AlbumType;
   releaseDate: string;
   songs?: { _id: string }[];
 };

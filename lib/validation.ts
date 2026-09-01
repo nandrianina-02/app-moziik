@@ -68,6 +68,7 @@ export const contactSchema = z.object({
 export const createSongSchema = z.object({
   title: z.string().trim().min(1, "Titre requis.").max(200),
   audioUrl: z.string().url("URL audio invalide."),
+  videoUrl: z.string().url("URL vidéo invalide.").optional().or(z.literal("")),
   coverUrl: z.string().url("URL de pochette invalide."),
   // Message orienté action : la durée n'est pas saisie à la main, elle
   // vient de Cloudinary ou, à défaut, des métadonnées lues par le
@@ -166,7 +167,7 @@ export const contentSearchQuerySchema = z.object({
 export const createAlbumSchema = z.object({
   title: z.string().trim().min(1, "Titre requis.").max(200),
   coverUrl: z.string().url("URL de pochette invalide."),
-  type: z.enum(["album", "ep", "single"]).optional().default("album"),
+  type: z.enum(["album", "ep", "single", "podcast"]).optional().default("album"),
   releaseDate: z.coerce.date(),
 });
 
@@ -175,7 +176,7 @@ export const patchAlbumSchema = z.object({
   coverUrl: z.string().url("URL de pochette invalide.").optional(),
   bannerUrl: z.string().url("URL de bannière invalide.").optional().or(z.literal("")),
   description: z.string().max(2000).optional(),
-  type: z.enum(["album", "ep", "single"]).optional(),
+  type: z.enum(["album", "ep", "single", "podcast"]).optional(),
   releaseDate: z.coerce.date().optional(),
   songs: z.array(z.string()).max(500).optional(),
 });
@@ -443,6 +444,9 @@ export const patchSongSchema = z.object({
   title: z.string().trim().min(1).max(200).optional(),
   coverUrl: z.string().url("URL de pochette invalide.").optional(),
   audioUrl: z.string().url("URL audio invalide.").optional(),
+  // La chaîne vide retire le clip : c'est le seul moyen de dire
+  // « il n'y en a plus » dans un PATCH partiel.
+  videoUrl: z.string().url("URL vidéo invalide.").optional().or(z.literal("")),
   // `min(0)` et non `positive()` : la page de modification renvoie la
   // durée déjà en base quand on ne remplace pas le fichier audio. Or
   // Cloudinary ne renvoie pas toujours `duration` à l'upload, donc des

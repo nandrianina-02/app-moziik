@@ -30,6 +30,7 @@ import { SkeletonForm } from "@/components/ui/Skeleton";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { CoverDropzone } from "@/components/song/CoverDropzone";
 import { AudioDropzone, formatBytes } from "@/components/song/AudioDropzone";
+import { VideoDropzone } from "@/components/song/VideoDropzone";
 import { SongPreviewSidebar, type ChecklistItem } from "@/components/song/SongPreviewSidebar";
 import { FeaturingPicker } from "@/components/modals/FeaturingPicker";
 import { ArtistSinglePicker } from "@/components/modals/ArtistSinglePicker";
@@ -59,6 +60,7 @@ type SongDoc = {
   featuring: { artist: ArtistOption; confirmed: boolean }[];
   album?: { _id: string; title: string } | null;
   audioUrl: string;
+  videoUrl?: string;
   coverUrl: string;
   duration: number;
   genre: string;
@@ -207,6 +209,11 @@ export default function EditSongPage() {
   const [uploadingCover, setUploadingCover] = useState(false);
   const [uploadingAudio, setUploadingAudio] = useState(false);
   const [audioProgress, setAudioProgress] = useState(0);
+  const [videoFile, setVideoFile] = useState<File | null>(null);
+  const [uploadingVideo, setUploadingVideo] = useState(false);
+  const [videoProgress, setVideoProgress] = useState(0);
+  /** Le clip existant a été retiré, sans en choisir de nouveau. */
+  const [clipRetire, setClipRetire] = useState(false);
   const [confirmDiscard, setConfirmDiscard] = useState(false);
 
   const {
@@ -435,7 +442,19 @@ export default function EditSongPage() {
         setAudioProgress(0);
       }
 
+      // Trois cas distincts : un nouveau clip, le clip existant conservé,
+      // ou le clip retiré — que la chaîne vide exprime côté API.
+      let videoUrl = clipRetire ? "" : song.videoUrl ?? "";
+      if (videoFile) {
+        setUploadingVideo(true);
+        const upload = await uploadToCloudinaryClient(videoFile, "videos", setVideoProgress);
+        videoUrl = upload.url;
+        setUploadingVideo(false);
+        setVideoProgress(0);
+      }
+
       const payload: Record<string, unknown> = {
+        videoUrl,
         title: values.title.trim(),
         genre: values.genre,
         albumId: values.albumId || "",
@@ -721,6 +740,25 @@ export default function EditSongPage() {
                 }}
                 onDurationDetected={setPendingDuration}
               />
+
+              <div className="mt-6 border-t border-border pt-6">
+                <VideoDropzone
+                  videoUrl={clipRetire ? undefined : song.videoUrl}
+                  fichier={videoFile}
+                  televersement={uploadingVideo}
+                  progression={videoProgress}
+                  onFichier={(f) => {
+                    setVideoFile(f);
+                    setClipRetire(false);
+                    setExtraTouched(true);
+                  }}
+                  onRetirer={() => {
+                    setVideoFile(null);
+                    setClipRetire(true);
+                    setExtraTouched(true);
+                  }}
+                />
+              </div>
             </div>
 
             {/* Publication */}

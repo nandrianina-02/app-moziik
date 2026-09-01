@@ -50,12 +50,14 @@ import { useAsyncData, getJson } from "@/hooks/useAsyncData";
 import { useToast } from "@/context/ToastProvider";
 import { useIADisponible } from "@/context/SiteConfigProvider";
 import type { PlayableSong } from "@/context/PlayerProvider";
+import { estPodcast, type AlbumType } from "@/lib/albums";
 
 type Playlist ={ _id: string; title: string; coverUrl?: string; songs: string[] };
 type LibraryAlbum = {
   _id: string;
   title: string;
   coverUrl: string;
+  type?: AlbumType;
   artist: { _id: string; stageName: string; verified?: boolean } | null;
 };
 type FollowedArtist = { _id: string; stageName: string; verified?: boolean; coverUrl?: string; followersCount: number };
@@ -177,7 +179,14 @@ export default function LibraryPage() {
   // l'usage : chaque onglet s'ouvre sur un aperçu que « Voir plus » déroule.
   // Le changement d'onglet replie l'aperçu — les listes restent montées.
   const playlistsList = useProgressiveList(playlists, { initial: 12, step: 24, resetKey: tab });
-  const albumsList = useProgressiveList(savedAlbums, { initial: 10, step: 20, resetKey: tab });
+  // Un podcast est enregistré comme un album, mais il n'a rien à faire
+  // dans la grille des albums : les deux onglets se partagent la même
+  // liste selon la forme de chaque publication.
+  const albumsSeuls = useMemo(() => savedAlbums.filter((a) => !estPodcast(a.type)), [savedAlbums]);
+  const podcasts = useMemo(() => savedAlbums.filter((a) => estPodcast(a.type)), [savedAlbums]);
+
+  const albumsList = useProgressiveList(albumsSeuls, { initial: 10, step: 20, resetKey: tab });
+  const podcastsList = useProgressiveList(podcasts, { initial: 10, step: 20, resetKey: tab });
   const artistsList = useProgressiveList(followedArtists, { initial: 12, step: 24, resetKey: tab });
 
   return (
@@ -313,7 +322,7 @@ export default function LibraryPage() {
               <section className="rounded-xl2 border border-border bg-surface p-4">
                 <div className="mb-3 flex items-center justify-between">
                   <h2 className="text-sm font-medium">Albums</h2>
-                  {savedAlbums.length > 0 && (
+                  {albumsSeuls.length > 0 && (
                     <button onClick={() => setTab("albums")} className="text-xs font-medium text-accent hover:underline">
                       Tout voir
                     </button>
@@ -321,13 +330,13 @@ export default function LibraryPage() {
                 </div>
                 {albumsLoading ? (
                   <SkeletonRows count={3} />
-                ) : savedAlbums.length === 0 ? (
+                ) : albumsSeuls.length === 0 ? (
                   <p className="text-xs text-ink-muted">
                     Aucun album enregistré — utilise l&apos;icône marque-page sur la page d&apos;un album.
                   </p>
                 ) : (
                   <div className="space-y-1">
-                    {savedAlbums.slice(0, 5).map((album) => (
+                    {albumsSeuls.slice(0, 5).map((album) => (
                       <Link
                         key={album._id}
                         href={`/album/${album._id}`}
@@ -464,7 +473,7 @@ export default function LibraryPage() {
                   <SkeletonCard key={i} />
                 ))}
               </div>
-            ) : savedAlbums.length === 0 ? (
+            ) : albumsSeuls.length === 0 ? (
               <p className="text-sm text-ink-muted">
                 Aucun album enregistré — utilise l&apos;icône marque-page sur la page d&apos;un album pour l&apos;ajouter ici.
               </p>
@@ -509,12 +518,47 @@ export default function LibraryPage() {
         )}
 
         {tab === "podcasts" && (
-          <div className="rounded-xl2 border border-dashed border-border p-8 text-center">
-            <Podcast size={28} className="mx-auto mb-3 text-ink-muted" />
-            <p className="text-sm font-medium">Podcasts bientôt disponibles</p>
-            <p className="mt-1 text-xs text-ink-muted">
-              Cette section arrivera dans une prochaine mise à jour de Moziik.
-            </p>
+          <div>
+            {!isAuthed ? (
+              <p className="text-sm text-ink-muted">Connecte-toi pour retrouver tes podcasts ici.</p>
+            ) : albumsLoading ? (
+              <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
+                {Array.from({ length: 5 }).map((_, i) => (
+                  <SkeletonCard key={i} />
+                ))}
+              </div>
+            ) : podcasts.length === 0 ? (
+              <div className="rounded-xl2 border border-dashed border-border p-8 text-center">
+                <Podcast size={28} className="mx-auto mb-3 text-ink-muted" />
+                <p className="text-sm font-medium">Aucun podcast enregistré</p>
+                <p className="mt-1 text-xs text-ink-muted">
+                  Un podcast s&apos;ajoute ici avec l&apos;icône marque-page, depuis sa page.
+                </p>
+                <Link
+                  href="/recherche?type=albums"
+                  className="mt-4 inline-flex rounded-xl bg-accent px-4 py-2 text-xs font-medium text-base transition-colors hover:bg-accent-hover"
+                >
+                  Parcourir le catalogue
+                </Link>
+              </div>
+            ) : (
+              <>
+                <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
+                  {podcastsList.visible.map((album) => (
+                    <AlbumCard key={album._id} album={album} onUnsave={handleUnsaveAlbum} />
+                  ))}
+                </div>
+                {podcastsList.hasMore && (
+                  <div className="mt-6 flex justify-center">
+                    <ShowMoreButton
+                      label="Voir plus de podcasts"
+                      remaining={podcastsList.remaining}
+                      onClick={podcastsList.showMore}
+                    />
+                  </div>
+                )}
+              </>
+            )}
           </div>
         )}
 

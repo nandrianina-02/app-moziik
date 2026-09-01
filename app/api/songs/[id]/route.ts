@@ -45,6 +45,8 @@ export const PATCH = withApiErrors(
       "title",
       "coverUrl",
       "audioUrl",
+      "videoUrl",
+      "videoUrl",
       "duration",
       "genre",
       "lyrics",

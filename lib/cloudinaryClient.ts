@@ -8,7 +8,7 @@
 
 export async function uploadToCloudinaryClient(
   file: File,
-  folder: "songs" | "covers" | "avatars" | "banners" | "site-assets" | "contact-attachments",
+  folder: "songs" | "videos" | "covers" | "avatars" | "banners" | "site-assets" | "contact-attachments",
   onProgress?: (percent: number) => void
 ): Promise<{ url: string; duration?: number }> {
   const cloudName = process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME;
@@ -18,7 +18,8 @@ export async function uploadToCloudinaryClient(
     throw new Error("Configuration Cloudinary manquante (variables NEXT_PUBLIC_*).");
   }
 
-  const resourceType = folder === "songs" ? "video" : "image"; // Cloudinary traite l'audio via "video"
+  // Cloudinary range l'audio et la vidéo sous le même type de ressource.
+  const resourceType = folder === "songs" || folder === "videos" ? "video" : "image";
   const formData = new FormData();
   formData.append("file", file);
   formData.append("upload_preset", uploadPreset);

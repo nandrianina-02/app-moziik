@@ -19,8 +19,8 @@ import { SafeImage } from "@/components/ui/SafeImage";
 import { useDominantColor } from "@/components/song/useDominantColor";
 import { formatCompactNumber } from "@/lib/formatNumber";
 import type { AlbumDetail } from "@/components/album/types";
+import { libelleTypeAlbum, motPiste } from "@/lib/albums";
 
-const typeLabel = { album: "Album", ep: "EP", single: "Single" };
 
 export function AlbumHero({
   album,
@@ -155,7 +155,7 @@ export function AlbumHero({
           className="min-w-0 flex-1 text-center md:text-left"
         >
           <span className="rounded-full bg-accent/15 px-2.5 py-1 text-[11px] font-medium text-accent">
-            {typeLabel[album.type]}
+            {libelleTypeAlbum(album.type)}
           </span>
 
           <h1 className="mt-2 text-2xl font-display leading-tight sm:text-3xl">{album.title}</h1>
@@ -181,7 +181,7 @@ export function AlbumHero({
               })}
             </span>
             <span className="rounded-full border border-border px-2.5 py-1 text-xs text-ink-muted">
-              {album.songs.length} titre{album.songs.length > 1 ? "s" : ""}
+              {album.songs.length} {motPiste(album.type, album.songs.length)}
             </span>
             <span className="rounded-full border border-border px-2.5 py-1 text-xs text-ink-muted">
               {formatCompactNumber(totalPlays)} écoutes

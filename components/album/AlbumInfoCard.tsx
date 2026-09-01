@@ -1,7 +1,7 @@
 import { Info, CalendarDays, Music2, Disc3, Download } from "lucide-react";
 import type { AlbumDetail } from "@/components/album/types";
+import { libelleTypeAlbum } from "@/lib/albums";
 
-const typeLabel = { album: "Album", ep: "EP", single: "Single" };
 
 export function AlbumInfoCard({ album }: { album: AlbumDetail }) {
   const rows: { icon: typeof CalendarDays; label: string; value: string }[] = [
@@ -14,7 +14,7 @@ export function AlbumInfoCard({ album }: { album: AlbumDetail }) {
         year: "numeric",
       }),
     },
-    { icon: Disc3, label: "Type", value: typeLabel[album.type] },
+    { icon: Disc3, label: "Type", value: libelleTypeAlbum(album.type) },
     { icon: Music2, label: "Titres", value: String(album.songs.length) },
   ];
   if (typeof album.downloadsCount === "number") {

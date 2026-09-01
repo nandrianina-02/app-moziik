@@ -23,6 +23,15 @@ export interface ISong {
   featuring: ISongFeaturing[]; // artistes en featuring
   album?: Types.ObjectId; // ref Album, absent si single
   audioUrl: string; // Cloudinary (resource_type: video)
+  /**
+   * Clip vidéo du morceau, s'il en a un.
+   *
+   * Une vidéo n'est pas un contenu à part : c'est une seconde façon de
+   * présenter un titre déjà publié, avec sa pochette, son artiste et sa
+   * fiche. Lui donner son propre modèle aurait dupliqué la publication,
+   * la modération et les crédits pour ne rien gagner.
+   */
+  videoUrl?: string;
   coverUrl: string;
   duration: number; // secondes
   genre: string;
@@ -62,6 +71,7 @@ const SongSchema = new Schema<ISong>({
   ],
   album: { type: Schema.Types.ObjectId, ref: "Album" },
   audioUrl: { type: String, required: true },
+  videoUrl: { type: String },
   coverUrl: { type: String, required: true },
   duration: { type: Number, required: true },
   genre: { type: String, required: true },

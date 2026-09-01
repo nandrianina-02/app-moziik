@@ -5,11 +5,12 @@ import { FormField } from "@/components/ui/FormField";
 import { useToast } from "@/context/ToastProvider";
 import { uploadToCloudinaryClient } from "@/lib/cloudinaryClient";
 import { ModalSheet } from "@/components/ui/ModalSheet";
+import type { AlbumType } from "@/lib/albums";
 
 export function CreateAlbumModal({ onClose, onCreated }: { onClose: () => void; onCreated: () => void }) {
   const pushToast = useToast();
   const [title, setTitle] = useState("");
-  const [type, setType] = useState<"album" | "ep" | "single">("album");
+  const [type, setType] = useState<AlbumType>("album");
   const [releaseDate, setReleaseDate] = useState("");
   const [coverFile, setCoverFile] = useState<File | null>(null);
   const [submitting, setSubmitting] = useState(false);
@@ -78,6 +79,7 @@ export function CreateAlbumModal({ onClose, onCreated }: { onClose: () => void; 
               <option value="album">Album</option>
               <option value="ep">EP</option>
               <option value="single">Single</option>
+              <option value="podcast">Podcast</option>
             </select>
           </label>
 

@@ -1,7 +1,8 @@
 import { Schema, models, model, Types, Model } from "mongoose";
 import { UNIVERS, UNIVERS_PAR_DEFAUT, type Univers } from "@/lib/univers";
+import { ALBUM_TYPES, type AlbumType } from "@/lib/albums";
 
-export type AlbumType = "album" | "ep" | "single";
+export type { AlbumType };
 
 export interface IAlbum {
   title: string;
@@ -24,7 +25,7 @@ const AlbumSchema = new Schema<IAlbum>({
   coverUrl: { type: String, required: true },
   bannerUrl: { type: String },
   description: { type: String },
-  type: { type: String, enum: ["album", "ep", "single"], default: "album" },
+  type: { type: String, enum: ALBUM_TYPES, default: "album" },
   songs: [{ type: Schema.Types.ObjectId, ref: "Song" }],
   releaseDate: { type: Date, required: true },
   downloadsCount: { type: Number, default: 0 },

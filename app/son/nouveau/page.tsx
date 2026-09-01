@@ -29,6 +29,7 @@ import { TagInput } from "@/components/ui/TagInput";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { CoverDropzone } from "@/components/song/CoverDropzone";
 import { AudioDropzone, formatBytes } from "@/components/song/AudioDropzone";
+import { VideoDropzone } from "@/components/song/VideoDropzone";
 import { SongPreviewSidebar, type ChecklistItem } from "@/components/song/SongPreviewSidebar";
 import { FeaturingPicker } from "@/components/modals/FeaturingPicker";
 import { ArtistSinglePicker } from "@/components/modals/ArtistSinglePicker";
@@ -171,6 +172,9 @@ export default function NewSongPage() {
   const [uploadingCover, setUploadingCover] = useState(false);
   const [uploadingAudio, setUploadingAudio] = useState(false);
   const [audioProgress, setAudioProgress] = useState(0);
+  const [videoFile, setVideoFile] = useState<File | null>(null);
+  const [uploadingVideo, setUploadingVideo] = useState(false);
+  const [videoProgress, setVideoProgress] = useState(0);
   const [confirmDiscard, setConfirmDiscard] = useState(false);
 
   const {
@@ -691,6 +695,18 @@ export default function NewSongPage() {
       setUploadingAudio(false);
       setAudioProgress(0);
 
+      // Le clip part après l'audio, et seulement s'il y en a un : c'est le
+      // fichier le plus lourd, inutile de le faire attendre l'échec d'un
+      // champ obligatoire.
+      let videoUrl: string | undefined;
+      if (videoFile) {
+        setUploadingVideo(true);
+        const videoUpload = await uploadToCloudinaryClient(videoFile, "videos", setVideoProgress);
+        setUploadingVideo(false);
+        setVideoProgress(0);
+        videoUrl = videoUpload.url;
+      }
+
       let releaseDate = new Date().toISOString();
       if (mode === "publish") {
         const computed =
@@ -722,6 +738,7 @@ export default function NewSongPage() {
         explicit: values.explicit,
         coverUrl: coverUpload.url,
         audioUrl: audioUpload.url,
+        videoUrl,
         duration: Math.round(audioUpload.duration ?? pendingDuration ?? 0),
         featuringIds: featuring.map((a) => a._id),
         releaseDate,
@@ -980,6 +997,16 @@ export default function NewSongPage() {
               {/* Compte rendu de la lecture des balises : ce que le fichier
                   portait, ce qui a été repris, ce qui ne correspond à rien
                   dans les listes du site. */}
+              <div className="mt-6 border-t border-border pt-6">
+                <VideoDropzone
+                  fichier={videoFile}
+                  televersement={uploadingVideo}
+                  progression={videoProgress}
+                  onFichier={setVideoFile}
+                  onRetirer={() => setVideoFile(null)}
+                />
+              </div>
+
               <MetadataAutofill
                 rapport={rapport}
                 onAppliquerQuandMeme={

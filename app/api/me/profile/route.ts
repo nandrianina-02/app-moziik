@@ -7,6 +7,7 @@ import Song from "@/models/Song";
 import Playlist from "@/models/Playlist";
 import Badge from "@/models/Badge";
 import { ApiError, withApiErrors } from "@/lib/apiError";
+import { reporterPhotoDeCompte } from "@/lib/artistPhoto";
 import { parseOrThrow, patchMeProfileSchema } from "@/lib/validation";
 import { assurerUsername } from "@/lib/username";
 
@@ -124,6 +125,9 @@ export const PATCH = withApiErrors(async (req: Request) => {
 
   if (typeof avatarUrl === "string") {
     user.avatarUrl = avatarUrl;
+    // Un artiste qui n'a pas encore choisi de photo publique hérite de
+    // celle de son compte. S'il en a déjà une, elle n'est pas touchée.
+    await reporterPhotoDeCompte(user._id.toString(), avatarUrl);
   }
 
   if (typeof email === "string") {

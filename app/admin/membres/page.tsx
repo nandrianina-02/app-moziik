@@ -13,6 +13,7 @@ import {
   MoreVertical,
   Plus,
   Search,
+  Settings2,
   ShieldCheck,
   ShieldOff,
   Trash2,
@@ -33,6 +34,7 @@ import { ContextMenuShell, MenuItem, MenuSeparator } from "@/components/ui/Conte
 import { CreateUserModal } from "@/components/admin/CreateUserModal";
 import { Pagination } from "@/components/admin/Pagination";
 import { PremiumGrantModal } from "@/components/admin/PremiumGrantModal";
+import { ArtistProfileModal } from "@/components/admin/ArtistProfileModal";
 import { useToast } from "@/context/ToastProvider";
 import { useFormatDate } from "@/context/SiteConfigProvider";
 import { formatCompactNumber } from "@/lib/formatNumber";
@@ -119,6 +121,7 @@ export default function AdminMembersPage() {
 
   const [selection, setSelection] = useState<string[]>([]);
   const [octroiOuvert, setOctroiOuvert] = useState(false);
+  const [profilArtiste, setProfilArtiste] = useState<string | null>(null);
   const [menu, setMenu] = useState<{ user: AdminUser; x: number; y: number } | null>(null);
   const [suppression, setSuppression] = useState<AdminUser | null>(null);
   const [enCours, setEnCours] = useState(false);
@@ -555,7 +558,15 @@ export default function AdminMembersPage() {
             </p>
           )}
 
-          {octroiOuvert && (
+          {profilArtiste && (
+        <ArtistProfileModal
+          artistId={profilArtiste}
+          onClose={() => setProfilArtiste(null)}
+          onSaved={charger}
+        />
+      )}
+
+      {octroiOuvert && (
         <PremiumGrantModal
           ids={selection}
           totalFiltre={total}
@@ -703,6 +714,16 @@ export default function AdminMembersPage() {
           )}
           {menu.user.role === "artist" && (
             <>
+              {menu.user.artistId && (
+                <MenuItem
+                  icon={Settings2}
+                  label="Modifier le profil artiste"
+                  onClick={() => {
+                    setProfilArtiste(menu.user.artistId as string);
+                    setMenu(null);
+                  }}
+                />
+              )}
               <MenuItem
                 icon={BadgeCheck}
                 label={menu.user.verifiedArtist ? "Retirer la vérification" : "Vérifier l'artiste"}

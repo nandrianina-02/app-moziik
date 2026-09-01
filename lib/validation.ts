@@ -482,7 +482,26 @@ export const mobileMoneySchema = z.object({
 
 // ---- Admin : artistes / homepage / site-config ---------------------------------
 
+/**
+ * Ce qu'un administrateur peut changer sur un profil artiste.
+ *
+ * Reprend les champs que l'artiste modifie lui-même (`patchArtistMeSchema`)
+ * et y ajoute ce que lui seul décide : nom de scène, vérification,
+ * monétisation, droit de publier des évènements. Un artiste injoignable ou
+ * une faute dans un nom de scène ne devaient plus attendre que l'intéressé
+ * s'en occupe.
+ */
 export const adminArtistPatchSchema = z.object({
+  stageName: z.string().trim().min(1, "Nom de scène requis.").max(80).optional(),
+  bio: z.string().max(2000).optional(),
+  coverUrl: z.string().url("URL de photo invalide.").optional().or(z.literal("")),
+  bannerUrl: z.string().url("URL de bannière invalide.").optional().or(z.literal("")),
+  genres: z.array(z.string().trim().max(60)).max(10).optional(),
+  socialLinks: z
+    .array(z.object({ platform: z.string().trim().max(40), url: z.string().trim().max(300) }))
+    .max(8)
+    .optional(),
+  verified: z.boolean().optional(),
   eventPublishingAuthorized: z.boolean().optional(),
   monetizationEnabled: z.boolean().optional(),
 });

@@ -142,6 +142,20 @@ Tous les modèles vivent dans `models/` : `User`, `Artist`, `Song`,
   écrasé : il est compté à part dans le retour de l'API
 - L'admin retrouve « Mon compte » depuis la barre de navigation de
   l'espace d'administration, après le séparateur
+- **Modifier un profil artiste** : menu d'une ligne artiste dans
+  `/admin/membres` → « Modifier le profil artiste ». Photo, bannière, nom
+  de scène, biographie, genres, réseaux, plus les trois réglages que
+  l'artiste ne décide pas lui-même (vérification, monétisation, droit de
+  publier des évènements). La vérification est écrite des deux côtés,
+  `Artist.verified` et `User.verifiedArtist` : désynchronisées, le filtre
+  « Vérifiés » de l'annuaire ne retrouverait plus l'artiste
+- **La photo du compte devient la photo d'artiste** tant qu'il n'y en a
+  pas d'autre (`lib/artistPhoto.ts`) : à la création du profil comme au
+  changement d'avatar. Rien ne reliait `User.avatarUrl` à
+  `Artist.coverUrl`, si bien qu'un membre déjà photographié, promu
+  artiste, se retrouvait avec un profil public sans visage. Le report est
+  à sens unique et non destructif : une photo d'artiste déjà choisie
+  n'est jamais écrasée par un changement d'avatar
 
 ## Phase 7 — Monétisation
 - **L'échéance fait foi autant que le statut.** `hasPremiumAccess`

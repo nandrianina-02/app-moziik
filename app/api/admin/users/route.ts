@@ -207,7 +207,7 @@ export const POST = withApiErrors(async (req: Request) => {
   // Un compte artiste sans profil n'apparaîtrait nulle part côté public :
   // on le crée dans la foulée, comme le fait la promotion de rôle.
   if (role === "artist") {
-    await Artist.create({ user: user._id, stageName: name });
+    await Artist.create({ user: user._id, stageName: name, coverUrl: user.avatarUrl });
   }
 
   return NextResponse.json(

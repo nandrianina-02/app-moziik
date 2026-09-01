@@ -8,6 +8,7 @@ import Event from "@/models/Event";
 import { requireAdmin } from "@/lib/requireAdmin";
 import { ApiError, withApiErrors } from "@/lib/apiError";
 import { parseOrThrow, adminUserPatchSchema } from "@/lib/validation";
+import { reporterPhotoDeCompte } from "@/lib/artistPhoto";
 
 export const PATCH = withApiErrors(
   async (req: Request, { params }: { params: { id: string } }) => {
@@ -27,10 +28,15 @@ export const PATCH = withApiErrors(
     if (Array.isArray(badges)) user.badges = badges;
 
     // Promotion en artiste : on crée le profil Artist s'il n'existe pas.
+    //
+    // La photo du compte devient la photo d'artiste : sans elle, un membre
+    // déjà photographié se retrouvait avec un profil public sans visage.
     if (role === "artist") {
       const existingArtist = await Artist.findOne({ user: user._id });
       if (!existingArtist) {
-        await Artist.create({ user: user._id, stageName: user.name });
+        await Artist.create({ user: user._id, stageName: user.name, coverUrl: user.avatarUrl });
+      } else {
+        await reporterPhotoDeCompte(user._id.toString(), user.avatarUrl);
       }
     }
 

@@ -1,14 +1,13 @@
 "use client";
 
 import { useState } from "react";
-import { Plus, Trash2, Sparkles, Loader2, Check, AlertCircle } from "lucide-react";
+import { Sparkles, Loader2, Check, AlertCircle } from "lucide-react";
 import { AnimatePresence, motion } from "framer-motion";
 import { useToast } from "@/context/ToastProvider";
 import { useIADisponible } from "@/context/SiteConfigProvider";
 import { ModalSheet } from "@/components/ui/ModalSheet";
 import { readApiError } from "@/lib/readApiError";
-
-type SocialLink = { platform: string; url: string };
+import { SocialLinksEditor, type SocialLink } from "@/components/artist/SocialLinksEditor";
 
 export function EditArtistProfileModal({
   bio,
@@ -29,18 +28,6 @@ export function EditArtistProfileModal({
   const [genresValue, setGenresValue] = useState(genres.join(", "));
   const [links, setLinks] = useState<SocialLink[]>(socialLinks.length > 0 ? socialLinks : [{ platform: "instagram", url: "" }]);
   const [saving, setSaving] = useState(false);
-
-  function updateLink(index: number, field: keyof SocialLink, value: string) {
-    setLinks((prev) => prev.map((l, i) => (i === index ? { ...l, [field]: value } : l)));
-  }
-
-  function addLink() {
-    setLinks((prev) => [...prev, { platform: "instagram", url: "" }]);
-  }
-
-  function removeLink(index: number) {
-    setLinks((prev) => prev.filter((_, i) => i !== index));
-  }
 
   async function handleSave() {
     setSaving(true);
@@ -106,38 +93,7 @@ export function EditArtistProfileModal({
             />
           </label>
 
-          <div>
-            <span className="mb-1.5 block text-xs font-medium text-ink-muted">Réseaux sociaux</span>
-            <div className="space-y-2">
-              {links.map((link, i) => (
-                <div key={i} className="flex items-center gap-2">
-                  <select
-                    value={link.platform}
-                    onChange={(e) => updateLink(i, "platform", e.target.value)}
-                    className="rounded-xl border border-border bg-base px-2 py-2 text-xs outline-none focus:border-accent"
-                  >
-                    <option value="facebook">Facebook</option>
-                    <option value="instagram">Instagram</option>
-                    <option value="tiktok">TikTok</option>
-                    <option value="youtube">YouTube</option>
-                    <option value="website">Site web</option>
-                  </select>
-                  <input
-                    value={link.url}
-                    onChange={(e) => updateLink(i, "url", e.target.value)}
-                    placeholder="https://..."
-                    className="min-w-0 flex-1 rounded-xl border border-border bg-base px-3 py-2 text-xs outline-none focus:border-accent"
-                  />
-                  <button onClick={() => removeLink(i)} aria-label="Retirer ce lien" className="shrink-0 text-ink-muted hover:text-accent">
-                    <Trash2 size={15} />
-                  </button>
-                </div>
-              ))}
-            </div>
-            <button onClick={addLink} className="mt-2 flex items-center gap-1 text-xs font-medium text-accent hover:underline">
-              <Plus size={13} /> Ajouter un lien
-            </button>
-          </div>
+          <SocialLinksEditor links={links} onChange={setLinks} />
       </div>
     </ModalSheet>
   );

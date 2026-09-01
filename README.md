@@ -194,10 +194,29 @@ Tous les modèles vivent dans `models/` : `User`, `Artist`, `Song`,
   L'IP n'est jamais stockée en clair — seule une empreinte salée, qui
   change chaque jour, et que MongoDB efface tout seul (index TTL sur
   `models/QuotaEcoute.ts`)
-- Ce n'est pas une protection absolue et ce n'est pas son rôle : les
-  fichiers audio restent des URL Cloudinary publiques, et un visiteur
-  déterminé change de réseau. C'est un seuil qui invite à créer un
-  compte, pas un verrou
+- **Tout passe par `/api/stream/<id>`.** Le lecteur ne connaît plus
+  l'adresse Cloudinary d'un morceau : il demande la nôtre, et c'est le
+  serveur qui vérifie le quota, choisit la qualité et redirige. Une
+  redirection plutôt qu'un flux relayé — faire transiter chaque octet par
+  une fonction serverless coûterait la bande passante de tout le
+  catalogue et casserait les requêtes par plage
+- L'adresse est **stable** pour un titre et une qualité : c'est ce qui
+  permet au cache hors-ligne de la retrouver. Le service worker sert
+  `/api/stream/` depuis le cache média **avant** sa règle « /api/ jamais
+  en cache » — sans cet ordre, un morceau téléchargé resterait muet
+- **Le verrou complet demande deux gestes hors du code**, dans cet ordre :
+  1. régler le préréglage d'envoi Cloudinary sur
+     « Delivery type: authenticated » (les prochains envois) ;
+  2. `node scripts/proteger-audio.mjs` (les fichiers déjà en ligne) ;
+  3. poser `CLOUDINARY_AUDIO_AUTHENTICATED=true` et redéployer.
+
+  Alors les adresses sont signées : l'URL d'origine cesse de répondre, et
+  une adresse retouchée à la main pour passer de 128 à 320 kb/s échoue sur
+  la signature. **Inverser 2 et 3 rend le catalogue muet entre les deux.**
+- Ce que cela ne fait toujours pas : les adresses signées de Cloudinary
+  n'expirent pas sur les offres standard. Une adresse obtenue légitimement
+  puis partagée continue de fonctionner. L'expiration demande
+  l'authentification par jeton, une option payante de Cloudinary
 - **« Sans publicité » a été retiré** des arguments de vente : aucune
   régie n'est branchée, donc rien ne distinguait un abonné sur ce point.
   À remettre le jour où la publicité existera

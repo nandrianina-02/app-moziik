@@ -13,7 +13,6 @@ import { marquerJoue } from "@/lib/journalDuJour";
 import { idbPut, STORES } from "@/lib/offlineDb";
 import { enqueueSyncAction } from "@/lib/syncQueue";
 import {
-  applyAudioQuality,
   getOfflineSettings,
   setOfflineSettings,
   type AudioQuality,
@@ -22,7 +21,8 @@ import { useSiteConfig } from "@/context/SiteConfigProvider";
 import { useOnlineStatus } from "@/context/OnlineStatusProvider";
 import { useUnivers } from "@/context/UniversProvider";
 import { useAcces } from "@/context/AccesProvider";
-import { limiterQualite, MESSAGE_QUOTA_ANONYME } from "@/lib/acces";
+import { limiterQualite } from "@/lib/acces";
+import { adresseEcoute } from "@/lib/audioSource";
 import { useMode } from "@/context/ModeProvider";
 import { morceauxSuivants } from "@/lib/playbackContinuation";
 
@@ -441,11 +441,14 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
    * muet un morceau pourtant disponible.
    */
   function sourceAudio(song: PlayableSong, quality: AudioQuality) {
+    // Hors-ligne, on lit ce que le cache a rangé, à l'adresse exacte
+    // demandée au téléchargement.
     if (typeof navigator !== "undefined" && !navigator.onLine) return song.audioUrl;
-    // Le plafond s'applique ici, sur l'URL réellement lue, et pas
-    // seulement dans le menu de réglage : un compte gratuit qui aurait
-    // choisi « 320 » avant de perdre son abonnement retombe à 128.
-    return applyAudioQuality(song.audioUrl, limiterQualite(quality, acces));
+
+    // Le plafond est appliqué des deux côtés : ici pour ne pas demander
+    // une qualité qu'on n'aura pas, et sur le serveur parce que lui seul
+    // fait foi (le navigateur, on peut lui faire dire n'importe quoi).
+    return adresseEcoute(song._id, limiterQualite(quality, acces));
   }
 
   async function setAudioQuality(quality: AudioQuality) {
@@ -572,9 +575,14 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
     // La transformation de qualité peut échouer (Cloudinary indisponible,
     // format non transcodable) : on retombe alors une fois sur l'URL
     // d'origine plutôt que de laisser un morceau muet.
+    // Une transformation qui échoue (Cloudinary indisponible, format non
+    // transcodable) ne doit pas laisser un morceau muet : on retente une
+    // fois sans demander de qualité particulière. Le serveur reste le
+    // seul à décider ce qu'il sert.
     const onError = () => {
-      if (audio.src !== currentSong.audioUrl) {
-        audio.src = currentSong.audioUrl;
+      const repli = `/api/stream/${currentSong._id}`;
+      if (!audio.src.endsWith(repli)) {
+        audio.src = repli;
         if (isPlaying) audio.play().catch(() => undefined);
       }
     };

@@ -21,7 +21,7 @@
 //   La mise en cache des données se fait côté page, indexée par compte
 //   (voir lib/offlineApi.ts).
 
-const VERSION = "v5";
+const VERSION = "v6";
 const COQUILLE = `moziik-shell-${VERSION}`;
 const PAGES = `moziik-pages-${VERSION}`;
 const IMAGES = `moziik-images-${VERSION}`;
@@ -202,6 +202,21 @@ self.addEventListener("fetch", (event) => {
   }
 
   if (url.origin !== self.location.origin) return;
+
+  // L'audio passe désormais par une adresse à nous, /api/stream/<id>, qui
+  // redirige vers le fichier après avoir vérifié les droits. C'est donc
+  // sous cette adresse que le cache hors-ligne l'a rangé — et elle doit
+  // être servie AVANT la règle « /api/ jamais en cache » juste en dessous,
+  // sans quoi un morceau téléchargé resterait muet hors connexion.
+  //
+  // Cache d'abord, réseau ensuite : un morceau déjà sur l'appareil n'a
+  // aucune raison d'être redemandé, même en ligne.
+  if (url.pathname.startsWith("/api/stream/")) {
+    event.respondWith(
+      chercher(MEDIAS, request).then((c) => c || fetch(request).catch(() => Response.error()))
+    );
+    return;
+  }
 
   // Données de compte : au réseau, sans repli ici. Hors-ligne, c'est la
   // page qui répond depuis IndexedDB (lib/offlineApi.ts).

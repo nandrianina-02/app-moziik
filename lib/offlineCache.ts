@@ -8,7 +8,8 @@
 // localStorage utilisé dans la première version.
 
 import { idbGetAll, idbPut, idbDelete, STORES } from "@/lib/offlineDb";
-import { getOfflineSettings, applyAudioQuality, isOnWifi } from "@/lib/offlineSettings";
+import { getOfflineSettings, isOnWifi } from "@/lib/offlineSettings";
+import { adresseEcoute } from "@/lib/audioSource";
 import { assurerAccesHorsLigne } from "@/lib/offlineAcces";
 import { notifyDownloadComplete } from "@/lib/localNotify";
 
@@ -28,6 +29,31 @@ export type OfflineSongMeta = {
 
 function notifyChange() {
   window.dispatchEvent(new Event("moziik-offline-change"));
+}
+
+/**
+ * Range une réponse dans le cache, redirection comprise.
+ *
+ * `cache.add()` refuse une réponse issue d'une redirection — et
+ * `/api/stream/<id>` en est une par construction. On suit donc la
+ * redirection nous-mêmes et on range le contenu sous l'adresse demandée,
+ * qui est celle que le lecteur redemandera.
+ */
+async function mettreEnCache(cache: Cache, url: string): Promise<void> {
+  const reponse = await fetch(url, { redirect: "follow" });
+  if (!reponse.ok) throw new Error("Le fichier n'a pas pu être téléchargé.");
+
+  const corps = await reponse.blob();
+  await cache.put(
+    url,
+    new Response(corps, {
+      status: 200,
+      headers: {
+        "Content-Type": reponse.headers.get("Content-Type") ?? "audio/mpeg",
+        "Content-Length": String(corps.size),
+      },
+    })
+  );
 }
 
 export async function listOfflineSongs(): Promise<OfflineSongMeta[]> {
@@ -52,10 +78,12 @@ export async function downloadSongForOffline(
     throw new Error("Téléchargement limité au Wi-Fi dans tes paramètres hors-ligne.");
   }
 
-  const audioUrl = applyAudioQuality(song.audioUrl, settings.audioQuality);
+  // L'adresse rangée dans le cache est la nôtre, et elle est stable :
+  // c'est elle que le lecteur redemandera hors connexion.
+  const audioUrl = adresseEcoute(song._id, settings.audioQuality);
 
   const cache = await caches.open(OFFLINE_MEDIA_CACHE);
-  await Promise.all([cache.add(audioUrl), cache.add(song.coverUrl)]);
+  await Promise.all([mettreEnCache(cache, audioUrl), cache.add(song.coverUrl)]);
 
   await idbPut<OfflineSongMeta>(STORES.songs, { ...song, audioUrl, downloadedAt: Date.now(), source });
   notifyChange();

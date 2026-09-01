@@ -36,6 +36,7 @@ function fallbackSiteConfig() {
     googleAnalyticsId: "",
     googleSearchConsoleId: "",
     trialDays: 0,
+    anonymousDailyPlays: 15,
     copyrightText: `© ${new Date().getFullYear()} ${defaultSiteConfig.siteName}. Tous droits réservés.`,
     plans: [
       { plan: "premium" as const, amountUSD: 4.99, amountMGA: 15000 },

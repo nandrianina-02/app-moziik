@@ -12,7 +12,7 @@ import {
   Music2,
   DownloadCloud,
   Gem,
-  Ban,
+  Palette,
 } from "lucide-react";
 import { useToast } from "@/context/ToastProvider";
 import { useSiteConfig } from "@/context/SiteConfigProvider";
@@ -21,13 +21,21 @@ import { deviseDe } from "@/lib/locales";
 type Plan = { plan: "premium" | "premium_annual"; amountUSD: number; amountMGA: number };
 type PaymentMethod = "stripe" | "mobile_money";
 
-const planFeatures = ["Écoute sans limite", "Téléchargement hors-ligne", "Qualité audio supérieure", "Sans publicité"];
+// « Sans publicité » a été retiré : aucune régie n'est branchée, donc rien
+// ne distingue un compte gratuit d'un abonné sur ce point. Le remettre le
+// jour où la publicité existera.
+const planFeatures = [
+  "Écoute sans limite",
+  "Téléchargement hors-ligne",
+  "Qualité audio 320 kb/s",
+  "Thème et couleurs personnalisés",
+];
 
 const perks = [
   { icon: Music2, color: "emerald", title: "Écoute sans limite", description: "Accède à des millions de titres sans restriction." },
   { icon: DownloadCloud, color: "sky", title: "Hors-ligne", description: "Télécharge tes musiques préférées et écoute-les partout." },
-  { icon: Gem, color: "violet", title: "Qualité supérieure", description: "Profite d'un son haute qualité pour une meilleure expérience." },
-  { icon: Ban, color: "rose", title: "Sans publicité", description: "Écoute ta musique sans aucune interruption." },
+  { icon: Gem, color: "violet", title: "Qualité supérieure", description: "320 kb/s au lieu de 128 : le détail s'entend au casque." },
+  { icon: Palette, color: "rose", title: "À ton image", description: "Choisis le thème et les couleurs de ton Moziik." },
 ] as const;
 
 const perkColors: Record<string, string> = {

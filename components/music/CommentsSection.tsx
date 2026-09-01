@@ -19,6 +19,7 @@ import { ShowMoreButton, useProgressiveList } from "@/components/ui/ShowMore";
 import { useToast } from "@/context/ToastProvider";
 import { useOnlineStatus } from "@/context/OnlineStatusProvider";
 import { enqueueSyncAction } from "@/lib/syncQueue";
+import Link from "next/link";
 
 type SongComment = {
   _id: string;
@@ -310,6 +311,17 @@ export function CommentsSection({ songId }: { songId: string }) {
       <h3 className="mb-4 text-sm uppercase tracking-wide text-ink-muted">
         Commentaires {comments.length > 0 && `(${comments.length})`}
       </h3>
+
+      {/* Sans compte, le formulaire disparaissait sans un mot : rien ne
+          disait qu'il fallait se connecter, ni où. */}
+      {status === "unauthenticated" && (
+        <p className="mb-6 rounded-xl border border-border bg-base px-4 py-3 text-sm text-ink-muted">
+          <Link href="/connexion" className="font-medium text-accent hover:underline">
+            Connecte-toi
+          </Link>{" "}
+          pour laisser un commentaire.
+        </p>
+      )}
 
       {status === "authenticated" && (
         <form onSubmit={handleSubmit} className="mb-6 flex items-center gap-2">

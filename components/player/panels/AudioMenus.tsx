@@ -6,6 +6,9 @@ import type { MenuAnchor } from "@/components/ui/useClampedMenuPosition";
 import { NIVEAUX_BASS } from "@/components/player/constants/bassBoost";
 import { usePlayer, VITESSES } from "@/context/PlayerProvider";
 import type { AudioQuality } from "@/lib/offlineSettings";
+import Link from "next/link";
+import { useAcces } from "@/context/AccesProvider";
+import { qualiteMaximale } from "@/lib/acces";
 
 /**
  * Réglages audio du lecteur, en menus ancrés : Bass Boost, vitesse,
@@ -29,18 +32,22 @@ function Option({
   onClick,
   titre,
   detail,
+  verrouille,
 }: {
   actif: boolean;
   onClick: () => void;
   titre: string;
   detail?: string;
+  /** Réservé à l'abonnement : montré, mais inatteignable. */
+  verrouille?: boolean;
 }) {
   return (
     <button
       onClick={onClick}
       role="menuitemradio"
       aria-checked={actif}
-      className={`flex w-full items-start gap-2.5 px-4 py-2 text-left transition-colors hover:bg-base ${
+      disabled={verrouille}
+      className={`flex w-full items-start gap-2.5 px-4 py-2 text-left transition-colors hover:bg-base disabled:cursor-not-allowed disabled:opacity-50 ${
         actif ? "text-accent" : "text-ink"
       }`}
     >
@@ -106,21 +113,43 @@ const QUALITES: { id: AudioQuality; titre: string; detail: string }[] = [
 
 export function QualityMenu({ anchor, onClose }: { anchor: MenuAnchor; onClose: () => void }) {
   const { audioQuality, setAudioQuality } = usePlayer();
+  const acces = useAcces();
+
+  // Le plafond est le même que celui appliqué à l'URL réellement lue : le
+  // menu ne promet rien que le lecteur ne servirait pas.
+  const plafond = qualiteMaximale(acces);
+  const rang = { low: 0, medium: 1, high: 2 };
+
   return (
     <ContextMenuShell anchor={anchor} onClose={onClose} width={264}>
       <EnTete icon={SignalHigh} titre="Qualité audio" />
-      {QUALITES.map((q) => (
-        <Option
-          key={q.id}
-          actif={audioQuality === q.id}
-          titre={q.titre}
-          detail={q.detail}
-          onClick={() => {
-            setAudioQuality(q.id);
-            onClose();
-          }}
-        />
-      ))}
+      {QUALITES.map((q) => {
+        const verrouille = rang[q.id] > rang[plafond];
+        return (
+          <Option
+            key={q.id}
+            actif={audioQuality === q.id && !verrouille}
+            titre={verrouille ? `${q.titre} — Premium` : q.titre}
+            detail={q.detail}
+            verrouille={verrouille}
+            onClick={() => {
+              setAudioQuality(q.id);
+              onClose();
+            }}
+          />
+        );
+      })}
+
+      {plafond !== "high" && (
+        <Link
+          href="/abonnement"
+          onClick={onClose}
+          className="block border-t border-border px-4 py-2 text-xs font-medium text-accent hover:bg-base"
+        >
+          Passer en Premium pour le 320 kb/s
+        </Link>
+      )}
+
       <p className="border-t border-border px-4 pb-1.5 pt-2 text-[10px] leading-snug text-ink-muted">
         S&apos;applique à l&apos;écoute en ligne et aux prochains téléchargements.
         Hors-ligne, les morceaux déjà enregistrés gardent leur qualité d&apos;origine.

@@ -36,6 +36,7 @@ export const GET = withApiErrors(async () => {
       copyrightText: config.copyrightText,
       plans: config.plans,
       trialDays: config.trialDays,
+      anonymousDailyPlays: config.anonymousDailyPlays,
       genres: config.genres,
       // Le thème par défaut du site : c'est lui que voit tout visiteur qui
       // n'a rien personnalisé, y compris déconnecté.

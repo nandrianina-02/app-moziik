@@ -9,6 +9,7 @@
 
 import { idbGetAll, idbPut, idbDelete, STORES } from "@/lib/offlineDb";
 import { getOfflineSettings, applyAudioQuality, isOnWifi } from "@/lib/offlineSettings";
+import { assurerAccesHorsLigne } from "@/lib/offlineAcces";
 import { notifyDownloadComplete } from "@/lib/localNotify";
 
 const OFFLINE_MEDIA_CACHE = "moziik-offline-media";
@@ -42,6 +43,8 @@ export async function downloadSongForOffline(
   song: Omit<OfflineSongMeta, "downloadedAt">,
   source: OfflineSongMeta["source"] = "manual"
 ): Promise<void> {
+  assurerAccesHorsLigne();
+
   if (!("caches" in window)) throw new Error("Le mode hors-ligne n'est pas supporté par ce navigateur.");
 
   const settings = await getOfflineSettings();
@@ -84,6 +87,8 @@ export async function downloadAlbumForOffline(
   albumId: string,
   onProgress?: (done: number, total: number) => void
 ): Promise<void> {
+  assurerAccesHorsLigne();
+
   const res = await fetch(`/api/albums/${albumId}`);
   if (!res.ok) throw new Error("Impossible de charger l'album.");
   const { album } = await res.json();
@@ -116,6 +121,8 @@ export async function downloadPlaylistForOffline(
   playlistId: string,
   onProgress?: (done: number, total: number) => void
 ): Promise<void> {
+  assurerAccesHorsLigne();
+
   const res = await fetch(`/api/playlists/${playlistId}`);
   if (!res.ok) throw new Error("Impossible de charger la playlist.");
   const { playlist } = await res.json();
@@ -143,6 +150,8 @@ export async function downloadPlaylistForOffline(
  * seul dès que la connexion revient (point 15 du cahier des charges).
  */
 export async function queuePendingDownload(song: Omit<OfflineSongMeta, "downloadedAt">): Promise<void> {
+  assurerAccesHorsLigne();
+
   await idbPut(STORES.pendingDownloads, song);
   notifyChange();
 }

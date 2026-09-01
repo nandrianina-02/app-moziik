@@ -16,6 +16,7 @@ import { AlbumDetailSkeleton } from "@/components/album/AlbumDetailSkeleton";
 import { PageSections } from "@/components/home/PageSections";
 import { AlbumImageEditModal } from "@/components/album/AlbumImageEditModal";
 import type { AlbumDetail, AlbumSummaryLite } from "@/components/album/types";
+import { libelleTypeAlbum } from "@/lib/albums";
 
 export function AlbumDetailClient() {
   const { id } = useParams<{ id: string }>();
@@ -162,6 +163,15 @@ export function AlbumDetailClient() {
     setAlbum((prev) => (prev ? { ...prev, ...updates } : prev));
   }
 
+  async function handleChangeType(type: AlbumDetail["type"]) {
+    try {
+      await patchAlbum({ type });
+      pushToast("success", `Publication enregistrée comme ${libelleTypeAlbum(type).toLowerCase()}.`);
+    } catch {
+      pushToast("error", "Échec du changement de forme.");
+    }
+  }
+
   async function handleSaveDescription(description: string) {
     try {
       await patchAlbum({ description });
@@ -218,6 +228,7 @@ export function AlbumDetailClient() {
             downloadProgress={downloadProgress}
             canManage={canManage}
             editMode={editMode}
+            onChangeType={handleChangeType}
             onTogglePlayAll={() => playQueue(album.songs, 0, { type: "album", label: album.title, id: album._id })}
             onToggleSaved={toggleSaved}
             onDownloadAll={handleDownloadAlbum}

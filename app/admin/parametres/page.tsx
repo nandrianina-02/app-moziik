@@ -49,6 +49,7 @@ type SiteConfigForm = {
   googleAnalyticsId: string;
   googleSearchConsoleId: string;
   trialDays: number;
+  anonymousDailyPlays: number;
   plans: PlanPricing[];
   genres: string[];
   payPerListenRateUSD: number;
@@ -455,7 +456,20 @@ export default function AdminSettingsPage() {
                   value={config.payPerListenRateUSD}
                   onChange={(e) => modifier({ payPerListenRateUSD: Number(e.target.value) })}
                 />
+                <FormField
+                  label="Écoutes par jour sans compte (0 pour aucune limite)"
+                  type="number"
+                  min="0"
+                  max="1000"
+                  value={config.anonymousDailyPlays}
+                  onChange={(e) => modifier({ anonymousDailyPlays: Math.max(0, Number(e.target.value)) })}
+                />
               </div>
+
+              <p className="text-xs text-ink-muted">
+                Le décompte porte sur les titres distincts, par adresse IP, et se remet à zéro
+                chaque jour. Réécouter un titre déjà compté ne consomme rien de plus.
+              </p>
             </div>
           </AdminCard>
 
@@ -466,7 +480,7 @@ export default function AdminSettingsPage() {
             <ul className="grid gap-2 text-sm text-ink-muted sm:grid-cols-2">
               {[
                 "Écoute hors-ligne des morceaux téléchargés",
-                "Qualité audio supérieure",
+                "Qualité audio 320 kb/s (128 sans abonnement)",
                 "Personnalisation du thème et des couleurs",
                 "Aucune interruption dans la lecture",
               ].map((ligne) => (

@@ -9,6 +9,7 @@ import { AuthProvider } from "@/context/AuthProvider";
 import { ToastProvider } from "@/context/ToastProvider";
 import { OnlineStatusProvider } from "@/context/OnlineStatusProvider";
 import { PlayerProvider } from "@/context/PlayerProvider";
+import { AccesProvider } from "@/context/AccesProvider";
 import { SiteConfigProvider } from "@/context/SiteConfigProvider";
 import { SidebarProvider } from "@/context/SidebarProvider";
 import { Sidebar } from "@/components/layout/Sidebar";
@@ -19,6 +20,7 @@ import { MobileHeader } from "@/components/layout/MobileHeader";
 import { DesktopHeader } from "@/components/layout/DesktopHeader";
 import { MobileNav } from "@/components/layout/MobileNav";
 import { MiniPlayerBar } from "@/components/player/MiniPlayerBar";
+import { QuotaWall } from "@/components/player/QuotaWall";
 import { FullPlayerPage } from "@/components/player/FullPlayerPage";
 import { PlayerShortcuts } from "@/components/player/PlayerShortcuts";
 import { FloatingInstallButton } from "@/components/ui/FloatingInstallButton";
@@ -130,6 +132,10 @@ export default async function RootLayout({ children }: { children: React.ReactNo
         )}
         <SiteConfigProvider>
           <AuthProvider>
+            {/* Au-dessus du thème et du lecteur : les deux ont besoin de
+                savoir si le visiteur est abonné — l'un pour les couleurs
+                personnalisées, l'autre pour la qualité servie. */}
+            <AccesProvider>
             <ThemeProvider>
               {/* Au-dessus du lecteur : changer d'univers vide la réserve de
                   morceaux déjà chargés, qui vient de l'autre répertoire. */}
@@ -159,6 +165,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
                         </div>
                         <NotificationsDrawer />
                         <MiniPlayerBar />
+                        <QuotaWall />
                         <FullPlayerPage />
                         <PlayerShortcuts />
                         {/*
@@ -183,6 +190,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
               </ModeProvider>
               </UniversProvider>
             </ThemeProvider>
+            </AccesProvider>
           </AuthProvider>
         </SiteConfigProvider>
       </body>

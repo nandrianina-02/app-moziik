@@ -21,6 +21,8 @@ import {
 import { useSiteConfig } from "@/context/SiteConfigProvider";
 import { useOnlineStatus } from "@/context/OnlineStatusProvider";
 import { useUnivers } from "@/context/UniversProvider";
+import { useAcces } from "@/context/AccesProvider";
+import { limiterQualite, MESSAGE_QUOTA_ANONYME } from "@/lib/acces";
 import { useMode } from "@/context/ModeProvider";
 import { morceauxSuivants } from "@/lib/playbackContinuation";
 
@@ -151,6 +153,15 @@ type PlayerContextValue = {
   setPlaybackRate: (rate: number) => void;
   audioQuality: AudioQuality;
   setAudioQuality: (quality: AudioQuality) => void;
+  /**
+   * Le visiteur non connecté a épuisé son quota d'écoute du jour.
+   *
+   * Exposé plutôt que traité sur place : c'est l'interface qui décide
+   * comment le dire, le lecteur se contente d'arrêter le son.
+   */
+  quotaEpuise: boolean;
+  /** Referme le mur — après une connexion, ou si le visiteur l'écarte. */
+  ignorerQuota: () => void;
   /** Minuteur de veille : millisecondes restantes, ou null si inactif. */
   sleepRemainingMs: number | null;
   /** Vrai quand la lecture doit s'arrêter à la fin du morceau en cours. */
@@ -333,6 +344,11 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
   const currentIndex = order[position] ?? 0;
   const currentSong = queue[currentIndex] ?? null;
 
+  // Ce que le visiteur a le droit d'écouter, et en quelle qualité.
+  const acces = useAcces();
+  /** Le quota de visiteur est épuisé : la lecture s'arrête là. */
+  const [quotaEpuise, setQuotaEpuise] = useState(false);
+
   // Volume persisté d'une session à l'autre.
   useEffect(() => {
     const stored = localStorage.getItem("moziik-volume");
@@ -426,7 +442,10 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
    */
   function sourceAudio(song: PlayableSong, quality: AudioQuality) {
     if (typeof navigator !== "undefined" && !navigator.onLine) return song.audioUrl;
-    return applyAudioQuality(song.audioUrl, quality);
+    // Le plafond s'applique ici, sur l'URL réellement lue, et pas
+    // seulement dans le menu de réglage : un compte gratuit qui aurait
+    // choisi « 320 » avant de perdre son abonnement retombe à 128.
+    return applyAudioQuality(song.audioUrl, limiterQualite(quality, acces));
   }
 
   async function setAudioQuality(quality: AudioQuality) {
@@ -483,6 +502,46 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [queue, order, position, repeatMode, reserve]);
+
+  /**
+   * Le quota des visiteurs non connectés, vérifié avant chaque nouveau
+   * titre.
+   *
+   * Le décompte est tenu par le serveur, à partir de l'adresse IP : un
+   * compteur rangé dans le navigateur se remet à zéro en effaçant les
+   * données du site, ce qui revenait à ne rien limiter.
+   */
+  useEffect(() => {
+    if (acces.chargement || acces.connecte || !currentSong) return;
+
+    let annule = false;
+    fetch("/api/ecoute/quota", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ songId: currentSong._id }),
+    })
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        if (annule || !data || data.autorise) return;
+        setQuotaEpuise(true);
+        lectureVoulueRef.current = false;
+        setIsPlaying(false);
+        audioRef.current?.pause();
+      })
+      // Le serveur injoignable ne doit pas couper l'écoute : on laisse
+      // passer plutôt que de punir une panne réseau.
+      .catch(() => undefined);
+
+    return () => {
+      annule = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentSong?._id, acces.connecte, acces.chargement]);
+
+  // Se connecter lève le mur sans recharger la page.
+  useEffect(() => {
+    if (acces.connecte) setQuotaEpuise(false);
+  }, [acces.connecte]);
 
   useEffect(() => {
     const audio = audioRef.current;
@@ -1251,6 +1310,8 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
         setPlaybackRate,
         audioQuality,
         setAudioQuality,
+        quotaEpuise,
+        ignorerQuota: () => setQuotaEpuise(false),
         sleepRemainingMs,
         sleepAfterTrack,
         setSleepTimer,

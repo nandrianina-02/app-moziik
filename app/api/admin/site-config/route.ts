@@ -34,6 +34,7 @@ export const PATCH = withApiErrors(async (req: Request) => {
     "googleAnalyticsId",
     "googleSearchConsoleId",
     "trialDays",
+    "anonymousDailyPlays",
     "plans",
     "genres",
     "payPerListenRateUSD",

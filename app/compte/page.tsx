@@ -527,7 +527,7 @@ export default function AccountPage() {
             <ul className="grid gap-2 text-sm text-ink-muted sm:grid-cols-2">
               {[
                 "Écoute hors-ligne des morceaux téléchargés",
-                "Qualité audio supérieure",
+                "Qualité audio 320 kb/s (128 sans abonnement)",
                 "Personnalisation du thème et des couleurs",
                 "Soutien direct aux artistes que vous écoutez",
               ].map((ligne) => (

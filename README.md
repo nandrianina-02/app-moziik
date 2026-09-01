@@ -176,6 +176,32 @@ Tous les modèles vivent dans `models/` : `User`, `Artist`, `Song`,
   le même lecteur (`components/song/VideoPlayerModal.tsx`), qui met la
   lecture audio en pause — deux sons à la fois ne s'écoutent pas
 
+## Ce que Premium débloque vraiment
+- `lib/acces.ts` répond seul à la question « ce visiteur a-t-il le droit
+  de… ». Les limites annoncées sur la page d'abonnement et celles
+  réellement appliquées doivent être les mêmes ; le seul moyen d'en être
+  sûr est qu'elles soient écrites une fois
+- **Qualité audio** : 128 kb/s au plafond pour les comptes gratuits et les
+  visiteurs, 320 pour les abonnés. Le plafond s'applique à l'URL
+  réellement lue (transformation Cloudinary `br_`), pas seulement au menu
+- **Hors-ligne** : réservé aux abonnés. La condition est posée dans
+  `lib/offlineCache.ts`, que les quatre entrées traversent — la poser sur
+  les boutons aurait laissé passer la cinquième
+- **Visiteurs non connectés** : un nombre de titres par jour, réglable
+  dans `/admin/parametres → Prix Premium` (`0` lève la limite). Le
+  décompte est tenu **côté serveur, par adresse IP** : un compteur rangé
+  dans le navigateur se remet à zéro en effaçant les données du site.
+  L'IP n'est jamais stockée en clair — seule une empreinte salée, qui
+  change chaque jour, et que MongoDB efface tout seul (index TTL sur
+  `models/QuotaEcoute.ts`)
+- Ce n'est pas une protection absolue et ce n'est pas son rôle : les
+  fichiers audio restent des URL Cloudinary publiques, et un visiteur
+  déterminé change de réseau. C'est un seuil qui invite à créer un
+  compte, pas un verrou
+- **« Sans publicité » a été retiré** des arguments de vente : aucune
+  régie n'est branchée, donc rien ne distinguait un abonné sur ce point.
+  À remettre le jour où la publicité existera
+
 ## Interface tactile
 - **La sélection de texte est coupée sur les pointeurs grossiers**
   (`app/globals.css`). L'appui long sert à ouvrir les menus contextuels :

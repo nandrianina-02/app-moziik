@@ -93,6 +93,13 @@ export interface ISiteConfig {
   googleAnalyticsId: string; // identifiant G-XXXXXXXXXX ; vide = aucun script chargé
   googleSearchConsoleId: string; // jeton de vérification de propriété
   trialDays: number; // jours d'essai offerts sur l'abonnement Premium
+  /**
+   * Titres qu'un visiteur non connecté peut écouter par jour.
+   *
+   * `0` lève la limite. Réécouter un titre déjà décompté ne coûte rien de
+   * plus : c'est le nombre de titres distincts qui compte.
+   */
+  anonymousDailyPlays: number;
   plans: IPlanPricing[]; // coûts d'abonnement, modifiables par l'admin
   // Genres proposés à la publication d'un titre — remplace la liste avant
   // codée en dur et dupliquée dans les pages son/nouveau et son/[id]/modifier.
@@ -141,6 +148,7 @@ const SiteConfigSchema = new Schema<ISiteConfig>({
   googleAnalyticsId: { type: String, default: "" },
   googleSearchConsoleId: { type: String, default: "" },
   trialDays: { type: Number, default: 0, min: 0, max: 365 },
+  anonymousDailyPlays: { type: Number, default: 15, min: 0, max: 1000 },
   plans: [
     {
       plan: { type: String, enum: ["premium", "premium_annual"] },

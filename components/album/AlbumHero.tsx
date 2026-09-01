@@ -19,7 +19,7 @@ import { SafeImage } from "@/components/ui/SafeImage";
 import { useDominantColor } from "@/components/song/useDominantColor";
 import { formatCompactNumber } from "@/lib/formatNumber";
 import type { AlbumDetail } from "@/components/album/types";
-import { libelleTypeAlbum, motPiste } from "@/lib/albums";
+import { ALBUM_TYPES, libelleTypeAlbum, motPiste, type AlbumType } from "@/lib/albums";
 
 
 export function AlbumHero({
@@ -41,8 +41,11 @@ export function AlbumHero({
   onToggleEditMode,
   onEditBanner,
   onEditCover,
+  onChangeType,
 }: {
   album: AlbumDetail;
+  /** Change la forme de la publication (album, EP, single, podcast). */
+  onChangeType?: (type: AlbumType) => void;
   totalPlays: number;
   totalLikes: number;
   isCurrentAlbumPlaying: boolean;
@@ -154,9 +157,29 @@ export function AlbumHero({
           transition={{ duration: 0.35, delay: 0.05, ease: "easeOut" }}
           className="min-w-0 flex-1 text-center md:text-left"
         >
-          <span className="rounded-full bg-accent/15 px-2.5 py-1 text-[11px] font-medium text-accent">
-            {libelleTypeAlbum(album.type)}
-          </span>
+          {/* La forme se change ici, en mode édition : c'est ce qui
+              transforme un album existant en podcast, sans repasser par la
+              base. */}
+          {editMode && canManage ? (
+            <label className="inline-flex items-center gap-2">
+              <span className="sr-only">Forme de la publication</span>
+              <select
+                value={album.type}
+                onChange={(e) => onChangeType?.(e.target.value as AlbumType)}
+                className="rounded-full border border-accent/40 bg-accent/10 px-2.5 py-1 text-[11px] font-medium text-accent outline-none"
+              >
+                {ALBUM_TYPES.map((valeur) => (
+                  <option key={valeur} value={valeur}>
+                    {libelleTypeAlbum(valeur)}
+                  </option>
+                ))}
+              </select>
+            </label>
+          ) : (
+            <span className="rounded-full bg-accent/15 px-2.5 py-1 text-[11px] font-medium text-accent">
+              {libelleTypeAlbum(album.type)}
+            </span>
+          )}
 
           <h1 className="mt-2 text-2xl font-display leading-tight sm:text-3xl">{album.title}</h1>
 

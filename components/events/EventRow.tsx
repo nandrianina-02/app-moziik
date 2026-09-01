@@ -131,7 +131,7 @@ export function EventRow({
           </span>
         </div>
 
-        <h3 className="truncate text-base font-semibold leading-snug">
+        <h3 className="truncate text-[15px] font-semibold leading-snug">
           <Link href={`/evenements/${event._id}`} className="transition-colors hover:text-accent">
             {event.title}
           </Link>

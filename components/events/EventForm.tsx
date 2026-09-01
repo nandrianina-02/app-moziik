@@ -455,9 +455,15 @@ export function EventForm({
                 onChange={(e) => setPrice(e.target.value)}
               />
             </div>
-            <ChampsBillets billets={tickets} onChange={setTickets} devise={currency ?? "EUR"} />
+            {/* Les catégories de billets attendent la modification : à la
+                création, l'urgence est d'annoncer la date, pas de détailler
+                une grille tarifaire souvent pas encore arrêtée. */}
+            {mode === "edit" && (
+              <ChampsBillets billets={tickets} onChange={setTickets} devise={currency ?? "EUR"} />
+            )}
           </Bloc>
 
+          {mode === "edit" && (
           <Bloc titre="La fiche" aide="Chaque rubrique laissée vide disparaît simplement de la page publique.">
             <ChampsGalerie urls={gallery} onChange={setGallery} />
             <SelecteurArtistes selection={lineup} onChange={setLineup} />
@@ -485,6 +491,7 @@ export function EventForm({
               onChange={setPracticalInfo}
             />
           </Bloc>
+          )}
         </div>
 
         <aside className="space-y-5 lg:sticky lg:top-6">
@@ -577,8 +584,9 @@ export function EventForm({
           {mode === "create" && (
             <p className="flex items-start gap-2.5 rounded-xl2 border border-border bg-accent/5 p-4 text-xs text-ink-muted">
               <CalendarCheck size={15} className="mt-0.5 shrink-0 text-accent" />
-              Une fois l&apos;évènement enregistré, sa fiche s&apos;ouvre : le déroulé, la galerie
-              et les artistes à l&apos;affiche se complètent depuis « Modifier ».
+              Une fois l&apos;évènement enregistré, sa fiche s&apos;ouvre : le déroulé, les
+              catégories de billets, la galerie et les artistes à l&apos;affiche s&apos;y
+              ajoutent depuis « Modifier ».
             </p>
           )}
 

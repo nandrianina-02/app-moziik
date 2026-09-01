@@ -239,7 +239,7 @@ export default function EventsPage() {
       <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_340px] lg:items-start">
         <div className="min-w-0">
           <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-            <h2 className="text-base font-semibold">
+            <h2 className="text-[15px] font-semibold">
               {jourSelectionne ? "Évènements du jour choisi" : "Tous les évènements"}
               <span className="ml-2 text-sm font-normal text-ink-muted">{filtres.length}</span>
             </h2>

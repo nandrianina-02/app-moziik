@@ -40,6 +40,39 @@ function BoutonRetirer({ onClick, label }: { onClick: () => void; label: string 
   );
 }
 
+/**
+ * Un élément d'une liste répétable : un cadre, un numéro, un bouton pour
+ * le retirer.
+ *
+ * Sans ce cadre, les champs de trois moments successifs formaient une
+ * grille indifférenciée où plus rien ne disait où finissait l'un et où
+ * commençait le suivant.
+ */
+function BlocRepetable({
+  titre,
+  onRetirer,
+  children,
+}: {
+  titre: string;
+  onRetirer: () => void;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className="rounded-xl border border-border bg-surface p-3">
+      <div className="mb-2.5 flex items-center justify-between gap-2">
+        <span className="text-xs font-medium text-ink-muted">{titre}</span>
+        <BoutonRetirer label={`Retirer ${titre.toLowerCase()}`} onClick={onRetirer} />
+      </div>
+      {children}
+    </div>
+  );
+}
+
+/** Libellé court au-dessus d'un champ, à l'intérieur d'un bloc répétable. */
+function SousLibelle({ children }: { children: React.ReactNode }) {
+  return <span className="mb-1 block text-[11px] text-ink-muted">{children}</span>;
+}
+
 /** Une liste de courtes phrases : pastilles, puces, bon à savoir. */
 export function ChampsListe({
   label,
@@ -137,44 +170,58 @@ export function ChampsProgramme({
     <div>
       <Etiquette aide="Laissé vide, le programme n'apparaît pas sur la fiche.">Programme</Etiquette>
 
-      <div className="space-y-2">
+      <div className="space-y-2.5">
         {moments.map((moment, index) => (
-          <div key={index} className="flex items-start gap-2">
-            <input
-              value={moment.time}
-              onChange={(e) => modifier(index, "time", e.target.value)}
-              placeholder="18:00"
-              maxLength={20}
-              className={`${CHAMP} w-24 shrink-0`}
-            />
-            <div className="min-w-0 flex-1 space-y-2">
-              <input
-                value={moment.title}
-                onChange={(e) => modifier(index, "title", e.target.value)}
-                placeholder="Ouverture des portes"
-                maxLength={120}
-                className={CHAMP}
-              />
+          <BlocRepetable
+            key={index}
+            titre={`Moment ${index + 1}`}
+            onRetirer={() => onChange(moments.filter((_, i) => i !== index))}
+          >
+            {/* L'heure garde une largeur fixe à partir de `sm` : elle ne
+                contient que cinq caractères, et l'étirer sur la moitié de
+                la ligne déséquilibrait le bloc. En dessous, tout s'empile. */}
+            <div className="flex flex-col gap-2.5 sm:flex-row">
+              <label className="block sm:w-28 sm:shrink-0">
+                <SousLibelle>Heure</SousLibelle>
+                <input
+                  value={moment.time}
+                  onChange={(e) => modifier(index, "time", e.target.value)}
+                  placeholder="18:00"
+                  maxLength={20}
+                  className={CHAMP}
+                />
+              </label>
+
+              <label className="block min-w-0 flex-1">
+                <SousLibelle>Intitulé</SousLibelle>
+                <input
+                  value={moment.title}
+                  onChange={(e) => modifier(index, "title", e.target.value)}
+                  placeholder="Ouverture des portes"
+                  maxLength={120}
+                  className={CHAMP}
+                />
+              </label>
+            </div>
+
+            <label className="mt-2.5 block">
+              <SousLibelle>Précision (optionnel)</SousLibelle>
               <input
                 value={moment.detail ?? ""}
                 onChange={(e) => modifier(index, "detail", e.target.value)}
-                placeholder="Précision (optionnel)"
+                placeholder="Contrôle des sacs à l'entrée"
                 maxLength={300}
                 className={CHAMP}
               />
-            </div>
-            <BoutonRetirer
-              label={`Retirer le moment ${index + 1}`}
-              onClick={() => onChange(moments.filter((_, i) => i !== index))}
-            />
-          </div>
+            </label>
+          </BlocRepetable>
         ))}
       </div>
 
       <button
         type="button"
         onClick={() => onChange([...moments, { time: "", title: "" }])}
-        className="mt-2 flex items-center gap-1.5 rounded-xl border border-border px-3 py-2 text-xs font-medium text-ink-muted transition-colors hover:border-accent hover:text-accent"
+        className="mt-2.5 flex items-center gap-1.5 rounded-xl border border-border px-3 py-2 text-xs font-medium text-ink-muted transition-colors hover:border-accent hover:text-accent"
       >
         <Plus size={14} /> Ajouter un moment
       </button>
@@ -202,65 +249,82 @@ export function ChampsBillets({
         Catégories de billets
       </Etiquette>
 
-      <div className="space-y-3">
+      <div className="space-y-2.5">
         {billets.map((billet, index) => (
-          <div key={index} className="rounded-xl border border-border p-3">
-            <div className="flex items-start gap-2">
-              <input
-                value={billet.name}
-                onChange={(e) => modifier(index, { name: e.target.value })}
-                placeholder="Standard"
-                maxLength={60}
-                className={CHAMP}
-              />
-              <input
-                type="number"
-                min={0}
-                step="0.01"
-                value={Number.isFinite(billet.price) ? billet.price : ""}
-                onChange={(e) => modifier(index, { price: Number(e.target.value) })}
-                placeholder="0"
-                className={`${CHAMP} w-28 shrink-0`}
-              />
-              <BoutonRetirer
-                label={`Retirer la catégorie ${index + 1}`}
-                onClick={() => onChange(billets.filter((_, i) => i !== index))}
-              />
+          <BlocRepetable
+            key={index}
+            titre={billet.name.trim() || `Catégorie ${index + 1}`}
+            onRetirer={() => onChange(billets.filter((_, i) => i !== index))}
+          >
+            <div className="grid gap-2.5 sm:grid-cols-2">
+              <label className="block">
+                <SousLibelle>Nom</SousLibelle>
+                <input
+                  value={billet.name}
+                  onChange={(e) => modifier(index, { name: e.target.value })}
+                  placeholder="Standard"
+                  maxLength={60}
+                  className={CHAMP}
+                />
+              </label>
+
+              <label className="block">
+                <SousLibelle>Prix ({devise})</SousLibelle>
+                <input
+                  type="number"
+                  min={0}
+                  step="0.01"
+                  value={Number.isFinite(billet.price) ? billet.price : ""}
+                  onChange={(e) => modifier(index, { price: Number(e.target.value) })}
+                  placeholder="0"
+                  className={CHAMP}
+                />
+              </label>
             </div>
 
-            <input
-              value={billet.description ?? ""}
-              onChange={(e) => modifier(index, { description: e.target.value })}
-              placeholder="Ce que la place donne (optionnel)"
-              maxLength={160}
-              className={`${CHAMP} mt-2`}
-            />
+            <label className="mt-2.5 block">
+              <SousLibelle>Ce que la place donne (optionnel)</SousLibelle>
+              <input
+                value={billet.description ?? ""}
+                onChange={(e) => modifier(index, { description: e.target.value })}
+                placeholder="Accès général"
+                maxLength={160}
+                className={CHAMP}
+              />
+            </label>
 
-            <div className="mt-2 flex gap-2">
-              <input
-                type="number"
-                min={0}
-                step="0.01"
-                value={billet.originalPrice ?? ""}
-                onChange={(e) =>
-                  modifier(index, {
-                    originalPrice: e.target.value === "" ? undefined : Number(e.target.value),
-                  })
-                }
-                placeholder="Prix barré"
-                className={CHAMP}
-              />
-              <input
-                type="date"
-                value={billet.availableUntil?.slice(0, 10) ?? ""}
-                onChange={(e) =>
-                  modifier(index, { availableUntil: e.target.value ? e.target.value : undefined })
-                }
-                className={CHAMP}
-              />
+            <div className="mt-2.5 grid gap-2.5 sm:grid-cols-2">
+              <label className="block">
+                <SousLibelle>Prix barré (optionnel)</SousLibelle>
+                <input
+                  type="number"
+                  min={0}
+                  step="0.01"
+                  value={billet.originalPrice ?? ""}
+                  onChange={(e) =>
+                    modifier(index, {
+                      originalPrice: e.target.value === "" ? undefined : Number(e.target.value),
+                    })
+                  }
+                  placeholder="36"
+                  className={CHAMP}
+                />
+              </label>
+
+              <label className="block">
+                <SousLibelle>En vente jusqu&apos;au (optionnel)</SousLibelle>
+                <input
+                  type="date"
+                  value={billet.availableUntil?.slice(0, 10) ?? ""}
+                  onChange={(e) =>
+                    modifier(index, { availableUntil: e.target.value ? e.target.value : undefined })
+                  }
+                  className={CHAMP}
+                />
+              </label>
             </div>
 
-            <label className="mt-2 flex items-center gap-2 text-xs text-ink-muted">
+            <label className="mt-3 flex items-center gap-2 text-xs text-ink-muted">
               <input
                 type="checkbox"
                 checked={Boolean(billet.soldOut)}
@@ -269,14 +333,14 @@ export function ChampsBillets({
               />
               Complet
             </label>
-          </div>
+          </BlocRepetable>
         ))}
       </div>
 
       <button
         type="button"
         onClick={() => onChange([...billets, { name: "", price: 0 }])}
-        className="mt-2 flex items-center gap-1.5 rounded-xl border border-border px-3 py-2 text-xs font-medium text-ink-muted transition-colors hover:border-accent hover:text-accent"
+        className="mt-2.5 flex items-center gap-1.5 rounded-xl border border-border px-3 py-2 text-xs font-medium text-ink-muted transition-colors hover:border-accent hover:text-accent"
       >
         <Plus size={14} /> Ajouter une catégorie
       </button>

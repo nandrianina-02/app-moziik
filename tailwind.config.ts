@@ -31,6 +31,12 @@ const config: Config = {
         // html.light). Ainsi bg-surface / text-ink / border-border
         // etc. réagissent au thème PARTOUT dans l'app automatiquement,
         // sans avoir à écrire de variante -light sur chaque composant.
+        // Attention : ce token produit aussi `text-base`, qui l'emporte sur
+        // la taille de police du meme nom (le plugin textColor est genere
+        // apres fontSize). `text-base` seul colore donc le texte en couleur
+        // de FOND — voulu sur `bg-accent` ou `bg-ink`, invisible partout
+        // ailleurs. Les titres du projet ecrivent `text-base text-ink` pour
+        // reprendre la main sur la couleur ; `text-[15px]` evite la question.
         base: {
           DEFAULT: "rgb(var(--color-base) / <alpha-value>)",
         },

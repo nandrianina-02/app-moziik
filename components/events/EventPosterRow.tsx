@@ -38,7 +38,7 @@ export function EventPosterRow({
   return (
     <section className="rounded-xl2 border border-border bg-surface p-5">
       <div className="mb-4 flex items-center justify-between gap-3">
-        <h2 className="text-base font-semibold">Évènements populaires</h2>
+        <h2 className="text-[15px] font-semibold">Évènements populaires</h2>
 
         <div className="hidden shrink-0 items-center gap-1.5 sm:flex">
           <button

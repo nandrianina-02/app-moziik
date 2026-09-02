@@ -356,17 +356,12 @@ export default function ArtistManagementPage() {
           <button onClick={() => setShowEditProfile(true)} className={navPillClass(false)}>
             Paramètres
           </button>
-          {/* aria-disabled plutôt qu'un simple gris : c'est ce qui dit aux
-              lecteurs d'écran que l'entrée est inactive. À 50 % d'encre
-              atténuée le libellé tombait à 2,2:1, illisible dans les deux
-              thèmes — 70 % reste estompé sans devenir indéchiffrable. */}
-          <span
-            title="Bientôt disponible"
-            aria-disabled="true"
-            className="flex cursor-not-allowed items-center whitespace-nowrap rounded-2xl border border-border px-4 py-2.5 text-sm font-medium text-ink-muted/70"
-          >
+          <Link href="/artiste/import" className={navPillClass(false)}>
+            Import par lot
+          </Link>
+          <Link href="/artiste/statistiques" className={navPillClass(false)}>
             Statistiques
-          </span>
+          </Link>
         </div>
       </nav>
 

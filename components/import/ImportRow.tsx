@@ -175,9 +175,12 @@ export function ImportRow({
   onRetablirPochette,
   onSupprimer,
   onForcerDoublon,
+  artisteVerrouille,
 }: {
   ligne: LigneImport;
   genres: string[];
+  /** L'artiste importe pour lui-même : il n'y a personne d'autre à choisir. */
+  artisteVerrouille?: boolean;
   /** Albums de l'artiste rapproché — un morceau ne peut rejoindre qu'un album existant. */
   albums: AlbumOption[];
   enLecture: boolean;
@@ -300,7 +303,7 @@ export function ImportRow({
               placeholder="Titre du morceau"
               invalide={!ligne.titre.trim()}
             />
-            <ChampArtiste ligne={ligne} onChange={onArtiste} />
+            {!artisteVerrouille && <ChampArtiste ligne={ligne} onChange={onArtiste} />}
 
             {/* Un album se référence par identifiant, pas par nom : la
                 balise ne sert qu'à présélectionner un album existant de

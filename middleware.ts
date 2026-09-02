@@ -10,7 +10,11 @@ export default withAuth(
       return NextResponse.redirect(new URL("/", req.url));
     }
     if (
-      (pathname.startsWith("/artiste/revenus") || pathname.startsWith("/artiste/gestion") || pathname.startsWith("/son/nouveau")) &&
+      (pathname.startsWith("/artiste/revenus") ||
+        pathname.startsWith("/artiste/gestion") ||
+        pathname.startsWith("/artiste/statistiques") ||
+        pathname.startsWith("/artiste/import") ||
+        pathname.startsWith("/son/nouveau")) &&
       role !== "artist" &&
       role !== "admin"
     ) {
@@ -33,6 +37,8 @@ export const config = {
     "/admin/:path*",
     "/artiste/revenus/:path*",
     "/artiste/gestion/:path*",
+    "/artiste/statistiques/:path*",
+    "/artiste/import/:path*",
     "/son/nouveau",
     "/compte/:path*",
     "/bibliotheque/:path*",

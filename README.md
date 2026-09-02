@@ -221,6 +221,25 @@ Tous les modèles vivent dans `models/` : `User`, `Artist`, `Song`,
   régie n'est branchée, donc rien ne distinguait un abonné sur ce point.
   À remettre le jour où la publicité existera
 
+## Espace artiste
+- **Statistiques** (`/artiste/statistiques`) : l'onglet existait, désactivé
+  et marqué « bientôt disponible ». Tout était pourtant en base — les
+  écoutes sont enregistrées depuis le début avec leur date, leur pays et
+  leur appareil. Écoutes par jour, palmarès des titres, auditeurs
+  distincts, taux d'écoute complète, pays, appareils
+- Rien n'y est estimé : pays et appareil ne sont connus que lorsque le
+  lecteur a pu les transmettre, donc leurs totaux sont inférieurs au
+  nombre d'écoutes, et l'écran le dit
+- **Import par lot** (`/artiste/import`) : le même poste que
+  l'administration (`components/import/ImportWorkbench.tsx`), réduit à ce
+  qui concerne l'artiste. Les morceaux lui sont rattachés d'office, les
+  doublons ne sont cherchés que dans son propre catalogue, et ses envois
+  deviennent des brouillons soumis à validation — c'est `/api/songs` qui
+  l'impose, l'écran ne fait que le refléter
+- Un seul composant pour les deux : lecture des balises, détection des
+  doublons, pochettes intégrées et envoi en parallèle sont exactement le
+  même travail. Deux props les séparent — qui importe, et pour qui
+
 ## Interface tactile
 - **La sélection de texte est coupée sur les pointeurs grossiers**
   (`app/globals.css`). L'appui long sert à ouvrir les menus contextuels :

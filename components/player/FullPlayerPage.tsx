@@ -506,13 +506,11 @@ function ContenuLecteur({ song }: { song: PlayableSong }) {
           onClick={() => setShowQueueSheet(true)}
         />
       )}
-      <BoutonReglage
-        icon={plein ? Minimize2 : Maximize2}
-        actif={plein}
-        label="Plein écran"
-        valeur={plein ? "Réduire" : "Plein écran"}
-        onClick={basculerPleinEcran}
-      />
+      {/* Le plein écran n'est plus proposé ici. Ces réglages sont
+          partagés par les deux dispositions, si bien que le bouton
+          apparaissait aussi sur mobile — où `requestFullscreen` n'existe
+          pas sur iOS et où la page occupe déjà tout l'écran. Il reste dans
+          l'en-tête, en bureau seulement. */}
     </div>
   );
 
@@ -681,16 +679,11 @@ function ContenuLecteur({ song }: { song: PlayableSong }) {
 
           <div className="mb-5">{transport("compact")}</div>
 
-          <div className="mb-5 flex items-center gap-3">
-            <button
-              onClick={() => setVolume(volume > 0 ? 0 : 1)}
-              aria-label={volume === 0 ? "Réactiver le son" : "Couper le son"}
-              className="shrink-0 text-ink-muted transition-colors hover:text-ink"
-            >
-              <VolumeIcon size={18} />
-            </button>
-            <SeekBar progress={volume} duration={1} onSeek={setVolume} variant="pill" className="flex-1" />
-          </div>
+          {/* Pas de réglage de volume ici : sur un téléphone, ce sont
+              les boutons de l'appareil qui font foi, et la barre en
+              doublait une commande matérielle déjà à portée de pouce. Il
+              reste sur la barre de bureau, où il n'existe pas d'autre
+              moyen. */}
 
           <div className="mb-5">{actionsTitre}</div>
           <div className="mb-6">{reglagesSecondaires}</div>

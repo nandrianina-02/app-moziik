@@ -257,7 +257,11 @@ Tous les modèles vivent dans `models/` : `User`, `Artist`, `Song`,
 - Renseigner les identifiants MVola (`MVOLA_CONSUMER_KEY`,
   `MVOLA_CONSUMER_SECRET`, `MVOLA_MERCHANT_MSISDN`) — `MVOLA_ENV=sandbox`
   par défaut, passer à `production` une fois validé par MVola
-- Cinq cron, déclenchés par un ordonnanceur **externe** (horaires en UTC) :
+- Cinq cron, déclenchés par un ordonnanceur **externe** (horaires en UTC).
+  `/admin/taches` permet de lancer chacun à la main — pour rattraper une
+  nuit manquée, sans avoir à retrouver `CRON_SECRET`. L'écran appelle le
+  gestionnaire de la route du cron directement : c'est exactement le même
+  traitement, pas une copie qui divergerait :
   - `/api/cron/publish-songs` — toutes les 5 minutes
   - `/api/cron/moderate-comments` — toutes les heures, facultatif : la
     file se vide aussi à l'ouverture de `/admin/commentaires`

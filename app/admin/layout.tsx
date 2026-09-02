@@ -21,6 +21,7 @@ import {
   LineChart,
   Church,
   UserCog,
+  Timer,
 } from "lucide-react";
 import { AdminHeaderSlot } from "@/components/admin/AdminChrome";
 
@@ -142,6 +143,13 @@ const links = [
     icon: Sparkles,
     titre: "Assistance IA",
     description: "Fonctionnalités assistées, plafond et consommation.",
+  },
+  {
+    href: "/admin/taches",
+    label: "Tâches",
+    icon: Timer,
+    titre: "Tâches planifiées",
+    description: "Relancez à la main ce que l'ordonnanceur exécute la nuit.",
   },
   {
     href: "/admin/parametres",

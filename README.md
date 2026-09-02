@@ -122,11 +122,17 @@ Tous les modèles vivent dans `models/` : `User`, `Artist`, `Song`,
   `/admin/accueil`, évènements comme musique, puis — en mode automatique —
   les deux prochains évènements, une nouvelle sortie, le titre le plus
   écouté et une playlist tendance, six diapositives au plus
-- **Trouver les coordonnées d'une adresse** : le bouton « Trouver depuis
-  l'adresse », dans le formulaire d'évènement, compose ce qui est déjà
-  saisi et interroge Nominatim (`/api/geocodage`). Sans lui, il fallait
-  connaître la latitude de sa salle par cœur — donc aucune carte
-  n'apparaissait jamais
+- **Les coordonnées sont cherchées à l'enregistrement** d'un évènement
+  (`lib/geocodage.ts`), à partir de l'adresse saisie. Sans cela il fallait
+  connaître la latitude de sa salle par cœur, et aucune carte
+  n'apparaissait jamais. Un point posé à la main n'est jamais réécrit, et
+  un échec du service n'empêche pas d'enregistrer : l'évènement compte
+  plus que sa carte
+- Le bouton « Trouver depuis l'adresse » du formulaire sert à *choisir*
+  quand le premier résultat tombe à côté (`/api/geocodage`)
+- `node scripts/situer-evenements.mjs` rattrape les évènements créés
+  avant, une requête toutes les 1,2 s — Nominatim en demande au plus une
+  par seconde, et dépasser fait bloquer l'adresse IP du serveur
 - L'appel part du **serveur** : Nominatim exige que l'application
   appelante s'identifie et refuse les requêtes anonymes en masse. Depuis
   le navigateur, chaque visiteur l'interrogerait en son nom propre, sans

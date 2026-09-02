@@ -5,6 +5,7 @@ import Artist from "@/models/Artist";
 import { ApiError, withApiErrors } from "@/lib/apiError";
 import { parseOrThrow, createEventSchema } from "@/lib/validation";
 import { getAuthUser, requireAuthUser } from "@/lib/mobileAuth";
+import { adresseCherchable, premierLieu } from "@/lib/geocodage";
 
 export const GET = withApiErrors(async (req: Request) => {
   await connectDB();
@@ -57,8 +58,21 @@ export const POST = withApiErrors(async (req: Request) => {
     throw new ApiError("Seuls les admins et artistes autorisés peuvent créer un évènement.", 403);
   }
 
+  // Les coordonnées, cherchées une fois à la création.
+  //
+  // La carte de la fiche ne s'affiche qu'avec elles, et les demander à la
+  // main revenait à ne jamais en avoir : aucune carte n'est jamais
+  // apparue depuis que la section existe. Une adresse déjà située à la
+  // main n'est pas retouchée, et un échec du service n'empêche jamais
+  // d'enregistrer — l'évènement compte plus que sa carte.
+  const situe =
+    donnees.latitude == null && donnees.longitude == null
+      ? await premierLieu(adresseCherchable(donnees))
+      : null;
+
   const event = await Event.create({
     ...donnees,
+    ...(situe ? { latitude: situe.latitude, longitude: situe.longitude } : {}),
     artist: artistId,
     createdBy: authUser.id,
     status,

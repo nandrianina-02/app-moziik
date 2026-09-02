@@ -464,6 +464,10 @@ export const patchSongSchema = z.object({
   producer: z.string().max(200).optional(),
   bpm: z.number().min(0).optional(),
   bpmSource: z.enum(["manuel", "balise", "analyse"]).optional(),
+  // La découpe : `null` l'annule et rend le morceau entier. Les bornes
+  // sont recoupées côté serveur contre la durée réelle du fichier.
+  trimStart: z.number().min(0).nullable().optional(),
+  trimEnd: z.number().min(0).nullable().optional(),
   musicalKey: z.string().max(20).optional(),
   isrc: z.string().max(20).optional(),
   copyright: z.string().max(300).optional(),

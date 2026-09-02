@@ -33,7 +33,25 @@ export interface ISong {
    */
   videoUrl?: string;
   coverUrl: string;
-  duration: number; // secondes
+  duration: number; // secondes — durée réellement servie, découpe comprise
+  /**
+   * Découpe du morceau, en secondes depuis le début du fichier d'origine.
+   *
+   * Rien n'est réencodé : ces bornes deviennent une transformation
+   * Cloudinary au moment de servir le fichier (lib/cloudinaryAudio.ts).
+   * L'original reste intact, la découpe se corrige ou s'annule à tout
+   * moment — y compris sur un titre publié depuis des mois.
+   */
+  trimStart?: number;
+  trimEnd?: number;
+  /**
+   * Durée du fichier d'origine, avant découpe.
+   *
+   * Conservée parce que `duration` ne vaut plus que la partie servie :
+   * sans elle, l'éditeur ne saurait plus jusqu'où la découpe peut aller,
+   * et une découpe ne serait plus réversible.
+   */
+  originalDuration?: number;
   genre: string;
   lyrics?: string;
   description?: string; // texte libre : histoire du morceau, inspiration...
@@ -83,6 +101,9 @@ const SongSchema = new Schema<ISong>({
   videoUrl: { type: String },
   coverUrl: { type: String, required: true },
   duration: { type: Number, required: true },
+  trimStart: { type: Number },
+  trimEnd: { type: Number },
+  originalDuration: { type: Number },
   genre: { type: String, required: true },
   lyrics: { type: String },
   description: { type: String, maxlength: 5000 },

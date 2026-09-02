@@ -65,24 +65,60 @@ export function identifiantPublic(audioUrl: string): string | null {
  * morceau doit rester écoutable même si son adresse ne suit pas la forme
  * attendue (import ancien, fichier hébergé ailleurs).
  */
-export function adresseAudio(audioUrl: string, quality: AudioQuality): string {
+export type Decoupe = { debut?: number | null; fin?: number | null };
+
+/** Les bornes de découpe, arrondies au dixième — Cloudinary n'en veut pas plus. */
+function bornes(decoupe?: Decoupe): { start_offset?: string; end_offset?: string } {
+  if (!decoupe) return {};
+  const arrondi = (v: number) => String(Math.max(0, Math.round(v * 10) / 10));
+
+  return {
+    ...(typeof decoupe.debut === "number" && decoupe.debut > 0
+      ? { start_offset: arrondi(decoupe.debut) }
+      : {}),
+    ...(typeof decoupe.fin === "number" && decoupe.fin > 0 ? { end_offset: arrondi(decoupe.fin) } : {}),
+  };
+}
+
+/**
+ * L'adresse à servir, pour cette qualité et cette découpe.
+ *
+ * La découpe est une transformation, pas un réencodage : `so_`/`eo_`
+ * disent à Cloudinary quelle portion livrer. Le fichier d'origine reste
+ * entier, donc la découpe se corrige ou s'annule sans rien perdre — ce
+ * qu'un découpage destructif dans le navigateur ne permettrait pas, en
+ * plus d'exiger un réencodeur MP3 embarqué.
+ *
+ * Retombe sur une simple transformation de l'URL enregistrée quand la
+ * protection est désactivée ou que l'identifiant n'a pas pu être lu — un
+ * morceau doit rester écoutable même si son adresse ne suit pas la forme
+ * attendue (import ancien, fichier hébergé ailleurs).
+ */
+export function adresseAudio(audioUrl: string, quality: AudioQuality, decoupe?: Decoupe): string {
   const debit = DEBITS[quality];
+  const coupe = bornes(decoupe);
 
   if (!audioProtege()) {
     if (!audioUrl.includes("/upload/")) return audioUrl;
-    return audioUrl.replace("/upload/", `/upload/br_${debit}/`);
+    const morceaux = [
+      ...(coupe.start_offset ? [`so_${coupe.start_offset}`] : []),
+      ...(coupe.end_offset ? [`eo_${coupe.end_offset}`] : []),
+      `br_${debit}`,
+    ];
+    return audioUrl.replace("/upload/", `/upload/${morceaux.join(",")}/`);
   }
 
   const publicId = identifiantPublic(audioUrl);
   if (!publicId) return audioUrl;
 
   // `sign_url` scelle la transformation avec l'identifiant : une adresse
-  // retouchée pour passer en 320 ne correspond plus à sa signature.
+  // retouchée pour passer en 320, ou pour récupérer la partie coupée, ne
+  // correspond plus à sa signature.
   return cloudinary.url(publicId, {
     resource_type: "video",
     type: "authenticated",
     sign_url: true,
     secure: true,
-    transformation: [{ bit_rate: debit }],
+    transformation: [{ bit_rate: debit, ...coupe }],
   });
 }

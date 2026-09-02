@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { createHash } from "crypto";
 import { connectDB } from "@/lib/db";
 import Song from "@/models/Song";
+import Artist from "@/models/Artist";
 import Subscription from "@/models/Subscription";
 import QuotaEcoute from "@/models/QuotaEcoute";
 import { getAuthUser } from "@/lib/mobileAuth";
@@ -53,11 +54,33 @@ function jourCourant(timezone: string): string {
 
 export const GET = withApiErrors(async (req: Request, { params }: { params: { id: string } }) => {
   await connectDB();
-  const song = await Song.findById(params.id).select("audioUrl status");
+  const song = await Song.findById(params.id).select("audioUrl status trimStart trimEnd artist");
   if (!song?.audioUrl) throw new ApiError("Titre introuvable.", 404);
-  if (song.status !== "published") throw new ApiError("Ce titre n'est pas disponible.", 403);
 
   const authUser = await getAuthUser(req);
+
+  /**
+   * Le fichier entier, sans découpe.
+   *
+   * Demandé par l'éditeur de découpe : il doit montrer ce qui existe, pas
+   * ce qui est déjà retenu — sinon chaque passage rognerait la portion
+   * précédente. Réservé à qui peut modifier le titre, puisque c'est
+   * précisément la partie que le public n'entend plus.
+   */
+  const brut = req.url ? new URL(req.url).searchParams.get("brut") === "1" : false;
+  if (brut) {
+    const artiste = authUser?.role === "artist" ? await Artist.findOne({ user: authUser.id }) : null;
+    const proprietaire = artiste && String(song.artist) === String(artiste._id);
+    if (authUser?.role !== "admin" && !proprietaire) {
+      throw new ApiError("Réservé au propriétaire du titre.", 403);
+    }
+  }
+
+  // Un titre non publié reste accessible à qui le gère : c'est ce qui
+  // permet d'écouter un brouillon avant de le mettre en ligne.
+  if (song.status !== "published" && !brut) {
+    throw new ApiError("Ce titre n'est pas disponible.", 403);
+  }
   const abonnement = authUser
     ? await Subscription.findOne({ user: authUser.id }).sort({ startedAt: -1 }).lean()
     : null;
@@ -90,7 +113,9 @@ export const GET = withApiErrors(async (req: Request, { params }: { params: { id
   const demandee = req.url ? new URL(req.url).searchParams.get("q") : null;
   const qualite = limiterQualite(estQualite(demandee) ? demandee : "high", visiteur);
 
-  const adresse = adresseAudio(song.audioUrl, qualite);
+  const adresse = brut
+    ? adresseAudio(song.audioUrl, qualite)
+    : adresseAudio(song.audioUrl, qualite, { debut: song.trimStart, fin: song.trimEnd });
 
   // `no-store` : la redirection dépend de qui demande et de son quota du
   // jour. Mise en cache par un intermédiaire, elle servirait la qualité

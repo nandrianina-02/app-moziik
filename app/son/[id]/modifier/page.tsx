@@ -31,6 +31,7 @@ import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { CoverDropzone } from "@/components/song/CoverDropzone";
 import { AudioDropzone, formatBytes } from "@/components/song/AudioDropzone";
 import { VideoDropzone } from "@/components/song/VideoDropzone";
+import { TrimEditor } from "@/components/song/TrimEditor";
 import { SongPreviewSidebar, type ChecklistItem } from "@/components/song/SongPreviewSidebar";
 import { FeaturingPicker } from "@/components/modals/FeaturingPicker";
 import { ArtistSinglePicker } from "@/components/modals/ArtistSinglePicker";
@@ -61,6 +62,10 @@ type SongDoc = {
   album?: { _id: string; title: string } | null;
   audioUrl: string;
   videoUrl?: string;
+  trimStart?: number;
+  trimEnd?: number;
+  /** Durée du fichier entier — absente tant qu'aucune découpe n'a été posée. */
+  originalDuration?: number;
   coverUrl: string;
   duration: number;
   genre: string;
@@ -209,6 +214,16 @@ export default function EditSongPage() {
   const [uploadingCover, setUploadingCover] = useState(false);
   const [uploadingAudio, setUploadingAudio] = useState(false);
   const [audioProgress, setAudioProgress] = useState(0);
+  /**
+   * Les bornes de découpe en cours d'édition.
+   *
+   * `null` des deux côtés veut dire « le morceau entier » : c'est aussi
+   * ce qui l'annule côté serveur.
+   */
+  const [decoupe, setDecoupe] = useState<{ debut: number | null; fin: number | null }>({
+    debut: null,
+    fin: null,
+  });
   const [videoFile, setVideoFile] = useState<File | null>(null);
   const [uploadingVideo, setUploadingVideo] = useState(false);
   const [videoProgress, setVideoProgress] = useState(0);
@@ -269,6 +284,7 @@ export default function EditSongPage() {
         if (cancelled) return;
 
         setSong(doc);
+        setDecoupe({ debut: doc.trimStart ?? null, fin: doc.trimEnd ?? null });
         setFeaturing(doc.featuring?.map((f) => f.artist).filter(Boolean) ?? []);
         setTargetArtist(doc.artist ?? null);
         setTags(doc.tags ?? []);
@@ -455,6 +471,12 @@ export default function EditSongPage() {
 
       const payload: Record<string, unknown> = {
         videoUrl,
+        // Envoyées même à `null` : c'est ainsi qu'une découpe s'annule.
+        // Le serveur recoupe les bornes et recalcule la durée servie —
+        // la lui laisser fixer par le client reviendrait à lui laisser
+        // décider du seuil de paiement des droits.
+        trimStart: decoupe.debut,
+        trimEnd: decoupe.fin,
         title: values.title.trim(),
         genre: values.genre,
         albumId: values.albumId || "",
@@ -740,6 +762,25 @@ export default function EditSongPage() {
                 }}
                 onDurationDetected={setPendingDuration}
               />
+
+              {/* La découpe porte sur le fichier déjà en ligne : aucun
+                  renvoi n'est nécessaire, et elle s'annule à tout moment.
+                  L'aperçu demande la version BRUTE — sinon chaque passage
+                  rognerait la portion retenue au passage précédent. */}
+              {!audioFile && (
+                <div className="mt-6 border-t border-border pt-6">
+                  <TrimEditor
+                    source={`/api/stream/${song._id}?brut=1&q=low`}
+                    dureeOriginale={song.originalDuration ?? song.duration}
+                    debut={decoupe.debut}
+                    fin={decoupe.fin}
+                    onChange={(bornes) => {
+                      setDecoupe(bornes);
+                      setExtraTouched(true);
+                    }}
+                  />
+                </div>
+              )}
 
               <div className="mt-6 border-t border-border pt-6">
                 <VideoDropzone

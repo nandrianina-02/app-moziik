@@ -109,6 +109,39 @@ export const PATCH = withApiErrors(
       song.status = new Date(parsedUpdates.releaseDate) <= new Date() ? "published" : "scheduled";
     }
 
+    /**
+     * La découpe, et la durée qui en découle.
+     *
+     * Traitée à part, et après les autres champs, parce qu'elle décide de
+     * `duration` : celle-ci n'est plus la durée du fichier mais celle de
+     * la portion servie. Le lecteur s'en sert pour sa barre, et le calcul
+     * des droits pour savoir si l'écoute est allée au bout — la laisser
+     * au client reviendrait à lui laisser fixer le seuil de paiement.
+     */
+    if ("trimStart" in updates || "trimEnd" in updates) {
+      // Au premier découpage, la durée actuelle EST celle de l'original.
+      const original = song.originalDuration ?? song.duration;
+      song.originalDuration = original;
+
+      const lire = (cle: "trimStart" | "trimEnd") =>
+        cle in updates ? (updates[cle] as number | null) : (song[cle] ?? null);
+
+      let debut = lire("trimStart");
+      let fin = lire("trimEnd");
+
+      // Bornes recoupées contre la durée réelle : une découpe hors du
+      // fichier produirait un morceau vide ou muet.
+      if (typeof debut === "number") debut = Math.min(Math.max(0, debut), Math.max(0, original - 1));
+      if (typeof fin === "number") fin = Math.min(Math.max(0, fin), original);
+      if (typeof debut === "number" && typeof fin === "number" && fin <= debut) {
+        throw new ApiError("La fin de la découpe doit suivre son début.", 400);
+      }
+
+      song.trimStart = debut && debut > 0 ? debut : undefined;
+      song.trimEnd = fin && fin < original ? fin : undefined;
+      song.duration = Math.round((song.trimEnd ?? original) - (song.trimStart ?? 0));
+    }
+
     // Les erreurs de validation/cast Mongoose sont traduites en 400 avec
     // leur message réel par withApiErrors (voir lib/apiError.ts).
     await song.save();

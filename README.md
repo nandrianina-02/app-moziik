@@ -221,6 +221,29 @@ Tous les modèles vivent dans `models/` : `User`, `Artist`, `Song`,
   régie n'est branchée, donc rien ne distinguait un abonné sur ce point.
   À remettre le jour où la publicité existera
 
+## Découpe d'un morceau
+- Les bornes `trimStart` / `trimEnd` sont enregistrées sur le titre, puis
+  traduites en transformation Cloudinary (`so_` / `eo_`) au moment de
+  servir le fichier. **Rien n'est réencodé** : l'original reste entier, et
+  la découpe se corrige, se déplace ou s'annule à tout moment — y compris
+  des mois après la publication
+- Découper dans le navigateur aurait supposé un réencodeur MP3 embarqué et
+  aurait détruit ce qui dépasse. Le seul format que le navigateur écrit
+  nativement est le WAV, six fois plus lourd que le fichier reçu
+- `duration` devient la durée **servie**, pas celle du fichier ;
+  `originalDuration` garde la seconde, sans quoi la découpe ne serait plus
+  réversible. Les deux sont recalculées **côté serveur** : les laisser au
+  client reviendrait à lui laisser fixer le seuil des 80 % qui déclenche
+  le paiement des droits
+- L'éditeur (`components/song/TrimEditor.tsx`) demande la version **brute**
+  (`/api/stream/<id>?brut=1`), réservée au propriétaire du titre et à
+  l'administration : montrer la version déjà coupée ferait rogner la
+  portion retenue à chaque passage
+- Deux limites connues : une copie téléchargée hors-ligne avant la découpe
+  garde l'ancienne version jusqu'à son renouvellement ; et `so_`/`eo_` sur
+  de l'audio n'a pas encore été vérifié sur le compte Cloudinary du projet
+  — à confirmer sur un titre avant de découper tout le catalogue
+
 ## Analyse du tempo
 - Huit des douze modes d'écoute s'appuient sur le BPM (`lib/modes.ts`) :
   sans lui, « Sport », « Sommeil » et « Étude » n'ont rien à proposer. La

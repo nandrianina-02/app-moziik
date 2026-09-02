@@ -3,7 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { CalendarCheck, ChevronRight, ImagePlus, Info } from "lucide-react";
+import { CalendarCheck, ChevronRight, ImagePlus, Info, Loader2, MapPin } from "lucide-react";
 import { FormField } from "@/components/ui/FormField";
 import { Switch } from "@/components/ui/Switch";
 import { TagInput } from "@/components/ui/TagInput";
@@ -148,6 +148,49 @@ export function EventForm({
   const [tags, setTags] = useState<string[]>(initial?.tags ?? []);
 
   const [enregistrement, setEnregistrement] = useState(false);
+
+  /** Résultats du géocodage, tant que personne n'a choisi. */
+  const [lieuxTrouves, setLieuxTrouves] = useState<
+    { nom: string; latitude: number; longitude: number }[] | null
+  >(null);
+  const [rechercheLieu, setRechercheLieu] = useState(false);
+
+  /**
+   * Cherche les coordonnées de l'adresse saisie.
+   *
+   * La carte de la fiche ne s'affiche qu'avec une latitude et une
+   * longitude. Les demander à la main revenait à ne jamais en avoir : on
+   * les déduit de ce qui est déjà écrit dans le formulaire.
+   */
+  async function chercherLeLieu() {
+    const adresseComplete = [address, postalCode, city, country, location]
+      .map((v) => v.trim())
+      .filter(Boolean)
+      .join(", ");
+
+    if (adresseComplete.length < 3) {
+      pushToast("info", "Renseigne d'abord le lieu ou l'adresse.");
+      return;
+    }
+
+    setRechercheLieu(true);
+    setLieuxTrouves(null);
+    try {
+      const res = await fetch(`/api/geocodage?q=${encodeURIComponent(adresseComplete)}`);
+      if (!res.ok) throw new Error(await readApiError(res, "Recherche impossible."));
+      const data = await res.json();
+
+      if (!data.lieux?.length) {
+        pushToast("info", "Aucun lieu trouvé. Précise l'adresse, ou saisis les coordonnées.");
+        return;
+      }
+      setLieuxTrouves(data.lieux);
+    } catch (err) {
+      pushToast("error", err instanceof Error ? err.message : "Recherche impossible.");
+    } finally {
+      setRechercheLieu(false);
+    }
+  }
 
   async function envoyerAffiche(fichier: File | null) {
     if (!fichier) return;
@@ -401,19 +444,54 @@ export function EventForm({
               onChange={(e) => setMapsUrl(e.target.value)}
             />
 
-            <div className="grid gap-4 sm:grid-cols-2">
-              <FormField
-                label="Latitude (optionnel)"
-                type="number"
-                value={latitude}
-                onChange={(e) => setLatitude(e.target.value)}
-              />
-              <FormField
-                label="Longitude (optionnel)"
-                type="number"
-                value={longitude}
-                onChange={(e) => setLongitude(e.target.value)}
-              />
+            <div>
+              <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+                <span className="text-sm text-ink-muted">Coordonnées</span>
+                <button
+                  type="button"
+                  onClick={chercherLeLieu}
+                  disabled={rechercheLieu}
+                  className="flex items-center gap-1.5 rounded-lg border border-border px-3 py-1.5 text-xs font-medium text-ink-muted transition-colors hover:border-accent hover:text-accent disabled:opacity-60"
+                >
+                  {rechercheLieu ? <Loader2 size={13} className="animate-spin" /> : <MapPin size={13} />}
+                  {rechercheLieu ? "Recherche..." : "Trouver depuis l'adresse"}
+                </button>
+              </div>
+
+              {lieuxTrouves && (
+                <ul className="mb-3 overflow-hidden rounded-xl border border-border">
+                  {lieuxTrouves.map((lieu) => (
+                    <li key={`${lieu.latitude}-${lieu.longitude}`}>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setLatitude(String(lieu.latitude));
+                          setLongitude(String(lieu.longitude));
+                          setLieuxTrouves(null);
+                        }}
+                        className="block w-full px-3.5 py-2.5 text-left text-xs transition-colors hover:bg-base"
+                      >
+                        {lieu.nom}
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              )}
+
+              <div className="grid gap-4 sm:grid-cols-2">
+                <FormField
+                  label="Latitude"
+                  type="number"
+                  value={latitude}
+                  onChange={(e) => setLatitude(e.target.value)}
+                />
+                <FormField
+                  label="Longitude"
+                  type="number"
+                  value={longitude}
+                  onChange={(e) => setLongitude(e.target.value)}
+                />
+              </div>
             </div>
             <p className="text-xs text-ink-muted">
               Les coordonnées affichent une carte sur la fiche ; le lien, lui, remplace seulement

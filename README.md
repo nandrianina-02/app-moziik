@@ -122,6 +122,16 @@ Tous les modèles vivent dans `models/` : `User`, `Artist`, `Song`,
   `/admin/accueil`, évènements comme musique, puis — en mode automatique —
   les deux prochains évènements, une nouvelle sortie, le titre le plus
   écouté et une playlist tendance, six diapositives au plus
+- **Trouver les coordonnées d'une adresse** : le bouton « Trouver depuis
+  l'adresse », dans le formulaire d'évènement, compose ce qui est déjà
+  saisi et interroge Nominatim (`/api/geocodage`). Sans lui, il fallait
+  connaître la latitude de sa salle par cœur — donc aucune carte
+  n'apparaissait jamais
+- L'appel part du **serveur** : Nominatim exige que l'application
+  appelante s'identifie et refuse les requêtes anonymes en masse. Depuis
+  le navigateur, chaque visiteur l'interrogerait en son nom propre, sans
+  en-tête d'identification, et se ferait bloquer. Réservé aux comptes
+  connectés, plafonné par IP, réponses gardées une heure
 - La carte du lieu n'apparaît qu'avec `latitude` **et** `longitude`.
   Elle vient d'OpenStreetMap, autorisé pour cela en `frame-src` dans
   la CSP de `next.config.mjs` ; sans coordonnées, « Itinéraire »

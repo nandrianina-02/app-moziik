@@ -1,20 +1,47 @@
 import { NextResponse } from "next/server";
+import { Types } from "mongoose";
 import { connectDB } from "@/lib/db";
 import Play from "@/models/Play";
 import Royalty from "@/models/Royalty";
 import Artist from "@/models/Artist";
 import { getSiteConfig } from "@/lib/siteConfig";
-import { notify } from "@/lib/notify";
+import { notifyEach } from "@/lib/notify";
 import { ApiError, withApiErrors } from "@/lib/apiError";
 
 export const dynamic = "force-dynamic";
 
 /**
- * À appeler périodiquement (ex: 1 fois par jour via un cron externe).
- * Regroupe les écoutes complètes non encore monétisées par artiste,
- * crée un relevé Royalty au tarif courant (SiteConfig.payPerListenRateUSD),
- * puis marque ces écoutes comme "monetized" pour ne pas les recompter.
+ * Regroupe les écoutes complètes non encore payées par artiste, écrit un
+ * relevé au tarif courant, et marque ces écoutes pour ne pas les
+ * recompter.
+ *
+ * À appeler une fois par jour avec `Authorization: Bearer <CRON_SECRET>`.
+ *
+ * ---
+ *
+ * **Réserver d'abord, calculer ensuite.**
+ *
+ * Le passage commence par marquer en une seule écriture toutes les écoutes
+ * qu'il va traiter, avec son propre identifiant. Deux exécutions
+ * simultanées ne peuvent donc pas payer les mêmes écoutes : la seconde
+ * n'en réserve aucune et repart à vide.
+ *
+ * Ce n'est pas théorique — c'est exactement ce qui se produit quand
+ * l'ordonnanceur abandonne sur un délai d'attente et relance : la première
+ * exécution continue côté serveur, et sans réservation la relance aurait
+ * doublé les droits de chaque artiste.
  */
+
+/**
+ * Nombre d'écoutes qu'un seul passage traite au plus.
+ *
+ * Le regroupement se fait en une agrégation, donc en un aller-retour : le
+ * plafond ne sert pas à tenir dans le temps imparti mais à borner la
+ * mémoire d'un rattrapage après une longue panne. Le reliquat part au
+ * passage suivant, et la réponse dit combien il en reste.
+ */
+const MAX_ECOUTES_PAR_PASSAGE = 100_000;
+
 export const POST = withApiErrors(async (req: Request) => {
   if (!process.env.CRON_SECRET) {
     // Échec bruyant plutôt que silencieux : sans cette variable, la
@@ -31,93 +58,139 @@ export const POST = withApiErrors(async (req: Request) => {
   await connectDB();
   const config = await getSiteConfig();
   const periodEnd = new Date();
+  const run = new Types.ObjectId();
 
-  // Pas de borne basse sur playedAt : `monetized: false` marque déjà "pas
-  // encore traité par un run précédent" — borner à "depuis 24h" en plus
-  // ferait perdre silencieusement les écoutes plus anciennes si un cron a
-  // été manqué (ex: panne d'un jour). periodStart est donc calculé PAR
-  // ARTISTE comme la date de la plus ancienne écoute réellement traitée
-  // dans ce lot, pour que le relevé reflète la période couverte pour de
-  // vrai plutôt qu'une fenêtre fixe potentiellement fausse.
-  //
-  // .cursor() : on itère sans charger tout le lot en mémoire d'un coup —
-  // un run manqué pendant plusieurs jours peut accumuler un volume élevé
-  // d'écoutes non monétisées.
-  const cursor = Play.find({
+  // Pas de borne basse sur playedAt : `monetized: false` dit déjà « pas
+  // encore traité ». Borner à « depuis 24 h » ferait perdre en silence les
+  // écoutes plus anciennes si un passage a été manqué.
+  const aTraiter = {
     completed: true,
     monetized: false,
     playedAt: { $lte: periodEnd },
-  })
-    .populate({ path: "song", select: "artist" })
-    .cursor();
+  } as const;
 
-  const playsByArtist = new Map<
-    string,
-    { count: number; playIds: string[]; earliestPlayedAt: Date }
-  >();
-  for await (const play of cursor) {
-    const song = play.song as unknown as { artist: { toString: () => string } } | null;
-    if (!song?.artist) continue;
-    const artistId = song.artist.toString();
-    const entry = playsByArtist.get(artistId) ?? { count: 0, playIds: [], earliestPlayedAt: play.playedAt };
-    entry.count += 1;
-    entry.playIds.push(play._id.toString());
-    if (play.playedAt < entry.earliestPlayedAt) entry.earliestPlayedAt = play.playedAt;
-    playsByArtist.set(artistId, entry);
+  const enAttente = await Play.countDocuments(aTraiter);
+  if (enAttente === 0) {
+    return NextResponse.json({ royaltiesCreated: 0, artistsProcessed: 0, playsProcessed: 0, reste: 0 });
   }
 
-  // Les identifiants à marquer "monetized" peuvent être nombreux (tous
-  // artistes confondus) : on les met à jour par lots plutôt qu'en un seul
-  // $in géant, qui pourrait dépasser la taille max d'une requête MongoDB.
-  const UPDATE_BATCH_SIZE = 1000;
-  async function markMonetized(playIds: string[]) {
-    for (let i = 0; i < playIds.length; i += UPDATE_BATCH_SIZE) {
-      const batch = playIds.slice(i, i + UPDATE_BATCH_SIZE);
-      await Play.updateMany({ _id: { $in: batch } }, { monetized: true });
+  // La réservation. `$lte` sur une borne d'horodatage plutôt qu'une liste
+  // d'identifiants : une seule écriture, quel que soit le volume.
+  const borne =
+    enAttente > MAX_ECOUTES_PAR_PASSAGE
+      ? (
+          await Play.find(aTraiter)
+            .sort({ playedAt: 1 })
+            .skip(MAX_ECOUTES_PAR_PASSAGE - 1)
+            .limit(1)
+            .select("playedAt")
+            .lean()
+        )[0]?.playedAt
+      : periodEnd;
+
+  const reservation = await Play.updateMany(
+    { ...aTraiter, playedAt: { $lte: borne ?? periodEnd } },
+    { $set: { monetized: true, monetizedRun: run } }
+  );
+
+  const reservees = reservation.modifiedCount ?? 0;
+  if (reservees === 0) {
+    // Un autre passage a tout pris entre le comptage et la réservation.
+    return NextResponse.json({ royaltiesCreated: 0, artistsProcessed: 0, playsProcessed: 0, reste: 0 });
+  }
+
+  try {
+    // Une agrégation, un aller-retour. La version précédente parcourait un
+    // curseur en peuplant `song` document par document : autant de
+    // requêtes que d'écoutes, ce qui dépassait le délai d'attente de
+    // l'ordonnanceur dès que quelques milliers d'écoutes s'accumulaient.
+    const parArtiste = await Play.aggregate<{
+      _id: Types.ObjectId;
+      count: number;
+      earliest: Date;
+    }>([
+      { $match: { monetizedRun: run } },
+      {
+        $lookup: {
+          from: "songs",
+          localField: "song",
+          foreignField: "_id",
+          as: "titre",
+          pipeline: [{ $project: { artist: 1 } }],
+        },
+      },
+      { $unwind: "$titre" },
+      { $group: { _id: "$titre.artist", count: { $sum: 1 }, earliest: { $min: "$playedAt" } } },
+    ]);
+
+    if (parArtiste.length > 0) {
+      await Royalty.insertMany(
+        parArtiste.map((ligne) => ({
+          artist: ligne._id,
+          periodStart: ligne.earliest,
+          periodEnd,
+          eligiblePlays: ligne.count,
+          amountUSD: Number((ligne.count * config.payPerListenRateUSD).toFixed(4)),
+          run,
+        }))
+      );
+
+      // Les comptes à prévenir, en une requête plutôt qu'une par artiste.
+      const artistes = await Artist.find({ _id: { $in: parArtiste.map((l) => l._id) } })
+        .select("user")
+        .lean();
+      const compteParArtiste = new Map(artistes.map((a) => [a._id.toString(), a.user.toString()]));
+
+      // Une seule écriture pour toutes les notifications : le montant
+      // diffère d'un artiste à l'autre, mais pas la requête.
+      await notifyEach(
+        parArtiste.flatMap((ligne) => {
+          const compte = compteParArtiste.get(ligne._id.toString());
+          if (!compte) return [];
+          const montant = Number((ligne.count * config.payPerListenRateUSD).toFixed(4));
+          return [
+            {
+              recipient: compte,
+              type: "payment" as const,
+              title: "Nouveau relevé de revenus",
+              message: `${ligne.count} écoute(s) comptabilisée(s), soit ${montant.toFixed(2)} $.`,
+              link: "/artiste/revenus",
+            },
+          ];
+        })
+      );
     }
-  }
 
-  let royaltiesCreated = 0;
-  for (const [artistId, { count, playIds, earliestPlayedAt }] of playsByArtist) {
-    const amountUSD = Number((count * config.payPerListenRateUSD).toFixed(4));
+    // Les écoutes dont le titre a disparu restent marquées : sans artiste,
+    // elles ne seront jamais payables, et les laisser en attente les
+    // ferait rebalayer à chaque passage jusqu'à la fin des temps.
+    const paye = parArtiste.reduce((total, ligne) => total + ligne.count, 0);
 
-    await Royalty.create({
-      artist: artistId,
-      periodStart: earliestPlayedAt,
-      periodEnd,
-      eligiblePlays: count,
-      amountUSD,
+    return NextResponse.json({
+      royaltiesCreated: parArtiste.length,
+      artistsProcessed: parArtiste.length,
+      playsProcessed: paye,
+      playsSansTitre: reservees - paye,
+      reste: Math.max(0, enAttente - reservees),
     });
-
-    await markMonetized(playIds);
-    royaltiesCreated += 1;
-
-    const artist = await Artist.findById(artistId);
-    if (artist) {
-      await notify({
-        recipient: artist.user.toString(),
-        type: "payment",
-        title: "Nouveau relevé de revenus",
-        message: `${count} écoute(s) comptabilisée(s), soit ${amountUSD.toFixed(2)} $.`,
-        link: "/artiste/revenus",
-      });
-    }
+  } catch (err) {
+    // La réservation est annulée : mieux vaut recompter au passage suivant
+    // que de laisser des écoutes marquées payées sans relevé en face.
+    await Play.updateMany(
+      { monetizedRun: run },
+      { $set: { monetized: false }, $unset: { monetizedRun: "" } }
+    );
+    throw err;
   }
-
-  return NextResponse.json({ royaltiesCreated, artistsProcessed: playsByArtist.size });
 });
 
 /**
  * Durée maximale d'exécution.
  *
- * Le regroupement porte sur toutes les écoutes complètes non encore
- * monétisées : un rattrapage après plusieurs jours d'arrêt en balaie
- * beaucoup d'un coup. Aucun appel au modèle ici, seulement des
- * agrégations.
- *
- * Une exécution coupée en cours de route n'abîme rien : les écoutes ne
- * sont marquées « monetized » qu'une fois leur relevé écrit, et celles
- * qui restent seront reprises au passage suivant.
+ * Le travail tient désormais en quelques allers-retours quel que soit le
+ * volume — un comptage, une réservation, une agrégation, deux écritures.
+ * Ce plafond n'est plus qu'un garde-fou : c'est le délai d'attente de
+ * l'ordonnanceur, souvent 30 secondes, qui contraint réellement.
  */
 export const maxDuration = 300;
 

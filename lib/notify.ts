@@ -20,6 +20,22 @@ export async function notify({
   return Notification.create({ recipient, type, title, message, link, imageUrl });
 }
 
+/**
+ * Envoie des notifications toutes différentes, en une seule écriture.
+ *
+ * `notifyMany` sert quand le message est le même pour tout le monde ;
+ * celle-ci quand il diffère — un relevé de droits porte le montant propre
+ * à chaque artiste. Les écrire une par une revenait à un aller-retour par
+ * destinataire.
+ */
+export async function notifyEach(
+  notifications: Parameters<typeof notify>[0][]
+) {
+  if (notifications.length === 0) return [];
+  await connectDB();
+  return Notification.insertMany(notifications);
+}
+
 /** Envoie la même notification à plusieurs destinataires (ex: tous les abonnés d'un artiste). */
 export async function notifyMany(
   recipients: string[],

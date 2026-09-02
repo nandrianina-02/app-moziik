@@ -261,7 +261,11 @@ Tous les modèles vivent dans `models/` : `User`, `Artist`, `Song`,
   - `/api/cron/publish-songs` — toutes les 5 minutes
   - `/api/cron/moderate-comments` — toutes les heures, facultatif : la
     file se vide aussi à l'ouverture de `/admin/commentaires`
-  - `/api/cron/compute-royalties` — chaque nuit à 02 h 15 UTC
+  - `/api/cron/compute-royalties` — chaque nuit à 02 h 15 UTC. Le passage
+    **réserve** d'abord les écoutes à payer en une écriture, puis calcule :
+    une relance après un délai d'attente dépassé ne peut donc pas payer
+    deux fois les mêmes écoutes. Les reprises automatiques sont sans
+    danger sur cette tâche
   - `/api/cron/weekly-curation` — le lundi à 03 h 00 UTC : la fenêtre
     couvre alors les sept jours pleins de la semaine écoulée. Accepte
     `?univers=general` ou `?univers=christian` pour n'analyser qu'un

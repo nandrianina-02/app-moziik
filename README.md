@@ -240,6 +240,19 @@ Tous les modèles vivent dans `models/` : `User`, `Artist`, `Song`,
   l'icône de lecture occupent la même case et se remplacent au survol.
   Au doigt, le numéro reste, et toucher la ligne lance la lecture
 
+### Index laissés derrière par un renommage
+- Mongoose crée les index qu'il connaît, **il ne supprime jamais ceux
+  qu'il ne connaît plus**. Renommer un champ laisse donc un index sur
+  l'ancien nom : invisible dans le code, bien présent dans la base
+- Un index *unique* survivant ainsi bloque tout : les nouveaux documents
+  ont `null` pour l'ancien champ, donc la même clé, et le deuxième insert
+  échoue en doublon. C'est ce qui empêchait le calcul des droits
+  (`royalties`, index `artisteId_1_period_1`, champs disparus du schéma)
+- `node scripts/index-obsoletes.mjs` recense les index dont un champ est
+  absent des documents ; il ne supprime rien de lui-même.
+  `--supprimer royalties:artisteId_1_period_1` supprime celui qu'on lui
+  nomme
+
 ## Phase 7 — Monétisation
 - **L'échéance fait foi autant que le statut.** `hasPremiumAccess`
   (`lib/premium.ts`) exige `status: "active"` **et** une

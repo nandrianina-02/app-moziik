@@ -29,4 +29,20 @@ const RoyaltySchema = new Schema<IRoyalty>({
   createdAt: { type: Date, default: Date.now },
 });
 
+/**
+ * Un seul relevé par artiste et par passage de calcul.
+ *
+ * Le garde-fou est ici plutôt que dans le code : la réservation des
+ * écoutes empêche déjà un double paiement, mais c'est une promesse du
+ * programme. Celle-ci est tenue par la base.
+ *
+ * `partialFilterExpression` limite la contrainte aux relevés qui portent
+ * un `run` — les anciens n'en ont pas, et sans ce filtre ils
+ * partageraient tous la clé `{artist, null}`.
+ */
+RoyaltySchema.index(
+  { artist: 1, run: 1 },
+  { unique: true, partialFilterExpression: { run: { $type: "objectId" } } }
+);
+
 export default (models.Royalty as Model<IRoyalty>) || model<IRoyalty>("Royalty", RoyaltySchema);

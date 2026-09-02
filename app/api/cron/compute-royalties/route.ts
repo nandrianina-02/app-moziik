@@ -123,9 +123,26 @@ export const POST = withApiErrors(async (req: Request) => {
       { $group: { _id: "$titre.artist", count: { $sum: 1 }, earliest: { $min: "$playedAt" } } },
     ]);
 
-    if (parArtiste.length > 0) {
+    // Un groupe sans artiste identifiable ne peut pas donner de relevé :
+    // `Royalty.artist` est obligatoire, et le laisser passer faisait
+    // échouer l'insertion entière — donc annuler la réservation, donc
+    // repartir sur le même échec au passage suivant. Il est écarté et
+    // compté à part.
+    const payables = parArtiste.filter(
+      (ligne) =>
+        ligne._id != null &&
+        ligne.earliest instanceof Date &&
+        Number.isFinite(ligne.count * config.payPerListenRateUSD)
+    );
+    const ecartes = parArtiste.length - payables.length;
+
+    if (payables.length > 0) {
+      // `ordered: true` (par défaut) : tout ou rien. C'est ce qui rend
+      // l'annulation ci-dessous correcte — sans quoi une insertion
+      // partielle suivie d'une annulation totale ferait repayer au
+      // passage suivant ce qui vient d'être payé.
       await Royalty.insertMany(
-        parArtiste.map((ligne) => ({
+        payables.map((ligne) => ({
           artist: ligne._id,
           periodStart: ligne.earliest,
           periodEnd,
@@ -134,41 +151,52 @@ export const POST = withApiErrors(async (req: Request) => {
           run,
         }))
       );
-
-      // Les comptes à prévenir, en une requête plutôt qu'une par artiste.
-      const artistes = await Artist.find({ _id: { $in: parArtiste.map((l) => l._id) } })
-        .select("user")
-        .lean();
-      const compteParArtiste = new Map(artistes.map((a) => [a._id.toString(), a.user.toString()]));
-
-      // Une seule écriture pour toutes les notifications : le montant
-      // diffère d'un artiste à l'autre, mais pas la requête.
-      await notifyEach(
-        parArtiste.flatMap((ligne) => {
-          const compte = compteParArtiste.get(ligne._id.toString());
-          if (!compte) return [];
-          const montant = Number((ligne.count * config.payPerListenRateUSD).toFixed(4));
-          return [
-            {
-              recipient: compte,
-              type: "payment" as const,
-              title: "Nouveau relevé de revenus",
-              message: `${ligne.count} écoute(s) comptabilisée(s), soit ${montant.toFixed(2)} $.`,
-              link: "/artiste/revenus",
-            },
-          ];
-        })
-      );
     }
 
     // Les écoutes dont le titre a disparu restent marquées : sans artiste,
     // elles ne seront jamais payables, et les laisser en attente les
     // ferait rebalayer à chaque passage jusqu'à la fin des temps.
-    const paye = parArtiste.reduce((total, ligne) => total + ligne.count, 0);
+    const paye = payables.reduce((total, ligne) => total + ligne.count, 0);
+
+    // À partir d'ici, les relevés sont écrits : plus rien ne doit pouvoir
+    // annuler la réservation. Prévenir les artistes est agréable, pas
+    // essentiel — une notification perdue vaut mieux qu'un paiement
+    // rejoué. C'est exactement ce qui serait arrivé avec l'envoi à
+    // l'intérieur du bloc précédent.
+    if (payables.length > 0) {
+      try {
+        const artistes = await Artist.find({ _id: { $in: payables.map((l) => l._id) } })
+          .select("user")
+          .lean();
+        const compteParArtiste = new Map(artistes.map((a) => [a._id.toString(), a.user.toString()]));
+
+        // Une seule écriture pour toutes les notifications : le montant
+        // diffère d'un artiste à l'autre, mais pas la requête.
+        await notifyEach(
+          payables.flatMap((ligne) => {
+            const compte = compteParArtiste.get(ligne._id.toString());
+            if (!compte) return [];
+            const montant = Number((ligne.count * config.payPerListenRateUSD).toFixed(4));
+            return [
+              {
+                recipient: compte,
+                type: "payment" as const,
+                title: "Nouveau relevé de revenus",
+                message: `${ligne.count} écoute(s) comptabilisée(s), soit ${montant.toFixed(2)} $.`,
+                link: "/artiste/revenus",
+              },
+            ];
+          })
+        );
+      } catch (err) {
+        console.error("[royalties] relevés écrits, notifications non envoyées :", err);
+      }
+    }
 
     return NextResponse.json({
-      royaltiesCreated: parArtiste.length,
-      artistsProcessed: parArtiste.length,
+      royaltiesCreated: payables.length,
+      artistsProcessed: payables.length,
+      groupesEcartes: ecartes,
       playsProcessed: paye,
       playsSansTitre: reservees - paye,
       reste: Math.max(0, enAttente - reservees),
@@ -176,6 +204,10 @@ export const POST = withApiErrors(async (req: Request) => {
   } catch (err) {
     // La réservation est annulée : mieux vaut recompter au passage suivant
     // que de laisser des écoutes marquées payées sans relevé en face.
+    //
+    // On n'arrive ici que si l'agrégation ou l'écriture des relevés a
+    // échoué — jamais pour une notification, dont l'échec est absorbé plus
+    // haut. Annuler après avoir écrit les relevés ferait repayer.
     await Play.updateMany(
       { monetizedRun: run },
       { $set: { monetized: false }, $unset: { monetizedRun: "" } }

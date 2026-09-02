@@ -22,6 +22,7 @@ import {
   Church,
   UserCog,
   Timer,
+  Gauge,
 } from "lucide-react";
 import { AdminHeaderSlot } from "@/components/admin/AdminChrome";
 
@@ -143,6 +144,13 @@ const links = [
     icon: Sparkles,
     titre: "Assistance IA",
     description: "Fonctionnalités assistées, plafond et consommation.",
+  },
+  {
+    href: "/admin/bpm",
+    label: "Tempo",
+    icon: Gauge,
+    titre: "Analyse du tempo",
+    description: "Mesurez le BPM des titres qui n'en ont pas — huit modes d'écoute en dépendent.",
   },
   {
     href: "/admin/taches",

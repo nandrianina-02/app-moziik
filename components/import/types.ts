@@ -37,6 +37,10 @@ export type LigneImport = {
   annee: string;
   piste: string;
   compositeur: string;
+  /** Tempo, en battements par minute. Vide quand rien de sûr n'a été trouvé. */
+  bpm: string;
+  /** D'où il vient : balise du fichier, ou mesure faite dans le navigateur. */
+  bpmSource?: "balise" | "analyse";
 
   // Pochette : `apercuPochette` et `pochette` désignent toujours la même
   // image, pour que ce qui est montré soit exactement ce qui sera envoyé.

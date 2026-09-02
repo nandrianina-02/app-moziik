@@ -42,6 +42,15 @@ export interface ISong {
   composer?: string; // texte libre — pas nécessairement un compte Moziik
   producer?: string; // texte libre — pas nécessairement un compte Moziik
   bpm?: number;
+  /**
+   * D'où vient le tempo.
+   *
+   * `manuel` est intouchable : une valeur saisie par un humain ne doit
+   * jamais être écrasée par une estimation, même meilleure. `balise` vient
+   * du fichier, `analyse` du calcul fait dans le navigateur — celui-là se
+   * recalcule sans dommage.
+   */
+  bpmSource?: "manuel" | "balise" | "analyse";
   musicalKey?: string; // tonalité (ex. "C#m")
   isrc?: string;
   copyright?: string;
@@ -82,6 +91,7 @@ const SongSchema = new Schema<ISong>({
   composer: { type: String },
   producer: { type: String },
   bpm: { type: Number },
+  bpmSource: { type: String, enum: ["manuel", "balise", "analyse"] },
   musicalKey: { type: String },
   isrc: { type: String },
   copyright: { type: String },

@@ -221,6 +221,26 @@ Tous les modèles vivent dans `models/` : `User`, `Artist`, `Song`,
   régie n'est branchée, donc rien ne distinguait un abonné sur ce point.
   À remettre le jour où la publicité existera
 
+## Analyse du tempo
+- Huit des douze modes d'écoute s'appuient sur le BPM (`lib/modes.ts`) :
+  sans lui, « Sport », « Sommeil » et « Étude » n'ont rien à proposer. La
+  plupart des fichiers ne portent aucune balise de tempo
+- `lib/bpm.ts` le mesure **dans le navigateur** : le fichier y est déjà au
+  moment de l'envoi, et le navigateur décode l'audio nativement. Le faire
+  côté serveur demanderait ffmpeg dans une fonction sans état, pour un
+  résultat identique et une facture de bande passante en plus
+- **Le parti pris est de ne rien répondre plutôt que répondre faux.** Une
+  estimation peu nette, ou ambiguë entre une valeur et son double, ne
+  produit aucun tempo — un chiffre erroné rangerait une berceuse dans
+  « Sport ». La méthode est fiable sur ce qui a une batterie régulière,
+  mauvaise sur ce qui n'en a pas
+- Trois sources, et `manuel` n'est jamais écrasé : `balise` (le fichier),
+  `analyse` (la mesure), `manuel` (saisi ou relu dans un formulaire)
+- Nouveaux titres : mesuré au dépôt, à la publication unitaire comme à
+  l'import par lot. Catalogue existant : `/admin/bpm`, par fournées de
+  vingt-cinq, chaque titre téléchargé en 64 kb/s — le tempo ne dépend pas
+  du débit. L'onglet doit rester ouvert
+
 ## Espace artiste
 - **Statistiques** (`/artiste/statistiques`) : l'onglet existait, désactivé
   et marqué « bientôt disponible ». Tout était pourtant en base — les

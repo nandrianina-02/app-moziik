@@ -55,6 +55,7 @@ import { uploadToCloudinaryClient } from "@/lib/cloudinaryClient";
 import { readApiError } from "@/lib/readApiError";
 import { useToast } from "@/context/ToastProvider";
 import { useSiteConfig, useIADisponible } from "@/context/SiteConfigProvider";
+import { estimerTempo } from "@/lib/bpm";
 
 // Constantes, helpers et SectionCard identiques à app/son/[id]/modifier —
 // c'est la même expérience de saisie, seule la persistance change
@@ -549,6 +550,17 @@ export default function NewSongPage() {
       }
       try {
         const meta = ecraser && metaRef.current ? metaRef.current : await lireMetadonneesAudio(fichier);
+
+        // La plupart des fichiers ne portent aucune balise de tempo. On le
+        // mesure alors, et seulement si le résultat est net : huit modes
+        // d'écoute s'appuient dessus (lib/modes.ts), un chiffre douteux y
+        // rangerait le morceau au mauvais endroit. La valeur atterrit dans
+        // le champ BPM du formulaire, où elle reste corrigeable.
+        if (!meta.bpm) {
+          const estimation = await estimerTempo(fichier);
+          if (estimation && !estimation.ambigu) meta.bpm = estimation.bpm;
+        }
+
         metaRef.current = meta;
         const champs = await remplirDepuisMetadonnees(meta, fichier.name, ecraser);
         // L'aperçu d'objet créé par la lecture ne sert pas ici : la page
@@ -732,6 +744,10 @@ export default function NewSongPage() {
         description: values.description,
         tags,
         bpm: values.bpm ? Number(values.bpm) : undefined,
+        // Marqué « manuel » : la valeur est passée sous les yeux de
+        // l'artiste dans le formulaire, qui pouvait la corriger. Aucune
+        // passe automatique ne la réécrira.
+        bpmSource: values.bpm ? ("manuel" as const) : undefined,
         musicalKey: values.musicalKey.trim(),
         isrc: values.isrc.trim(),
         copyright: values.copyright.trim(),

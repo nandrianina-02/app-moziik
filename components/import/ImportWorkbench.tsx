@@ -22,6 +22,7 @@ import {
   type LigneImport,
 } from "@/components/import/types";
 import { estFichierAudio, formaterOctets, lireMetadonneesAudio, titreDepuisNomDeFichier } from "@/lib/audioMetadata";
+import { estimerTempo } from "@/lib/bpm";
 import { creerPochetteParDefaut } from "@/lib/defaultCover";
 import { uploadToCloudinaryClient } from "@/lib/cloudinaryClient";
 import { readApiError } from "@/lib/readApiError";
@@ -210,6 +211,7 @@ export function ImportWorkbench({
         annee: "",
         piste: "",
         compositeur: "",
+        bpm: "",
         sourcePochette: "defaut",
         apercuPochette: null,
         pochette: null,
@@ -256,6 +258,21 @@ export function ImportWorkbench({
           ? genres.find((g) => g.toLowerCase() === meta.genre!.toLowerCase()) ?? meta.genre
           : genres[0];
 
+        // Le tempo : la balise d'abord, elle ne se discute pas. À défaut,
+        // on le mesure — la plupart des fichiers n'en portent aucune, et
+        // huit modes d'écoute en dépendent (lib/modes.ts). Une mesure peu
+        // sûre ou ambiguë ne donne rien : mieux vaut un champ vide qu'une
+        // berceuse rangée dans « Sport ».
+        let bpm = meta.bpm ? String(Math.round(meta.bpm)) : "";
+        let bpmSource: LigneImport["bpmSource"] = meta.bpm ? "balise" : undefined;
+        if (!bpm) {
+          const estimation = await estimerTempo(ligne.fichier);
+          if (estimation && !estimation.ambigu) {
+            bpm = String(estimation.bpm);
+            bpmSource = "analyse";
+          }
+        }
+
         majLigne(ligne.id, {
           statut: "incomplet",
           meta,
@@ -266,6 +283,8 @@ export function ImportWorkbench({
           annee: meta.annee ? String(meta.annee) : "",
           piste: meta.piste ? String(meta.piste) : "",
           compositeur: meta.compositeur ?? "",
+          bpm,
+          bpmSource,
           sourcePochette,
           pochette,
           apercuPochette,
@@ -481,6 +500,8 @@ export function ImportWorkbench({
             artistId: ligne.artiste._id,
             albumId: ligne.albumId || "",
             composer: ligne.compositeur.trim() || undefined,
+            bpm: ligne.bpm ? Number(ligne.bpm) : undefined,
+            bpmSource: ligne.bpm ? ligne.bpmSource : undefined,
             coverUrl: pochetteEnvoyee.url,
             audioUrl: audioEnvoye.url,
             duration: Math.round(audioEnvoye.duration ?? duree),

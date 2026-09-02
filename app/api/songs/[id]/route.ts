@@ -56,6 +56,7 @@ export const PATCH = withApiErrors(
       "composer",
       "producer",
       "bpm",
+      "bpmSource",
       "musicalKey",
       "isrc",
       "copyright",

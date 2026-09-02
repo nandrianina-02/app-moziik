@@ -91,6 +91,8 @@ export const createSongSchema = z.object({
   producer: z.string().optional(),
   bpm: z.number().optional(),
   bpmSource: z.enum(["manuel", "balise", "analyse"]).optional(),
+  trimStart: z.number().min(0).nullable().optional(),
+  trimEnd: z.number().min(0).nullable().optional(),
   musicalKey: z.string().optional(),
   isrc: z.string().optional(),
   copyright: z.string().optional(),

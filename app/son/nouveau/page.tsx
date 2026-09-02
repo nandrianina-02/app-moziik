@@ -30,6 +30,7 @@ import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { CoverDropzone } from "@/components/song/CoverDropzone";
 import { AudioDropzone, formatBytes } from "@/components/song/AudioDropzone";
 import { VideoDropzone } from "@/components/song/VideoDropzone";
+import { TrimEditor } from "@/components/song/TrimEditor";
 import { SongPreviewSidebar, type ChecklistItem } from "@/components/song/SongPreviewSidebar";
 import { FeaturingPicker } from "@/components/modals/FeaturingPicker";
 import { ArtistSinglePicker } from "@/components/modals/ArtistSinglePicker";
@@ -149,6 +150,17 @@ export default function NewSongPage() {
   const [audioFile, setAudioFile] = useState<File | null>(null);
   const [audioPreviewUrl, setAudioPreviewUrl] = useState<string | null>(null);
   const [pendingDuration, setPendingDuration] = useState<number | null>(null);
+  /**
+   * Bornes de découpe, en secondes depuis le début du fichier.
+   *
+   * Envoyées avec le morceau : rien n'est coupé du fichier lui-même, ce
+   * sont elles que la livraison traduira en transformation (voir
+   * lib/cloudinaryAudio.ts).
+   */
+  const [decoupe, setDecoupe] = useState<{ debut: number | null; fin: number | null }>({
+    debut: null,
+    fin: null,
+  });
 
   const [tags, setTags] = useState<string[]>([]);
   const [extraTouched, setExtraTouched] = useState(false);
@@ -756,6 +768,11 @@ export default function NewSongPage() {
         audioUrl: audioUpload.url,
         videoUrl,
         duration: Math.round(audioUpload.duration ?? pendingDuration ?? 0),
+        // Le serveur en déduit la durée réellement servie : la lui laisser
+        // calculer, plutôt que l'envoyer, évite qu'un client puisse fixer
+        // le seuil au-delà duquel une écoute est payée.
+        trimStart: decoupe.debut,
+        trimEnd: decoupe.fin,
         featuringIds: featuring.map((a) => a._id),
         releaseDate,
         artistId: targetArtist._id,
@@ -1005,6 +1022,10 @@ export default function NewSongPage() {
                 onFileSelected={(f) => {
                   setAudioFile(f);
                   setExtraTouched(true);
+                  // Les bornes portaient sur l'ancien fichier : les garder
+                  // découperait le nouveau à des instants qui n'ont plus
+                  // aucun rapport avec lui.
+                  setDecoupe({ debut: null, fin: null });
                   analyserFichier(f);
                 }}
                 onDurationDetected={setPendingDuration}
@@ -1013,6 +1034,22 @@ export default function NewSongPage() {
               {/* Compte rendu de la lecture des balises : ce que le fichier
                   portait, ce qui a été repris, ce qui ne correspond à rien
                   dans les listes du site. */}
+              {/* La découpe, dès l'envoi : l'artiste entend ce qu'il
+                  publiera avant de publier. Elle reste modifiable plus
+                  tard depuis la fiche, puisque rien n'est retiré du
+                  fichier lui-même. */}
+              {audioFile && effectiveDuration > 0 && (
+                <div className="mt-6 border-t border-border pt-6">
+                  <TrimEditor
+                    source={audioFile}
+                    dureeOriginale={effectiveDuration}
+                    debut={decoupe.debut}
+                    fin={decoupe.fin}
+                    onChange={setDecoupe}
+                  />
+                </div>
+              )}
+
               <div className="mt-6 border-t border-border pt-6">
                 <VideoDropzone
                   fichier={videoFile}

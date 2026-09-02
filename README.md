@@ -251,6 +251,17 @@ Tous les modèles vivent dans `models/` : `User`, `Artist`, `Song`,
   réversible. Les deux sont recalculées **côté serveur** : les laisser au
   client reviendrait à lui laisser fixer le seuil des 80 % qui déclenche
   le paiement des droits
+- La découpe se pose **à l'envoi** (`/son/nouveau`) comme **après coup**
+  (`/son/<id>/modifier`) : dans les deux cas rien n'est retiré du fichier,
+  seules les bornes changent. Remplacer le fichier audio remet la découpe
+  à zéro — des bornes posées sur l'ancien couperaient le nouveau à des
+  instants sans rapport
+- Un bouton « Mesurer depuis l'audio », à côté du champ BPM de la page de
+  modification, recalcule le tempo d'un morceau déjà publié. Il travaille
+  sur la version brute : une découpe déjà posée fausserait la mesure. Une
+  estimation ambiguë entre une valeur et son double est proposée quand
+  même, mais annoncée — ici quelqu'un regarde, contrairement à la passe
+  automatique du catalogue, qui s'abstient
 - L'éditeur (`components/song/TrimEditor.tsx`) demande la version **brute**
   (`/api/stream/<id>?brut=1`), réservée au propriétaire du titre et à
   l'administration : montrer la version déjà coupée ferait rogner la

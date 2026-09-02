@@ -70,6 +70,8 @@ export const POST = withApiErrors(async (req: Request) => {
     producer,
     bpm,
     bpmSource,
+    trimStart,
+    trimEnd,
     musicalKey,
     isrc,
     copyright,
@@ -133,6 +135,23 @@ export const POST = withApiErrors(async (req: Request) => {
     description,
   });
 
+  /**
+   * La découpe, et la durée qui en découle.
+   *
+   * `duration` n'est pas la durée du fichier mais celle de la portion
+   * servie : c'est elle que le lecteur affiche, et elle qui décide du
+   * seuil des 80 % au-delà duquel une écoute est payée. Elle est donc
+   * calculée ici, jamais reprise du client.
+   */
+  const dureeFichier = duration;
+  const debutCoupe = typeof trimStart === "number" && trimStart > 0 ? Math.min(trimStart, dureeFichier - 1) : undefined;
+  const finCoupe =
+    typeof trimEnd === "number" && trimEnd > 0 && trimEnd < dureeFichier ? trimEnd : undefined;
+  if (debutCoupe !== undefined && finCoupe !== undefined && finCoupe <= debutCoupe) {
+    throw new ApiError("La fin de la découpe doit suivre son début.");
+  }
+  const coupe = debutCoupe !== undefined || finCoupe !== undefined;
+
   const song = await Song.create({
     title,
     artist: artistProfile._id,
@@ -143,7 +162,10 @@ export const POST = withApiErrors(async (req: Request) => {
     audioUrl,
     videoUrl: videoUrl || undefined,
     coverUrl,
-    duration,
+    duration: Math.round((finCoupe ?? dureeFichier) - (debutCoupe ?? 0)),
+    // Conservée seulement s'il y a découpe : sans elle, celle-ci ne
+    // serait plus réversible, faute de savoir jusqu'où va le fichier.
+    ...(coupe ? { originalDuration: dureeFichier, trimStart: debutCoupe, trimEnd: finCoupe } : {}),
     genre,
     lyrics,
     description,

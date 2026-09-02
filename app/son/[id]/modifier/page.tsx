@@ -10,10 +10,12 @@ import {
   Calendar,
   Clock3,
   FileText,
+  Gauge,
   Globe2,
   Hash,
   Info,
   Loader2,
+  LucideIcon,
   Rocket,
   Save,
   ShieldAlert,
@@ -21,7 +23,6 @@ import {
   Tag as TagIcon,
   Timer,
   Users2,
-  LucideIcon,
 } from "lucide-react";
 import { FormField } from "@/components/ui/FormField";
 import { Switch } from "@/components/ui/Switch";
@@ -32,6 +33,7 @@ import { CoverDropzone } from "@/components/song/CoverDropzone";
 import { AudioDropzone, formatBytes } from "@/components/song/AudioDropzone";
 import { VideoDropzone } from "@/components/song/VideoDropzone";
 import { TrimEditor } from "@/components/song/TrimEditor";
+import { estimerTempo } from "@/lib/bpm";
 import { SongPreviewSidebar, type ChecklistItem } from "@/components/song/SongPreviewSidebar";
 import { FeaturingPicker } from "@/components/modals/FeaturingPicker";
 import { ArtistSinglePicker } from "@/components/modals/ArtistSinglePicker";
@@ -224,6 +226,7 @@ export default function EditSongPage() {
     debut: null,
     fin: null,
   });
+  const [mesureTempo, setMesureTempo] = useState(false);
   const [videoFile, setVideoFile] = useState<File | null>(null);
   const [uploadingVideo, setUploadingVideo] = useState(false);
   const [videoProgress, setVideoProgress] = useState(0);
@@ -558,6 +561,45 @@ export default function EditSongPage() {
   }
 
   // --- États de garde ----------------------------------------------------
+  /**
+   * Mesure le tempo à partir de l'audio réellement enregistré.
+   *
+   * Le fichier demandé est la version BRUTE, en qualité réduite : le
+   * tempo ne dépend pas du débit, et une découpe déjà posée ne doit pas
+   * fausser la mesure sur un extrait tronqué.
+   *
+   * Une estimation ambiguë entre une valeur et son double est proposée
+   * quand même, mais annoncée comme telle : ici quelqu'un regarde et peut
+   * corriger, contrairement à la passe automatique du catalogue qui, elle,
+   * s'abstient.
+   */
+  async function mesurerLeTempo() {
+    if (!song) return;
+    setMesureTempo(true);
+    try {
+      const source = audioFile ?? (await (await fetch(`/api/stream/${song._id}?brut=1&q=low`)).blob());
+      const estimation = await estimerTempo(source);
+
+      if (!estimation) {
+        pushToast("info", "Aucun tempo régulier détecté sur ce morceau.");
+        return;
+      }
+
+      setValue("bpm", String(estimation.bpm), { shouldDirty: true });
+      setExtraTouched(true);
+      pushToast(
+        estimation.ambigu ? "info" : "success",
+        estimation.ambigu
+          ? `${estimation.bpm} BPM — mais ${estimation.bpm * 2} est tout aussi plausible : vérifie à l'oreille.`
+          : `Tempo mesuré : ${estimation.bpm} BPM.`
+      );
+    } catch {
+      pushToast("error", "La mesure du tempo a échoué.");
+    } finally {
+      setMesureTempo(false);
+    }
+  }
+
   if (status === "loading" || loading) return <SkeletonForm fields={6} />;
 
   if (notFound || !song) {
@@ -759,6 +801,10 @@ export default function EditSongPage() {
                 onFileSelected={(f) => {
                   setAudioFile(f);
                   setExtraTouched(true);
+                  // Les bornes portaient sur l'ancien fichier : appliquées
+                  // au nouveau, elles couperaient à des instants sans
+                  // aucun rapport avec lui.
+                  setDecoupe({ debut: null, fin: null });
                 }}
                 onDurationDetected={setPendingDuration}
               />
@@ -897,7 +943,21 @@ export default function EditSongPage() {
               </div>
 
               <div className="mt-4 grid grid-cols-2 gap-4 sm:grid-cols-4">
-                <FormField label="BPM" icon={Timer} type="number" min={0} max={400} {...register("bpm")} placeholder="98" />
+                <div>
+                  <FormField label="BPM" icon={Timer} type="number" min={0} max={400} {...register("bpm")} placeholder="98" />
+                  {/* Un morceau publié avant la mesure du tempo n'en a
+                      aucun, et huit modes d'écoute en dépendent. Le
+                      recalculer ici évite de rouvrir le fichier d'origine. */}
+                  <button
+                    type="button"
+                    onClick={mesurerLeTempo}
+                    disabled={mesureTempo}
+                    className="mt-1.5 flex items-center gap-1.5 text-xs font-medium text-accent transition-colors hover:underline disabled:opacity-60"
+                  >
+                    {mesureTempo ? <Loader2 size={12} className="animate-spin" /> : <Gauge size={12} />}
+                    {mesureTempo ? "Mesure..." : "Mesurer depuis l'audio"}
+                  </button>
+                </div>
                 <FormField label="Tonalité" {...register("musicalKey")} placeholder="C#m" />
                 <FormField label="ISRC (optionnel)" icon={Hash} {...register("isrc")} placeholder="MG-MZK-25-00001" />
                 <FormField label="Copyright" {...register("copyright")} placeholder="© 2026 Moziik Records" />

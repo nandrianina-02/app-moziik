@@ -61,6 +61,7 @@ import type { PlayableSong } from "@/context/PlayerProvider";
 import { useMediaQuery } from "@/hooks/useMediaQuery";
 import { useScrollLock } from "@/lib/scrollLock";
 import type { MenuAnchor } from "@/components/ui/useClampedMenuPosition";
+import { useGlissementOnglets } from "@/components/player/hooks/useGlissementOnglets";
 
 /** Distance de glissement (px) à partir de laquelle le lecteur se ferme au relâchement. */
 const CLOSE_THRESHOLD = 120;
@@ -144,6 +145,21 @@ function ContenuLecteur({ song }: { song: PlayableSong }) {
   const colonneFile = useMediaQuery("(min-width: 1280px)");
 
   const [onglet, setOnglet] = useState<Onglet>("paroles");
+
+  /**
+   * Glisser latéralement change d'onglet.
+   *
+   * Le parcours boucle : depuis le dernier, un glissement vers la gauche
+   * ramène au premier. Buter en silence sur les extrémités donnerait
+   * l'impression que le geste n'a pas été compris.
+   */
+  const glissementOnglets = useGlissementOnglets((direction) => {
+    setOnglet((actuel) => {
+      const index = ONGLETS.findIndex((o) => o.id === actuel);
+      const suivant = (index + direction + ONGLETS.length) % ONGLETS.length;
+      return ONGLETS[suivant].id;
+    });
+  });
   const [offlineState, setOfflineState] = useState<"idle" | "saving" | "saved">("idle");
   const [liked, setLiked] = useState(false);
   const [menuPosition, setMenuPosition] = useState<MenuAnchor | null>(null);
@@ -466,9 +482,13 @@ function ContenuLecteur({ song }: { song: PlayableSong }) {
     </div>
   );
 
-  /** Réglages secondaires : Bass Boost, vitesse, qualité, veille, file, plein écran. */
+  /** Réglages secondaires : Bass Boost, vitesse, qualité, veille, file. */
   const reglagesSecondaires = (
-    <div className="flex flex-wrap items-center justify-center gap-1">
+    // Une seule ligne qui défile sur téléphone, plutôt qu'un pavé sur
+    // trois rangs : les libellés doublent la largeur des pastilles, et un
+    // bloc de cette taille repousserait les onglets hors de l'écran. À
+    // partir de `sm`, la place revient et elles se replient normalement.
+    <div className="flex flex-nowrap items-center gap-1.5 overflow-x-auto pb-1 [scrollbar-width:none] sm:flex-wrap sm:justify-center sm:overflow-visible sm:pb-0 [&::-webkit-scrollbar]:hidden">
       <BoutonReglage
         icon={Flame}
         actif={bassActif}
@@ -644,7 +664,7 @@ function ContenuLecteur({ song }: { song: PlayableSong }) {
             />
           </div>
 
-          <div className="mb-3 flex items-start justify-between gap-3">
+          <div className="mb-3">
             <div className="min-w-0">
               <h1 className="truncate text-xl font-display text-ink">{song.title}</h1>
               {song.artist ? (
@@ -659,20 +679,19 @@ function ContenuLecteur({ song }: { song: PlayableSong }) {
                 <p className="text-sm text-ink-muted">Artiste supprimé</p>
               )}
             </div>
-            <button
-              onClick={handleToggleLike}
-              aria-label={liked ? "Ne plus aimer" : "J'aime"}
-              aria-pressed={liked}
-              className={`shrink-0 transition-colors ${liked ? "text-accent" : "text-ink-muted hover:text-ink"}`}
-            >
-              <Heart size={22} fill={liked ? "currentColor" : "none"} />
-            </button>
+            {/* Le cœur vivait ici ET dans la rangée d'actions, quatre
+                lignes plus bas : deux boutons pour le même geste, dont un
+                qui n'avait pas de voisin. Il ne reste que celui de la
+                rangée, avec les autres actions. */}
           </div>
 
-          <div className="mb-4">{chipsMeta}</div>
-
+          {/* L'ordre suit ce qu'on vient faire : écouter d'abord — la barre
+              de lecture puis le transport, collés l'un à l'autre — agir
+              ensuite, et seulement après consulter. Les informations du
+              morceau et les réglages passent donc sous les commandes, où
+              ils ne repoussent plus les onglets hors de l'écran. */}
           <SeekBar progress={progress} duration={duration} onSeek={seek} variant="pill" />
-          <div className="-mt-1 mb-5 flex justify-between text-xs tabular-nums text-ink-muted">
+          <div className="-mt-1 mb-4 flex justify-between text-xs tabular-nums text-ink-muted">
             <span>{formatTime(progress)}</span>
             <span>{formatTime(duration)}</span>
           </div>
@@ -686,6 +705,7 @@ function ContenuLecteur({ song }: { song: PlayableSong }) {
               moyen. */}
 
           <div className="mb-5">{actionsTitre}</div>
+          <div className="mb-4">{chipsMeta}</div>
           <div className="mb-6">{reglagesSecondaires}</div>
 
           {barreOnglets}
@@ -693,7 +713,9 @@ function ContenuLecteur({ song }: { song: PlayableSong }) {
               défilement pour pouvoir se recentrer sur la ligne chantée.
               Sans hauteur définie, ce conteneur s'étirerait à l'infini et le
               suivi automatique n'aurait plus rien à faire défiler. */}
-          <div className="flex h-[58vh] flex-col">{contenuOnglet}</div>
+          <div className="flex h-[58vh] flex-col" {...glissementOnglets}>
+            {contenuOnglet}
+          </div>
         </div>
       </div>
       )}
@@ -933,14 +955,19 @@ function BoutonReglage({
       title={`${label} — ${valeur}`}
       aria-label={`${label} : ${valeur}`}
       aria-haspopup="menu"
-      className={`flex shrink-0 items-center gap-1.5 rounded-full border px-2.5 py-1.5 text-[11px] font-medium transition-colors ${
+      className={`flex shrink-0 items-center gap-1.5 rounded-full border px-3 py-1.5 text-[11px] transition-colors ${
         actif
           ? "border-accent bg-accent/12 text-accent"
           : "border-border text-ink-muted hover:border-accent hover:text-accent"
       } ${className}`}
     >
-      <Icon size={13} />
-      <span className="hidden max-w-[7rem] truncate sm:inline">{valeur}</span>
+      <Icon size={13} className="shrink-0" />
+      {/* Le libellé était réservé à l'infobulle : une rangée de pastilles
+          où l'on lisait « Off », « 1× », « 320k » sans savoir de quoi il
+          s'agissait. Il est désormais écrit, en retrait, et c'est la
+          valeur qui porte l'accent. */}
+      <span className="opacity-70">{label}</span>
+      <span className="max-w-[7rem] truncate font-semibold">{valeur}</span>
     </button>
   );
 }

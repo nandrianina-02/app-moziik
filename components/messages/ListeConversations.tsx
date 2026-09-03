@@ -1,9 +1,9 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { Search, PenSquare, BellOff, Users } from "lucide-react";
+import { Search, PenSquare, BellOff, Users, Sparkles } from "lucide-react";
 import { AvatarMembre, AvatarGroupe } from "@/components/messages/AvatarMembre";
-import { horodatageListe, type ConversationAffichee } from "@/lib/messagerie";
+import { horodatageListe, NOM_ASSISTANT, type ConversationAffichee } from "@/lib/messagerie";
 
 /**
  * La colonne de gauche : mes conversations.
@@ -24,20 +24,30 @@ export function ListeConversations({
   actifId,
   onSelection,
   onNouvelle,
+  onAssistant,
   chargement,
 }: {
   conversations: ConversationAffichee[];
   actifId: string | null;
   onSelection: (id: string) => void;
   onNouvelle: () => void;
+  /** Ouvre le fil de l'assistant, en le créant au besoin. */
+  onAssistant: () => void;
   chargement: boolean;
 }) {
   const [filtre, setFiltre] = useState("");
 
+  const assistant = conversations.find((c) => c.type === "assistant") ?? null;
+
   const visibles = useMemo(() => {
+    // L'assistant a sa propre tuile, épinglée en tête : le laisser aussi
+    // dans la liste le ferait apparaître deux fois, et il descendrait au
+    // fil des conversations plus récentes alors qu'on le cherche toujours
+    // au même endroit.
+    const sansAssistant = conversations.filter((c) => c.type !== "assistant");
     const q = filtre.trim().toLowerCase();
-    if (!q) return conversations;
-    return conversations.filter((c) => c.titre.toLowerCase().includes(q));
+    if (!q) return sansAssistant;
+    return sansAssistant.filter((c) => c.titre.toLowerCase().includes(q));
   }, [conversations, filtre]);
 
   return (
@@ -66,6 +76,30 @@ export function ListeConversations({
           />
         </div>
       </div>
+
+      {/* L'assistant, toujours en tête. Il n'a pas d'historique à
+          rattraper ni de non-lus à guetter : ce qu'on veut de lui, c'est
+          qu'il soit à portée quand une envie passe. */}
+      <button
+        type="button"
+        onClick={assistant ? () => onSelection(assistant._id) : onAssistant}
+        aria-current={assistant?._id === actifId}
+        className={`mx-3 mb-2 flex shrink-0 items-center gap-3 rounded-xl border px-3 py-2.5 text-left transition-colors ${
+          assistant && assistant._id === actifId
+            ? "border-tint-blue bg-tint-blue/10"
+            : "border-border hover:border-tint-blue/50 hover:bg-base"
+        }`}
+      >
+        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-tint-blue/15 text-tint-blue">
+          <Sparkles size={17} />
+        </span>
+        <span className="min-w-0 flex-1">
+          <span className="block truncate text-sm font-semibold">{NOM_ASSISTANT}</span>
+          <span className="block truncate text-xs text-ink-muted">
+            {assistant?.apercu || "Demandez-lui de lancer un titre ou une radio"}
+          </span>
+        </span>
+      </button>
 
       <ul className="min-h-0 flex-1 overflow-y-auto">
         {chargement && conversations.length === 0 && (
@@ -137,10 +171,18 @@ export function ListeConversations({
                   </span>
                   <span
                     className={`mt-0.5 block truncate text-xs ${
-                      c.nonLus > 0 ? "font-medium text-ink" : "text-ink-muted"
+                      (c.saisie?.length ?? 0) > 0
+                        ? "font-medium italic text-accent"
+                        : c.nonLus > 0
+                          ? "font-medium text-ink"
+                          : "text-ink-muted"
                     }`}
                   >
-                    {c.apercu || "Aucun message"}
+                    {(c.saisie?.length ?? 0) > 0
+                      ? c.saisie!.length === 1
+                        ? `${c.saisie![0].name} écrit…`
+                        : `${c.saisie!.length} personnes écrivent…`
+                      : c.apercu || "Aucun message"}
                   </span>
                 </span>
 

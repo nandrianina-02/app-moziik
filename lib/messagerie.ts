@@ -93,7 +93,67 @@ export type ContenuPartage = {
   chemin: string;
 };
 
+/* -------------------------------------------------- pièces jointes -- */
+
+/**
+ * Une image ou un son joint à un message.
+ *
+ * Deux types, et pas davantage. Un document ou une archive n'auraient
+ * rien à faire dans une messagerie musicale : ils demanderaient un
+ * antivirus, une politique de rétention et un visualiseur, pour un usage
+ * que personne n'a réclamé. Une photo et un mémo vocal, si.
+ *
+ * La durée et les dimensions sont recopiées à l'envoi : elles permettent
+ * de réserver la place de la bulle avant que le fichier n'arrive, donc
+ * d'éviter que le fil ne saute à chaque image qui se charge.
+ */
+export type TypePiece = "image" | "audio";
+
+export type PieceJointe = {
+  type: TypePiece;
+  url: string;
+  nom: string;
+  /** Octets. Affichée pour un son, tue pour une image. */
+  taille?: number;
+  /** Secondes, pour l'audio. */
+  duree?: number;
+  largeur?: number;
+  hauteur?: number;
+};
+
+/** Au-delà, ce n'est plus un message mais un envoi de fichiers. */
+export const PIECES_MAX = 4;
+/** 10 Mo : une photo de téléphone passe, une vidéo déguisée non. */
+export const PIECE_OCTETS_MAX = 10 * 1024 * 1024;
+
+export function libelleTaille(octets?: number): string {
+  if (!octets) return "";
+  if (octets < 1024) return `${octets} o`;
+  if (octets < 1024 * 1024) return `${Math.round(octets / 1024)} ko`;
+  return `${(octets / (1024 * 1024)).toFixed(1)} Mo`;
+}
+
+export function dureeCourte(secondes?: number): string {
+  if (!secondes || !Number.isFinite(secondes)) return "";
+  const m = Math.floor(secondes / 60);
+  const s = Math.round(secondes % 60);
+  return `${m}:${String(s).padStart(2, "0")}`;
+}
+
 /* ------------------------------------------------------------ messages -- */
+
+/**
+ * Qui parle.
+ *
+ * `assistant` n'est pas un membre d'un genre particulier : c'est une
+ * machine, et l'interface doit pouvoir le dire à chaque bulle. Les
+ * confondre coûterait ici ce que cela coûterait au support — on ne
+ * saurait plus qu'on parle à un programme.
+ */
+export type RoleMessage = "membre" | "assistant";
+
+/** Le nom sous lequel l'assistant s'affiche, partout et sans exception. */
+export const NOM_ASSISTANT = "Assistant Moziik";
 
 export type AuteurMessage = {
   _id: string;
@@ -117,9 +177,11 @@ export type Reaction = {
 
 export type MessageAffiche = {
   _id: string;
+  role: RoleMessage;
   auteur: AuteurMessage | null;
   corps: string;
   partage?: ContenuPartage | null;
+  pieces: PieceJointe[];
   citation?: Citation | null;
   reactions: Reaction[];
   supprime: boolean;
@@ -129,7 +191,7 @@ export type MessageAffiche = {
 
 /* ------------------------------------------------------- conversations -- */
 
-export type TypeConversation = "direct" | "group";
+export type TypeConversation = "direct" | "group" | "assistant";
 
 export type ParticipantAffiche = {
   _id: string;
@@ -145,6 +207,8 @@ export type ParticipantAffiche = {
 export type ConversationAffichee = {
   _id: string;
   type: TypeConversation;
+  /** Qui est en train d'écrire, en ce moment, moi excepté. */
+  saisie?: { _id: string; name: string }[];
   /** Nom du groupe, ou de l'autre personne pour une conversation directe. */
   titre: string;
   imageUrl?: string | null;
@@ -242,11 +306,26 @@ export function libelleJour(iso: string): string {
 }
 
 /** Le texte qui résume un message dans la liste des conversations. */
-export function apercuMessage(corps: string, partage?: ContenuPartage | null): string {
+export function apercuMessage(
+  corps: string,
+  partage?: ContenuPartage | null,
+  pieces?: PieceJointe[] | null
+): string {
   if (corps.trim()) return corps.trim().slice(0, 120);
   if (partage) return `${LIBELLES_PARTAGE[partage.type]} · ${partage.titre}`;
+  const piece = pieces?.[0];
+  if (piece) return piece.type === "image" ? "Photo" : "Message vocal";
   return "";
 }
+
+/**
+ * Fenêtre pendant laquelle « écrit… » reste affiché après le dernier signe.
+ *
+ * Six secondes, contre trois pour la cadence d'envoi côté client : la
+ * marge absorbe une frappe hésitante et un aller-retour lent, sans quoi
+ * l'indicateur clignoterait à chaque pause entre deux mots.
+ */
+export const FENETRE_SAISIE_MS = 6000;
 
 /** Initiales d'un nom, pour l'avatar de repli. */
 export function initiales(nom: string): string {

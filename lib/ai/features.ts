@@ -115,6 +115,23 @@ export const FONCTIONNALITES_IA = {
     limite: { limit: 12, windowMs: 30 * MINUTE },
     acces: "admin",
   },
+  assistant: {
+    label: "Assistant d'écoute",
+    detail:
+      "Discute musique dans la messagerie et lance un titre, une playlist ou une radio. Ne choisit que dans un vivier réel du catalogue.",
+    // Il doit comprendre une demande en langue mêlée, tenir le fil de la
+    // conversation et décider s'il lance ou non : ce n'est plus du
+    // classement, c'est du raisonnement court.
+    niveau: "soigne",
+    // Trois phrases et deux nombres. Le plafond borne surtout une réponse
+    // qui partirait en liste de recommandations.
+    maxTokens: 500,
+    // Une conversation se tient par rafales : quelques messages d'affilée,
+    // puis plus rien. La fenêtre laisse tenir un échange complet sans
+    // ouvrir la porte à une boucle automatisée.
+    limite: { limit: 25, windowMs: 10 * MINUTE },
+    acces: "membre",
+  },
   station: {
     label: "Présentation de la station personnalisée",
     detail: "Nomme et introduit la station d'un auditeur. Ne choisit aucun titre.",

@@ -1,5 +1,5 @@
 import { Schema, models, model, Types, Model } from "mongoose";
-import { TYPES_PARTAGE, CORPS_MAX, type TypePartage } from "@/lib/messagerie";
+import { TYPES_PARTAGE, CORPS_MAX, PIECES_MAX, type TypePartage, type RoleMessage } from "@/lib/messagerie";
 
 /**
  * Un message dans une conversation.
@@ -53,10 +53,31 @@ export interface IReactionMessage {
   emoji: string;
 }
 
+export interface IPieceMessage {
+  type: "image" | "audio";
+  url: string;
+  nom: string;
+  taille?: number;
+  duree?: number;
+  largeur?: number;
+  hauteur?: number;
+}
+
 export interface IMessage {
   conversation: Types.ObjectId;
   author: Types.ObjectId;
+  /**
+   * Qui parle.
+   *
+   * `author` reste le compte propriétaire de la conversation même quand
+   * l'assistant répond : la machine n'a pas de compte, et lui en créer un
+   * la rendrait suivable, mentionnable et signalable comme un membre.
+   * C'est ce champ, et lui seul, qui dit que la bulle vient d'un
+   * programme — exactement comme `author: "ai"` sur les fils de support.
+   */
+  role: RoleMessage;
   body: string;
+  pieces: IPieceMessage[];
   partage?: IPartageMessage;
   citation?: ICitationMessage;
   reactions: IReactionMessage[];
@@ -105,10 +126,29 @@ const ReactionSchema = new Schema<IReactionMessage>(
   { _id: false }
 );
 
+const PieceSchema = new Schema<IPieceMessage>(
+  {
+    type: { type: String, enum: ["image", "audio"], required: true },
+    url: { type: String, required: true },
+    nom: { type: String, default: "" },
+    taille: { type: Number },
+    duree: { type: Number },
+    largeur: { type: Number },
+    hauteur: { type: Number },
+  },
+  { _id: false }
+);
+
 const MessageSchema = new Schema<IMessage>({
   conversation: { type: Schema.Types.ObjectId, ref: "Conversation", required: true, index: true },
   author: { type: Schema.Types.ObjectId, ref: "User", required: true },
+  role: { type: String, enum: ["membre", "assistant"], default: "membre" },
   body: { type: String, default: "", maxlength: CORPS_MAX },
+  pieces: {
+    type: [PieceSchema],
+    default: [],
+    validate: [(v: unknown[]) => v.length <= PIECES_MAX, `Pas plus de ${PIECES_MAX} pièces jointes.`],
+  },
   partage: { type: PartageSchema },
   citation: { type: CitationSchema },
   reactions: { type: [ReactionSchema], default: [] },

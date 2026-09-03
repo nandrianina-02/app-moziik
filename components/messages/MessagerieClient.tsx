@@ -81,6 +81,28 @@ export function MessagerieClient() {
     router.replace(`/messages?c=${id}`, { scroll: false });
   }
 
+  /**
+   * Ouvre le fil de l'assistant.
+   *
+   * Il n'est créé qu'ici, au premier usage : le créer d'office pour
+   * chaque compte remplirait la base de conversations vides, et
+   * poserait une écriture sur une simple visite de la page.
+   */
+  async function ouvrirAssistant() {
+    try {
+      const res = await fetch("/api/messagerie/assistant");
+      if (!res.ok) throw new Error();
+      const data = (await res.json()) as { conversation: ConversationAffichee; disponible: boolean };
+      remplacer(data.conversation);
+      ouvrir(data.conversation._id);
+      if (!data.disponible) {
+        pushToast("info", "L'assistant est momentanément indisponible.");
+      }
+    } catch {
+      pushToast("error", "Impossible d'ouvrir l'assistant.");
+    }
+  }
+
   /** Remet à zéro la pastille sans attendre le prochain chargement. */
   const marquerLu = useCallback((id: string) => {
     setConversations((prev) => prev.map((c) => (c._id === id ? { ...c, nonLus: 0 } : c)));
@@ -135,6 +157,7 @@ export function MessagerieClient() {
             actifId={actifId}
             onSelection={ouvrir}
             onNouvelle={() => setNouvelle(true)}
+            onAssistant={ouvrirAssistant}
             chargement={chargement}
           />
         </aside>
@@ -179,7 +202,8 @@ export function MessagerieClient() {
         />
       )}
 
-      {reglages && active && (
+      {/* L'assistant n'a ni participants, ni nom à changer, ni sortie. */}
+      {reglages && active && active.type !== "assistant" && (
         <ReglagesGroupe
           conversation={active}
           moiId={moiId}

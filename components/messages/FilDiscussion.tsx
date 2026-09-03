@@ -1,18 +1,22 @@
 "use client";
 
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
-import { ArrowLeft, Info, Loader2, MessagesSquare, Users } from "lucide-react";
+import { ArrowLeft, Info, Loader2, MessagesSquare, Sparkles, Users } from "lucide-react";
 import { AvatarMembre, AvatarGroupe } from "@/components/messages/AvatarMembre";
 import { BulleMessage } from "@/components/messages/BulleMessage";
 import { Composeur } from "@/components/messages/Composeur";
 import { useToast } from "@/context/ToastProvider";
 import { readApiError } from "@/lib/readApiError";
+import { usePlayer, type PlayableSong } from "@/context/PlayerProvider";
+import { resoudreStation } from "@/lib/radios";
 import {
   libelleJour,
   libellePresence,
+  NOM_ASSISTANT,
   type ContenuPartage,
   type ConversationAffichee,
   type MessageAffiche,
+  type PieceJointe,
 } from "@/lib/messagerie";
 
 /**
@@ -60,6 +64,13 @@ export function FilDiscussion({
   const [chargePlus, setChargePlus] = useState(false);
   const [reponseA, setReponseA] = useState<MessageAffiche | null>(null);
   const [surligne, setSurligne] = useState<string | null>(null);
+  /** Jusqu'où chacun des autres a lu — la base des accusés de lecture. */
+  const [lecteurs, setLecteurs] = useState<{ user: string; luJusqua: string }[]>([]);
+  const [saisie, setSaisie] = useState<{ _id: string; name: string }[]>([]);
+  const [assistantReflechit, setAssistantReflechit] = useState(false);
+
+  const { playQueue } = usePlayer();
+  const estAssistant = conversation.type === "assistant";
 
   const zone = useRef<HTMLDivElement>(null);
   const suitLeBas = useRef(true);
@@ -116,10 +127,15 @@ export function FilDiscussion({
       try {
         const res = await fetch(`/api/messagerie/conversations/${conversationId}/messages`);
         if (!res.ok) throw new Error();
-        const data = (await res.json()) as { messages: MessageAffiche[]; encore: boolean };
+        const data = (await res.json()) as {
+          messages: MessageAffiche[];
+          encore: boolean;
+          lecteurs?: { user: string; luJusqua: string }[];
+        };
         if (!vivant) return;
         setMessages(data.messages);
         setEncore(data.encore);
+        setLecteurs(data.lecteurs ?? []);
         noterBorne(data.messages);
         void marquerLu();
       } catch {
@@ -140,14 +156,28 @@ export function FilDiscussion({
   useEffect(() => {
     let arrete = false;
     const battement = setInterval(async () => {
-      if (arrete || document.hidden || !dernierVu.current) return;
+      if (arrete || document.hidden) return;
       try {
+        // Sans borne connue — conversation encore vide — on demande à
+        // partir de maintenant : la réponse ne portera aucun message,
+        // mais elle rapportera qui est en train d'écrire.
+        const depuis = dernierVu.current ?? new Date().toISOString();
         const res = await fetch(
-          `/api/messagerie/conversations/${conversationId}/messages?depuis=${encodeURIComponent(dernierVu.current)}`
+          `/api/messagerie/conversations/${conversationId}/messages?depuis=${encodeURIComponent(depuis)}`
         );
         if (!res.ok) return;
-        const data = (await res.json()) as { messages: MessageAffiche[] };
-        if (arrete || data.messages.length === 0) return;
+        const data = (await res.json()) as {
+          messages: MessageAffiche[];
+          lecteurs?: { user: string; luJusqua: string }[];
+          saisie?: { _id: string; name: string }[];
+        };
+        if (arrete) return;
+        // Les accusés de lecture et « écrit… » bougent même quand aucun
+        // message n'arrive : les traiter après le test de liste vide les
+        // aurait figés dès que la conversation se calme.
+        setLecteurs(data.lecteurs ?? []);
+        setSaisie(data.saisie ?? []);
+        if (data.messages.length === 0) return;
         fusionner(data.messages);
         noterBorne(data.messages);
         // Un message reçu pendant qu'on regarde est lu : ne pas le dire
@@ -171,6 +201,13 @@ export function FilDiscussion({
     const el = zone.current;
     if (el) el.scrollTop = el.scrollHeight;
   }, [messages]);
+
+  /** Annonce la frappe. L'échec ne remonte pas : c'est un indicateur. */
+  function signalerSaisie() {
+    void fetch(`/api/messagerie/conversations/${conversationId}/saisie`, { method: "POST" }).catch(
+      () => {}
+    );
+  }
 
   function surDefilement() {
     const el = zone.current;
@@ -205,13 +242,75 @@ export function FilDiscussion({
     }
   }
 
-  async function envoyer(corps: string, partage: ContenuPartage | null) {
+  /**
+   * Lance ce que l'assistant vient de désigner.
+   *
+   * Seuls un titre et une radio se lancent : un album ou un artiste
+   * ouvriraient une page, ce que personne n'a demandé en écrivant dans
+   * une conversation. La carte reste là pour eux.
+   */
+  async function lancerCarte(partage: ContenuPartage) {
+    try {
+      if (partage.type === "song") {
+        const res = await fetch(`/api/songs/${partage.refId}`);
+        if (!res.ok) return;
+        const { song } = (await res.json()) as { song: PlayableSong };
+        playQueue([song], 0, { type: "song", label: song.title, id: song._id });
+        return;
+      }
+      if (partage.type !== "radio") return;
+      const station = resoudreStation(partage.refId);
+      if (!station) return;
+      const res = await fetch(station.fetchUrl);
+      if (!res.ok) return;
+      const { songs } = (await res.json()) as { songs: PlayableSong[] };
+      if (songs?.length) {
+        playQueue(songs, 0, { type: "radio", label: station.label, genre: station.genre });
+      }
+    } catch {
+      // La carte est affichée : son bouton reste disponible, et il dira
+      // lui-même ce qui ne va pas.
+    }
+  }
+
+  async function demanderAssistant(corps: string) {
+    setAssistantReflechit(true);
+    try {
+      const res = await fetch("/api/messagerie/assistant", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ demande: corps }),
+      });
+      if (!res.ok) throw new Error(await readApiError(res, "L'assistant n'a pas répondu."));
+      const data = (await res.json()) as {
+        question: MessageAffiche;
+        reponse: MessageAffiche;
+        lancer: boolean;
+      };
+      suitLeBas.current = true;
+      fusionner([data.question, data.reponse]);
+      noterBorne([data.question, data.reponse]);
+      if (data.lancer && data.reponse.partage) void lancerCarte(data.reponse.partage);
+    } catch (err) {
+      pushToast("error", err instanceof Error ? err.message : "L'assistant n'a pas répondu.");
+      throw err;
+    } finally {
+      setAssistantReflechit(false);
+    }
+  }
+
+  async function envoyer(corps: string, partage: ContenuPartage | null, pieces: PieceJointe[]) {
+    if (estAssistant) {
+      await demanderAssistant(corps);
+      return;
+    }
     try {
       const res = await fetch(`/api/messagerie/conversations/${conversationId}/messages`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           corps,
+          pieces,
           ...(partage ? { partage: { type: partage.type, refId: partage.refId } } : {}),
           ...(reponseA ? { repondA: reponseA._id } : {}),
         }),
@@ -282,10 +381,28 @@ export function FilDiscussion({
     setTimeout(() => setSurligne(null), 1600);
   }
 
-  const sousTitre =
-    conversation.type === "group"
-      ? `${conversation.participants.length} participants`
-      : libellePresence(conversation.interlocuteur?.vuLe);
+  const sousTitre = estAssistant
+    ? "Réponses automatiques · demandez un titre, une playlist ou une radio"
+    : saisie.length > 0
+      ? saisie.length === 1
+        ? `${saisie[0].name} écrit…`
+        : `${saisie.length} personnes écrivent…`
+      : conversation.type === "group"
+        ? `${conversation.participants.length} participants`
+        : libellePresence(conversation.interlocuteur?.vuLe);
+
+  /**
+   * Le dernier instant auquel quelqu'un d'autre a lu.
+   *
+   * Un message est lu dès qu'il précède cette date. En groupe, on compte
+   * combien de participants l'ont dépassé — « lu » sans dire par qui ne
+   * voudrait rien dire à plusieurs.
+   */
+  function etatLecture(m: MessageAffiche) {
+    if (lecteurs.length === 0) return { lu: false, lecteurs: undefined };
+    const lus = lecteurs.filter((l) => l.luJusqua >= m.createdAt).length;
+    return { lu: lus > 0, lecteurs: { lus, total: lecteurs.length } };
+  }
 
   return (
     <div className="flex h-full min-h-0 flex-col">
@@ -301,7 +418,11 @@ export function FilDiscussion({
           </button>
         )}
 
-        {conversation.type === "group" ? (
+        {estAssistant ? (
+          <span className="flex h-10 w-10 items-center justify-center rounded-full bg-tint-blue/15 text-tint-blue">
+            <Sparkles size={19} />
+          </span>
+        ) : conversation.type === "group" ? (
           <AvatarGroupe nom={conversation.titre} imageUrl={conversation.imageUrl} taille={40} />
         ) : (
           <AvatarMembre
@@ -315,19 +436,21 @@ export function FilDiscussion({
         <div className="min-w-0 flex-1">
           <p className="flex items-center gap-1.5 truncate text-[15px] font-semibold">
             {conversation.type === "group" && <Users size={13} className="shrink-0 text-ink-muted" />}
-            {conversation.titre}
+            {estAssistant ? NOM_ASSISTANT : conversation.titre}
           </p>
           <p className="truncate text-xs text-ink-muted">{sousTitre}</p>
         </div>
 
-        <button
-          type="button"
-          onClick={onOuvrirReglages}
-          className="rounded-full p-2 text-ink-muted transition-colors hover:bg-base hover:text-accent"
-          aria-label="Informations et réglages"
-        >
-          <Info size={18} />
-        </button>
+        {!estAssistant && (
+          <button
+            type="button"
+            onClick={onOuvrirReglages}
+            className="rounded-full p-2 text-ink-muted transition-colors hover:bg-base hover:text-accent"
+            aria-label="Informations et réglages"
+          >
+            <Info size={18} />
+          </button>
+        )}
       </header>
 
       <div
@@ -340,11 +463,37 @@ export function FilDiscussion({
             <Loader2 size={22} className="animate-spin" />
           </div>
         ) : messages.length === 0 ? (
-          <div className="flex h-full flex-col items-center justify-center gap-3 text-center text-ink-muted">
-            <MessagesSquare size={30} className="opacity-50" />
-            <p className="max-w-xs text-sm">
-              Aucun message. Écrivez le premier, ou partagez un titre pour lancer la discussion.
-            </p>
+          <div className="flex h-full flex-col items-center justify-center gap-3 px-6 text-center text-ink-muted">
+            {estAssistant ? (
+              <>
+                <Sparkles size={30} className="text-tint-blue" />
+                <p className="max-w-sm text-sm">
+                  Dites-lui ce que vous voulez entendre — « mets du salegy », « la radio
+                  gospel », « joue Mandigny » — et il le lance. Il ne propose que ce qui existe
+                  dans le catalogue.
+                </p>
+                <ul className="flex flex-wrap justify-center gap-1.5">
+                  {["Mets une radio gospel", "Quelque chose de calme", "Du salegy"].map((exemple) => (
+                    <li key={exemple}>
+                      <button
+                        type="button"
+                        onClick={() => void envoyer(exemple, null, [])}
+                        className="rounded-full border border-border px-3 py-1.5 text-xs transition-colors hover:border-accent hover:text-accent"
+                      >
+                        {exemple}
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              </>
+            ) : (
+              <>
+                <MessagesSquare size={30} className="opacity-50" />
+                <p className="max-w-xs text-sm">
+                  Aucun message. Écrivez le premier, ou partagez un titre pour lancer la discussion.
+                </p>
+              </>
+            )}
           </div>
         ) : (
           <>
@@ -385,8 +534,9 @@ export function FilDiscussion({
                   )}
                   <BulleMessage
                     message={m}
-                    aMoi={m.auteur?._id === moiId}
+                    aMoi={m.role !== "assistant" && m.auteur?._id === moiId}
                     moiId={moiId}
+                    {...etatLecture(m)}
                     afficherAuteur={!memeAuteur}
                     surRepondre={setReponseA}
                     surReaction={basculerReaction}
@@ -402,14 +552,38 @@ export function FilDiscussion({
         )}
       </div>
 
+      {(saisie.length > 0 || assistantReflechit) && (
+        <div className="flex items-center gap-2 px-4 pb-1 text-xs text-ink-muted">
+          <span className="flex gap-1">
+            {[0, 1, 2].map((i) => (
+              <span
+                key={i}
+                className="h-1.5 w-1.5 animate-bounce rounded-full bg-ink-muted"
+                style={{ animationDelay: `${i * 120}ms` }}
+              />
+            ))}
+          </span>
+          {assistantReflechit
+            ? `${NOM_ASSISTANT} cherche…`
+            : saisie.length === 1
+              ? `${saisie[0].name} écrit…`
+              : `${saisie.map((s) => s.name).join(", ")} écrivent…`}
+        </div>
+      )}
+
       <Composeur
         onEnvoyer={envoyer}
+        onSaisie={estAssistant ? undefined : signalerSaisie}
         reponseA={reponseA}
         onAnnulerReponse={() => setReponseA(null)}
+        fichiersAutorises={!estAssistant}
+        desactive={assistantReflechit}
         placeholder={
-          conversation.type === "group"
-            ? `Écrire dans ${conversation.titre}…`
-            : `Écrire à ${conversation.titre}…`
+          estAssistant
+            ? "Demandez un titre, une playlist ou une radio…"
+            : conversation.type === "group"
+              ? `Écrire dans ${conversation.titre}…`
+              : `Écrire à ${conversation.titre}…`
         }
       />
     </div>

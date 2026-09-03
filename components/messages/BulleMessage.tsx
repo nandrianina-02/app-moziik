@@ -2,8 +2,9 @@
 
 import { useState } from "react";
 import { motion } from "framer-motion";
-import { CornerUpLeft, SmilePlus, Trash2, Pencil, Check, X } from "lucide-react";
+import { CornerUpLeft, SmilePlus, Trash2, Pencil, Check, CheckCheck, X, Sparkles } from "lucide-react";
 import { AvatarMembre } from "@/components/messages/AvatarMembre";
+import { PiecesJointes } from "@/components/messages/PiecesJointes";
 import { CartePartage } from "@/components/messages/CartePartage";
 import { heureCourte, REACTIONS_RAPIDES, type MessageAffiche } from "@/lib/messagerie";
 
@@ -35,10 +36,16 @@ export function BulleMessage({
   surModifier,
   surAllerA,
   surligne,
+  lu,
+  lecteurs,
 }: {
   message: MessageAffiche;
   aMoi: boolean;
   moiId: string;
+  /** Mes messages seulement : quelqu'un l'a-t-il lu ? */
+  lu?: boolean;
+  /** En groupe : combien l'ont lu, sur combien d'autres participants. */
+  lecteurs?: { lus: number; total: number };
   /** Faux quand le message suit un autre du même auteur : on ne répète ni l'avatar ni le nom. */
   afficherAuteur: boolean;
   surRepondre: (m: MessageAffiche) => void;
@@ -48,13 +55,19 @@ export function BulleMessage({
   surAllerA: (messageId: string) => void;
   surligne: boolean;
 }) {
+  const deLAssistant = message.role === "assistant";
   const [paletteOuverte, setPaletteOuverte] = useState(false);
   const [edition, setEdition] = useState<string | null>(null);
   const [envoi, setEnvoi] = useState(false);
 
+  // L'assistant ne prend ni la couleur de l'accent (réservée à ce que
+  // j'écris) ni celle des autres membres : sa bulle doit se distinguer au
+  // premier coup d'œil de ce qu'un humain a dit.
   const bulle = aMoi
     ? "bg-accent text-white rounded-br-md"
-    : "bg-surface text-ink rounded-bl-md border border-border";
+    : deLAssistant
+      ? "bg-tint-blue/10 text-ink rounded-bl-md border border-tint-blue/30"
+      : "bg-surface text-ink rounded-bl-md border border-border";
 
   async function validerEdition() {
     if (edition === null) return;
@@ -83,19 +96,36 @@ export function BulleMessage({
       {/* La gouttière est réservée même sans avatar : sans elle, les
           messages consécutifs d'un même auteur se décaleraient. */}
       <div className="w-8 shrink-0">
-        {!aMoi && afficherAuteur && (
-          <AvatarMembre
-            nom={message.auteur?.name ?? "?"}
-            avatarUrl={message.auteur?.avatarUrl}
-            taille={32}
-            presence={false}
-          />
-        )}
+        {!aMoi &&
+          afficherAuteur &&
+          (deLAssistant ? (
+            <span className="flex h-8 w-8 items-center justify-center rounded-full bg-tint-blue/15 text-tint-blue">
+              <Sparkles size={15} />
+            </span>
+          ) : (
+            <AvatarMembre
+              nom={message.auteur?.name ?? "?"}
+              avatarUrl={message.auteur?.avatarUrl}
+              taille={32}
+              presence={false}
+            />
+          ))}
       </div>
 
       <div className={`flex min-w-0 max-w-[min(560px,78%)] flex-col ${aMoi ? "items-end" : "items-start"}`}>
         {!aMoi && afficherAuteur && (
-          <p className="mb-0.5 px-1 text-xs font-medium text-ink-muted">{message.auteur?.name}</p>
+          <p className="mb-0.5 flex items-center gap-1.5 px-1 text-xs font-medium text-ink-muted">
+            {message.auteur?.name}
+            {/* Dit à chaque bulle qu'on parle à une machine. Le support
+                applique déjà cette règle, et elle ne souffre pas
+                d'exception : personne ne doit croire qu'un humain a
+                répondu. */}
+            {deLAssistant && (
+              <span className="rounded-full bg-tint-blue/15 px-1.5 py-0.5 text-[10px] font-semibold text-tint-blue">
+                automatique
+              </span>
+            )}
+          </p>
         )}
 
         <div
@@ -168,6 +198,7 @@ export function BulleMessage({
                   {message.corps}
                 </p>
               )}
+              {message.pieces.length > 0 && <PiecesJointes pieces={message.pieces} aMoi={aMoi} />}
               {message.partage && <CartePartage partage={message.partage} aMoi={aMoi} />}
             </>
           )}
@@ -179,6 +210,19 @@ export function BulleMessage({
           >
             {message.modifieLe && !message.supprime && <span>modifié</span>}
             {heureCourte(message.createdAt)}
+            {/* Deux coches pleines quand c'est lu, une seule sinon. Le
+                compte « 2/4 » n'apparaît qu'en groupe, où « lu » sans
+                préciser par qui ne voudrait rien dire. */}
+            {aMoi && !message.supprime && (
+              <span className="flex items-center gap-0.5" title={lu ? "Lu" : "Envoyé"}>
+                {lecteurs && lecteurs.total > 1 && lu && (
+                  <span className="tabular-nums">
+                    {lecteurs.lus}/{lecteurs.total}
+                  </span>
+                )}
+                {lu ? <CheckCheck size={12} /> : <Check size={12} />}
+              </span>
+            )}
           </p>
         </div>
 

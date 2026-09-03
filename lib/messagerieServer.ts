@@ -13,10 +13,13 @@ import { estPodcast } from "@/lib/albums";
 import { resoudreStation, cheminStation } from "@/lib/radios";
 import {
   apercuMessage,
+  FENETRE_SAISIE_MS,
+  NOM_ASSISTANT,
   type ContenuPartage,
   type ConversationAffichee,
   type MessageAffiche,
   type ParticipantAffiche,
+  type PieceJointe,
   type TypePartage,
 } from "@/lib/messagerie";
 
@@ -293,10 +296,32 @@ export function presenterConversation(
   const monEntree = moiDans(conv, moi);
   const autre = conv.type === "direct" ? participants.find((p) => p._id !== String(moi)) ?? null : null;
 
+  // « Écrit… » ne concerne que les autres, et seulement tant que la date
+  // est fraîche : rien n'éteint `typingAt`, c'est son âge qui le fait.
+  const limite = Date.now() - FENETRE_SAISIE_MS;
+  const saisie = conv.participants
+    .filter(
+      (p) =>
+        !p.leftAt &&
+        String(p.user) !== String(moi) &&
+        p.typingAt &&
+        new Date(p.typingAt).getTime() > limite
+    )
+    .map((p) => ({
+      _id: String(p.user),
+      name: fiches.get(String(p.user))?.name ?? "Quelqu'un",
+    }));
+
   return {
     _id: String(conv._id),
     type: conv.type,
-    titre: conv.type === "group" ? conv.title || "Groupe" : autre?.name ?? "Conversation",
+    saisie,
+    titre:
+      conv.type === "assistant"
+        ? NOM_ASSISTANT
+        : conv.type === "group"
+          ? conv.title || "Groupe"
+          : autre?.name ?? "Conversation",
     imageUrl: conv.type === "group" ? conv.coverUrl ?? null : autre?.avatarUrl ?? null,
     participants,
     interlocuteur: autre,
@@ -330,13 +355,23 @@ export function presenterMessage(
     else groupes.set(r.emoji, [String(r.user)]);
   }
 
+  const role = doc.role ?? "membre";
+
   return {
     _id: String(doc._id),
-    auteur: fiche
-      ? { _id: fiche._id, name: fiche.name, username: fiche.username, avatarUrl: fiche.avatarUrl }
-      : { _id: String(doc.author), name: "Compte supprimé" },
+    role,
+    // L'assistant n'emprunte jamais le nom du compte propriétaire : la
+    // bulle doit dire d'où elle vient, même quand les deux documents
+    // portent le même `author`.
+    auteur:
+      role === "assistant"
+        ? { _id: "assistant", name: NOM_ASSISTANT }
+        : fiche
+          ? { _id: fiche._id, name: fiche.name, username: fiche.username, avatarUrl: fiche.avatarUrl }
+          : { _id: String(doc.author), name: "Compte supprimé" },
     corps: supprime ? "" : doc.body ?? "",
     partage: supprime ? null : doc.partage ?? null,
+    pieces: supprime ? [] : ((doc.pieces ?? []) as PieceJointe[]),
     citation: doc.citation
       ? {
           messageId: String(doc.citation.messageId),
@@ -349,6 +384,21 @@ export function presenterMessage(
     modifieLe: doc.editedAt ? new Date(doc.editedAt).toISOString() : null,
     createdAt: new Date(doc.createdAt).toISOString(),
   };
+}
+
+/**
+ * Jusqu'où chacun a lu.
+ *
+ * Un accusé de lecture par message aurait demandé un tableau de lecteurs
+ * sur chaque document, donc une écriture par message et par personne à
+ * chaque ouverture d'un fil. La date de dernière lecture dit la même
+ * chose pour un centième du coût : un message est lu par quelqu'un dès
+ * qu'il précède la date à laquelle cette personne a lu.
+ */
+export function lecteursDe(conv: IConversation, moi: string) {
+  return conv.participants
+    .filter((p) => !p.leftAt && String(p.user) !== String(moi))
+    .map((p) => ({ user: String(p.user), luJusqua: new Date(p.lastReadAt).toISOString() }));
 }
 
 /* --------------------------------------------------------------- envoi -- */
@@ -365,17 +415,26 @@ export function presenterMessage(
 export async function enregistrerMessage(
   conv: ConversationDoc,
   auteur: string,
-  contenu: { corps: string; partage?: ContenuPartage | null; citation?: IMessage["citation"] }
+  contenu: {
+    corps: string;
+    partage?: ContenuPartage | null;
+    pieces?: PieceJointe[];
+    citation?: IMessage["citation"];
+    /** « assistant » quand la bulle vient du programme, pas du compte. */
+    role?: "membre" | "assistant";
+  }
 ) {
   const message = await Message.create({
     conversation: conv._id,
     author: auteur,
+    role: contenu.role ?? "membre",
     body: contenu.corps,
+    ...(contenu.pieces?.length ? { pieces: contenu.pieces } : {}),
     ...(contenu.partage ? { partage: contenu.partage } : {}),
     ...(contenu.citation ? { citation: contenu.citation } : {}),
   });
 
-  const apercu = apercuMessage(contenu.corps, contenu.partage);
+  const apercu = apercuMessage(contenu.corps, contenu.partage, contenu.pieces);
   await Conversation.updateOne(
     { _id: conv._id },
     {

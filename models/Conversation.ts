@@ -40,6 +40,16 @@ export interface IParticipant {
   /** Plus de notification pour ce fil ; les messages arrivent quand même. */
   muted: boolean;
   /**
+   * Dernier signe de frappe.
+   *
+   * Posé par le client pendant qu'il écrit, relu par les autres à chaque
+   * rafraîchissement. Il n'y a rien à éteindre : une date qui vieillit
+   * cesse d'elle-même de vouloir dire « écrit en ce moment »
+   * (FENETRE_SAISIE_MS), là où un booléen resterait allumé pour toujours
+   * si l'onglet se fermait au mauvais moment.
+   */
+  typingAt?: Date;
+  /**
    * Sortie du groupe, sans effacer l'historique des autres.
    *
    * Un participant retiré du tableau ferait disparaître son nom des
@@ -71,13 +81,14 @@ const ParticipantSchema = new Schema<IParticipant>(
     lastReadAt: { type: Date, default: Date.now },
     unread: { type: Number, default: 0 },
     muted: { type: Boolean, default: false },
+    typingAt: { type: Date },
     leftAt: { type: Date },
   },
   { _id: false }
 );
 
 const ConversationSchema = new Schema<IConversation>({
-  type: { type: String, enum: ["direct", "group"], required: true },
+  type: { type: String, enum: ["direct", "group", "assistant"], required: true },
   participants: { type: [ParticipantSchema], default: [] },
   title: { type: String, maxlength: 60 },
   coverUrl: { type: String },

@@ -6,6 +6,7 @@ import { IDS_RECETTES, IDS_SELECTIONS } from "@/lib/curation/labels";
 import {
   CORPS_MAX as MESSAGERIE_CORPS_MAX,
   MEMBRES_MAX as MESSAGERIE_MEMBRES_MAX,
+  PIECES_MAX as MESSAGERIE_PIECES_MAX,
   TITRE_GROUPE_MAX as MESSAGERIE_TITRE_MAX,
 } from "@/lib/messagerie";
 
@@ -828,6 +829,20 @@ export const aiHelpDraftSchema = z.object({
  * séparément — sans lui, un message vide passerait, et la liste des
  * conversations afficherait un aperçu vide sans qu'on sache pourquoi.
  */
+const pieceJointeSchema = z.object({
+  type: z.enum(["image", "audio"]),
+  // Le fichier est déjà chez Cloudinary quand il arrive ici : le
+  // navigateur l'y envoie directement, parce qu'un mémo vocal de
+  // plusieurs mégaoctets dépasserait la charge utile d'une route Next.
+  // On vérifie donc l'hébergeur, faute de pouvoir vérifier le contenu.
+  url: z.string().trim().url().max(600),
+  nom: z.string().trim().max(200).default(""),
+  taille: z.number().int().nonnegative().optional(),
+  duree: z.number().nonnegative().optional(),
+  largeur: z.number().int().positive().optional(),
+  hauteur: z.number().int().positive().optional(),
+});
+
 export const envoiMessageSchema = z
   .object({
     corps: z.string().max(MESSAGERIE_CORPS_MAX, "Message trop long.").default(""),
@@ -837,13 +852,22 @@ export const envoiMessageSchema = z
         refId: z.string().trim().min(1).max(120),
       })
       .optional(),
+    pieces: z.array(pieceJointeSchema).max(MESSAGERIE_PIECES_MAX).default([]),
     /** Identifiant du message auquel celui-ci répond. */
     repondA: z.string().trim().length(24).optional(),
   })
-  .refine((v) => v.corps.trim().length > 0 || Boolean(v.partage), {
-    message: "Écrivez un message ou joignez un contenu.",
+  .refine((v) => v.corps.trim().length > 0 || Boolean(v.partage) || v.pieces.length > 0, {
+    message: "Écrivez un message, joignez un contenu ou un fichier.",
     path: ["corps"],
   });
+
+export const assistantSchema = z.object({
+  demande: z
+    .string()
+    .trim()
+    .min(2, "Dites-lui ce que vous cherchez.")
+    .max(600, "Message trop long pour l'assistant."),
+});
 
 export const nouvelleConversationSchema = z
   .object({

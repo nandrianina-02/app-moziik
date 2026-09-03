@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { Types } from "mongoose";
 import { connectDB } from "@/lib/db";
 import Message from "@/models/Message";
+import Conversation from "@/models/Conversation";
 import { withApiErrors, ApiError } from "@/lib/apiError";
 import { requireAuthUser } from "@/lib/mobileAuth";
 import { parseOrThrow, envoiMessageSchema } from "@/lib/validation";
@@ -11,7 +12,8 @@ import {
   conversationActive,
   enregistrerMessage,
   fichesUtilisateurs,
-  moiDans,
+  lecteursDe,
+  presenterConversation,
   presenterMessage,
   resoudrePartage,
   toucherPresence,
@@ -81,6 +83,7 @@ export const GET = withApiErrors(async (req: Request, { params }: { params: { id
     return NextResponse.json({
       messages: documents.map((m) => presenterMessage(m as never, fiches)),
       encore,
+      lecteurs: lecteursDe(conv, moi.id),
     });
   }
 
@@ -91,6 +94,10 @@ export const GET = withApiErrors(async (req: Request, { params }: { params: { id
   return NextResponse.json({
     messages: documents.map((m) => presenterMessage(m as never, fiches)),
     encore: false,
+    lecteurs: lecteursDe(conv, moi.id),
+    // Qui tape en ce moment : la même réponse sert les deux, plutôt qu'un
+    // second appel toutes les quatre secondes pour trois mots.
+    saisie: presenterConversation(conv, moi.id, fiches).saisie ?? [],
   });
 });
 
@@ -125,8 +132,18 @@ export const POST = withApiErrors(async (req: Request, { params }: { params: { i
   const message = await enregistrerMessage(conv, moi.id, {
     corps: donnees.corps.trim(),
     partage,
+    pieces: donnees.pieces,
     citation,
   });
+
+  // Écrire, c'est cesser d'être « en train d'écrire ». Sans cette ligne,
+  // l'indicateur resterait allumé chez les autres pendant six secondes
+  // après l'arrivée du message qu'il annonçait.
+  await Conversation.updateOne(
+    { _id: conv._id },
+    { $unset: { "participants.$[moi].typingAt": "" } },
+    { arrayFilters: [{ "moi.user": new Types.ObjectId(moi.id) }] }
+  );
 
   // Prévenir ceux qui ne sont ni l'auteur, ni partis, ni en sourdine. La
   // notification est écrite après le message et hors de son chemin
@@ -141,7 +158,8 @@ export const POST = withApiErrors(async (req: Request, { params }: { params: { i
   if (destinataires.length > 0) {
     const resume = partage
       ? `${LIBELLES_PARTAGE[partage.type]} · ${partage.titre}`
-      : donnees.corps.trim().slice(0, 120);
+      : donnees.corps.trim().slice(0, 120) ||
+        (donnees.pieces[0]?.type === "image" ? "Photo" : "Message vocal");
     void Promise.all(
       destinataires.map((id) =>
         notify({

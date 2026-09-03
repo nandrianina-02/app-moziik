@@ -8,7 +8,15 @@
 
 export async function uploadToCloudinaryClient(
   file: File,
-  folder: "songs" | "videos" | "covers" | "avatars" | "banners" | "site-assets" | "contact-attachments",
+  folder:
+    | "songs"
+    | "videos"
+    | "covers"
+    | "avatars"
+    | "banners"
+    | "site-assets"
+    | "contact-attachments"
+    | "messages",
   onProgress?: (percent: number) => void
 ): Promise<{ url: string; duration?: number }> {
   const cloudName = process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME;
@@ -19,7 +27,11 @@ export async function uploadToCloudinaryClient(
   }
 
   // Cloudinary range l'audio et la vidéo sous le même type de ressource.
-  const resourceType = folder === "songs" || folder === "videos" ? "video" : "image";
+  // Cloudinary range l'audio et la vidéo sous le même type de ressource.
+  // Les pièces jointes de messagerie sont des deux sortes : c'est le
+  // fichier qui tranche, pas le dossier.
+  const resourceType =
+    folder === "songs" || folder === "videos" || file.type.startsWith("audio/") ? "video" : "image";
   const formData = new FormData();
   formData.append("file", file);
   formData.append("upload_preset", uploadPreset);

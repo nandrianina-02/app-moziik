@@ -41,7 +41,23 @@ export const defaultSiteConfig: SiteConfig = {
     international: "USD",
     mobile: "MGA",
   },
-  genres: ["Afrobeat", "Salegy", "Hip-hop", "R&B", "Pop", "Zouk", "Reggae", "Autre"],
+  // Kaiamba et le slow nostalgique nomment le répertoire malgache des
+  // années 1970-80 (label Kaiamba, 45 tours) que le catalogue accueille.
+  // Cette liste n'est qu'un repli : la liste vivante se règle dans
+  // /admin/parametres, et `scripts/seed-artist-accounts.mjs` s'assure que
+  // les genres qu'il emploie y figurent.
+  genres: [
+    "Afrobeat",
+    "Salegy",
+    "Kaiamba",
+    "Slow nostalgique",
+    "Hip-hop",
+    "R&B",
+    "Pop",
+    "Zouk",
+    "Reggae",
+    "Autre",
+  ],
   legalEntityName: "Moziik SAS",
   legalCapital: "10 000€",
   legalRcsCity: "Antananarivo",

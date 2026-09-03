@@ -90,6 +90,9 @@ function distance(a, b) {
   return ligne[b.length];
 }
 
+/** Les deux genres du répertoire ajouté d'un bloc plus bas. */
+const KAIAMBA = ["Kaiamba", "Slow nostalgique"];
+
 // --- Liste des artistes ----------------------------------------------------
 const ARTISTS = [
   ["Tarika Soley", "tarika-soley@moziik.app"],
@@ -415,10 +418,62 @@ const ARTISTS = [
   "Ceasar",
   "Dadi Love",
   "Rak Roots",
+
+  // --- Répertoire Kaiamba et slow nostalgique -----------------------------
+  //
+  // Kaiamba est un studio et un label malgaches, très en vogue à la fin des
+  // années 1970, dont les 45 tours ont tenu le haut du hit-parade jusqu'au
+  // début des années 1980. La biographie ci-dessous ne dit que cela : elle
+  // est vraie de chaque nom de cette liste, et n'invente ni parcours, ni
+  // date, ni discographie propres à l'un d'eux.
+  ...[
+    "Dédé Fénérive",
+    "Zozo Sy Dorlys",
+    "Oza Jérôme",
+    "Raymond Ernest",
+    "Dolly Rica",
+    "Bruno Resner",
+    "Prosh Ely",
+    "Justin Pierre",
+    "Les Rogers",
+    "Les Typhons",
+  ].map((nom) => [
+    nom,
+    `${norm(nom).replace(/ /g, "-")}@moziik.app`,
+    {
+      genres: KAIAMBA,
+      bio: "Artiste du label Kaiamba, studio malgache très en vogue à la fin des années 1970, dont les 45 tours ont marqué le hit-parade jusqu'au début des années 1980.",
+    },
+  ]),
+
+  [
+    "Charles Maurin Poty",
+    "charles-maurin-poty@moziik.app",
+    {
+      genres: KAIAMBA,
+      bio: "Producteur et compositeur malgache, fondateur du label Kaiamba, sur lequel il a enregistré nombre d'artistes de la côte à partir des années 1970.",
+    },
+  ],
+
+  // Nom donné avec les autres, mais absent des listes d'artistes Kaiamba
+  // consultées : il reçoit les mêmes genres, sans la biographie du label —
+  // que rien ne permet de lui attribuer.
+  ["Jean Kely Sy Bath", "jean-kely-sy-bath@moziik.app", { genres: KAIAMBA }],
 ].map((entry) => {
-  const [name, email] = Array.isArray(entry) ? entry : [entry, slugEmail(entry)];
-  return { name, email: email.toLowerCase() };
+  // Trois formes acceptées : « nom », [nom, email], [nom, email, options].
+  // Les options portent les genres et une courte biographie — utiles pour
+  // un répertoire entier qu'on ajoute d'un bloc, inutiles ailleurs.
+  const [name, email, options] = Array.isArray(entry) ? entry : [entry, slugEmail(entry)];
+  return {
+    name,
+    email: (email || slugEmail(name)).toLowerCase(),
+    genres: options?.genres ?? [],
+    bio: options?.bio ?? "",
+  };
 });
+
+/** Les genres employés par la liste, à garantir dans les réglages du site. */
+const GENRES_REQUIS = [...new Set(ARTISTS.flatMap((a) => a.genres))];
 
 // --- Schémas (inline : un .mjs ne peut pas importer les modèles TS) --------
 // Fidèles à models/User.ts et models/Artist.ts.
@@ -471,6 +526,37 @@ async function main() {
   const Artist = mongoose.model("Artist", ArtistSchema);
   const Song = mongoose.model("Song", SongSchema);
 
+  // Les genres employés par la liste doivent exister dans les réglages du
+  // site : sans eux, un titre publié ne pourrait pas être rangé dans
+  // « Kaiamba », et la liste déroulante du formulaire ne les proposerait
+  // pas. On complète, on ne remplace pas — l'ordre choisi en
+  // administration est le sien.
+  if (GENRES_REQUIS.length > 0) {
+    const SiteConfig = mongoose.connection.collection("siteconfigs");
+    const config = await SiteConfig.findOne({});
+    const existants = config?.genres ?? [];
+    const manquants = GENRES_REQUIS.filter(
+      (g) => !existants.some((e) => norm(e) === norm(g))
+    );
+
+    if (manquants.length === 0) {
+      console.log(`Genres déjà présents : ${GENRES_REQUIS.join(", ")}.`);
+    } else if (DRY_RUN) {
+      console.log(`Genres à ajouter aux réglages : ${manquants.join(", ")}.`);
+    } else if (config) {
+      // Insérés avant « Autre », qui doit rester le dernier choix.
+      const sansAutre = existants.filter((g) => norm(g) !== "autre");
+      const autre = existants.filter((g) => norm(g) === "autre");
+      await SiteConfig.updateOne(
+        { _id: config._id },
+        { $set: { genres: [...sansAutre, ...manquants, ...autre] } }
+      );
+      console.log(`Genres ajoutés aux réglages : ${manquants.join(", ")}.`);
+    } else {
+      console.warn("Aucun réglage de site en base : genres non ajoutés.");
+    }
+  }
+
   const [userCount, artistCount, songCount] = await Promise.all([
     User.countDocuments(),
     Artist.countDocuments(),
@@ -487,7 +573,11 @@ async function main() {
     if (!byName.has(key)) byName.set(key, []);
     byName.get(key).push(entry);
   };
-  for (const a of await Artist.find().select("_id user stageName").lean()) {
+  // `genres` et `bio` sont chargés parce que le rattachement d'un profil
+  // existant ne doit compléter que ce qui manque : sans eux, la garde
+  // « on n'écrase pas » comparerait toujours à `undefined` et écraserait
+  // systématiquement ce qu'un humain a écrit.
+  for (const a of await Artist.find().select("_id user stageName genres bio").lean()) {
     registerName(a.stageName, a);
   }
 
@@ -513,7 +603,7 @@ async function main() {
 
   const seenEmails = new Set();
 
-  for (const { name, email } of ARTISTS) {
+  for (const { name, email, genres, bio } of ARTISTS) {
     // Même adresse deux fois dans la liste : la seconde n'apporte rien.
     if (seenEmails.has(email)) {
       report.duplicates.push(`${name} <${email}> : adresse déjà traitée plus haut dans la liste`);
@@ -645,7 +735,16 @@ async function main() {
       const orphan = orphans[0];
       const n = songsByArtist.get(String(orphan._id)) || 0;
       if (!DRY_RUN) {
-        await Artist.updateOne({ _id: orphan._id }, { $set: { user: user._id, stageName: name } });
+        // Genres et biographie ne sont posés que s'ils manquent : un profil
+        // déjà renseigné par un humain a raison contre une liste.
+        const complements = {};
+        if (genres.length && (orphan.genres ?? []).length === 0) complements.genres = genres;
+        if (bio && !orphan.bio) complements.bio = bio;
+
+        await Artist.updateOne(
+          { _id: orphan._id },
+          { $set: { user: user._id, stageName: name, ...complements } }
+        );
       }
       report.artistLinked.push(`${name} → ${orphan._id} (${n} titre${n > 1 ? "s" : ""})`);
       continue;
@@ -664,7 +763,13 @@ async function main() {
       // homonymes du même lot passeraient toutes les deux le garde-fou.
       registerName(name, { _id: null, user: user._id, ownerEmail: email });
     } else {
-      const created = await Artist.create({ user: user._id, stageName: name, verified: true });
+      const created = await Artist.create({
+        user: user._id,
+        stageName: name,
+        verified: true,
+        ...(genres.length ? { genres } : {}),
+        ...(bio ? { bio } : {}),
+      });
       report.artistCreated.push(`${name} → ${created._id}`);
       registerName(name, { _id: created._id, user: user._id, ownerEmail: email });
     }

@@ -526,6 +526,63 @@ const ARTISTS = [
     "FJKM Ambohitantely",
   ].map((nom) => [nom, slugEmail(nom), GOSPEL]),
 
+  // Créditée sur les playlists de gospel malgache de Spotify — celles qui
+  // ne contiennent que ce répertoire, pas les radios algorithmiques, qui
+  // dérivent vite vers la liturgie francophone et n'apprennent rien.
+  ...[
+    "Mialy Rakotomamonjy",
+    "Cevam Church",
+    "Antsan'i Kristy",
+    "Ny Mpitory",
+    "Vetson-kira",
+    "Fy & His Band",
+    "Tanora Masina Itaosy",
+    "Hosana Ambohijatovo",
+    "Ny Avo",
+    "Miaramanompo",
+    "AMAF",
+    "TDL",
+    "Pasteur Jocelyn",
+    "Ndriana Ramamonjy",
+    "Hantatiana",
+  ].map((nom) => [nom, slugEmail(nom), GOSPEL]),
+
+  // Crédités au générique des compilations « Fiderana Variétés
+  // Évangéliques », dont chaque édition annonce ses interprètes.
+  ...["Revival", "Shine", "Pépé ShN", "Joseph Daf", "Johane"].map((nom) => [
+    nom,
+    slugEmail(nom),
+    GOSPEL,
+  ]),
+
+  // Recensés par la bibliothèque de chants de louange malgaches de
+  // mana-isanandro.fr.
+  //
+  // Source unique, et plus faible que les précédentes : c'est un index de
+  // fichiers tenu par une association, pas un catalogue d'éditeur. N'ont
+  // été retenus que les noms qui désignent sans ambiguïté un interprète —
+  // l'index contient aussi des intitulés de dossiers, des numéros de
+  // volume et des noms de circonstance, qui n'ont rien à faire ici. Si
+  // l'un de ces profils s'avère être autre chose qu'un artiste, il se
+  // supprime depuis /admin/membres.
+  ...[
+    "Laurent Rakotomamonjy",
+    "Marc Rabeson",
+    "Jocelyn Ranjarison",
+    "Mamiharilala Rasolojaona",
+    "Kati Randretsa",
+    "Les Adelines",
+    "Les Frères Philipson",
+    "Groupe Apokalipsy",
+    "Groupe Hosea",
+    "Kerobima",
+    "Hope for Madagascar",
+    "Max Praise",
+    "Miangaly",
+    "Menafify",
+    "Hasin'ny Famonjena",
+  ].map((nom) => [nom, slugEmail(nom), GOSPEL]),
+
   // Le nom sous lequel les enregistrements du recueil complémentaire de
   // la FJKM sont distribués — Amazon, Spotify, Deezer et Last.fm le
   // créditent tous ainsi. C'est l'interprète des neuf titres de la série

@@ -12,3 +12,4 @@ node_modules
 
 # Journaux d'annulation produits par scripts/attribuer-titres.mjs
 attribution-*.json
+albums-*.json

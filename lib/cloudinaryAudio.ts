@@ -27,8 +27,16 @@ import type { AudioQuality } from "@/lib/offlineSettings";
  * Le second niveau suppose deux gestes hors du code, décrits dans le
  * README : régler le préréglage d'envoi Cloudinary sur « authenticated »,
  * et convertir les fichiers déjà en ligne
- * (`scripts/proteger-audio.mjs`). Tant qu'ils ne sont pas faits, laisser
- * le drapeau à `false` — l'activer avant rendrait tout le catalogue muet.
+ * (`scripts/proteger-audio.mjs`). Tant que le second n'est pas fait,
+ * laisser le drapeau à `false` — l'activer avant réclamerait en
+ * `authenticated` des fichiers encore publics, qui ne répondraient plus.
+ *
+ * **Le catalogue reste audible pendant la migration.** Le drapeau ne
+ * décide que du sort des adresses restées en `/upload/`. Un morceau dont
+ * l'adresse enregistrée porte déjà `/authenticated/` — parce qu'il a été
+ * envoyé après le changement de préréglage — est signé quoi qu'il
+ * arrive. Les deux moitiés du catalogue jouent donc en même temps, ce qui
+ * évite d'avoir à réussir une bascule en un seul geste.
  */
 
 const DEBITS: Record<AudioQuality, string> = { low: "64k", medium: "128k", high: "320k" };
@@ -50,11 +58,24 @@ export function identifiantPublic(audioUrl: string): string | null {
   if (!marqueur || marqueur.index === undefined) return null;
 
   let reste = audioUrl.slice(marqueur.index + marqueur[0].length);
-  // La version (`v1712345678/`) et les transformations éventuelles ne font
-  // pas partie de l'identifiant.
+  // Une adresse déjà distribuée en `authenticated` porte sa signature
+  // avant sa version : `/authenticated/s--AbCdEf12--/v1712345678/…`. La
+  // laisser en place donnait un identifiant du genre
+  // « s--AbCdEf12--/v1712345678/moziik/songs/abc », que Cloudinary
+  // signait à son tour — l'adresse obtenue ne désignait plus aucun
+  // fichier, et tout morceau converti devenait muet.
+  reste = reste.replace(/^s--[\w-]+--\//, "");
+  // La version (`v1712345678/`) ne fait pas non plus partie de
+  // l'identifiant.
   reste = reste.replace(/^v\d+\//, "");
   const sansExtension = reste.replace(/\.[a-z0-9]+$/i, "");
   return sansExtension || null;
+}
+
+/** L'extension de l'adresse enregistrée, pour la redemander à l'identique. */
+function formatDe(audioUrl: string): string | undefined {
+  const trouve = audioUrl.split("?")[0].match(/\.([a-z0-9]{2,4})$/i);
+  return trouve ? trouve[1].toLowerCase() : undefined;
 }
 
 /**
@@ -98,7 +119,22 @@ export function adresseAudio(audioUrl: string, quality: AudioQuality, decoupe?: 
   const debit = DEBITS[quality];
   const coupe = bornes(decoupe);
 
-  if (!audioProtege()) {
+  // Deux sources se prononcent sur le type de distribution, et la plus
+  // sûre est l'adresse elle-même : une URL qui porte déjà
+  // `/authenticated/` désigne un fichier converti, quoi que dise la
+  // variable d'environnement. Le drapeau ne tranche donc que pour les
+  // adresses restées en `/upload/`, dont le fichier a pu être converti
+  // par scripts/proteger-audio.mjs — qui, lui, ne réécrit pas la base.
+  //
+  // Cette distinction n'est pas un raffinement : sans elle, un catalogue
+  // à moitié migré est entièrement muet. Poser le drapeau avant d'avoir
+  // lancé le script fait réclamer en `authenticated` des centaines de
+  // fichiers encore publics ; le retirer coupe ceux que le nouveau
+  // préréglage d'envoi a déjà protégés. Aucune des deux positions n'est
+  // bonne, et c'est bien le signe que la question ne se pose pas là.
+  const signer = audioUrl.includes("/authenticated/") || audioProtege();
+
+  if (!signer) {
     if (!audioUrl.includes("/upload/")) return audioUrl;
     const morceaux = [
       ...(coupe.start_offset ? [`so_${coupe.start_offset}`] : []),
@@ -119,6 +155,10 @@ export function adresseAudio(audioUrl: string, quality: AudioQuality, decoupe?: 
     type: "authenticated",
     sign_url: true,
     secure: true,
+    // Le format est redemandé tel qu'il a été envoyé : sans lui,
+    // Cloudinary livre l'original sans extension, et le navigateur doit
+    // deviner le type d'un flux qu'il vient de recevoir.
+    ...(formatDe(audioUrl) ? { format: formatDe(audioUrl) } : {}),
     transformation: [{ bit_rate: debit, ...coupe }],
   });
 }

@@ -228,7 +228,13 @@ Tous les modèles vivent dans `models/` : `User`, `Artist`, `Song`,
 
   Alors les adresses sont signées : l'URL d'origine cesse de répondre, et
   une adresse retouchée à la main pour passer de 128 à 320 kb/s échoue sur
-  la signature. **Inverser 2 et 3 rend le catalogue muet entre les deux.**
+  la signature.
+
+  Inverser 2 et 3 rend muets les fichiers pas encore convertis, le temps
+  de lancer le script. Les morceaux **envoyés après le geste 1** ne sont
+  pas concernés : leur adresse enregistrée porte déjà `/authenticated/`,
+  et `lib/cloudinaryAudio.ts` la signe quel que soit l'état du drapeau. Un
+  catalogue à moitié migré joue donc sa moitié convertie
 - Ce que cela ne fait toujours pas : les adresses signées de Cloudinary
   n'expirent pas sur les offres standard. Une adresse obtenue légitimement
   puis partagée continue de fonctionner. L'expiration demande

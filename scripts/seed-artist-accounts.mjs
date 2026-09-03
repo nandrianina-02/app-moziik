@@ -93,6 +93,23 @@ function distance(a, b) {
 /** Les deux genres du répertoire ajouté d'un bloc plus bas. */
 const KAIAMBA = ["Kaiamba", "Slow nostalgique"];
 
+/** Ce que l'on sait du label, et qui vaut de chacun de ses artistes. */
+const BIO_KAIAMBA =
+  "Artiste du label Kaiamba, studio malgache très en vogue à la fin des années 1970, dont les 45 tours ont marqué le hit-parade jusqu'au début des années 1980.";
+
+/**
+ * Ce qui range un artiste dans l'univers évangélique.
+ *
+ * Le genre seul ne suffirait pas : Moziik tient deux univers étanches
+ * (lib/univers.ts), et c'est `univers` qui décide de ce qu'un auditeur
+ * voit. Un artiste de louange créé sans lui apparaîtrait dans le
+ * catalogue général, entre deux titres de club.
+ *
+ * `universSource: "admin"` protège ce classement : la passe de détection
+ * ne le réécrira jamais, quoi que disent les titres publiés ensuite.
+ */
+const GOSPEL = { genres: ["Gospel"], univers: "christian" };
+
 // --- Liste des artistes ----------------------------------------------------
 const ARTISTS = [
   ["Tarika Soley", "tarika-soley@moziik.app"],
@@ -200,7 +217,10 @@ const ARTISTS = [
   ["Solika", "solika@moziik.app"],
   ["Christine Salem", "christine-salem@moziik.app"],
   ["The Dizzy Brains", "the-dizzy-brains@moziik.app"],
-  ["Rija Rasolondraibe", "rija-rasolondraibe@moziik.app"],
+  // Répertoire évangélique — voir le bloc GOSPEL plus bas. L'entrée est
+  // ici parce qu'elle y était déjà : la dupliquer plus bas ne créerait
+  // rien, le garde-fou des homonymes la rejetterait.
+  ["Rija Rasolondraibe", "rija-rasolondraibe@moziik.app", GOSPEL],
   ["Wawa", "wawa@moziik.app"],
   ["The Surfs", "the-surfs@moziik.app"],
 
@@ -370,7 +390,10 @@ const ARTISTS = [
   "ZEZEX",
   "KAMARY",
   "MENDRIKA",
-  "Dédé Fenerive",
+  // Déjà présent avant l'ajout du répertoire Kaiamba, sous cette
+  // graphie : c'est elle qui fait foi, une seconde entrée « Dédé
+  // Fénérive » scinderait sa discographie en deux profils.
+  ["Dédé Fenerive", "dedefenerive@moziik.app", { genres: KAIAMBA, bio: BIO_KAIAMBA }],
   "Annicette",
   "FANASINA",
   "THT",
@@ -427,7 +450,6 @@ const ARTISTS = [
   // est vraie de chaque nom de cette liste, et n'invente ni parcours, ni
   // date, ni discographie propres à l'un d'eux.
   ...[
-    "Dédé Fénérive",
     "Zozo Sy Dorlys",
     "Oza Jérôme",
     "Raymond Ernest",
@@ -442,7 +464,7 @@ const ARTISTS = [
     `${norm(nom).replace(/ /g, "-")}@moziik.app`,
     {
       genres: KAIAMBA,
-      bio: "Artiste du label Kaiamba, studio malgache très en vogue à la fin des années 1970, dont les 45 tours ont marqué le hit-parade jusqu'au début des années 1980.",
+      bio: BIO_KAIAMBA,
     },
   ]),
 
@@ -455,10 +477,54 @@ const ARTISTS = [
     },
   ],
 
-  // Nom donné avec les autres, mais absent des listes d'artistes Kaiamba
-  // consultées : il reçoit les mêmes genres, sans la biographie du label —
-  // que rien ne permet de lui attribuer.
-  ["Jean Kely Sy Bath", "jean-kely-sy-bath@moziik.app", { genres: KAIAMBA }],
+  // Demandé sous la graphie « Jean Kely Sy Bath », mais la base porte
+  // déjà « Jean-Kely sy Basth » : à une lettre près, et c'est bien la
+  // même personne. Créer la seconde graphie couperait son catalogue en
+  // deux. Pas de biographie du label ici — il ne figure sur aucune des
+  // listes d'artistes Kaiamba consultées.
+  ["Jean-Kely sy Basth", "jeankelysybasth@moziik.app", { genres: KAIAMBA }],
+
+  // --- Répertoire évangélique ---------------------------------------------
+  //
+  // Deux sources, et rien d'autre :
+  //
+  //  1. Les pochettes déjà présentes dans la base. Tana Gospel Choir,
+  //     Jaws Band, Njara Marcel et Henika signent des titres versés au
+  //     compte d'un autre — c'est ce que `scripts/attribuer-titres.mjs`
+  //     répare, et ces comptes-là doivent exister pour qu'il le puisse.
+  //  2. Le panorama du gospel malgache de Music In Africa
+  //     (musicinafrica.net/node/14623). Rija Rasolondraibe, lui, est déjà
+  //     plus haut dans la liste : il y reçoit le même classement, sourcé
+  //     par MCTV et GasiGasy.
+  //
+  // Aucune biographie n'est écrite ici : ce qu'on sait de chacun tient en
+  // une ligne déjà dite par le genre et l'univers. En inventer une
+  // reviendrait à prêter un parcours à des gens réels.
+  //
+  // Cette liste n'a rien d'exhaustif, et ne prétend pas l'être : elle ne
+  // contient que des noms sourcés.
+  ...[
+    // Présents dans le catalogue, par leurs pochettes.
+    //
+    // Njara Marcel n'y est pas, et D-Lain non plus : ils publient déjà des
+    // titres profanes sur Moziik. Les basculer dans l'univers évangélique
+    // en sortirait toute leur discographie. Leur seul titre de louange est
+    // traité pour lui-même par scripts/attribuer-titres.mjs — c'est le cas
+    // que `universSource: "admin"` existe pour couvrir.
+    "Tana Gospel Choir",
+    "Jaws Band",
+    "Henika",
+    // Cités par Music In Africa.
+    "God's Messengers Mass Choir",
+    "Singers of Jesus",
+    "AAMA Gospel",
+    "Meva Gospel",
+    "Malagasy Gospel",
+    "AMAM",
+    "Deenyz",
+    "FJKM Andrainarivo Fahasoavana",
+    "FJKM Ambohitantely",
+  ].map((nom) => [nom, slugEmail(nom), GOSPEL]),
 ].map((entry) => {
   // Trois formes acceptées : « nom », [nom, email], [nom, email, options].
   // Les options portent les genres et une courte biographie — utiles pour
@@ -469,11 +535,36 @@ const ARTISTS = [
     email: (email || slugEmail(name)).toLowerCase(),
     genres: options?.genres ?? [],
     bio: options?.bio ?? "",
+    univers: options?.univers ?? null,
   };
 });
 
 /** Les genres employés par la liste, à garantir dans les réglages du site. */
 const GENRES_REQUIS = [...new Set(ARTISTS.flatMap((a) => a.genres))];
+
+/** Ce qui s'affichera en administration en face du classement. */
+const MOTIF_UNIVERS = "Répertoire évangélique, posé à la création du compte.";
+
+/**
+ * Ce qu'il reste à écrire sur un profil qui existe déjà.
+ *
+ * Genres et biographie ne sont posés que s'ils manquent : un profil
+ * renseigné par un humain a raison contre une liste. L'univers, lui, se
+ * pose même sur un profil rempli — ce n'est pas une préférence de
+ * présentation mais un classement, et il n'y a rien à écraser tant qu'un
+ * admin ne l'a pas déjà tranché.
+ */
+function completer(profil, { genres, bio, univers }) {
+  const complements = {};
+  if (genres.length && (profil.genres ?? []).length === 0) complements.genres = genres;
+  if (bio && !profil.bio) complements.bio = bio;
+  if (univers && profil.universSource !== "admin") {
+    complements.univers = univers;
+    complements.universSource = "admin";
+    complements.universMotif = MOTIF_UNIVERS;
+  }
+  return complements;
+}
 
 // --- Schémas (inline : un .mjs ne peut pas importer les modèles TS) --------
 // Fidèles à models/User.ts et models/Artist.ts.
@@ -506,6 +597,11 @@ const ArtistSchema = new mongoose.Schema({
   genres: { type: [String], default: [] },
   socialLinks: [{ platform: String, url: String }],
   verified: { type: Boolean, default: false },
+  // Fidèle à models/Artist.ts : sans ces champs, mongoose écarterait
+  // silencieusement l'univers et l'artiste naîtrait dans le général.
+  univers: { type: String, enum: ["general", "christian"], default: "general" },
+  universSource: { type: String, enum: ["auto", "admin"], default: "auto" },
+  universMotif: String,
   followers: [{ type: mongoose.Schema.Types.ObjectId, ref: "User" }],
   totalPlays: { type: Number, default: 0 },
   monetizationEnabled: { type: Boolean, default: true },
@@ -596,6 +692,7 @@ async function main() {
     artistCreated: [],
     artistLinked: [],
     artistKept: [],
+    artistCompleted: [],
     duplicates: [],
     nearMisses: [],
     conflicts: [],
@@ -603,7 +700,7 @@ async function main() {
 
   const seenEmails = new Set();
 
-  for (const { name, email, genres, bio } of ARTISTS) {
+  for (const { name, email, genres, bio, univers } of ARTISTS) {
     // Même adresse deux fois dans la liste : la seconde n'apporte rien.
     if (seenEmails.has(email)) {
       report.duplicates.push(`${name} <${email}> : adresse déjà traitée plus haut dans la liste`);
@@ -705,7 +802,19 @@ async function main() {
     // 2) Le profil artiste.
     const linked = user._id ? await Artist.findOne({ user: user._id }) : null;
     if (linked) {
-      report.artistKept.push(`${name} → ${linked._id}`);
+      // Un profil déjà rattaché n'est pas pour autant complet : les
+      // genres et l'univers arrivent parfois après lui, comme ici où un
+      // répertoire entier est déclaré sur des comptes créés il y a des
+      // mois. Sans ce complément, une entrée qui existe déjà ne recevrait
+      // jamais son classement, et l'artiste resterait invisible dans son
+      // univers — le symptôme est silencieux, ce qui le rend pénible.
+      const complements = completer(linked, { genres, bio, univers });
+      if (Object.keys(complements).length === 0) {
+        report.artistKept.push(`${name} → ${linked._id}`);
+      } else {
+        if (!DRY_RUN) await Artist.updateOne({ _id: linked._id }, { $set: complements });
+        report.artistCompleted.push(`${name} → ${linked._id} (${Object.keys(complements).join(", ")})`);
+      }
       continue;
     }
 
@@ -735,15 +844,9 @@ async function main() {
       const orphan = orphans[0];
       const n = songsByArtist.get(String(orphan._id)) || 0;
       if (!DRY_RUN) {
-        // Genres et biographie ne sont posés que s'ils manquent : un profil
-        // déjà renseigné par un humain a raison contre une liste.
-        const complements = {};
-        if (genres.length && (orphan.genres ?? []).length === 0) complements.genres = genres;
-        if (bio && !orphan.bio) complements.bio = bio;
-
         await Artist.updateOne(
           { _id: orphan._id },
-          { $set: { user: user._id, stageName: name, ...complements } }
+          { $set: { user: user._id, stageName: name, ...completer(orphan, { genres, bio, univers }) } }
         );
       }
       report.artistLinked.push(`${name} → ${orphan._id} (${n} titre${n > 1 ? "s" : ""})`);
@@ -769,6 +872,7 @@ async function main() {
         verified: true,
         ...(genres.length ? { genres } : {}),
         ...(bio ? { bio } : {}),
+        ...(univers ? { univers, universSource: "admin", universMotif: MOTIF_UNIVERS } : {}),
       });
       report.artistCreated.push(`${name} → ${created._id}`);
       registerName(name, { _id: created._id, user: user._id, ownerEmail: email });
@@ -789,9 +893,13 @@ async function main() {
   section("Fautes de frappe probables, à arbitrer", report.nearMisses);
   section("Profils artistes existants rattachés (contenu conservé)", report.artistLinked);
   section("Profils artistes créés", report.artistCreated);
+  section("Profils artistes déjà liés, complétés", report.artistCompleted);
   section("Profils artistes déjà liés, inchangés", report.artistKept);
   section("Conflits à arbitrer à la main", report.conflicts);
-  console.log(`\nTotal traité : ${ARTISTS.length} artistes.`);
+  const evangeliques = ARTISTS.filter((a) => a.univers === "christian").length;
+  console.log(
+    `\nTotal traité : ${ARTISTS.length} artistes, dont ${evangeliques} dans l'univers évangélique.`
+  );
 
   await mongoose.disconnect();
 }

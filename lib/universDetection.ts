@@ -44,10 +44,22 @@ const FORTS = [
   "resurrection", "parole de dieu", "gloire a dieu",
   "sang de jesus", "agneau de dieu", "royaume de dieu",
   // Malgache
-  "jesosy", "jesoa", "kristy", "andriamanitra", "fiderana", "fihirana",
+  "jesosy", "jesoa", "jeso", "kristy", "andriamanitra", "fiderana", "fihirana",
   "fanahy masina", "mpamonjy", "mpanavotra", "baiboly", "fiangonana",
   "fivavahana", "fahasoavana", "voninahitra",
   "zanahary", "hira fiderana", "hira fanevana", "mpitandrina",
+  // Le nom de Dieu et les acclamations, dans leur graphie malgache :
+  // « Haleloia », « Hosana », « Jehovah » ne s'écrivent pas comme leurs
+  // équivalents français, et c'est sous cette forme qu'ils titrent le
+  // répertoire de louange local.
+  "jehovah", "jeova", "haleloia", "hosana",
+  "fihiram-baovao", "fihiram baovao",
+  "fananganana ny maty", "fitsanganana amin'ny maty",
+  "evanjely", "apostoly", "pastera", "fifohazana", "mpiandry",
+  "sekoly alahady", "antsam-piderana",
+  // Les Églises malgaches : leur sigle est un marqueur sans équivoque,
+  // et il titre quantité de chants de fête paroissiale.
+  "fjkm", "flm", "ekar", "fpvm", "adventista",
   // Anglais
   "worship", "praise", "hallelujah", "holy spirit",
   "christian", "redeemer", "salvation", "born again", "amazing grace",
@@ -137,9 +149,28 @@ function contient(texte: string, mot: string): boolean {
     const i = texte.indexOf(mot, depuis);
     if (i === -1) return false;
     const avant = i === 0 ? " " : texte[i - 1];
-    if (!/[a-z0-9]/.test(avant)) return true;
+    if (!/[a-z0-9]/.test(avant) && finBienPosee(texte, i + mot.length, mot)) return true;
     depuis = i + mot.length;
   }
+}
+
+/**
+ * Longueur en deçà de laquelle un mot doit finir où il finit.
+ *
+ * La tolérance de suffixe est indispensable au malgache, dont les
+ * déclinaisons s'accrochent au radical. Mais appliquée à un mot de trois
+ * ou quatre lettres, elle range « foire » dans la foi et « godasse »
+ * dans God — et elle empêche d'employer les sigles des Églises, FJKM ou
+ * FLM, qui sont pourtant les marqueurs les plus nets du répertoire.
+ */
+const COURT = 4;
+
+/** Seuls le pluriel et rien d'autre sont tolérés après un mot court. */
+function finBienPosee(texte: string, fin: number, mot: string): boolean {
+  if (mot.length > COURT) return true;
+  const apres = texte[fin];
+  if (apres === undefined || !/[a-z0-9]/.test(apres)) return true;
+  return (apres === "s" || apres === "x") && !/[a-z0-9]/.test(texte[fin + 1] ?? " ");
 }
 
 /** Poids d'un champ : le titre dit bien plus que la description. */

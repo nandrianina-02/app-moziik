@@ -61,8 +61,13 @@ export type ResultatClassement = {
  */
 export async function cascaderArtiste(artistId: Types.ObjectId | string, univers: Univers): Promise<number> {
   const [titres] = await Promise.all([
+    // `auto` est épargné au même titre que `admin`, et il faut le dire :
+    // un titre que le lexique a reconnu seul — le gospel d'un artiste de
+    // variété — repasserait sinon en général au premier enregistrement
+    // de la fiche de son auteur, sans que personne l'ait demandé. Seul
+    // l'héritage se réécrit, exactement comme l'annonce l'en-tête.
     Song.updateMany(
-      { artist: artistId, universSource: { $ne: "admin" } },
+      { artist: artistId, universSource: { $nin: ["admin", "auto"] } },
       { $set: { univers, universSource: "artiste" } }
     ),
     Album.updateMany({ artist: artistId }, { $set: { univers } }),

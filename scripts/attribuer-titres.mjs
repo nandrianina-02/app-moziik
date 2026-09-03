@@ -11,12 +11,17 @@
  *
  * D'OÙ VIENT L'ATTRIBUTION
  *
- * De la pochette déjà présente en base, et d'elle seule. Chaque ligne du
- * tableau ci-dessous porte l'album que montre l'image, et ce nom vient de
- * l'image, pas d'une recherche sur le web ni d'une intuition. Les titres
- * dont la pochette ne nomme aucun interprète — les compilations — ne sont
- * attribués à personne : ils restent où ils sont, et sont seulement
- * rangés dans le bon univers.
+ * D'abord de la pochette déjà présente en base : la plupart des images
+ * portent le nom de l'interprète, et chaque ligne du tableau ci-dessous
+ * dit laquelle. Là où la pochette n'annonce qu'un album — les volumes
+ * d'un recueil — l'interprète vient du crédit sous lequel ces disques
+ * sont distribués, à condition que le titre figure bien au sommaire du
+ * volume que montre l'image et que sa durée publiée corresponde à celle
+ * du fichier. Deux sources qui se recoupent, jamais une intuition.
+ *
+ * Un titre dont aucune source ne nomme l'interprète n'entre pas dans ce
+ * tableau : il reste au compte d'import, mal crédité mais signalé, ce
+ * qui vaut mieux qu'un nom inventé.
  *
  * CE QUI SE PASSE POUR LES ROYALTIES
  *
@@ -94,29 +99,40 @@ const ATTRIBUTIONS = [
   // Pochettes signées d'un nom d'artiste
   ["MANANA FINOANA", "Njara Marcel", "pochette du single Manana Finoana"],
   ["Hatramin’ny farany", "Henika", "pochette du single Hatramin'ny Farany, label Cevam"],
+
+  // Série « Avy ny maraina » — le recueil complémentaire de la FJKM.
+  //
+  // La pochette ne nommait personne : elle annonce un album, pas un
+  // interprète. Ce sont les distributeurs qui tranchent, et ils
+  // s'accordent — Amazon, Spotify, Deezer et Last.fm créditent ces
+  // volumes à « Fihirana Fanampiny », FJKM Madagasikara, 2002.
+  //
+  // Deux vérifications avant d'y toucher : les titres du volume 1 et ceux
+  // du volume 4 tombent exactement du côté qu'annonce leur pochette, et
+  // les durées publiées correspondent à celles des fichiers en base à la
+  // seconde près (Manolo-tena 5:40/5:41, Andriamanitra Fitiavana 4:04,
+  // Jesoa No Mpanavotra 3:54/3:55). Deux sources indépendantes, donc.
+  ["Faneva faha-30 taona FJKM", "Fihirana Fanampiny", "Avy Ny Maraina Vol.1, piste 1"],
+  ["He ! Manolo-tena", "Fihirana Fanampiny", "Avy Ny Maraina Vol.1, piste 2"],
+  ["Jesoa, Vato fehizoro", "Fihirana Fanampiny", "Avy Ny Maraina Vol.1, piste 3"],
+  ["Izaho no fananganana ny maty", "Fihirana Fanampiny", "Avy Ny Maraina Vol.1, piste 5"],
+  ["Tsy hainay ny hangina", "Fihirana Fanampiny", "Avy Ny Maraina Vol.1"],
+  ["Mivavaka aho satria", "Fihirana Fanampiny", "Avy Ny Maraina Vol.1"],
+  ["Jeso No Mpanavotra", "Fihirana Fanampiny", "Avy Ny Maraina Vol.4, piste 1"],
+  ["Andriamanitra Fitiavana", "Fihirana Fanampiny", "Avy Ny Maraina Vol.4, piste 8"],
+  ["Ianao Izay Miasa Fatratra", "Fihirana Fanampiny", "Avy Ny Maraina Vol.4, piste 10"],
 ];
 
 /**
- * Titres dont la pochette est une compilation : elle nomme un album, pas
- * un interprète. Ils changent d'univers, pas de propriétaire.
+ * Titres qu'on range dans le bon univers sans les faire changer de mains.
  *
- * Les laisser au compte d'import reste faux, mais l'est moins que de les
- * attribuer à quelqu'un au jugé : il faudra le livret du disque, ou la
- * mémoire de celui qui les a versés.
+ * La liste est vide, et c'est le cas normal : un titre dont on ignore
+ * l'interprète n'a rien à faire au compte de celui qui l'a importé, mais
+ * l'attribuer au jugé serait pire. Tant qu'aucune source ne le nomme, il
+ * reste où il est — correctement classé, mal crédité, et signalé comme
+ * tel plutôt que rangé sous un nom inventé.
  */
-const SANS_INTERPRETE = [
-  // Pochette « Avy ny maraina — Mihira Fihiram-Baovao ho an'i Jehovah », vol. 1
-  "Faneva faha-30 taona FJKM",
-  "He ! Manolo-tena",
-  "Izaho no fananganana ny maty",
-  "Jesoa, Vato fehizoro",
-  "Mivavaka aho satria",
-  "Tsy hainay ny hangina",
-  // Même compilation, vol. 4
-  "Andriamanitra Fitiavana",
-  "Ianao Izay Miasa Fatratra",
-  "Jeso No Mpanavotra",
-];
+const SANS_INTERPRETE = [];
 
 /** Échappe un nom pour le placer dans une expression régulière. */
 const echapper = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
@@ -182,16 +198,24 @@ async function attribuer(db) {
 
   const entrees = [];
   const introuvables = [];
+  /** Titres que la cible possède déjà : une exécution précédente est passée. */
+  const dejaFaits = [];
   let rendus = 0;
 
-  const lire = async (titre) => {
+  const lire = async (titre, cible) => {
     const trouves = await db
       .collection("songs")
       .find({ artist: source._id, title: titre })
       .project({ title: 1, artist: 1, genre: 1, univers: 1, universSource: 1 })
       .toArray();
     if (trouves.length === 0) {
-      introuvables.push(`${titre} — aucun titre de ce nom chez ${SOURCE}`);
+      // Le script est fait pour être relancé : une seconde exécution ne
+      // doit pas présenter comme un problème le travail de la première.
+      if (cible && (await db.collection("songs").countDocuments({ artist: cible._id, title: titre }))) {
+        dejaFaits.push(titre);
+      } else {
+        introuvables.push(`${titre} — aucun titre de ce nom chez ${SOURCE}`);
+      }
       return null;
     }
     if (trouves.length > 1) {
@@ -203,10 +227,9 @@ async function attribuer(db) {
 
   console.log(`Titres rendus à leur interprète (source : ${SOURCE})\n`);
   for (const [titre, artiste, preuve] of ATTRIBUTIONS) {
-    const chanson = await lire(titre);
-    if (!chanson) continue;
     const cible = profils.get(artiste);
-    if (!cible) continue;
+    const chanson = await lire(titre, cible);
+    if (!chanson || !cible) continue;
 
     const avant = {
       artist: String(chanson.artist),
@@ -236,9 +259,11 @@ async function attribuer(db) {
     console.log(`  ${ESSAI ? "·" : "ok"} ${titre.padEnd(30)} -> ${artiste}   (${preuve})`);
   }
 
-  console.log("\nTitres rangés dans l'univers évangélique, sans changer d'interprète\n");
+  if (SANS_INTERPRETE.length > 0) {
+    console.log("\nTitres rangés dans l'univers évangélique, sans changer d'interprète\n");
+  }
   for (const titre of SANS_INTERPRETE) {
-    const chanson = await lire(titre);
+    const chanson = await lire(titre, null);
     if (!chanson) continue;
 
     const avant = {
@@ -255,6 +280,10 @@ async function attribuer(db) {
     if (!ESSAI) await db.collection("songs").updateOne({ _id: chanson._id }, { $set: apres });
     entrees.push({ song: String(chanson._id), titre, avant });
     console.log(`  ${ESSAI ? "·" : "ok"} ${titre}`);
+  }
+
+  if (dejaFaits.length > 0) {
+    console.log(`\nDéjà attribués lors d'une exécution précédente : ${dejaFaits.length}`);
   }
 
   if (introuvables.length > 0) {

@@ -525,6 +525,19 @@ const ARTISTS = [
     "FJKM Andrainarivo Fahasoavana",
     "FJKM Ambohitantely",
   ].map((nom) => [nom, slugEmail(nom), GOSPEL]),
+
+  // Le nom sous lequel les enregistrements du recueil complémentaire de
+  // la FJKM sont distribués — Amazon, Spotify, Deezer et Last.fm le
+  // créditent tous ainsi. C'est l'interprète des neuf titres de la série
+  // « Avy ny maraina » que le catalogue portait au compte d'un autre.
+  [
+    "Fihirana Fanampiny",
+    slugEmail("Fihirana Fanampiny"),
+    {
+      ...GOSPEL,
+      bio: "Enregistrements du Fihirana Fanampiny, recueil de cantiques complémentaire de l'Église FJKM, publiés à partir de 2002 dans la série « Avy ny maraina ».",
+    },
+  ],
 ].map((entry) => {
   // Trois formes acceptées : « nom », [nom, email], [nom, email, options].
   // Les options portent les genres et une courte biographie — utiles pour

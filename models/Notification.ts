@@ -7,6 +7,7 @@ export type NotificationType =
   | "comment"       // commentaire sur un son de l'utilisateur
   | "event"         // nouvel évènement d'un artiste suivi
   | "payment"       // confirmation / échec de paiement
+  | "message"       // message privé reçu, hors de l'application
   | "system";       // annonce de la plateforme
 
 export interface INotification {
@@ -24,7 +25,7 @@ const NotificationSchema = new Schema<INotification>({
   recipient: { type: Schema.Types.ObjectId, ref: "User", required: true, index: true },
   type: {
     type: String,
-    enum: ["new_song", "new_follower", "like", "comment", "event", "payment", "system"],
+    enum: ["new_song", "new_follower", "like", "comment", "event", "payment", "message", "system"],
     required: true,
   },
   title: { type: String, required: true },

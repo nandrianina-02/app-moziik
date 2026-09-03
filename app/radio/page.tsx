@@ -1,8 +1,8 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import {
   Radio as RadioIcon,
   Heart,
@@ -36,6 +36,7 @@ import { ShareModal } from "@/components/share/ShareModal";
 import { StationPersonnelle } from "@/components/radio/StationPersonnelle";
 import type { ShareSubject } from "@/components/share/shareSubject";
 import { useUnivers } from "@/context/UniversProvider";
+import { STATIONS, resoudreStation, stationDeGenre, type Station as StationPartagee } from "@/lib/radios";
 
 function shuffle<T>(items: T[]): T[] {
   const copy = [...items];
@@ -53,31 +54,28 @@ function formatTime(seconds: number) {
   return `${m}:${s.toString().padStart(2, "0")}`;
 }
 
-// `genre` double l'information deja presente dans `fetchUrl` : c'est
-// lui que le lecteur relit pour prolonger la station une fois les
-// cinquante premiers titres joues.
-type Station = {
-  key: string;
-  label: string;
-  icon: typeof Flame;
-  bg: string;
-  fetchUrl: string;
-  genre?: string;
+/**
+ * La station telle que cette page l'affiche : celle de lib/radios.ts,
+ * plus une icône.
+ *
+ * La liste elle-même a quitté ce fichier. Elle est partagée avec la
+ * messagerie, qui doit pouvoir envoyer une station et la rouvrir chez le
+ * destinataire ; deux listes auraient divergé au premier ajout.
+ */
+type Station = StationPartagee & { icon: typeof Flame };
+
+const ICONES: Record<string, typeof Flame> = {
+  tendances: Flame,
+  favoris: Heart,
+  nouveautes: Sparkles,
+  afro: Mic2,
+  rock: Guitar,
+  instrumental: Piano,
+  jazz: Music2,
+  gospel: Sparkles,
 };
 
-const stations: Station[] = [
-  // Les huit tuiles gardent une couleur fixe, indépendante du thème : du
-  // blanc sur un aplat saturé sombre se lit sur les deux fonds. Le corail
-  // clair faisait exception (2,8:1) — il est repris ici en corail profond.
-  { key: "tendances", label: "Tendances", icon: Flame, bg: "bg-[#C63F1C]", fetchUrl: "/api/songs?limit=50&sort=popular" },
-  { key: "favoris", label: "Mes favoris", icon: Heart, bg: "bg-[#C0356B]", fetchUrl: "/api/me/liked-songs" },
-  { key: "nouveautes", label: "Nouveautés", icon: Sparkles, bg: "bg-[#2E5AAC]", fetchUrl: "/api/songs?limit=50" },
-  { key: "afro", label: "Afro", icon: Mic2, bg: "bg-[#1B2A4A]", fetchUrl: "/api/songs?limit=50&genre=Afro", genre: "Afro" },
-  { key: "rock", label: "Rock", icon: Guitar, bg: "bg-[#5B4FCF]", fetchUrl: "/api/songs?limit=50&genre=Rock", genre: "Rock" },
-  { key: "instrumental", label: "Instrumental", icon: Piano, bg: "bg-[#4B3F8F]", fetchUrl: "/api/songs?limit=50&genre=Instrumental", genre: "Instrumental" },
-  { key: "jazz", label: "Jazz", icon: Music2, bg: "bg-[#3D2F6F]", fetchUrl: "/api/songs?limit=50&genre=Jazz", genre: "Jazz" },
-  { key: "gospel", label: "Gospel", icon: Sparkles, bg: "bg-[#B03050]", fetchUrl: "/api/songs?limit=50&genre=Gospel", genre: "Gospel" },
-];
+const stations: Station[] = STATIONS.map((s) => ({ ...s, icon: ICONES[s.cle] ?? Music2 }));
 
 type RadioData = {
   topToday: { _id: string; title: string; coverUrl: string; artistName?: string; plays: number; rank: number }[];
@@ -86,8 +84,24 @@ type RadioData = {
   recommendedArtists: { _id: string; stageName: string; coverUrl?: string; verified?: boolean; plays: number }[];
 };
 
+/**
+ * `useSearchParams` impose une frontière de suspense en rendu statique :
+ * sans elle, la construction échoue sur cette page. Le composant est donc
+ * enveloppé, et le fallback est la page elle-même en attente — pas un
+ * écran vide.
+ */
 export default function RadioPage() {
+  return (
+    <Suspense fallback={null}>
+      <PageRadio />
+    </Suspense>
+  );
+}
+
+function PageRadio() {
   const pushToast = useToast();
+  const router = useRouter();
+  const params = useSearchParams();
   const { univers } = useUnivers();
   const { playQueue, currentSong, queue, isPlaying, togglePlay, progress } = usePlayer();
   const [loadingStation, setLoadingStation] = useState<string | null>(null);
@@ -111,8 +125,28 @@ export default function RadioPage() {
     // relancer la requête, sinon l'écran garde le catalogue précédent.
   }, [pushToast, univers]);
 
+  // Une station reçue par message ouvre `/radio?station=<cle>` : sans
+  // cela, le bouton « Lancer la radio » d'une carte de partage se
+  // contenterait d'amener sur cette page, en laissant retrouver la bonne
+  // tuile à la main. Le paramètre est retiré aussitôt, pour qu'un
+  // rafraîchissement ne relance pas la station indéfiniment.
+  const stationDemandee = params.get("station");
+  useEffect(() => {
+    if (!stationDemandee) return;
+    const trouvee = resoudreStation(stationDemandee);
+    router.replace("/radio", { scroll: false });
+    if (!trouvee) {
+      pushToast("error", "Cette station n'existe pas.");
+      return;
+    }
+    void launchStation({ ...trouvee, icon: ICONES[trouvee.cle] ?? Music2 });
+    // `launchStation` est redéfinie à chaque rendu : la lister en
+    // dépendance relancerait la station en boucle.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [stationDemandee]);
+
   async function launchStation(station: Station | null) {
-    const key = station?.key ?? "default";
+    const key = station?.cle ?? "default";
     setLoadingStation(key);
     try {
       const res = await fetch(station?.fetchUrl ?? "/api/songs?limit=50");
@@ -229,12 +263,12 @@ export default function RadioPage() {
           <div className="stagger grid grid-cols-2 gap-3 sm:grid-cols-4">
             {stations.map((station) => (
               <button
-                key={station.key}
+                key={station.cle}
                 onClick={() => launchStation(station)}
-                disabled={loadingStation === station.key}
-                className={`flex aspect-[4/3] flex-col items-center justify-center gap-2 rounded-xl2 text-white transition-transform hover:scale-[1.02] disabled:opacity-60 ${station.bg}`}
+                disabled={loadingStation === station.cle}
+                className={`flex aspect-[4/3] flex-col items-center justify-center gap-2 rounded-xl2 text-white transition-transform hover:scale-[1.02] disabled:opacity-60 ${station.fond}`}
               >
-                {loadingStation === station.key ? <EqualizerLoader size="sm" /> : <station.icon size={20} />}
+                {loadingStation === station.cle ? <EqualizerLoader size="sm" /> : <station.icon size={20} />}
                 <span className="text-xs font-medium">{station.label}</span>
               </button>
             ))}
@@ -312,7 +346,7 @@ export default function RadioPage() {
                 {data.genres.map((g) => (
                   <button
                     key={g.genre}
-                    onClick={() => launchStation({ key: g.genre, label: g.genre, icon: Music2, bg: "", fetchUrl: `/api/songs?limit=50&genre=${encodeURIComponent(g.genre)}` })}
+                    onClick={() => launchStation({ ...stationDeGenre(g.genre), icon: Music2 })}
                     className="rounded-full border border-border px-3.5 py-1.5 text-xs font-medium text-ink-muted hover:border-accent hover:text-ink"
                   >
                     {g.genre}

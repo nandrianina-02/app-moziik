@@ -3,7 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { motion, AnimatePresence } from "framer-motion";
-import { Copy, Check, QrCode, ListMusic, BadgeCheck, Globe2, Lock, Loader2 } from "lucide-react";
+import { Copy, Check, QrCode, ListMusic, BadgeCheck, Globe2, Lock, Loader2, Send } from "lucide-react";
 import {
   FaFacebook,
   FaFacebookMessenger,
@@ -19,6 +19,23 @@ import { SafeImage } from "@/components/ui/SafeImage";
 import { useToast } from "@/context/ToastProvider";
 import { ModalSheet } from "@/components/ui/ModalSheet";
 import type { ShareSubject } from "@/components/share/shareSubject";
+import { EnvoyerDansMessage } from "@/components/messages/EnvoyerDansMessage";
+import type { TypePartage } from "@/lib/messagerie";
+
+/**
+ * Le sujet du partage, traduit pour la messagerie.
+ *
+ * « profile » est le profil d'artiste vu par son propriétaire : envoyé
+ * dans un message, c'est un artiste comme un autre — le destinataire
+ * arrive sur la même page.
+ */
+const TYPE_MESSAGERIE: Record<ShareSubject["type"], TypePartage> = {
+  song: "song",
+  album: "album",
+  playlist: "playlist",
+  artist: "artist",
+  profile: "artist",
+};
 
 // Réseaux pour lesquels il n'existe pas d'URL de partage web fiable sans
 // identifiant d'application (Messenger, Discord) ou pas du tout
@@ -54,6 +71,7 @@ export function ShareModal({
   const [copied, setCopied] = useState(false);
   const [qrDataUrl, setQrDataUrl] = useState<string | null>(null);
   const [loadingQr, setLoadingQr] = useState(false);
+  const [envoiMessage, setEnvoiMessage] = useState(false);
 
   const shareUrl = `${typeof window !== "undefined" ? window.location.origin : ""}${subject.path}`;
   const shareText = subject.subtitle ? `${subject.title} — ${subject.subtitle}` : subject.title;
@@ -147,6 +165,24 @@ export function ShareModal({
 
   return (
     <ModalSheet titre="Partager" sousTitre={subjectDescription[subject.type]} onClose={onClose}>
+      {/* Avant les réseaux : c'est le partage qui reste dans Moziik, et
+          celui qui envoie une carte jouable plutôt qu'une URL. */}
+      <button
+        type="button"
+        onClick={() => setEnvoiMessage(true)}
+        className="mb-3 flex w-full items-center gap-3 rounded-xl2 border border-accent/40 bg-accent/5 p-3 text-left transition-colors hover:bg-accent/10"
+      >
+        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-accent text-base">
+          <Send size={17} />
+        </span>
+        <span className="min-w-0 flex-1">
+          <span className="block text-sm font-semibold">Envoyer dans un message</span>
+          <span className="block text-xs text-ink-muted">
+            À une personne ou à un groupe, sous forme de carte jouable.
+          </span>
+        </span>
+      </button>
+
       <div className="flex gap-3 rounded-xl2 bg-base p-3 sm:gap-4">
         <SafeImage
           src={subject.coverUrl}
@@ -291,6 +327,15 @@ export function ShareModal({
           Voir la page →
         </Link>
       </div>
+
+      {envoiMessage && (
+        <EnvoyerDansMessage
+          type={TYPE_MESSAGERIE[subject.type]}
+          refId={subject.id}
+          titre={subject.title}
+          onClose={() => setEnvoiMessage(false)}
+        />
+      )}
     </ModalSheet>
   );
 }

@@ -62,6 +62,15 @@ export interface IUser {
   /** Dernière connexion réussie, écrite par lib/auth.ts. */
   lastLoginAt?: Date;
   /**
+   * Dernier signe de vie, rafraîchi par la messagerie.
+   *
+   * C'est de ce champ que se déduit « en ligne » : le projet n'a pas de
+   * connexion maintenue, et en ouvrir une pour une pastille verte
+   * coûterait plus qu'elle ne vaut. Ce qu'il mesure est donc « actif
+   * récemment », et lib/messagerie.ts l'annonce comme tel.
+   */
+  lastSeenAt?: Date;
+  /**
    * Instant de la dernière déconnexion générale demandée par le compte.
    * Toute session émise avant est refusée à la revalidation : c'est ce qui
    * permet de couper les sessions web, qui sont des JWT sans état côté
@@ -107,6 +116,7 @@ const UserSchema = new Schema<IUser>({
     default: undefined,
   },
   lastLoginAt: { type: Date },
+  lastSeenAt: { type: Date },
   sessionsRevokedAt: { type: Date },
   passwordHash: { type: String },
   googleId: { type: String },

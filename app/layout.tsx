@@ -15,6 +15,7 @@ import { SidebarProvider } from "@/context/SidebarProvider";
 import { Sidebar } from "@/components/layout/Sidebar";
 import { MainContent } from "@/components/layout/MainContent";
 import { NotificationsProvider } from "@/context/NotificationsProvider";
+import { MessagesProvider } from "@/context/MessagesProvider";
 import { NotificationsDrawer } from "@/components/notifications/NotificationsDrawer";
 import { MobileHeader } from "@/components/layout/MobileHeader";
 import { DesktopHeader } from "@/components/layout/DesktopHeader";
@@ -148,6 +149,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
                 <OnlineStatusProvider>
                   <PlayerProvider>
                     <NotificationsProvider>
+                      <MessagesProvider>
                       <SidebarProvider>
                         <MobileHeader />
                         <div className="flex min-h-screen">
@@ -183,6 +185,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
                         <FloatingInstallButton />
                         <MobileNav />
                       </SidebarProvider>
+                      </MessagesProvider>
                     </NotificationsProvider>
                   </PlayerProvider>
                 </OnlineStatusProvider>

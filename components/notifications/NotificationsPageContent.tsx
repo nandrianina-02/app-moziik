@@ -31,7 +31,7 @@ type TabValue = "all" | "unread" | "music" | "social" | "system";
 
 const tabTypes: Record<Exclude<TabValue, "all" | "unread">, NotificationType[]> = {
   music: ["new_song", "event"],
-  social: ["new_follower", "like", "comment"],
+  social: ["new_follower", "like", "comment", "message"],
   system: ["payment", "system"],
 };
 

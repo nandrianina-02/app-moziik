@@ -3,6 +3,11 @@ import { ApiError } from "@/lib/apiError";
 import { IDS_RESEAUX, urlSocialeValide } from "@/lib/socialPlatforms";
 import { IDS_FONCTIONNALITES_IA } from "@/lib/ai/features";
 import { IDS_RECETTES, IDS_SELECTIONS } from "@/lib/curation/labels";
+import {
+  CORPS_MAX as MESSAGERIE_CORPS_MAX,
+  MEMBRES_MAX as MESSAGERIE_MEMBRES_MAX,
+  TITRE_GROUPE_MAX as MESSAGERIE_TITRE_MAX,
+} from "@/lib/messagerie";
 
 /**
  * Valide `data` contre `schema` et lève une ApiError 400 lisible en cas
@@ -812,4 +817,69 @@ export const aiHelpDraftSchema = z.object({
   notes: z.string().max(4000).default(""),
   /** Contenu deja saisi, a reprendre plutot qu'a remplacer. */
   body: z.string().max(6000).optional(),
+});
+
+// ---- Messagerie ----------------------------------------------------------
+
+/**
+ * Un message doit porter quelque chose : du texte, ou un contenu partagé.
+ *
+ * Le `refine` est là parce que les deux champs sont facultatifs pris
+ * séparément — sans lui, un message vide passerait, et la liste des
+ * conversations afficherait un aperçu vide sans qu'on sache pourquoi.
+ */
+export const envoiMessageSchema = z
+  .object({
+    corps: z.string().max(MESSAGERIE_CORPS_MAX, "Message trop long.").default(""),
+    partage: z
+      .object({
+        type: z.enum(["song", "album", "podcast", "playlist", "artist", "event", "radio"]),
+        refId: z.string().trim().min(1).max(120),
+      })
+      .optional(),
+    /** Identifiant du message auquel celui-ci répond. */
+    repondA: z.string().trim().length(24).optional(),
+  })
+  .refine((v) => v.corps.trim().length > 0 || Boolean(v.partage), {
+    message: "Écrivez un message ou joignez un contenu.",
+    path: ["corps"],
+  });
+
+export const nouvelleConversationSchema = z
+  .object({
+    type: z.enum(["direct", "group"]),
+    /** Tête-à-tête : la personne à qui on écrit. */
+    destinataire: z.string().trim().length(24).optional(),
+    /** Groupe : les membres, l'auteur non compris. */
+    membres: z.array(z.string().trim().length(24)).max(MESSAGERIE_MEMBRES_MAX).optional(),
+    titre: z.string().trim().max(MESSAGERIE_TITRE_MAX).optional(),
+  })
+  .refine((v) => (v.type === "direct" ? Boolean(v.destinataire) : (v.membres?.length ?? 0) > 0), {
+    message: "Choisissez au moins une personne.",
+    path: ["membres"],
+  })
+  .refine((v) => v.type === "direct" || Boolean(v.titre?.trim()), {
+    message: "Donnez un nom au groupe.",
+    path: ["titre"],
+  });
+
+export const majConversationSchema = z.object({
+  titre: z.string().trim().min(1).max(MESSAGERIE_TITRE_MAX).optional(),
+  coverUrl: z.string().trim().url().max(500).optional(),
+  /** Comptes à ajouter au groupe. */
+  ajouter: z.array(z.string().trim().length(24)).max(MESSAGERIE_MEMBRES_MAX).optional(),
+  /** Compte à exclure — un seul à la fois, l'action est nominative. */
+  exclure: z.string().trim().length(24).optional(),
+  /** Promotion ou rétrogradation d'un membre en gestionnaire. */
+  gestionnaire: z.object({ user: z.string().trim().length(24), actif: z.boolean() }).optional(),
+  silencieux: z.boolean().optional(),
+});
+
+export const reactionSchema = z.object({
+  /** Un emoji, éventuellement composé — d'où la longueur généreuse. */
+  emoji: z.string().trim().min(1).max(16),
+});
+
+export const editionMessageSchema = z.object({
+  corps: z.string().trim().min(1, "Un message modifié ne peut pas être vide.").max(MESSAGERIE_CORPS_MAX),
 });

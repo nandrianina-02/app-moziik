@@ -7,6 +7,7 @@ import {
   Radio,
   Trophy,
   CalendarDays,
+  MessagesSquare,
   CreditCard,
   User,
   Mic2,
@@ -24,6 +25,7 @@ export const primaryLinks: NavLink[] = [
   { href: "/radio", label: "Radio", icon: Radio },
   { href: "/classements", label: "Classements", icon: Trophy },
   { href: "/evenements", label: "Évènements", icon: CalendarDays },
+  { href: "/messages", label: "Messages", icon: MessagesSquare },
 ];
 
 /** Compte / abonnement — regroupés séparément dans l'UI. */

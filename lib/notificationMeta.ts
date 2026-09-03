@@ -1,4 +1,4 @@
-import { Music, UserPlus, Heart, MessageCircle, CalendarDays, CreditCard, Megaphone } from "lucide-react";
+import { Music, UserPlus, Heart, MessageCircle, CalendarDays, CreditCard, Megaphone, Send } from "lucide-react";
 import type { NotificationType } from "@/models/Notification";
 
 export const notificationIcons: Record<NotificationType, typeof Music> = {
@@ -8,6 +8,7 @@ export const notificationIcons: Record<NotificationType, typeof Music> = {
   comment: MessageCircle,
   event: CalendarDays,
   payment: CreditCard,
+  message: Send,
   system: Megaphone,
 };
 
@@ -18,6 +19,7 @@ export const notificationLabels: Record<NotificationType, string> = {
   comment: "Commentaire",
   event: "Évènement",
   payment: "Paiement",
+  message: "Message",
   system: "Annonce",
 };
 
@@ -29,6 +31,7 @@ export const notificationActionLabels: Partial<Record<NotificationType, string>>
   comment: "Répondre",
   event: "Voir l'évènement",
   payment: "Voir",
+  message: "Répondre",
   system: "Voir",
 };
 
@@ -45,5 +48,6 @@ export const notificationTints: Record<NotificationType, { tile: string; icon: s
   comment: { tile: "bg-tint-teal/10", icon: "text-tint-teal", badge: "bg-tint-teal" },
   event: { tile: "bg-tint-amber/10", icon: "text-tint-amber", badge: "bg-tint-amber" },
   payment: { tile: "bg-tint-emerald/10", icon: "text-tint-emerald", badge: "bg-tint-emerald" },
+  message: { tile: "bg-accent/10", icon: "text-accent", badge: "bg-accent" },
   system: { tile: "bg-tint-slate/10", icon: "text-tint-slate", badge: "bg-tint-slate" },
 };

@@ -12,6 +12,7 @@ import { ThemeToggle } from "@/components/ui/ThemeToggle";
 import { Tooltip } from "@/components/layout/Tooltip";
 import { SidebarPlaylists } from "@/components/layout/SidebarPlaylists";
 import { primaryLinks, accountLinks, useRoleLinks, isLinkActive, type NavLink } from "@/components/layout/navLinks";
+import { useMessagesNonLus } from "@/context/MessagesProvider";
 
 export function Sidebar() {
   const siteConfig = useSiteConfig();
@@ -25,6 +26,7 @@ export function Sidebar() {
   // État partagé (voir context/SidebarProvider.tsx) : le mini-lecteur en
   // a besoin pour se caler exactement sur la largeur de la sidebar.
   const { collapsed, toggleCollapsed } = useSidebar();
+  const { nonLus } = useMessagesNonLus();
 
   function renderLink(link: NavLink) {
     const isActive = isLinkActive(pathname, link.href);
@@ -43,7 +45,15 @@ export function Sidebar() {
           {isActive && (
             <span className="absolute left-0 top-1/2 h-5 w-1 -translate-y-1/2 rounded-r-full bg-accent" />
           )}
-          <link.icon size={18} className="shrink-0 transition-transform duration-200 group-hover:scale-110" />
+          <span className="relative shrink-0">
+            <link.icon size={18} className="transition-transform duration-200 group-hover:scale-110" />
+            {/* Repliée, la barre n'a plus de place pour un compteur : la
+                pastille se réduit à un point, qui dit « il y a quelque
+                chose » sans prétendre dire combien. */}
+            {link.href === "/messages" && nonLus > 0 && collapsed && (
+              <span className="absolute -right-1 -top-1 h-2 w-2 rounded-full bg-accent" />
+            )}
+          </span>
           <span
             className={`overflow-hidden whitespace-nowrap transition-all duration-200 ${
               collapsed ? "w-0 opacity-0" : "w-auto opacity-100"
@@ -51,6 +61,11 @@ export function Sidebar() {
           >
             {link.label}
           </span>
+          {link.href === "/messages" && nonLus > 0 && !collapsed && (
+            <span className="ml-auto min-w-[20px] rounded-full bg-accent px-1.5 py-0.5 text-center text-[10px] font-bold leading-4 text-base">
+              {nonLus > 99 ? "99+" : nonLus}
+            </span>
+          )}
         </Link>
       </Tooltip>
     );

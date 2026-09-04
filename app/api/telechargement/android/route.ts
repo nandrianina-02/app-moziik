@@ -34,16 +34,23 @@ import { withApiErrors, ApiError } from "@/lib/apiError";
  */
 export const dynamic = "force-dynamic";
 
-export const GET = withApiErrors(async () => {
+export const GET = withApiErrors(async (req: Request) => {
   const config = await getSiteConfig();
-  const url = config.androidApkUrl?.trim();
+  const stocke = config.androidApkUrl?.trim();
 
-  if (!url) {
+  if (!stocke) {
     // 404 et non 302 vers une page : ce qui demande cette adresse est un
     // gestionnaire de téléchargement, pas un navigateur qui saurait lire
     // une explication.
     throw new ApiError("Aucune version de l'application n'est publiée pour le moment.", 404);
   }
+
+  // Deux formes admises, et il faut les deux. Le fichier est aujourd'hui
+  // servi par le site lui-même (`/telechargements/moziik.apk`), parce que
+  // l'hébergeur d'images refuse les APK ; mais le jour où il partira
+  // ailleurs — une release GitHub, par exemple — l'adresse collée dans
+  // l'administration sera absolue, et rien d'autre ne devra changer.
+  const url = stocke.startsWith("/") ? new URL(stocke, req.url).toString() : stocke;
 
   return NextResponse.redirect(url, {
     status: 302,

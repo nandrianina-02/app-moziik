@@ -1,40 +1,54 @@
 /**
- * Met une version de l'application Android en ligne.
+ * Met une version de l'application Android à disposition sur le site.
  *
- * CE QU'IL FAIT
+ * POURQUOI L'APK EST DANS `public/` ET PAS CHEZ CLOUDINARY
  *
- * Envoie l'APK chez Cloudinary, puis inscrit son adresse, sa version et
- * son poids dans les réglages du site. La page /telecharger s'en sert
- * aussitôt — il n'y a rien à redéployer.
+ * Cloudinary refuse les APK. Pas par l'extension — renommer le fichier ne
+ * sert à rien, c'est le contenu qu'il reconnaît : « resources with
+ * extension apk are not allowed ». C'est une politique de compte, et sur
+ * les offres courantes elle ne se lève pas.
  *
- * POURQUOI PAS UN FICHIER DANS `public/`
+ * Le fichier est donc servi comme n'importe quel fichier statique du
+ * site. Vercel le distribue par son CDN, sans passer par une fonction —
+ * la limite de 4,5 Mo des réponses serverless ne s'applique donc pas.
  *
- * Un APK pèse plusieurs dizaines de mégaoctets et change à chaque
- * version. Versionné, il ferait grossir le dépôt sans fin et chaque
- * déploiement transporterait un binaire que personne ne relit. Vercel
- * limite par ailleurs la taille des fichiers statiques servis.
+ * CE QUE CELA COÛTE, ET IL FAUT LE SAVOIR
  *
- * L'ADRESSE PUBLIQUE NE CHANGE JAMAIS
+ * L'APK entre dans le dépôt git. Chaque version publiée y laisse
+ * définitivement ses quelques mégaoctets, même après remplacement. À
+ * raison de deux ou trois versions par an, c'est sans conséquence. Si le
+ * rythme s'accélère, l'endroit juste est une *release* GitHub — le dépôt
+ * est public, les fichiers de release ne pèsent pas sur l'historique, et
+ * il suffira alors de coller l'adresse obtenue dans /admin/parametres :
+ * la route de téléchargement accepte déjà une adresse absolue.
  *
- * Ce que l'on communique est `/api/telechargement/android`, qui redirige
- * vers la dernière version. L'adresse Cloudinary, elle, change à chaque
- * publication — et c'est justement pourquoi elle ne doit pas circuler.
+ * UN SEUL FICHIER, TOUJOURS LE MÊME NOM
+ *
+ * `public/telechargements/moziik.apk`. Garder un fichier par version
+ * multiplierait le poids du dépôt sans que personne n'aille jamais
+ * chercher une ancienne version — et l'adresse publique, elle, ne change
+ * pas : c'est `/api/telechargement/android` qu'on communique.
+ *
+ * LE DÉPLOIEMENT DOIT SUIVRE
+ *
+ * Le script écrit le fichier et met les réglages à jour, mais le fichier
+ * ne sera servi qu'une fois déployé. Tant que ce n'est pas fait, le lien
+ * renvoie une erreur — le script le rappelle à la fin.
  *
  * COMMENT FABRIQUER L'APK
  *
  *   npx cap sync android
  *   cd android && ./gradlew assembleRelease
  *
- * Le fichier sort dans android/app/build/outputs/apk/release/. Il doit
- * être signé : un APK non signé s'installe en debug seulement, et Android
- * refusera toute mise à jour ultérieure signée d'une autre clé. Gardez la
- * même clé pour toutes les versions, et sauvegardez-la — la perdre oblige
- * chaque personne à désinstaller avant de réinstaller.
+ * Le fichier sort dans android/app/build/outputs/apk/release/. S'il
+ * s'appelle `app-release-unsigned.apk`, c'est qu'il manque
+ * android/keystore.properties : ce script refusera de le publier, et
+ * dira quoi faire.
  *
  * Usage :
- *   node scripts/publier-apk.mjs --essai chemin/vers/moziik.apk 1.0.0
- *   node scripts/publier-apk.mjs chemin/vers/moziik.apk 1.0.0
- *   node scripts/publier-apk.mjs --retirer      (retire la version en ligne)
+ *   node scripts/publier-apk.mjs --essai <fichier.apk> <version>
+ *   node scripts/publier-apk.mjs <fichier.apk> <version>
+ *   node scripts/publier-apk.mjs --retirer
  */
 import fs from "node:fs";
 import path from "node:path";
@@ -55,10 +69,14 @@ for (const fichier of [".env.local", ".env"]) {
 const args = process.argv.slice(2);
 const ESSAI = args.includes("--essai");
 const RETIRER = args.includes("--retirer");
-const positionnels = args.filter((a) => !a.startsWith("--"));
-const [chemin, version] = positionnels;
+const [chemin, version] = args.filter((a) => !a.startsWith("--"));
 
 const notes = process.env.APK_NOTES ?? "";
+
+/** Là où le fichier est déposé, et l'adresse à laquelle le site le sert. */
+const DOSSIER = path.resolve(process.cwd(), "public", "telechargements");
+const NOM = "moziik.apk";
+const ADRESSE = "/telechargements/moziik.apk";
 
 function sortir(message) {
   console.error(message);
@@ -70,21 +88,30 @@ const reglages = mongoose.connection.collection("siteconfigs");
 const config = await reglages.findOne({});
 if (!config) sortir("Aucun réglage de site en base. Ouvrez /admin/parametres une première fois.");
 
+/* ------------------------------------------------------------- retrait -- */
+
 if (RETIRER) {
+  const fichier = path.join(DOSSIER, NOM);
+  const present = fs.existsSync(fichier);
   console.log(
     ESSAI
-      ? "Simulation : la version en ligne serait retirée."
-      : "Version retirée. La page /telecharger annoncera de nouveau qu'aucune application n'est publiée."
+      ? `Simulation : les réglages seraient vidés${present ? ", et le fichier supprimé" : ""}.`
+      : "Version retirée."
   );
   if (!ESSAI) {
+    if (present) fs.rmSync(fichier);
     await reglages.updateOne(
       { _id: config._id },
       { $set: { androidApkUrl: "", androidVersion: "", androidSizeMB: 0, androidNotes: "" } }
     );
+    console.log("La page /telecharger annonce de nouveau qu'aucune application n'est publiée.");
+    if (present) console.log("Pensez à valider la suppression du fichier et à redéployer.");
   }
   await mongoose.disconnect();
   process.exit(0);
 }
+
+/* ----------------------------------------------------------- contrôles -- */
 
 if (!chemin) sortir("Indiquez le chemin de l'APK.\n  node scripts/publier-apk.mjs moziik.apk 1.0.0");
 if (!version) sortir("Indiquez le numéro de version.\n  node scripts/publier-apk.mjs moziik.apk 1.0.0");
@@ -95,13 +122,11 @@ if (!fs.existsSync(complet)) sortir(`Fichier introuvable : ${complet}`);
 const octets = fs.statSync(complet).size;
 const megaoctets = Math.round((octets / (1024 * 1024)) * 10) / 10;
 
-// Deux contrôles avant d'envoyer quoi que ce soit. Sans eux, l'erreur ne
-// se voit qu'à la première installation ratée, chez quelqu'un d'autre.
+// Deux contrôles avant d'écrire quoi que ce soit. Sans eux, l'erreur ne se
+// voit qu'à la première installation ratée, chez quelqu'un d'autre.
 const apk = analyserApk(complet);
 
-if (!apk.estZip) {
-  sortir("Ce fichier n'est pas un APK : ce n'est même pas une archive.");
-}
+if (!apk.estZip) sortir("Ce fichier n'est pas un APK : ce n'est même pas une archive.");
 
 if (!apk.signe) {
   sortir(
@@ -138,42 +163,35 @@ console.log(
   `APK : ${path.basename(complet)} — ${megaoctets} Mo, version ${version}, signé (${apk.schemas.join(" + ")})`
 );
 
+// Un APK énorme dans le dépôt est un choix, pas un accident : au-delà de
+// ce seuil, on le dit avant d'écrire.
+const SEUIL_ALERTE_MO = 40;
+if (megaoctets > SEUIL_ALERTE_MO) {
+  console.warn(
+    `\nAttention : ${megaoctets} Mo entreront définitivement dans l'historique git.\n` +
+      "Au-delà de quelques versions, préférez une release GitHub et collez\n" +
+      "son adresse dans /admin/parametres — la route accepte une adresse absolue."
+  );
+}
+
 if (ESSAI) {
-  console.log("\nSimulation : rien n'a été envoyé ni écrit.");
-  console.log("Adresse publique une fois publié : /api/telechargement/android");
+  console.log(`\nSimulation : rien n'a été copié ni écrit.`);
+  console.log(`Le fichier irait dans public/telechargements/${NOM}`);
+  console.log("Adresse publique : /api/telechargement/android");
   await mongoose.disconnect();
   process.exit(0);
 }
 
-const { v2: cloudinary } = await import("cloudinary");
-cloudinary.config({
-  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
-  api_key: process.env.CLOUDINARY_API_KEY,
-  api_secret: process.env.CLOUDINARY_API_SECRET,
-});
+/* ------------------------------------------------------------ écriture -- */
 
-console.log("Envoi vers Cloudinary…");
-const envoi = await cloudinary.uploader.upload(complet, {
-  // `raw` : ni image ni vidéo. Sans cela Cloudinary tenterait de
-  // transcoder l'archive et refuserait.
-  resource_type: "raw",
-  folder: "moziik/app",
-  // Le nom porte la version : les anciennes restent accessibles pour qui
-  // aurait gardé un lien, et une publication ne détruit pas la
-  // précédente.
-  public_id: `moziik-${version}.apk`,
-  // `type: upload` explicite : le préréglage du compte est passé en
-  // « authenticated » pour l'audio, et un APK signé serait intéléchargeable.
-  type: "upload",
-  overwrite: true,
-  invalidate: true,
-});
+fs.mkdirSync(DOSSIER, { recursive: true });
+fs.copyFileSync(complet, path.join(DOSSIER, NOM));
 
 await reglages.updateOne(
   { _id: config._id },
   {
     $set: {
-      androidApkUrl: envoi.secure_url,
+      androidApkUrl: ADRESSE,
       androidVersion: version,
       androidSizeMB: megaoctets,
       androidPublishedAt: new Date(),
@@ -182,9 +200,13 @@ await reglages.updateOne(
   }
 );
 
-console.log(`\nPublié. ${megaoctets} Mo, version ${version}.`);
-console.log(`Adresse à communiquer : ${(config.siteUrl || "").replace(/\/$/, "")}/api/telechargement/android`);
-console.log("Page d'installation : /telecharger");
+console.log(`\nCopié dans public/telechargements/${NOM}, réglages mis à jour.`);
+console.log("\nIL RESTE DEUX GESTES, sans lesquels le lien ne mènera nulle part :");
+console.log(`  git add public/telechargements/${NOM} && git commit -m "Publie l'application ${version}"`);
+console.log("  git push");
+console.log("\nUne fois déployé :");
+console.log("  Page d'installation : /telecharger");
+console.log("  Adresse à communiquer : /api/telechargement/android");
 if (!notes) {
   console.log(
     "\nAucune note de version. Pour en ajouter :\n  APK_NOTES='Ce qui change…' node scripts/publier-apk.mjs …"

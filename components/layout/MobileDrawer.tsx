@@ -5,7 +5,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { useSession, signOut } from "next-auth/react";
 import { oublierCompte } from "@/lib/offlineApi";
 import { motion, AnimatePresence } from "framer-motion";
-import { X, Mail, FileText, LogOut, User } from "lucide-react";
+import { X, Mail, FileText, LogOut, User, Smartphone } from "lucide-react";
 import { useSiteConfig } from "@/context/SiteConfigProvider";
 import { useToast } from "@/context/ToastProvider";
 import { primaryLinks, accountLinks, useRoleLinks, isLinkActive, type NavLink } from "@/components/layout/navLinks";
@@ -135,6 +135,14 @@ export function MobileDrawer({ onClose }: { onClose: () => void }) {
               >
                 <Mail size={18} />
                 Contact
+              </Link>
+              <Link
+                href="/telecharger"
+                onClick={onClose}
+                className="flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium text-accent hover:bg-accent/10"
+              >
+                <Smartphone size={18} />
+                Installer l&apos;application
               </Link>
               <Link
                 href="/mentions-legales"

@@ -12,6 +12,7 @@ import {
   Save,
   Settings2,
   Share2,
+  Smartphone,
   Trash2,
   UploadCloud,
 } from "lucide-react";
@@ -53,6 +54,10 @@ type SiteConfigForm = {
   plans: PlanPricing[];
   genres: string[];
   payPerListenRateUSD: number;
+  androidApkUrl: string;
+  androidVersion: string;
+  androidSizeMB: number;
+  androidNotes: string;
   legalEntityName: string;
   legalCapital: string;
   legalRcsCity: string;
@@ -64,13 +69,14 @@ type SiteConfigForm = {
   theme: ThemePreference;
 };
 
-type Onglet = "general" | "logos" | "theme" | "premium" | "reseaux" | "seo";
+type Onglet = "general" | "logos" | "theme" | "premium" | "application" | "reseaux" | "seo";
 
 const onglets: { value: Onglet; label: string; icon: typeof Settings2 }[] = [
   { value: "general", label: "Général", icon: Settings2 },
   { value: "logos", label: "Logos & Favicon", icon: ImageIcon },
   { value: "theme", label: "Thème", icon: Palette },
   { value: "premium", label: "Prix Premium", icon: CreditCard },
+  { value: "application", label: "Application", icon: Smartphone },
   { value: "reseaux", label: "Réseaux sociaux", icon: Share2 },
   { value: "seo", label: "SEO & Analytics", icon: BarChart3 },
 ];
@@ -492,6 +498,74 @@ export default function AdminSettingsPage() {
             </ul>
           </AdminCard>
         </>
+      )}
+
+      {onglet === "application" && (
+        <AdminCard
+          title="Application Android"
+          description="Distribuée par le site, faute d'accès au Play Store."
+        >
+          <div className="space-y-4">
+            <p className="rounded-xl border border-border bg-base px-3 py-2.5 text-xs text-ink-muted">
+              Ces champs se remplissent tout seuls avec{" "}
+              <code className="rounded bg-surface px-1">node scripts/publier-apk.mjs &lt;fichier&gt; &lt;version&gt;</code>,
+              qui envoie l&apos;APK et inscrit son adresse ici. Les modifier à la main ne sert
+              qu&apos;à corriger un libellé — ou à retirer une version en vidant l&apos;adresse.
+            </p>
+
+            <FormField
+              label="Adresse du fichier APK (vide = aucune version publiée)"
+              value={config.androidApkUrl}
+              onChange={(e) => modifier({ androidApkUrl: e.target.value })}
+              placeholder="https://res.cloudinary.com/…/moziik-1.0.0.apk"
+            />
+
+            <div className="grid gap-4 sm:grid-cols-2">
+              <FormField
+                label="Version"
+                value={config.androidVersion}
+                onChange={(e) => modifier({ androidVersion: e.target.value })}
+                placeholder="1.0.0"
+              />
+              <FormField
+                label="Poids (Mo)"
+                type="number"
+                min="0"
+                step="0.1"
+                value={config.androidSizeMB}
+                onChange={(e) => modifier({ androidSizeMB: Math.max(0, Number(e.target.value)) })}
+              />
+            </div>
+
+            <FormField
+              label="Notes de version (facultatif)"
+              value={config.androidNotes}
+              onChange={(e) => modifier({ androidNotes: e.target.value })}
+              placeholder="Ce qui change dans cette version."
+            />
+
+            <div className="rounded-xl border border-border p-3">
+              <p className="text-sm font-medium">
+                {config.androidApkUrl?.trim()
+                  ? "Une version est en ligne."
+                  : "Aucune version publiée."}
+              </p>
+              <p className="mt-1 text-xs text-ink-muted">
+                {config.androidApkUrl?.trim()
+                  ? "La page /telecharger propose le téléchargement. L'adresse à communiquer est /api/telechargement/android — elle suit les versions, contrairement à l'adresse du fichier."
+                  : "La page /telecharger l'annonce franchement et met en avant l'installation depuis le navigateur, qui fonctionne déjà."}
+              </p>
+              <a
+                href="/telecharger"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="mt-2 inline-block text-xs font-medium text-accent hover:underline"
+              >
+                Voir la page d&apos;installation
+              </a>
+            </div>
+          </div>
+        </AdminCard>
       )}
 
       {onglet === "reseaux" && (

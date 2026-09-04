@@ -687,6 +687,11 @@ export const adminSiteConfigPatchSchema = z.object({
   legalRcsNumber: z.string().max(60).optional(),
   legalAddress: z.string().max(300).optional(),
   legalWebsite: z.string().max(200).optional(),
+  // Vide accepté : c'est ainsi qu'on retire une version en ligne.
+  androidApkUrl: z.string().max(600).optional(),
+  androidVersion: z.string().max(40).optional(),
+  androidSizeMB: z.number().min(0).max(2000).optional(),
+  androidNotes: z.string().max(1000).optional(),
   legalUpdatedAt: z.coerce.date().optional(),
   // Le protocole est verrouille cote schema : une URL `javascript:` saisie
   // en administration deviendrait sinon un lien executable pour tous les

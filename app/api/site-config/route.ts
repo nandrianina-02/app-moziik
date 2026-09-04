@@ -48,6 +48,13 @@ export const GET = withApiErrors(async () => {
       legalAddress: config.legalAddress,
       legalWebsite: config.legalWebsite,
       legalUpdatedAt: config.legalUpdatedAt,
+      // L'application : sa présence conditionne l'affichage du bouton de
+      // téléchargement, il faut donc que le client la connaisse.
+      androidApkUrl: config.androidApkUrl,
+      androidVersion: config.androidVersion,
+      androidSizeMB: config.androidSizeMB,
+      androidPublishedAt: config.androidPublishedAt,
+      androidNotes: config.androidNotes,
       // Nettoyes ici et pas seulement a la saisie : la base peut
       // contenir des liens ecrits avant que le schema ne filtre.
       socialLinks: liensSociauxUtilisables(config.socialLinks),

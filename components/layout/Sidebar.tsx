@@ -3,7 +3,7 @@
 import Link from "next/link";
 import Image from "next/image";
 import { usePathname } from "next/navigation";
-import { ChevronsLeft, Mail, FileText } from "lucide-react";
+import { ChevronsLeft, Mail, FileText, Smartphone } from "lucide-react";
 import { useSiteConfig } from "@/context/SiteConfigProvider";
 import { useTheme } from "@/context/ThemeProvider";
 import { useSidebar } from "@/context/SidebarProvider";
@@ -148,12 +148,23 @@ export function Sidebar() {
                 <FileText size={15} />
               </Link>
             </Tooltip>
+            <Tooltip label="Installer l'application" show>
+              <Link href="/telecharger" className="hover:text-ink">
+                <Smartphone size={15} />
+              </Link>
+            </Tooltip>
           </div>
         ) : (
           <>
-            <div className="flex gap-3">
+            <div className="flex flex-wrap gap-x-3 gap-y-1">
               <Link href="/contact" className="hover:text-ink">Contact</Link>
               <Link href="/mentions-legales" className="hover:text-ink">Mentions légales</Link>
+              {/* Le seul endroit du site qui dise que l'application
+                  existe : sans accès au Play Store, personne ne la
+                  trouvera en cherchant ailleurs. */}
+              <Link href="/telecharger" className="text-accent hover:underline">
+                Installer l&apos;app
+              </Link>
             </div>
             <p>© {new Date().getFullYear()} {siteConfig.siteName}</p>
           </>

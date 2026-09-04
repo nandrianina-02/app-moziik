@@ -105,6 +105,27 @@ export interface ISiteConfig {
   // codée en dur et dupliquée dans les pages son/nouveau et son/[id]/modifier.
   genres: string[];
   payPerListenRateUSD: number; // rémunération artiste par écoute complète
+  /**
+   * L'application Android, distribuée par le site.
+   *
+   * Faute d'accès au Play Store, l'APK est hébergé et téléchargé
+   * directement. Ces champs sont vides tant qu'aucune version n'a été
+   * publiée, et la page de téléchargement le dit alors franchement au
+   * lieu d'offrir un bouton mort.
+   *
+   * L'adresse pointe vers l'hébergement du fichier ; le site, lui,
+   * expose une adresse stable qui y redirige, pour qu'un lien partagé
+   * survive au changement d'hébergeur.
+   */
+  androidApkUrl: string;
+  /** Version affichée — « 1.2.0 ». Sert à savoir si l'on a la dernière. */
+  androidVersion: string;
+  /** Poids en mégaoctets, annoncé avant le téléchargement. */
+  androidSizeMB: number;
+  /** Date de mise en ligne de cette version. */
+  androidPublishedAt?: Date;
+  /** Notes de version, affichées sous le bouton. Facultatives. */
+  androidNotes: string;
   /** Thème par défaut du site — mode et couleurs. */
   theme: IThemeSettings;
   // Mentions légales — éditables dans /admin/parametres, affichées sur /mentions-legales
@@ -158,6 +179,11 @@ const SiteConfigSchema = new Schema<ISiteConfig>({
   ],
   genres: { type: [String], default: [] },
   payPerListenRateUSD: { type: Number, default: 0.003 },
+  androidApkUrl: { type: String, default: "" },
+  androidVersion: { type: String, default: "" },
+  androidSizeMB: { type: Number, default: 0 },
+  androidPublishedAt: { type: Date },
+  androidNotes: { type: String, default: "" },
   theme: {
     type: new Schema<IThemeSettings>(
       {

@@ -40,6 +40,18 @@ type PublicSiteConfig = Pick<
   /** Jours d'essai offerts sur l'abonnement, 0 si aucun. */
   trialDays?: number;
   /**
+   * L'application Android, quand une version est en ligne.
+   *
+   * Vide tant qu'aucune n'a été publiée : la page de téléchargement s'en
+   * sert pour dire franchement qu'il n'y en a pas encore, plutôt que
+   * d'afficher un bouton qui ne mène nulle part.
+   */
+  androidApkUrl?: string;
+  androidVersion?: string;
+  androidSizeMB?: number;
+  androidPublishedAt?: string;
+  androidNotes?: string;
+  /**
    * Identifiants des fonctionnalités d'IA servables en ce moment
    * (lib/ai/features.ts). Vide tant que /api/site-config n'a pas répondu,
    * et vide pour de bon si la clé manque ou si l'administration a coupé :

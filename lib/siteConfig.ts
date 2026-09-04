@@ -44,6 +44,13 @@ function fallbackSiteConfig() {
     ],
     genres: defaultSiteConfig.genres,
     payPerListenRateUSD: 0.003,
+    androidApkUrl: "",
+    androidVersion: "",
+    androidSizeMB: 0,
+    // Typée explicitement : sans cela le repli n'a pas ce champ du tout,
+    // et la route publique ne compile plus quand elle le lit.
+    androidPublishedAt: undefined as Date | undefined,
+    androidNotes: "",
     theme: { ...THEME_PAR_DEFAUT },
     legalEntityName: `${defaultSiteConfig.siteName} SAS`,
     legalCapital: "10 000€",

@@ -39,6 +39,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import mongoose from "mongoose";
+import { analyserApk } from "./lib/apkSignature.mjs";
 
 for (const fichier of [".env.local", ".env"]) {
   const chemin = path.resolve(process.cwd(), fichier);
@@ -94,18 +95,48 @@ if (!fs.existsSync(complet)) sortir(`Fichier introuvable : ${complet}`);
 const octets = fs.statSync(complet).size;
 const megaoctets = Math.round((octets / (1024 * 1024)) * 10) / 10;
 
-// Vérification du format : les quatre premiers octets d'un APK sont ceux
-// d'une archive ZIP. Envoyer un fichier qui n'en est pas un se
-// remarquerait seulement à la première installation ratée.
-const entete = Buffer.alloc(4);
-const fd = fs.openSync(complet, "r");
-fs.readSync(fd, entete, 0, 4, 0);
-fs.closeSync(fd);
-if (entete.toString("hex") !== "504b0304") {
-  sortir(`Ce fichier n'est pas un APK (en-tête ${entete.toString("hex")}, attendu 504b0304).`);
+// Deux contrôles avant d'envoyer quoi que ce soit. Sans eux, l'erreur ne
+// se voit qu'à la première installation ratée, chez quelqu'un d'autre.
+const apk = analyserApk(complet);
+
+if (!apk.estZip) {
+  sortir("Ce fichier n'est pas un APK : ce n'est même pas une archive.");
 }
 
-console.log(`APK : ${path.basename(complet)} — ${megaoctets} Mo, version ${version}`);
+if (!apk.signe) {
+  sortir(
+    [
+      `${path.basename(complet)} n'est PAS SIGNÉ. Android refusera de l'installer,`,
+      "par un « Application non installée » qui n'explique rien.",
+      "",
+      "C'est ce que produit `gradlew assembleRelease` quand",
+      "android/keystore.properties est absent — le fichier s'appelle alors",
+      "app-release-UNSIGNED.apk, et le nom est le seul avertissement.",
+      "",
+      "Pour créer la clé, une fois pour toutes :",
+      "",
+      "  keytool -genkeypair -v -keystore android/moziik-release.jks \\",
+      "    -alias moziik -keyalg RSA -keysize 2048 -validity 10000",
+      "",
+      "Puis écrire android/keystore.properties (ignoré par git) :",
+      "",
+      "  storeFile=../moziik-release.jks",
+      "  storePassword=<le mot de passe choisi>",
+      "  keyAlias=moziik",
+      "  keyPassword=<le mot de passe de la clé>",
+      "",
+      "Et recompiler : cd android && ./gradlew assembleRelease",
+      "",
+      "GARDEZ CETTE CLÉ. Android refuse de mettre à jour une application",
+      "signée d'une autre clé : la perdre obligerait chaque personne à",
+      "désinstaller avant de réinstaller, en perdant ses téléchargements.",
+    ].join("\n")
+  );
+}
+
+console.log(
+  `APK : ${path.basename(complet)} — ${megaoctets} Mo, version ${version}, signé (${apk.schemas.join(" + ")})`
+);
 
 if (ESSAI) {
   console.log("\nSimulation : rien n'a été envoyé ni écrit.");

@@ -1,6 +1,7 @@
 import HelpArticle from "@/models/HelpArticle";
 import { connectDB } from "@/lib/db";
 import { motsDe, normaliser } from "@/lib/searchText";
+import { etendre } from "@/lib/ai/synonymes";
 
 /**
  * Ce que l'assistant a le droit de savoir.
@@ -23,6 +24,30 @@ const RETENUS = 5;
 /** Un article long est tronqué : la réponse tient dans ses premiers paragraphes. */
 const CORPS_MAX = 1800;
 
+/**
+ * Taille du corpus en dessous de laquelle on l'envoie en entier.
+ *
+ * Le filtre par mots-clés n'a de sens que s'il y a trop d'articles pour
+ * tous les envoyer. Ce n'était pas le cas : douze articles totalisent
+ * 4 400 caractères, quand la sélection en autorise 9 000 — le filtre
+ * écartait donc sept articles sur douze alors que la place ne manquait
+ * pas, et l'assistant escaladait des questions dont la réponse était à
+ * portée. En dessous de ce seuil, tout part.
+ *
+ * Le seuil porte sur les caractères, pas sur le nombre d'articles : c'est
+ * la longueur qui coûte, et vingt fiches courtes tiennent mieux que cinq
+ * guides.
+ *
+ * 24 000 caractères font environ 6 000 jetons — quelques centimes par
+ * échange, sur une fonctionnalité qui traite quelques dizaines de
+ * questions par jour. C'est moins cher qu'une escalade évitable. Le
+ * chiffre a été choisi pour laisser passer le centre d'aide complété (une
+ * trentaine d'articles) sans repasser sous le filtre : le franchir juste
+ * après avoir écrit les articles manquants aurait annulé le gain au
+ * moment précis où il devenait utile.
+ */
+const CORPUS_ENTIER_MAX = 24000;
+
 export type ArticleRetenu = {
   titre: string;
   slug: string;
@@ -42,7 +67,14 @@ export async function articlesPertinents(question: string, limite = RETENUS): Pr
     .lean();
   if (articles.length === 0) return [];
 
-  const mots = motsDe(question).filter((m) => m.length >= 3);
+  // Corpus assez court pour tenir entier : on n'a rien à trier. Le
+  // meilleur classement possible reste inférieur à « tout donner ».
+  const poids = articles.reduce((somme, a) => somme + (a.body ?? "").length, 0);
+  if (poids <= CORPUS_ENTIER_MAX) return articles.map(enArticleRetenu);
+
+  // Les mots de la question, plus leurs équivalents malgaches, anglais et
+  // familiers : « fandoavana » doit trouver l'article « paiement ».
+  const mots = etendre(motsDe(question).filter((m) => m.length >= 3), question);
 
   // Question sans mot exploitable (« bonjour ? ») : on donne les premiers
   // articles plutôt que rien — le modèle a au moins de quoi orienter.

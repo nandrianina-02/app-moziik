@@ -81,6 +81,9 @@ export const POST = withApiErrors(async (req: Request) => {
       siteName: config.siteName,
       compte: authUser.id,
       destinataire: "membre",
+      // Ici l'appelant et la personne concernée sont la même : c'est le
+      // membre qui écrit dans son propre fil.
+      utilisateur: authUser.id,
     });
   } catch (err) {
     // La réservation est relâchée : sans cela, un incident passager

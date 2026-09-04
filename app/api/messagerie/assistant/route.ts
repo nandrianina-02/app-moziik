@@ -8,7 +8,13 @@ import { requireAuthUser } from "@/lib/mobileAuth";
 import { parseOrThrow, assistantSchema } from "@/lib/validation";
 import { universDeLaRequete } from "@/lib/universServer";
 import { etatIA } from "@/lib/ai/client";
-import { construireVivier, repondre, TOURS_CONTEXTE } from "@/lib/ai/assistantEcoute";
+import {
+  construireVivier,
+  genresPreferes,
+  goutsDe,
+  repondre,
+  TOURS_CONTEXTE,
+} from "@/lib/ai/assistantEcoute";
 import {
   enregistrerMessage,
   fichesUtilisateurs,
@@ -84,8 +90,18 @@ export const POST = withApiErrors(async (req: Request) => {
     .map((m) => ({ role: (m.role ?? "membre") as "membre" | "assistant", texte: m.body ?? "" }))
     .filter((t) => t.texte);
 
-  const vivier = await construireVivier(demande, univers);
-  const verdict = await repondre({ demande, historique, vivier, compte: moi.id });
+  // Le profil sert deux fois : à composer le vivier, et à départager
+  // deux choix également valables. Le calculer une seule fois évite de
+  // relire l'historique d'écoute deux fois par message.
+  const profil = await goutsDe(moi.id, univers);
+  const vivier = await construireVivier(demande, univers, profil);
+  const verdict = await repondre({
+    demande,
+    historique,
+    vivier,
+    compte: moi.id,
+    genresGoutes: profil.assezDeDonnees ? genresPreferes(profil, 4) : [],
+  });
 
   // Le contenu désigné est relu en base avant d'entrer dans la carte,
   // comme tout partage : le vivier vient du serveur, mais la carte doit

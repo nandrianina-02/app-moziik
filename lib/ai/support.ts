@@ -2,6 +2,7 @@ import { z } from "zod";
 import { demanderStructure } from "@/lib/ai/client";
 import { listeBornee, texteRequis } from "@/lib/ai/schema";
 import { articlesEnTexte, articlesPertinents, type ArticleRetenu } from "@/lib/ai/knowledge";
+import { contexteDuCompte, contexteEnTexte, faitsDuSite } from "@/lib/ai/contexte";
 
 /**
  * L'assistant du support.
@@ -50,7 +51,15 @@ export type EchangeSupport = { role: "user" | "assistant"; content: string };
 const REGLES = `Tu es l'assistant du support de {SITE}, une plateforme de streaming musical basée à Madagascar.
 
 CE QUE TU SAIS
-Tu ne réponds QU'À PARTIR des articles du centre d'aide reproduits ci-dessous. Ils font autorité. Si la réponse ne s'y trouve pas — même si tu crois la connaître — tu ne la donnes pas : tu mets escalade à true et tu annonces que l'équipe prend le relais. Un tarif, un délai, une procédure ou une adresse inventés seraient repris pour argent comptant par la personne en face.
+Trois sources, et rien d'autre :
+1. Les RÉGLAGES DU SITE ci-dessous — prix, devise, limites, taux de rémunération. Ils sont lus dans la configuration en vigueur : ils font autorité sur les chiffres, même contre un article qui dirait autrement.
+2. Les ARTICLES DU CENTRE D'AIDE ci-dessous. Ils font autorité sur les procédures.
+3. CE QUE TU SAIS DE LA PERSONNE, quand elle est connectée.
+
+Si la réponse n'est dans aucune des trois — même si tu crois la connaître — tu ne la donnes pas : tu mets escalade à true et tu annonces que l'équipe prend le relais. Un tarif, un délai, une procédure ou une adresse inventés seraient repris pour argent comptant par la personne en face.
+
+CE QUE TU FAIS DU CONTEXTE DE LA PERSONNE
+Tu t'en sers pour répondre juste, jamais pour te faire remarquer. « Le téléchargement hors ligne demande un abonnement Premium, et votre compte est en formule gratuite » est une bonne réponse ; réciter son statut, son échéance et son nombre de titres à quelqu'un qui demandait autre chose n'en est pas une. Tu ne cites un élément que s'il explique ta réponse.
 
 CE QUE TU NE FAIS PAS
 - Tu n'accordes ni remboursement, ni geste commercial, ni exception : ce sont des décisions de l'équipe. escalade = true.
@@ -80,6 +89,7 @@ export async function reponseDuSupport({
   siteName,
   compte,
   destinataire,
+  utilisateur,
 }: {
   /** Le dernier message du membre — celui auquel on répond. */
   question: string;
@@ -88,12 +98,28 @@ export async function reponseDuSupport({
   siteName: string;
   compte: string;
   destinataire: "membre" | "equipe";
+  /**
+   * Le compte de la personne dont on traite la demande.
+   *
+   * Distinct de `compte`, qui identifie l'appelant pour la cadence : côté
+   * administration, c'est un membre de l'équipe qui appelle, et le
+   * contexte à donner reste celui du membre dont on lit le fil.
+   */
+  utilisateur?: string | null;
 }): Promise<ReponseAssistant> {
-  const articles = await articlesPertinents(question);
+  // Les trois lectures sont indépendantes : les enchaîner ajouterait deux
+  // allers-retours à une réponse qu'on attend déjà quelques secondes.
+  const [articles, faits, contexte] = await Promise.all([
+    articlesPertinents(question),
+    faitsDuSite(),
+    contexteDuCompte(utilisateur),
+  ]);
 
   const systeme = [
     REGLES.replace("{SITE}", siteName),
     destinataire === "membre" ? TON_MEMBRE : TON_EQUIPE.replace("{SITE}", siteName),
+    "RÉGLAGES DU SITE EN VIGUEUR\n\n" + faits,
+    contexteEnTexte(contexte),
     "ARTICLES DU CENTRE D'AIDE\n\n" + articlesEnTexte(articles),
   ].join("\n\n");
 

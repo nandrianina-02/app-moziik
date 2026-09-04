@@ -54,6 +54,9 @@ export const POST = withApiErrors(async (req: Request, { params }: { params: { i
     siteName: config.siteName,
     compte: admin.id,
     destinataire: "equipe",
+    // L'appelant est l'administrateur, mais le contexte qui éclaire la
+    // question est celui du membre dont on lit le fil.
+    utilisateur: String(thread.user),
   });
 
   const brouillon = resultat.liens.length

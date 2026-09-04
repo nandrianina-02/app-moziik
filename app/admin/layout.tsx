@@ -15,6 +15,7 @@ import {
   Home,
   UploadCloud,
   LifeBuoy,
+  HelpCircle,
   Inbox,
   Sparkles,
   Wand2,
@@ -137,6 +138,13 @@ const links = [
     icon: LifeBuoy,
     titre: "Centre d'aide",
     description: "Les articles publiés sur la page d'aide publique.",
+  },
+  {
+    href: "/admin/escalades",
+    label: "Questions sans réponse",
+    icon: HelpCircle,
+    titre: "Questions sans réponse",
+    description: "Ce sur quoi l'assistant passe la main — et l'article qui manque.",
   },
   {
     href: "/admin/ia",

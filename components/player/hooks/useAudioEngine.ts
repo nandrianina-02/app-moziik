@@ -72,6 +72,21 @@ export function useAudioEngine() {
     }
   }, []);
 
+  /**
+   * Réveille le graphe s'il s'est endormi.
+   *
+   * Un AudioContext est suspendu par le navigateur quand l'onglet passe à
+   * l'arrière-plan, et il ne se rétablit pas seul. Or l'élément audio
+   * passe par ce graphe : suspendu, il joue dans le vide — la lecture
+   * paraît partie, rien n'en sort, et seul un geste la remet en route.
+   *
+   * Sans conséquence quand le graphe n'existe pas encore ou tourne déjà.
+   */
+  function reprendreContexte() {
+    const ctx = audioContextRef.current;
+    if (ctx && ctx.state === "suspended") void ctx.resume().catch(() => undefined);
+  }
+
   /** Doit être appelé après une interaction utilisateur (politique autoplay des navigateurs). */
   function ensureAudioGraph() {
     if (!audioRef.current || audioContextRef.current) return;
@@ -219,6 +234,7 @@ export function useAudioEngine() {
   return {
     audioRef,
     ensureAudioGraph,
+    reprendreContexte,
     setBassBoost,
     setPlaybackRate,
     setOutputDevice,

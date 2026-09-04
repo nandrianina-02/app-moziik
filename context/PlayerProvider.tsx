@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useContext, useEffect, useRef, useState } from "react";
+import { createContext, useCallback, useContext, useEffect, useRef, useState } from "react";
 import { usePathname } from "next/navigation";
 import { useAudioEngine } from "@/components/player/hooks/useAudioEngine";
 import {
@@ -275,6 +275,7 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
   const {
     audioRef,
     ensureAudioGraph,
+    reprendreContexte,
     setBassBoost: setEngineBassBoost,
     setPlaybackRate: setEnginePlaybackRate,
     setOutputDevice: setEngineOutputDevice,
@@ -467,7 +468,7 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
       "loadedmetadata",
       () => {
         audio.currentTime = instant;
-        if (jouait) audio.play().catch(() => undefined);
+        if (jouait) demarrerLecture(audio);
       },
       { once: true }
     );
@@ -546,6 +547,122 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
     if (acces.connecte) setQuotaEpuise(false);
   }, [acces.connecte]);
 
+  /**
+   * Démarre la lecture, et dit ce qui se passe quand elle ne démarre pas.
+   *
+   * POURQUOI CETTE FONCTION EXISTE
+   *
+   * `audio.play()` rend une promesse qui échoue plus souvent qu'on ne
+   * croit : source pas encore prête, chargement interrompu par une
+   * nouvelle source, politique de lecture automatique du navigateur. Six
+   * appels dans ce fichier l'écrasaient d'un `.catch(() => undefined)`.
+   * L'échec était donc invisible, et surtout **l'état React continuait
+   * d'affirmer que ça jouait** : le bouton montrait « pause », rien ne
+   * sortait, et il fallait appuyer sur pause puis sur play pour repartir.
+   * C'est exactement le défaut signalé en fin de morceau.
+   *
+   * CE QU'ELLE FAIT
+   *
+   * Elle attend la promesse. Si la lecture ne démarre pas parce que la
+   * source n'est pas encore prête — le cas de très loin le plus fréquent
+   * juste après un changement de morceau — elle retente une fois quand
+   * l'élément annonce qu'il peut jouer. Si elle échoue pour de bon, elle
+   * remet l'état en accord avec la réalité, de sorte qu'un seul appui
+   * suffise à repartir au lieu de deux.
+   */
+  const attenteCanPlayRef = useRef<(() => void) | null>(null);
+
+  const demarrerLecture = useCallback(
+    (audio: HTMLAudioElement) => {
+    // Le graphe a pu être suspendu pendant que l'onglet était derrière :
+    // l'élément jouerait alors dans le vide.
+    reprendreContexte();
+
+    // Une tentative précédente attend encore `canplay` : on la retire,
+    // sinon deux écouteurs relanceraient la lecture en double.
+    attenteCanPlayRef.current?.();
+    attenteCanPlayRef.current = null;
+
+    const relancer = () => {
+      const surPret = () => {
+        attenteCanPlayRef.current = null;
+        // La lecture peut avoir été arrêtée entre-temps : on ne repart
+        // pas contre la volonté de la personne.
+        if (!lectureVoulueRef.current) return;
+        audio.play().catch(() => {
+          // Second échec : ce n'est plus un problème de préparation.
+          lectureVoulueRef.current = false;
+          setIsPlaying(false);
+        });
+      };
+      audio.addEventListener("canplay", surPret, { once: true });
+      attenteCanPlayRef.current = () => audio.removeEventListener("canplay", surPret);
+    };
+
+    const promesse = audio.play();
+    // Les très vieux navigateurs ne rendent rien : il n'y a alors rien à
+    // surveiller, et l'absence de promesse n'est pas un échec.
+    if (!promesse) return;
+
+    promesse.catch((err: unknown) => {
+      const nom = err instanceof Error ? err.name : "";
+      // `AbortError` et `NotSupportedError` disent « pas encore prêt » :
+      // le chargement de la nouvelle source a interrompu l'appel. On
+      // attend que l'élément soit prêt, puis on retente.
+      if (nom === "AbortError" || nom === "NotSupportedError") {
+        relancer();
+        return;
+      }
+      // `NotAllowedError` : le navigateur refuse une lecture qu'aucun
+      // geste n'a demandée. Insister ne servirait à rien — on remet le
+      // bouton sur « lire », et l'appui suivant partira, lui, d'un geste.
+      //
+      // La trace est laissée exprès : c'est la seule façon de savoir, la
+      // prochaine fois, pourquoi un morceau n'a pas démarré. Elle a
+      // manqué pour diagnostiquer celui-ci.
+      console.warn(`[lecteur] démarrage refusé (${nom || "raison inconnue"})`);
+      lectureVoulueRef.current = false;
+      setIsPlaying(false);
+    });
+    },
+    [reprendreContexte]
+  );
+
+  /**
+   * Met l'état en accord avec ce que fait réellement l'élément audio.
+   *
+   * Jusqu'ici l'état commandait l'élément sans jamais l'observer : toute
+   * divergence — lecture refusée, source interrompue, coupure système —
+   * restait définitive, et l'interface continuait d'annoncer une lecture
+   * qui n'avait pas lieu. Il fallait alors appuyer sur pause *puis* sur
+   * play, le premier appui ne servant qu'à remettre les deux d'accord.
+   *
+   * Ces deux écouteurs sont la boucle de retour qui manquait. Ils ne
+   * commandent rien : ils constatent.
+   */
+  useEffect(() => {
+    const audio = audioRef.current;
+    if (!audio) return;
+
+    const surPlay = () => setIsPlaying(true);
+    const surPause = () => {
+      // Deux pauses ne disent rien de l'intention et ne doivent pas
+      // remonter : celle que le navigateur pose à la fin d'un morceau,
+      // et celle qu'entraîne le chargement de la source suivante. Les
+      // signaler ferait clignoter le bouton entre deux titres.
+      if (audio.ended) return;
+      if (lectureVoulueRef.current && audio.readyState < 2) return;
+      setIsPlaying(false);
+    };
+
+    audio.addEventListener("play", surPlay);
+    audio.addEventListener("pause", surPause);
+    return () => {
+      audio.removeEventListener("play", surPlay);
+      audio.removeEventListener("pause", surPause);
+    };
+  }, []);
+
   useEffect(() => {
     const audio = audioRef.current;
     if (!audio || !currentSong) return;
@@ -579,17 +696,33 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
     // transcodable) ne doit pas laisser un morceau muet : on retente une
     // fois sans demander de qualité particulière. Le serveur reste le
     // seul à décider ce qu'il sert.
+    // Une transformation qui échoue ne doit pas laisser un morceau muet.
+    // Le repli demande une qualité PLUS BASSE, et c'est le fond de
+    // l'affaire : l'ancien repli rappelait `/api/stream/<id>` sans
+    // paramètre, ce que le serveur interprète exactement comme la
+    // demande d'origine — il redemandait donc le fichier qui venait
+    // d'échouer. Un débit inférieur est un autre fichier, souvent déjà
+    // préparé chez l'hébergeur.
+    let repliTente = false;
     const onError = () => {
-      const repli = `/api/stream/${currentSong._id}`;
-      if (!audio.src.endsWith(repli)) {
-        audio.src = repli;
-        if (isPlaying) audio.play().catch(() => undefined);
-      }
+      if (repliTente) return;
+      repliTente = true;
+      audio.src = adresseEcoute(currentSong._id, "low");
+      audio.load();
+      if (lectureVoulueRef.current) demarrerLecture(audio);
     };
     audio.addEventListener("error", onError);
 
-    if (isPlaying) audio.play().catch(() => undefined);
-    return () => audio.removeEventListener("error", onError);
+    // `lectureVoulueRef` plutôt que `isPlaying` : l'état est celui du
+    // rendu qui a créé cet effet, la ref celui de l'instant. Entre les
+    // deux, un morceau qui s'enchaîne tout seul passe par un rendu où
+    // `isPlaying` n'est pas encore ce qu'on croit.
+    if (lectureVoulueRef.current || isPlaying) demarrerLecture(audio);
+    return () => {
+      audio.removeEventListener("error", onError);
+      attenteCanPlayRef.current?.();
+      attenteCanPlayRef.current = null;
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentSong?._id]);
 
@@ -894,6 +1027,11 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
   function avancerDUnCran() {
     if (repeatMode !== "all" && order.length > 1) consommerCourant();
     else setPosition((prev) => Math.min(prev + 1, order.length - 1));
+    // La ref, en plus de l'état : c'est elle que lit l'effet qui pose la
+    // source, et elle seule est à jour dans l'instant. Sans cette ligne,
+    // un morceau qui s'enchaîne après un « précédent » ou une reprise de
+    // file trouvait la ref à faux et ne démarrait pas.
+    lectureVoulueRef.current = true;
     setIsPlaying(true);
   }
 
@@ -984,7 +1122,10 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
     if (isPlaying) {
       audio.pause();
     } else {
-      audio.play().catch(() => undefined);
+      // La ref est posée AVANT l'appel : la reprise différée sur
+      // « canplay » la relit, et la trouverait encore à faux.
+      lectureVoulueRef.current = true;
+      demarrerLecture(audio);
     }
     lectureVoulueRef.current = !isPlaying;
     setIsPlaying(!isPlaying);
@@ -995,7 +1136,8 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
     if (repeatMode === "one" && audio) {
       audio.currentTime = 0;
       setProgress(0);
-      audio.play().catch(() => undefined);
+      lectureVoulueRef.current = true;
+      demarrerLecture(audio);
       setIsPlaying(true);
       return;
     }
@@ -1017,6 +1159,10 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
       return;
     }
     if (repeatMode === "all" && order.length > 0) {
+      // La ref comme partout ailleurs : c'est elle que lit l'effet qui
+      // pose la source, et se reposer sur `isPlaying` seul rendait le
+      // rebouclage dépendant de l'ordre des rendus.
+      lectureVoulueRef.current = true;
       setPosition(0);
       setIsPlaying(true);
       return;
@@ -1036,6 +1182,10 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
   }
 
   function playPrevious() {
+    // Revenir en arrière, c'est vouloir écouter : la ref le dit à l'effet
+    // qui posera la source, qui n'a pas accès à l'état de ce rendu.
+    lectureVoulueRef.current = true;
+
     // Comme sur la plupart des lecteurs : si on a déjà avancé dans le
     // morceau, "précédent" revient d'abord au début de celui-ci.
     if (progress > 3) {

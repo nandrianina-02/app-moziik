@@ -1,3 +1,4 @@
+import { memoCourt, oublier } from "@/lib/memoCourt";
 import { connectDB } from "@/lib/db";
 import HomepageSettingsModel from "@/models/HomepageSettings";
 
@@ -5,6 +6,15 @@ const HOMEPAGE_SETTINGS_ID = "000000000000000000000002";
 
 /** Lit les réglages de la homepage en base ; crée le document par défaut au premier appel. */
 export async function getHomepageSettings() {
+  return memoCourt("homepageSettings", lireHomepageSettings);
+}
+
+/** Vide la mémoire courte — après une écriture d'administration. */
+export function oublierHomepageSettings() {
+  oublier("homepageSettings");
+}
+
+async function lireHomepageSettings() {
   await connectDB();
   let settings = await HomepageSettingsModel.findById(HOMEPAGE_SETTINGS_ID);
 

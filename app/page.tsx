@@ -31,9 +31,12 @@ export default function HomePage() {
   // dessinée en entier presque tout de suite, chaque bloc remplaçant
   // ensuite son squelette. Auparavant, un seul appel bloquant maintenait
   // l'écran vide jusqu'à ce que la dernière section soit prête.
-  const { slots, hero, heroPending, starting, failed } = useHomepageStream();
+  const { slots, hero, heroPending, starting, failed, reprise } = useHomepageStream();
 
   useEffect(() => {
+    // `failed` n'est vrai que si l'écran est resté vide : une page reprise
+    // de l'instantané n'est pas une panne, et le bandeau ci-dessous suffit
+    // à dire que les données ne sont pas encore fraîches.
     if (failed) pushToast("error", "Impossible de charger la page d'accueil.");
   }, [failed, pushToast]);
 
@@ -97,6 +100,17 @@ export default function HomePage() {
           className="w-full bg-transparent text-sm text-ink placeholder:text-ink-muted outline-none"
         />
       </form>
+
+      {/* La page vient de l'instantané gardé sur l'appareil : elle est
+          lisible tout de suite, mais elle date de la dernière visite. Le
+          dire est le prix de l'affichage immédiat — sans cette ligne, on
+          présenterait des données d'hier comme fraîches. */}
+      {reprise && (
+        <p className="mb-4 flex items-center gap-2 text-xs text-ink-muted" role="status">
+          <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-accent" />
+          Affichage de votre dernière visite — mise à jour en cours…
+        </p>
+      )}
 
       <div className="grid grid-cols-1 gap-8 lg:grid-cols-[1fr_320px]">
         <div className="space-y-10 min-w-0">

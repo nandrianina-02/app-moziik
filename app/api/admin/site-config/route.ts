@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getSiteConfig } from "@/lib/siteConfig";
+import { getSiteConfig, oublierSiteConfig } from "@/lib/siteConfig";
 import { requireAdmin } from "@/lib/requireAdmin";
 import { ApiError, withApiErrors } from "@/lib/apiError";
 import { parseOrThrow, adminSiteConfigPatchSchema } from "@/lib/validation";
@@ -49,7 +49,10 @@ export const PATCH = withApiErrors(async (req: Request) => {
     "socialLinks",
   ];
 
-  const config = await getSiteConfig();
+  // `frais` : cette route modifie l'objet rendu puis l'enregistre. Partir
+  // d'une valeur mémorisée reviendrait à réécrire un document vieux d'une
+  // minute par-dessus des changements plus récents.
+  const config = await getSiteConfig({ frais: true });
   // getSiteConfig() retombe sur un objet simple (sans .save()) quand
   // MongoDB est injoignable (voir lib/siteConfig.ts) — un admin ne peut de
   // toute façon rien enregistrer durablement dans ce cas.
@@ -65,6 +68,10 @@ export const PATCH = withApiErrors(async (req: Request) => {
   }
   config.updatedAt = new Date();
   await config.save();
+  // Sans cet oubli, l'instance qui vient d'enregistrer continuerait de
+  // servir l'ancienne configuration jusqu'à une minute — et l'admin
+  // croirait que son changement n'a pas pris.
+  oublierSiteConfig();
 
   return NextResponse.json({ config });
 });

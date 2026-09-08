@@ -1,3 +1,4 @@
+import { oublierHomepageSettings } from "@/lib/homepageSettings";
 import { NextResponse } from "next/server";
 import { requireAdmin } from "@/lib/requireAdmin";
 import { withApiErrors } from "@/lib/apiError";
@@ -26,6 +27,7 @@ export const PATCH = withApiErrors(async (req: Request) => {
   }
   settings.updatedAt = new Date();
   await settings.save();
+  oublierHomepageSettings();
 
   return NextResponse.json({ settings });
 });

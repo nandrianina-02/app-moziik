@@ -1,3 +1,4 @@
+import { memoCourt, oublier, oublierPrefixe } from "@/lib/memoCourt";
 import { connectDB } from "@/lib/db";
 import HomepageSectionModel, { HomepageSectionType, SectionPage } from "@/models/HomepageSection";
 
@@ -169,6 +170,22 @@ async function insertMissing(docs: ReturnType<typeof toDocument>[]) {
 
 /** Lit la config des sections d'une page ; l'initialise avec les valeurs par défaut au premier appel. */
 export async function getHomepageSections(page: SectionPage = "home") {
+  return memoCourt(`homepageSections:${page}`, () => lireHomepageSections(page));
+}
+
+/**
+ * Vide la mémoire courte des sections.
+ *
+ * Sans argument, toutes les pages : l'administration réordonne parfois
+ * plusieurs pages d'un coup, et deviner lesquelles ont bougé coûterait
+ * plus que de tout relire une fois.
+ */
+export function oublierHomepageSections(page?: SectionPage) {
+  if (page) oublier(`homepageSections:${page}`);
+  else oublierPrefixe("homepageSections:");
+}
+
+async function lireHomepageSections(page: SectionPage = "home") {
   await connectDB();
   await Promise.all([backfillLegacyPage(), dropLegacyKeyIndex()]);
 

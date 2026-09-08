@@ -418,6 +418,25 @@ const EVENEMENTS_AU_HERO = 2;
  * Un seul contenu par diapositive, et aucun doublon : un titre déjà
  * épinglé ne revient pas comme « le plus populaire » deux écrans plus loin.
  */
+/**
+ * La bannière de tête.
+ *
+ * TOUT CE QUI PEUT PARTIR ENSEMBLE PART ENSEMBLE
+ *
+ * Cette fonction enchaînait cinq lectures en série : les épinglés, un par
+ * un, puis les évènements, puis la sortie récente, puis le titre le plus
+ * écouté, puis la playlist. Aucune ne dépend du résultat de la
+ * précédente. Depuis une fonction serverless, chaque aller-retour vers la
+ * base coûte quelques centaines de millisecondes : la bannière était donc
+ * la section la plus lente de l'accueil — huit secondes en mesure — alors
+ * qu'elle est la première chose qu'on regarde.
+ *
+ * L'ORDRE D'AFFICHAGE NE CHANGE PAS
+ *
+ * Les résultats sont attendus ensemble mais ajoutés dans le même ordre
+ * qu'avant : épinglés, évènements, nouveauté, populaire, playlist. La
+ * priorité de l'administration est préservée, seule l'attente disparaît.
+ */
 async function getHero(heroMode: "auto" | "manual", univers: Univers) {
   const diapos: Record<string, unknown>[] = [];
   const vus = new Set<string>();
@@ -432,11 +451,21 @@ async function getHero(heroMode: "auto" | "manual", univers: Univers) {
   };
 
   const pinned = await activePinnedForSection("hero");
-  // Une bannière épinglée hors de l'univers courant est passée plutôt
-  // qu'affichée : l'admin la pose pour l'un des deux publics, et la
-  // montrer à l'autre serait exactement le mélange qu'on évite.
-  for (const candidat of pinned) {
-    const resolved = await resolvePinnedContent(candidat);
+
+  // Les épinglés étaient résolus un par un ; ils le sont maintenant de
+  // front. Le tableau garde l'ordre choisi en administration, `Promise.all`
+  // le préservant.
+  const resolus = await Promise.all(
+    pinned.map(async (candidat) => ({
+      candidat,
+      resolved: await resolvePinnedContent(candidat),
+    }))
+  );
+
+  for (const { candidat, resolved } of resolus) {
+    // Une bannière épinglée hors de l'univers courant est passée plutôt
+    // qu'affichée : l'admin la pose pour l'un des deux publics, et la
+    // montrer à l'autre serait exactement le mélange qu'on évite.
     if (resolved && appartientALUnivers(resolved, univers)) {
       ajouter({ source: "pinned" as const, ...resolved }, candidat.contentId?.toString());
     }
@@ -444,23 +473,31 @@ async function getHero(heroMode: "auto" | "manual", univers: Univers) {
 
   if (heroMode === "manual") return diapos;
 
-  // Les évènements n'ont pas d'univers : ils s'adressent aux deux publics.
-  const evenements = await Event.find({
-    status: "published",
-    visibility: { $ne: "unlisted" },
-    date: { $gte: new Date() },
-  })
-    .populate("artist", "stageName verified")
-    .sort({ date: 1 })
-    .limit(EVENEMENTS_AU_HERO);
+  const since14 = new Date(Date.now() - 14 * DAY_MS);
+
+  const [evenements, recentImportant, mostPopular, trendingPlaylist] = await Promise.all([
+    // Les évènements n'ont pas d'univers : ils s'adressent aux deux publics.
+    Event.find({
+      status: "published",
+      visibility: { $ne: "unlisted" },
+      date: { $gte: new Date() },
+    })
+      .populate("artist", "stageName verified")
+      .sort({ date: 1 })
+      .limit(EVENEMENTS_AU_HERO),
+    Song.findOne({ status: "published", univers, releaseDate: { $gte: since14 } })
+      .populate("artist", "stageName verified")
+      .sort({ playsCount: -1 }),
+    Song.findOne({ status: "published", univers })
+      .populate("artist", "stageName verified")
+      .sort({ playsCount: -1 }),
+    Playlist.findOne({ isPublic: true, univers }).sort({ followers: -1 }),
+  ]);
+
   for (const event of evenements) {
     ajouter({ source: "event" as const, contentType: "event" as const, event }, event._id.toString());
   }
 
-  const since14 = new Date(Date.now() - 14 * DAY_MS);
-  const recentImportant = await Song.findOne({ status: "published", univers, releaseDate: { $gte: since14 } })
-    .populate("artist", "stageName verified")
-    .sort({ playsCount: -1 });
   if (recentImportant) {
     ajouter(
       { source: "new_release" as const, contentType: "song" as const, song: recentImportant },
@@ -468,9 +505,6 @@ async function getHero(heroMode: "auto" | "manual", univers: Univers) {
     );
   }
 
-  const mostPopular = await Song.findOne({ status: "published", univers })
-    .populate("artist", "stageName verified")
-    .sort({ playsCount: -1 });
   if (mostPopular) {
     ajouter(
       { source: "popular" as const, contentType: "song" as const, song: mostPopular },
@@ -478,7 +512,6 @@ async function getHero(heroMode: "auto" | "manual", univers: Univers) {
     );
   }
 
-  const trendingPlaylist = await Playlist.findOne({ isPublic: true, univers }).sort({ followers: -1 });
   if (trendingPlaylist) {
     ajouter(
       { source: "playlist" as const, contentType: "playlist" as const, playlist: trendingPlaylist },

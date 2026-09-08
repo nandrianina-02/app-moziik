@@ -1,7 +1,9 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { useSession } from "next-auth/react";
 import { memoriserManuellement } from "@/lib/offlineApi";
+import { cleInstantane, ecrireInstantane, lireInstantane } from "@/lib/instantane";
 import { readNdjson } from "@/lib/readNdjson";
 import { useUnivers } from "@/context/UniversProvider";
 import { useMode } from "@/context/ModeProvider";
@@ -28,9 +30,28 @@ type State = {
   /** Vrai tant que la liste des sections n'est pas connue. */
   starting: boolean;
   failed: boolean;
+  /**
+   * L'écran affiche ce qu'on avait gardé, et le réseau travaille encore.
+   *
+   * Distinct de `starting` : la page est complète et utilisable, mais ce
+   * qu'elle montre date de la dernière visite. C'est ce que l'interface
+   * signale discrètement, plutôt que de laisser croire à des données
+   * fraîches.
+   */
+  reprise: boolean;
 };
 
-const INITIAL: State = { slots: [], hero: null, heroPending: true, starting: true, failed: false };
+const INITIAL: State = {
+  slots: [],
+  hero: null,
+  heroPending: true,
+  starting: true,
+  failed: false,
+  reprise: false,
+};
+
+/** Ce qu'on garde d'une visite à l'autre. Même forme que le repli non-streamé. */
+type Assemblage = { hero: unknown; sections: { key: string; title: string; data: unknown }[] };
 
 /**
  * Consomme un flux de sections NDJSON et publie chacune dès son arrivée.
@@ -55,12 +76,24 @@ export function useSectionStream(streamUrl: string, fallbackUrl: string) {
   // sont lus par le serveur dans des cookies, et les deux doivent
   // relancer le flux.
   const { mode, version: versionMode } = useMode();
+  // Plusieurs sections dépendent de qui regarde : l'instantané doit donc
+  // être rangé par compte, sinon un appareil partagé montrerait une
+  // seconde les recommandations du précédent.
+  const { data: session } = useSession();
+  const compte = session?.user?.id ?? "anonyme";
+
+  // L'instantané ne doit jamais écraser des données déjà arrivées du
+  // réseau : la lecture locale est rapide, mais rien ne garantit qu'elle
+  // finisse la première.
+  const reseauArrive = useRef(false);
 
   useEffect(() => {
     // Repartir des squelettes plutôt que de laisser les sections de
     // l'univers précédent à l'écran pendant que les nouvelles arrivent.
     setState(INITIAL);
+    reseauArrive.current = false;
     let cancelled = false;
+    const cle = cleInstantane(["sections", streamUrl, univers, mode, compte]);
     // Quitter la page doit interrompre le flux : sans cela le serveur
     // continue de calculer et d'émettre des sections que plus personne
     // n'affiche, jusqu'à la fin de la réponse.
@@ -72,18 +105,47 @@ export function useSectionStream(streamUrl: string, fallbackUrl: string) {
 
     // Assemblage tenu au fil de l'eau, indépendamment de React : lire
     // l'état juste après la fin du flux le prendrait en retard d'un rendu.
-    const assemblage: { hero: unknown; sections: { key: string; title: string; data: unknown }[] } = {
-      hero: null,
-      sections: [],
-    };
+    const assemblage: Assemblage = { hero: null, sections: [] };
+
+    /** Affiche ce qui a été gardé, tant que rien de frais n'est arrivé. */
+    function reprendre(garde: Assemblage) {
+      if (cancelled || reseauArrive.current) return;
+      if (garde.sections.length === 0) return;
+      apply(() => ({
+        starting: false,
+        failed: false,
+        reprise: true,
+        hero: garde.hero,
+        // Le héros est considéré comme prêt : garder son squelette
+        // au-dessus d'une page complète serait le seul endroit qui
+        // clignote, et c'est le plus visible de tous.
+        heroPending: false,
+        slots: garde.sections.map((s) => ({
+          key: s.key,
+          title: s.title,
+          status: "ready" as const,
+          data: s.data,
+        })),
+      }));
+    }
 
     function handle(event: StreamEvent) {
       switch (event.type) {
         case "meta":
+          reseauArrive.current = true;
           apply((prev) => ({
             ...prev,
             starting: false,
-            slots: event.sections.map((s) => ({ key: s.key, title: s.title, status: "pending", data: null })),
+            // Une section déjà affichée depuis l'instantané garde son
+            // contenu jusqu'à ce que la version fraîche arrive. La
+            // remettre en squelette ferait clignoter une page qui était
+            // déjà lisible — c'est-à-dire annuler tout le bénéfice.
+            slots: event.sections.map((s) => {
+              const repris = prev.reprise ? prev.slots.find((x) => x.key === s.key) : undefined;
+              return repris
+                ? { ...repris, title: s.title }
+                : { key: s.key, title: s.title, status: "pending" as const, data: null };
+            }),
           }));
           break;
         case "hero":
@@ -108,6 +170,7 @@ export function useSectionStream(streamUrl: string, fallbackUrl: string) {
         case "end":
           apply((prev) => ({
             ...prev,
+            reprise: false,
             heroPending: false,
             slots: prev.slots.filter((slot) => slot.status === "ready"),
           }));
@@ -121,14 +184,17 @@ export function useSectionStream(streamUrl: string, fallbackUrl: string) {
       // soit l'univers alors actif. Sans réseau, il n'y a rien d'autre à
       // servir — et une page vide serait pire qu'une page de l'autre bord.
       if (!res.ok) throw new Error("Chargement impossible.");
-      const data = (await res.json()) as { hero: unknown; sections: { key: string; title: string; data: unknown }[] };
+      const data = (await res.json()) as Assemblage;
+      reseauArrive.current = true;
       apply(() => ({
         starting: false,
         failed: false,
+        reprise: false,
         hero: data.hero,
         heroPending: false,
         slots: data.sections.map((s) => ({ key: s.key, title: s.title, status: "ready", data: s.data })),
       }));
+      void ecrireInstantane(cle, data);
     }
 
     /**
@@ -140,6 +206,10 @@ export function useSectionStream(streamUrl: string, fallbackUrl: string) {
     function archiver() {
       if (assemblage.sections.length === 0) return;
       memoriserManuellement(fallbackUrl, assemblage);
+      // Le même contenu, rangé une seconde fois sous une clé qui porte
+      // l'univers, le mode et le compte : c'est ce que la prochaine
+      // visite affichera avant même d'ouvrir le flux.
+      void ecrireInstantane(cle, assemblage);
     }
 
     async function run() {
@@ -155,11 +225,27 @@ export function useSectionStream(streamUrl: string, fallbackUrl: string) {
         try {
           await loadWhole();
         } catch {
-          if (!cancelled) apply((prev) => ({ ...prev, starting: false, heroPending: false, failed: true }));
+          // `failed` seulement si l'écran est vide : une page reprise de
+          // l'instantané reste préférable à un message d'erreur, et le
+          // bandeau de reprise dit déjà que les données ne sont pas
+          // fraîches.
+          if (!cancelled) {
+            apply((prev) => ({
+              ...prev,
+              starting: false,
+              heroPending: false,
+              failed: prev.slots.length === 0,
+            }));
+          }
         }
       }
     }
 
+    // Les deux partent ensemble. Celui qui arrive le premier s'affiche,
+    // et l'instantané s'efface de lui-même à mesure que le frais arrive.
+    void lireInstantane<Assemblage>(cle).then((garde) => {
+      if (garde) reprendre(garde.valeur);
+    });
     run();
     return () => {
       cancelled = true;
@@ -167,7 +253,7 @@ export function useSectionStream(streamUrl: string, fallbackUrl: string) {
     };
     // `univers` figure ici avec `version` : le premier couvre la lecture
     // initiale du cookie, le second les bascules qui suivent.
-  }, [streamUrl, fallbackUrl, version, univers, versionMode, mode]);
+  }, [streamUrl, fallbackUrl, version, univers, versionMode, mode, compte]);
 
   return state;
 }

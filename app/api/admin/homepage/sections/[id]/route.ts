@@ -1,3 +1,4 @@
+import { oublierHomepageSections } from "@/lib/homepageSections";
 import { NextResponse } from "next/server";
 import { connectDB } from "@/lib/db";
 import HomepageSection from "@/models/HomepageSection";
@@ -24,6 +25,7 @@ export const PATCH = withApiErrors(async (req: Request, { params }: { params: { 
   }
   section.updatedAt = new Date();
   await section.save();
+  oublierHomepageSections();
 
   return NextResponse.json({ section });
 });
@@ -41,6 +43,7 @@ export const DELETE = withApiErrors(async (req: Request, { params }: { params: {
 
   await HomepagePinned.deleteMany({ section: section.slug ?? section.key });
   await section.deleteOne();
+  oublierHomepageSections();
 
   return NextResponse.json({ success: true });
 });

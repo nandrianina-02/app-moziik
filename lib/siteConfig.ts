@@ -1,3 +1,4 @@
+import { memoCourt, oublier } from "@/lib/memoCourt";
 import { connectDB } from "@/lib/db";
 import SiteConfigModel from "@/models/SiteConfig";
 import { defaultSiteConfig } from "@/config/site";
@@ -78,7 +79,26 @@ function fallbackSiteConfig() {
  * plutôt que de lever — appelé depuis `generateMetadata` (layout racine),
  * une exception ici ferait échouer le rendu de toute page de l'app.
  */
-export async function getSiteConfig() {
+export async function getSiteConfig(options?: { frais?: boolean }) {
+  // La route d'administration modifie l'objet rendu puis l'enregistre :
+  // elle doit donc partir d'une lecture fraîche, sinon elle sauvegarderait
+  // un document vieux d'une minute par-dessus des changements plus
+  // récents. Tous les autres appelants se contentent de lire.
+  if (options?.frais) {
+    oublier(CLE_MEMO);
+    return lireSiteConfig();
+  }
+  return memoCourt(CLE_MEMO, lireSiteConfig);
+}
+
+/** Vide la mémoire courte — après une écriture. */
+export function oublierSiteConfig() {
+  oublier(CLE_MEMO);
+}
+
+const CLE_MEMO = "siteConfig";
+
+async function lireSiteConfig() {
   try {
     await connectDB();
   } catch (err) {

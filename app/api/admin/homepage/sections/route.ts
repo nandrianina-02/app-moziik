@@ -1,3 +1,4 @@
+import { oublierHomepageSections } from "@/lib/homepageSections";
 import { NextResponse } from "next/server";
 import { connectDB } from "@/lib/db";
 import HomepageSection from "@/models/HomepageSection";
@@ -17,6 +18,9 @@ export const PATCH = withApiErrors(async (req: Request) => {
   await Promise.all(
     order.map(({ id, position }) => HomepageSection.findByIdAndUpdate(id, { position, updatedAt: new Date() }))
   );
+  // Le réordonnancement compte autant qu'une création : sans cet oubli,
+  // l'accueil garderait l'ancien ordre jusqu'à une minute.
+  oublierHomepageSections();
 
   const sections = await HomepageSection.find({ page }).sort({ position: 1 });
   return NextResponse.json({ sections });
@@ -56,6 +60,9 @@ export const POST = withApiErrors(async (req: Request) => {
     limit: limit && limit > 0 ? limit : 8,
     filters: { publicOnly: true, verifiedOnly: false, premiumOnly: false },
   });
+  // Les sections viennent de changer : l'accueil doit les voir tout de
+  // suite, pas à l'expiration de la mémoire courte.
+  oublierHomepageSections();
 
   return NextResponse.json({ section }, { status: 201 });
 });

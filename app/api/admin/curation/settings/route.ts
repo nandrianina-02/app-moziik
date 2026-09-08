@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getSiteConfig } from "@/lib/siteConfig";
+import { getSiteConfig, oublierSiteConfig } from "@/lib/siteConfig";
 import { requireAdmin } from "@/lib/requireAdmin";
 import { ApiError, withApiErrors } from "@/lib/apiError";
 import { parseOrThrow, adminCurationSettingsSchema } from "@/lib/validation";
@@ -44,7 +44,10 @@ export const PATCH = withApiErrors(async (req: Request) => {
   await requireAdmin(req);
   const updates = parseOrThrow(adminCurationSettingsSchema, await req.json());
 
-  const config = await getSiteConfig();
+  // `frais` : cette route modifie l'objet rendu puis l'enregistre. Une
+  // valeur mémorisée ferait réécrire un document vieux d'une minute
+  // par-dessus des changements plus récents.
+  const config = await getSiteConfig({ frais: true });
   if (!("save" in config)) {
     throw new ApiError("Base de données indisponible : impossible d'enregistrer les réglages.", 503);
   }
@@ -59,6 +62,7 @@ export const PATCH = withApiErrors(async (req: Request) => {
   };
   config.updatedAt = new Date();
   await config.save();
+  oublierSiteConfig();
 
   return NextResponse.json({ reglages: config.curation });
 });

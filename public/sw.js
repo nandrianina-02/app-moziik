@@ -21,7 +21,10 @@
 //   La mise en cache des données se fait côté page, indexée par compte
 //   (voir lib/offlineApi.ts).
 
-const VERSION = "v6";
+// v7 : les pochettes sont désormais demandées en AVIF et à une qualité
+// plus basse, donc sous d'autres adresses — les entrées v6 ne seraient
+// jamais relues et occuperaient la place des nouvelles.
+const VERSION = "v7";
 const COQUILLE = `moziik-shell-${VERSION}`;
 const PAGES = `moziik-pages-${VERSION}`;
 const IMAGES = `moziik-images-${VERSION}`;
@@ -211,9 +214,36 @@ self.addEventListener("fetch", (event) => {
   //
   // Cache d'abord, réseau ensuite : un morceau déjà sur l'appareil n'a
   // aucune raison d'être redemandé, même en ligne.
+  //
+  // Et à défaut de l'adresse exacte, N'IMPORTE QUELLE qualité du même
+  // morceau. L'adresse porte la qualité en paramètre (`?q=high`) : sans
+  // ce repli, changer de réglage — ou simplement quitter le Wi-Fi, ce que
+  // l'économie de données fait toute seule — manquait le cache et
+  // retéléchargeait plusieurs dizaines de mégaoctets d'un morceau déjà
+  // stocké sur l'appareil. Exactement ce qu'on cherchait à éviter.
+  //
+  // Le prix à payer : un morceau téléchargé en 64 kb/s continue de se
+  // jouer en 64 kb/s même après un passage en « haute qualité ». C'est le
+  // bon arbitrage — le fichier est là, il a été demandé, et le
+  // retélécharger en silence sur un forfait mobile serait pire que de
+  // l'entendre tel qu'il a été enregistré. Pour l'améliorer, on le
+  // resupprime et on le retélécharge depuis la bibliothèque.
   if (url.pathname.startsWith("/api/stream/")) {
     event.respondWith(
-      chercher(MEDIAS, request).then((c) => c || fetch(request).catch(() => Response.error()))
+      (async () => {
+        const exact = await chercher(MEDIAS, request);
+        if (exact) return exact;
+        const cache = await ouvrir(MEDIAS);
+        if (cache) {
+          try {
+            const autreQualite = await cache.match(request, { ignoreSearch: true });
+            if (autreQualite) return autreQualite;
+          } catch {
+            /* le cache peut se dérober : on ira au réseau */
+          }
+        }
+        return fetch(request).catch(() => Response.error());
+      })()
     );
     return;
   }

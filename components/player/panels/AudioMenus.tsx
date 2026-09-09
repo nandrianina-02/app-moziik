@@ -1,11 +1,12 @@
 "use client";
 
-import { Check, Flame, Gauge, Moon, SignalHigh } from "lucide-react";
+import { Check, Flame, Gauge, Leaf, Moon, SignalHigh } from "lucide-react";
 import { ContextMenuShell } from "@/components/ui/ContextMenuShell";
 import type { MenuAnchor } from "@/components/ui/useClampedMenuPosition";
 import { NIVEAUX_BASS } from "@/components/player/constants/bassBoost";
 import { usePlayer, VITESSES } from "@/context/PlayerProvider";
 import type { AudioQuality } from "@/lib/offlineSettings";
+import { MODES_ECONOMIE } from "@/lib/economieDonnees";
 import Link from "next/link";
 import { useAcces } from "@/context/AccesProvider";
 import { qualiteMaximale } from "@/lib/acces";
@@ -112,7 +113,8 @@ const QUALITES: { id: AudioQuality; titre: string; detail: string }[] = [
 ];
 
 export function QualityMenu({ anchor, onClose }: { anchor: MenuAnchor; onClose: () => void }) {
-  const { audioQuality, setAudioQuality } = usePlayer();
+  const { audioQuality, setAudioQuality, economieDonnees, setEconomieDonnees, economieEnCours } =
+    usePlayer();
   const acces = useAcces();
 
   // Le plafond est le même que celui appliqué à l'URL réellement lue : le
@@ -121,7 +123,7 @@ export function QualityMenu({ anchor, onClose }: { anchor: MenuAnchor; onClose: 
   const rang = { low: 0, medium: 1, high: 2 };
 
   return (
-    <ContextMenuShell anchor={anchor} onClose={onClose} width={264}>
+    <ContextMenuShell anchor={anchor} onClose={onClose} width={272}>
       <EnTete icon={SignalHigh} titre="Qualité audio" />
       {QUALITES.map((q) => {
         const verrouille = rang[q.id] > rang[plafond];
@@ -150,9 +152,34 @@ export function QualityMenu({ anchor, onClose }: { anchor: MenuAnchor; onClose: 
         </Link>
       )}
 
+      {/* Dire ce qui sort réellement du haut-parleur.
+          Une qualité rabaissée sans explication ressemble à une panne — et
+          c'est le reproche qu'on ferait, à raison, à une économie de
+          données silencieuse. */}
+      {economieEnCours && audioQuality !== "low" && (
+        <p className="flex items-start gap-1.5 border-t border-border bg-accent/5 px-4 py-2 text-[11px] leading-snug text-accent">
+          <Leaf size={12} className="mt-0.5 shrink-0" />
+          <span>Économie de données active : la lecture est en 64 kb/s pour le moment.</span>
+        </p>
+      )}
+
+      <EnTete icon={Leaf} titre="Économie de données" />
+      {MODES_ECONOMIE.map((m) => (
+        <Option
+          key={m.id}
+          actif={economieDonnees === m.id}
+          titre={m.titre}
+          detail={m.detail}
+          onClick={() => {
+            setEconomieDonnees(m.id);
+            onClose();
+          }}
+        />
+      ))}
+
       <p className="border-t border-border px-4 pb-1.5 pt-2 text-[10px] leading-snug text-ink-muted">
-        S&apos;applique à l&apos;écoute en ligne et aux prochains téléchargements.
-        Hors-ligne, les morceaux déjà enregistrés gardent leur qualité d&apos;origine.
+        Une heure d&apos;écoute coûte environ 58 Mo en 128 kb/s, 29 Mo en 64 kb/s. Les morceaux
+        déjà téléchargés gardent la qualité de leur téléchargement et ne consomment rien.
       </p>
     </ContextMenuShell>
   );

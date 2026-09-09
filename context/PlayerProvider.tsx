@@ -22,6 +22,16 @@ import { useOnlineStatus } from "@/context/OnlineStatusProvider";
 import { useUnivers } from "@/context/UniversProvider";
 import { useAcces } from "@/context/AccesProvider";
 import { limiterQualite } from "@/lib/acces";
+import {
+  economieActive,
+  lireReseau,
+  qualiteEconome,
+  surChangementReseau,
+  MODE_ECONOMIE_PAR_DEFAUT,
+  RESEAU_INCONNU,
+  type EtatReseau,
+  type ModeEconomie,
+} from "@/lib/economieDonnees";
 import { adresseEcoute } from "@/lib/audioSource";
 import { useMode } from "@/context/ModeProvider";
 import { morceauxSuivants } from "@/lib/playbackContinuation";
@@ -153,6 +163,18 @@ type PlayerContextValue = {
   setPlaybackRate: (rate: number) => void;
   audioQuality: AudioQuality;
   setAudioQuality: (quality: AudioQuality) => void;
+  /** Le réglage : « auto », « toujours », « jamais ». */
+  economieDonnees: ModeEconomie;
+  setEconomieDonnees: (mode: ModeEconomie) => void;
+  /**
+   * L'économie s'applique-t-elle en ce moment ?
+   *
+   * Exposé séparément du réglage parce que « auto » ne dit pas, à lui
+   * seul, ce qui sort du haut-parleur. L'interface doit pouvoir
+   * l'annoncer : une qualité rabaissée sans explication ressemble à une
+   * panne.
+   */
+  economieEnCours: boolean;
   /**
    * Le visiteur non connecté a épuisé son quota d'écoute du jour.
    *
@@ -318,6 +340,11 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
   const [bassBoost, setBassBoostState] = useState<NiveauBass>(NIVEAU_BASS_PAR_DEFAUT);
   const [playbackRate, setPlaybackRateState] = useState(1);
   const [audioQuality, setAudioQualityState] = useState<AudioQuality>("high");
+  const [economieDonnees, setEconomieDonneesState] = useState<ModeEconomie>(MODE_ECONOMIE_PAR_DEFAUT);
+  // Relu à chaque changement de connexion : passer du Wi-Fi aux données
+  // mobiles en pleine écoute est précisément le cas qui coûte cher.
+  const [reseau, setReseau] = useState<EtatReseau>(RESEAU_INCONNU);
+  const economieEnCours = economieActive(economieDonnees, reseau);
   const [sleepEndsAt, setSleepEndsAt] = useState<number | null>(null);
   const [sleepRemainingMs, setSleepRemainingMs] = useState<number | null>(null);
   const [sleepAfterTrack, setSleepAfterTrack] = useState(false);
@@ -384,10 +411,35 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
       setEnginePlaybackRate(rate);
     }
     getOfflineSettings()
-      .then((s) => setAudioQualityState(s.audioQuality))
+      .then((s) => {
+        setAudioQualityState(s.audioQuality);
+        setEconomieDonneesState(s.economieDonnees);
+      })
       .catch(() => undefined);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // L'état du réseau, lu au démarrage puis à chaque changement annoncé.
+  useEffect(() => {
+    const relire = () => setReseau(lireReseau());
+    relire();
+    return surChangementReseau(relire);
+  }, []);
+
+  /**
+   * Bascule le flux en cours quand l'économie s'active ou se désactive.
+   *
+   * Uniquement sur un changement réel : sans cette comparaison, chaque
+   * rendu du lecteur — il y en a un par seconde, pour la barre de
+   * progression — relancerait la source et hacherait la lecture.
+   */
+  const economieAppliquee = useRef(economieEnCours);
+  useEffect(() => {
+    if (economieAppliquee.current === economieEnCours) return;
+    economieAppliquee.current = economieEnCours;
+    rechargerSource(audioQuality, economieEnCours);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [economieEnCours]);
 
   function setBassBoost(niveau: NiveauBass) {
     setBassBoostState(niveau);
@@ -441,29 +493,36 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
    * téléchargement — changer l'URL ferait manquer le cache et rendrait
    * muet un morceau pourtant disponible.
    */
-  function sourceAudio(song: PlayableSong, quality: AudioQuality) {
+  function sourceAudio(song: PlayableSong, quality: AudioQuality, economise = economieEnCours) {
     // Hors-ligne, on lit ce que le cache a rangé, à l'adresse exacte
     // demandée au téléchargement.
     if (typeof navigator !== "undefined" && !navigator.onLine) return song.audioUrl;
 
-    // Le plafond est appliqué des deux côtés : ici pour ne pas demander
-    // une qualité qu'on n'aura pas, et sur le serveur parce que lui seul
-    // fait foi (le navigateur, on peut lui faire dire n'importe quoi).
-    return adresseEcoute(song._id, limiterQualite(quality, acces));
+    // Deux plafonds, dans cet ordre, et ils ne disent pas la même chose :
+    // l'abonnement borne ce à quoi on a droit, l'économie de données
+    // borne ce qu'on accepte de payer. Un abonné en 3G descend donc bien
+    // à 64 kb/s, ce que le seul plafond d'abonnement n'aurait jamais fait.
+    //
+    // Le serveur reste seul juge du premier (le navigateur, on peut lui
+    // faire dire n'importe quoi) ; le second est une demande du client,
+    // et il n'y a rien à y contrôler — personne ne triche pour consommer
+    // moins.
+    const permise = limiterQualite(quality, acces);
+    return adresseEcoute(song._id, qualiteEconome(permise, economise));
   }
 
-  async function setAudioQuality(quality: AudioQuality) {
-    setAudioQualityState(quality);
-    await setOfflineSettings({ audioQuality: quality }).catch(() => undefined);
-
-    // Recharge le flux à la nouvelle qualité sans perdre la position ni
-    // l'état de lecture : sinon le morceau repart de zéro à chaque
-    // changement de réglage.
+  /**
+   * Recharge le flux sans perdre la position ni l'état de lecture.
+   *
+   * Sans cela, changer de qualité — à la main ou parce qu'on vient de
+   * quitter le Wi-Fi — ferait repartir le morceau de zéro.
+   */
+  function rechargerSource(quality: AudioQuality, economise: boolean) {
     const audio = audioRef.current;
     if (!audio || !currentSong) return;
     const instant = audio.currentTime;
     const jouait = !audio.paused;
-    audio.src = sourceAudio(currentSong, quality);
+    audio.src = sourceAudio(currentSong, quality, economise);
     audio.addEventListener(
       "loadedmetadata",
       () => {
@@ -472,6 +531,22 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
       },
       { once: true }
     );
+  }
+
+  async function setAudioQuality(quality: AudioQuality) {
+    setAudioQualityState(quality);
+    await setOfflineSettings({ audioQuality: quality }).catch(() => undefined);
+    rechargerSource(quality, economieEnCours);
+  }
+
+  async function setEconomieDonnees(mode: ModeEconomie) {
+    // Pas de `rechargerSource` ici : changer le mode change
+    // `economieEnCours`, et c'est l'effet qui surveille cette valeur qui
+    // recharge — une seule fois, et seulement si le résultat change
+    // vraiment. Passer d'« auto » à « jamais » sur du Wi-Fi ne doit rien
+    // relancer du tout.
+    setEconomieDonneesState(mode);
+    await setOfflineSettings({ economieDonnees: mode }).catch(() => undefined);
   }
 
   useEffect(() => {
@@ -1468,6 +1543,9 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
         setPlaybackRate,
         audioQuality,
         setAudioQuality,
+        economieDonnees,
+        setEconomieDonnees,
+        economieEnCours,
         quotaEpuise,
         ignorerQuota: () => setQuotaEpuise(false),
         sleepRemainingMs,

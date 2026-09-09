@@ -39,8 +39,10 @@ function PlaylistTile({ playlist }: { playlist: PlaylistCardData }) {
 
   return (
     <div>
+      {/* Sans préchargement : ce lien se répète à chaque élément de la liste, et Next tirerait sinon une charge de route par élément visible. */}
       <Link
         href={`/playlist/${playlist._id}`}
+        prefetch={false}
         className="group relative block aspect-[4/5] w-full overflow-hidden rounded-xl2 bg-surface"
         onContextMenu={(e) => {
           e.preventDefault();

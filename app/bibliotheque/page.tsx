@@ -17,6 +17,7 @@ import {
   Trash2,
   Wifi,
   Gauge,
+  Leaf,
   Plus,
   Sparkles,
 } from "lucide-react";
@@ -46,6 +47,7 @@ import {
   type OfflineSettings,
   type AudioQuality,
 } from "@/lib/offlineSettings";
+import type { ModeEconomie } from "@/lib/economieDonnees";
 import { useAsyncData, getJson } from "@/hooks/useAsyncData";
 import { useToast } from "@/context/ToastProvider";
 import { useIADisponible } from "@/context/SiteConfigProvider";
@@ -656,6 +658,29 @@ export default function LibraryPage() {
                       <option value="medium">Moyenne (128 kb/s)</option>
                       <option value="high">Élevée (320 kb/s)</option>
                     </select>
+                  </label>
+
+                  {/* L'économie porte sur l'écoute en continu, pas sur les
+                      téléchargements : un fichier rangé dans le cache l'est
+                      sous l'adresse de sa qualité, et la faire varier toute
+                      seule ferait retélécharger ce qui est déjà là. */}
+                  <label className="block">
+                    <span className="mb-1.5 flex items-center gap-1.5 text-sm text-ink-muted">
+                      <Leaf size={14} /> Économie de données (écoute en ligne)
+                    </span>
+                    <select
+                      value={settings.economieDonnees}
+                      onChange={(e) => updateSetting("economieDonnees", e.target.value as ModeEconomie)}
+                      className="w-full rounded-xl border border-border bg-base px-3.5 py-2 text-sm outline-none"
+                    >
+                      <option value="auto">Automatique — 64 kb/s hors Wi-Fi</option>
+                      <option value="toujours">Toujours — 64 kb/s en permanence</option>
+                      <option value="jamais">Jamais — garder la qualité choisie</option>
+                    </select>
+                    <span className="mt-1 block text-[11px] leading-snug text-ink-muted">
+                      Une heure d&apos;écoute coûte environ 58 Mo en 128 kb/s, contre 29 Mo en
+                      64 kb/s.
+                    </span>
                   </label>
                 </div>
               </section>

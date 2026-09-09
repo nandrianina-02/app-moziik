@@ -17,6 +17,26 @@ import { ImageOff } from "lucide-react";
  * wrapper supplémentaire, pour ne rien changer au DOM que les centaines
  * d'appels existants dans le projet peuvent supposer.
  */
+/**
+ * La qualité d'encodage, choisie d'après la taille demandée.
+ *
+ * Next encode à 75 par défaut, la même valeur pour une pastille d'avatar
+ * de 36 px et pour une bannière de 1600. Mesuré sur une pochette du
+ * catalogue, à 256 px de large : 17,7 ko à q75, 15,1 ko à q60 — quinze
+ * pour cent, invisibles à cette taille, où l'image est de toute façon
+ * réduite à quelques centimètres.
+ *
+ * Plus l'image est grande, plus elle est regardée : le seuil monte donc
+ * avec la largeur, et une grande image garde une qualité proche du
+ * défaut. Un appelant qui a une raison de trancher autrement passe
+ * `quality` explicitement.
+ */
+function qualiteParDefaut(width: number): number {
+  if (width <= 128) return 55;
+  if (width <= 384) return 62;
+  return 70;
+}
+
 export function SafeImage({
   src,
   alt,
@@ -24,6 +44,7 @@ export function SafeImage({
   height,
   className,
   priority,
+  quality,
 }: {
   src?: string | null;
   alt: string;
@@ -31,6 +52,8 @@ export function SafeImage({
   height: number;
   className?: string;
   priority?: boolean;
+  /** Force la qualité d'encodage. Par défaut, elle suit la largeur. */
+  quality?: number;
 }) {
   const [loaded, setLoaded] = useState(false);
 
@@ -53,6 +76,7 @@ export function SafeImage({
       height={height}
       className={`${className ?? ""} ${loaded ? "" : "animate-shimmer bg-surface"}`}
       priority={priority}
+      quality={quality ?? qualiteParDefaut(width)}
       onLoad={() => setLoaded(true)}
     />
   );

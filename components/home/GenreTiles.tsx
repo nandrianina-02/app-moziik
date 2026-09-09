@@ -19,10 +19,12 @@ const palette = [
 export function GenreTiles({ genres }: { genres: { genre: string; count: number }[] }) {
   return (
     <div className="stagger grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6">
+      {/* Sans préchargement : ce lien se répète à chaque élément de la liste, et Next tirerait sinon une charge de route par élément visible. */}
       {genres.map((g, i) => (
         <Link
           key={g.genre}
           href={`/titres?genre=${encodeURIComponent(g.genre)}`}
+          prefetch={false}
           className={`group relative flex aspect-[16/10] flex-col justify-between overflow-hidden rounded-xl2 bg-gradient-to-br p-3.5 text-white shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg ${
             palette[i % palette.length]
           }`}

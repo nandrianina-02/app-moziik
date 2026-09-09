@@ -5,6 +5,17 @@ const nextConfig = {
       { protocol: "https", hostname: "res.cloudinary.com" },
       { protocol: "https", hostname: "lh3.googleusercontent.com" },
     ],
+    // AVIF d'abord, WebP en repli. Next ne propose que le WebP par
+    // défaut ; l'AVIF retire encore un quart à un tiers du poids sur une
+    // pochette, et tout ce qui lit Moziik sait le décoder (Chrome 85,
+    // Firefox 93, Safari 16). Le navigateur qui ne l'annonce pas dans son
+    // en-tête `Accept` reçoit le WebP, sans que rien ait à le détecter.
+    //
+    // Le coût est côté serveur, pas côté visiteur : l'AVIF est plus long
+    // à encoder. Mais c'est un encodage par (image, largeur, qualité),
+    // mis en cache ensuite — un prix payé une fois pour des octets
+    // économisés à chaque affichage.
+    formats: ["image/avif", "image/webp"],
   },
   async headers() {
     // CSP volontairement permissive sur script/style/img/media/connect pour

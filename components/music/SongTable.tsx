@@ -105,9 +105,11 @@ function SongTableRow({
       <span className="hidden text-xs text-ink-muted sm:block">{formatTime(song.duration)}</span>
 
       <div className="flex shrink-0 items-center gap-1">
+        {/* Sans préchargement : ce lien se répète à chaque élément de la liste, et Next tirerait sinon une charge de route par élément visible. */}
         {albumTitle && albumId && (
           <Link
             href={`/album/${albumId}`}
+            prefetch={false}
             className="hidden max-w-[8rem] truncate text-xs text-ink-muted hover:text-accent md:block"
           >
             {albumTitle}

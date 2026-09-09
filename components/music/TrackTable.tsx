@@ -234,9 +234,11 @@ function TrackRow({
       </button>
 
       <span className="hidden min-w-0 lg:block">
+        {/* Sans préchargement : ce lien se répète à chaque élément de la liste, et Next tirerait sinon une charge de route par élément visible. */}
         {song.artist ? (
           <Link
             href={`/artiste/${song.artist._id}`}
+            prefetch={false}
             className="block truncate text-sm text-ink-muted transition-colors hover:text-ink"
           >
             {song.artist.stageName}
@@ -247,9 +249,11 @@ function TrackRow({
       </span>
 
       <span className="hidden min-w-0 lg:block">
+        {/* Sans préchargement : ce lien se répète à chaque élément de la liste, et Next tirerait sinon une charge de route par élément visible. */}
         {album?.id ? (
           <Link
             href={`/album/${album.id}`}
+            prefetch={false}
             className="block truncate text-sm text-ink-muted transition-colors hover:text-ink"
           >
             {album.title}

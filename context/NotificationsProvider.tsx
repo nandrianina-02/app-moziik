@@ -87,14 +87,33 @@ export function NotificationsProvider({ children }: { children: React.ReactNode 
     }
     refresh();
 
-    const interval = setInterval(refresh, POLL_INTERVAL_MS);
+    // Rien tant que l'onglet est caché — application en arrière-plan,
+    // écran éteint, onglet oublié. Le rafraîchissement au retour de focus
+    // juste en dessous rattrape tout ce qui a été manqué en une requête,
+    // là où le battement en dépensait cent vingt par heure pour un écran
+    // que personne ne regardait. C'est la règle que suivent déjà
+    // MessagesProvider, MessagerieClient et FilDiscussion ; celui-ci
+    // était le seul à y échapper.
+    const interval = setInterval(() => {
+      if (!document.hidden) refresh();
+    }, POLL_INTERVAL_MS);
     function handleFocus() {
       refresh();
     }
+    // `visibilitychange` en plus de `focus` : sur téléphone, revenir dans
+    // l'application depuis l'écran d'accueil ne déclenche pas toujours
+    // `focus`. Sans lui, suspendre le battement quand l'onglet est caché
+    // rendrait les notifications plus lentes au lieu de simplement moins
+    // coûteuses.
+    function handleVisibility() {
+      if (!document.hidden) refresh();
+    }
     window.addEventListener("focus", handleFocus);
+    document.addEventListener("visibilitychange", handleVisibility);
     return () => {
       clearInterval(interval);
       window.removeEventListener("focus", handleFocus);
+      document.removeEventListener("visibilitychange", handleVisibility);
     };
   }, [status, refresh]);
 

@@ -71,10 +71,12 @@ function annee(date?: string) {
 }
 
 /** Enveloppe commune : même largeur, même comportement au survol. */
+// Sans préchargement : ce lien se répète à chaque élément de la liste, et Next tirerait sinon une charge de route par élément visible.
 function Carte({ href, children }: { href: string; children: React.ReactNode }) {
   return (
     <Link
       href={href}
+      prefetch={false}
       className="group block w-40 shrink-0 rounded-xl2 border border-transparent p-2 transition-colors hover:border-border hover:bg-surface sm:w-44"
     >
       {children}

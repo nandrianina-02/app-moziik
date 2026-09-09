@@ -1,11 +1,21 @@
 "use client";
 
 import { idbGet, idbPut, STORES } from "@/lib/offlineDb";
+import { MODE_ECONOMIE_PAR_DEFAUT, type ModeEconomie } from "@/lib/economieDonnees";
 
 export type AudioQuality = "low" | "medium" | "high";
 
 export type OfflineSettings = {
   audioQuality: AudioQuality; // "low" = 64kb/s, "medium" = 128kb/s, "high" = 320kb/s
+  /**
+   * Plafonne l'écoute en continu à 64 kb/s selon la connexion.
+   *
+   * Distinct de `audioQuality`, et pas redondant avec lui : l'un dit ce
+   * qu'on veut entendre, l'autre ce qu'on accepte de payer pour
+   * l'entendre. Les fusionner obligerait à rebasculer le réglage à la
+   * main chaque fois qu'on quitte le Wi-Fi.
+   */
+  economieDonnees: ModeEconomie;
   wifiOnlyDownload: boolean;
   autoDownloadFavorites: boolean; // télécharge automatiquement les favoris et les 20 derniers sons écoutés
   storageLimitMB: number; // 0 = illimité
@@ -13,6 +23,7 @@ export type OfflineSettings = {
 
 export const DEFAULT_OFFLINE_SETTINGS: OfflineSettings = {
   audioQuality: "high",
+  economieDonnees: MODE_ECONOMIE_PAR_DEFAUT,
   wifiOnlyDownload: false,
   autoDownloadFavorites: false,
   storageLimitMB: 0,

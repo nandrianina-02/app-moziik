@@ -39,8 +39,10 @@ function AlbumTile({ album }: { album: AlbumCardData }) {
 
   return (
     <div>
+      {/* Sans préchargement : ce lien se répète à chaque élément de la liste, et Next tirerait sinon une charge de route par élément visible. */}
       <Link
         href={`/album/${album._id}`}
+        prefetch={false}
         className="group"
         onContextMenu={(e) => {
           e.preventDefault();

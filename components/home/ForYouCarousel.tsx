@@ -58,10 +58,12 @@ export function ForYouCarousel({ title, cards }: { title: string; cards: HubCard
       </div>
 
       <div ref={scrollerRef} className="flex snap-x snap-mandatory gap-4 overflow-x-auto pb-1 [scrollbar-width:none]">
+        {/* Sans préchargement : ce lien se répète à chaque élément de la liste, et Next tirerait sinon une charge de route par élément visible. */}
         {cards.map((card, index) => (
           <Link
             key={card._id}
             href={card.linkHref}
+            prefetch={false}
             className="group relative h-44 w-64 shrink-0 snap-start overflow-hidden rounded-xl2"
           >
             {card.coverUrl ? (

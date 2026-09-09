@@ -34,8 +34,10 @@ export function ArtistListItem({
 
   return (
     <div className="flex items-center gap-3 rounded-xl px-2 py-2 transition-colors hover:bg-surface">
+      {/* Sans préchargement : ce lien se répète à chaque élément de la liste, et Next tirerait sinon une charge de route par élément visible. */}
       <Link
         href={`/artiste/${artist._id}`}
+        prefetch={false}
         className="flex min-w-0 flex-1 items-center gap-3"
         onContextMenu={(e) => {
           e.preventDefault();

@@ -16,6 +16,7 @@ import { hasPremiumAccess } from "@/lib/premium";
 import { IHomepageSection, SectionPage } from "@/models/HomepageSection";
 import { UNIVERS_PAR_DEFAUT, type Univers } from "@/lib/univers";
 import { MODE_PAR_DEFAUT, type Mode } from "@/lib/modes";
+import { auCache, estPartageable } from "@/lib/cacheSections";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
@@ -732,6 +733,8 @@ type SectionContext = {
   viewer: HomepageViewer;
   /** Univers musical de ce visiteur : il filtre absolument toutes les sections. */
   univers: Univers;
+  /** Mode d'écoute actif — il change les sections affichées, donc la clé de cache. */
+  mode: Mode;
   settings: Awaited<ReturnType<typeof getHomepageSettings>>;
   siteConfig: Awaited<ReturnType<typeof getSiteConfig>>;
 };
@@ -800,6 +803,47 @@ async function computeSection(section: IHomepageSection, ctx: SectionContext): P
 }
 
 /**
+ * Sert la section depuis le cache partagé quand son contenu est le même
+ * pour tout le monde, sinon la calcule.
+ *
+ * La clé porte tout ce qui change le résultat, `section.updatedAt`
+ * compris : une modification en administration change donc la clé, et le
+ * contenu se recalcule sans invalidation explicite.
+ *
+ * Les sections personnalisées — « pour vous », « écoutés récemment », la
+ * bannière Premium, et les recommandations d'un compte connecté — ne
+ * passent jamais par là. C'est ce que garantit `estPartageable`, et c'est
+ * la seule ligne de ce fichier dont une erreur ferait voir à quelqu'un
+ * les données d'un autre.
+ */
+function calculerOuRelire(section: IHomepageSection, ctx: SectionContext): Promise<unknown> {
+  const calcul = () => computeSection(section, ctx);
+  if (!estPartageable(section.key, Boolean(ctx.viewer))) return calcul();
+
+  const maj = section.updatedAt ? new Date(section.updatedAt).getTime() : 0;
+  return auCache(
+    [
+      "section",
+      section.page ?? "home",
+      section.slug ?? section.key,
+      section.key,
+      section.mode ?? "auto",
+      ctx.univers,
+      ctx.mode,
+      String(section.limit ?? 0),
+      // Les filtres changent le contenu sans changer le reste de la clé.
+      `v${section.filters?.verifiedOnly ? 1 : 0}p${section.filters?.publicOnly ? 1 : 0}`,
+      // Le mode de recommandation vit dans les réglages, pas dans la
+      // section : sans lui, passer d'« auto » à « manuel » ne se verrait
+      // pas avant l'expiration.
+      ctx.settings.recommendationMode ?? "auto",
+      String(maj),
+    ],
+    calcul
+  );
+}
+
+/**
  * Enveloppe `computeSection` pour qu'une section en échec n'emporte pas
  * toute la page : elle est simplement omise, et l'incident est journalisé.
  * Une base injoignable reste propagée — ce n'est pas un contenu manquant
@@ -809,7 +853,7 @@ async function computeSection(section: IHomepageSection, ctx: SectionContext): P
  */
 async function buildSection(section: IHomepageSection, ctx: SectionContext): Promise<HomepageSectionPayload | null> {
   try {
-    const data = await computeSection(section, ctx);
+    const data = await calculerOuRelire(section, ctx);
     if (data === null) return null;
     return { key: section.key, title: section.title, data };
   } catch (err) {
@@ -846,7 +890,7 @@ export async function preparePageSections(
     getSiteConfig(),
   ]);
 
-  const ctx: SectionContext = { viewer, univers, settings, siteConfig };
+  const ctx: SectionContext = { viewer, univers, mode, settings, siteConfig };
 
   /**
    * Une section peut être réservée à un univers, à un mode d'écoute, ou

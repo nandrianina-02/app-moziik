@@ -1,3 +1,4 @@
+import { oublierSectionsPubliees } from "@/lib/cacheSections";
 import { NextResponse } from "next/server";
 import mongoose from "mongoose";
 import { connectDB } from "@/lib/db";
@@ -183,6 +184,11 @@ export const POST = withApiErrors(async (req: Request) => {
     releaseDate: release,
     publishedBy: authUser.id,
   });
+
+  // L'accueil sert ses sections depuis un cache partagé : sans cet
+  // oubli, l'artiste qui vient de publier ne verrait pas son titre
+  // dans « Nouveautés » avant cinq minutes.
+  oublierSectionsPubliees();
 
   // Le son est créé : plus rien ici ne doit faire échouer la requête. Une
   // notification qui plante renverrait un 500 alors que la publication a

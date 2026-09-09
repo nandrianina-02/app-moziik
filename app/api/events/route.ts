@@ -1,3 +1,4 @@
+import { oublierSectionsPubliees } from "@/lib/cacheSections";
 import { NextResponse } from "next/server";
 import { connectDB } from "@/lib/db";
 import Event from "@/models/Event";
@@ -77,6 +78,10 @@ export const POST = withApiErrors(async (req: Request) => {
     createdBy: authUser.id,
     status,
   });
+
+  // Même raison que pour un titre : la section « Évènements » de
+  // l'accueil est mise en cache pour tout le monde.
+  oublierSectionsPubliees();
 
   return NextResponse.json({ event }, { status: 201 });
 });

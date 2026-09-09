@@ -10,6 +10,7 @@ import { FilDiscussion } from "@/components/messages/FilDiscussion";
 import { NouvelleConversation } from "@/components/messages/NouvelleConversation";
 import { ReglagesGroupe } from "@/components/messages/ReglagesGroupe";
 import { useToast } from "@/context/ToastProvider";
+import { usePlayer } from "@/context/PlayerProvider";
 import type { ConversationAffichee } from "@/lib/messagerie";
 
 /**
@@ -46,6 +47,23 @@ export function MessagerieClient() {
   const [chargement, setChargement] = useState(true);
   const [nouvelle, setNouvelle] = useState(false);
   const [reglages, setReglages] = useState(false);
+
+  // La messagerie est le seul écran qui fixe sa propre hauteur au lieu de
+  // se laisser dérouler : le fil défile à l'intérieur, la zone de saisie
+  // reste posée en bas. Cette hauteur doit donc défalquer, au pixel près,
+  // tout ce que la mise en page place autour d'elle — et le mini-lecteur
+  // apparaît ou disparaît selon qu'un titre est en cours.
+  //
+  //   téléphone : en-tête fixe 56 + nav basse 64 (+ 96 de mini-lecteur)
+  //   bureau    : en-tête 64 dans le flux (+ 112 de mini-lecteur)
+  //
+  // Sans cela, la saisie passait sous le mini-lecteur dès qu'on écoutait
+  // quelque chose — c'est-à-dire presque toujours, sur une plateforme
+  // musicale.
+  const { currentSong } = usePlayer();
+  const hauteur = currentSong
+    ? "h-[calc(100dvh-13.5rem)] md:h-[calc(100dvh-11rem)]"
+    : "h-[calc(100dvh-7.5rem)] md:h-[calc(100dvh-4rem)]";
 
   const moiId = session?.user?.id ?? "";
   const actifId = params.get("c");
@@ -143,7 +161,7 @@ export function MessagerieClient() {
   }
 
   return (
-    <div className="mx-auto h-[calc(100dvh-8rem)] max-w-7xl px-0 sm:px-4 md:h-[calc(100dvh-4rem)] md:py-4">
+    <div className={`mx-auto max-w-7xl px-0 sm:px-4 md:py-4 ${hauteur}`}>
       <div className="flex h-full min-h-0 overflow-hidden border-border bg-surface sm:rounded-xl2 sm:border">
         {/* Sur téléphone, un seul panneau à la fois : la liste s'efface
             quand un fil est ouvert, et revient au retour. */}

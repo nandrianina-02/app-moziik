@@ -275,7 +275,10 @@ export function CartePartage({ event }: { event: EventDetail }) {
 
   return (
     <CarteAside titre="Partager l'évènement">
-      <div className="grid grid-cols-4 gap-2">
+      {/* Deux colonnes avant `sm`. À quatre, chaque bouton fait 70 px sur
+          un téléphone et « Copier le lien » se lit « Copi… » — un libellé
+          tronqué à ce point ne vaut pas mieux qu'une icône seule. */}
+      <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
         {boutons.map(({ label, icone: Icone, action }) => (
           <button
             key={label}

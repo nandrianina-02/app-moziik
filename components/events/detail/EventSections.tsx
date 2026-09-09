@@ -210,7 +210,7 @@ export function SectionLieu({ event }: { event: EventDetail }) {
             title={`Carte — ${event.location}`}
             src={urlCarteIntegree(event.latitude as number, event.longitude as number)}
             loading="lazy"
-            className="h-64 w-full border-0 border-t border-border"
+            className="h-56 w-full border-0 border-t border-border sm:h-64"
           />
         )}
       </div>

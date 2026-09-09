@@ -78,15 +78,22 @@ export function EventHero({
         </div>
       )}
 
-      <div className="relative px-5 py-6 text-white md:px-8 md:py-8">
-        <nav aria-label="Fil d'Ariane" className="mb-5 flex flex-wrap items-center gap-1 text-xs text-white/60">
-          <Link href="/evenements" className="transition-colors hover:text-white">
+      <div className="relative px-4 py-5 text-white sm:px-5 sm:py-6 md:px-8 md:py-8">
+        {/* `min-w-0` sur l'élément tronqué : sans lui, un enfant de flex
+            garde la largeur de son contenu comme largeur minimale, et
+            `truncate` ne tronque rien — le titre poussait la page hors de
+            l'écran sur un téléphone. */}
+        <nav
+          aria-label="Fil d'Ariane"
+          className="mb-4 flex items-center gap-1 overflow-hidden text-xs text-white/60 sm:mb-5"
+        >
+          <Link href="/evenements" className="shrink-0 transition-colors hover:text-white">
             Évènements
           </Link>
           <ChevronRight size={12} className="shrink-0" />
-          <span>{libelleCategorie(event.category)}</span>
-          <ChevronRight size={12} className="shrink-0" />
-          <span className="truncate text-white/90">{event.title}</span>
+          <span className="hidden shrink-0 sm:inline">{libelleCategorie(event.category)}</span>
+          <ChevronRight size={12} className="hidden shrink-0 sm:inline" />
+          <span className="min-w-0 truncate text-white/90">{event.title}</span>
         </nav>
 
         <div className="grid gap-6 lg:grid-cols-2 lg:gap-8">
@@ -143,7 +150,7 @@ export function EventHero({
               </span>
             </div>
 
-            <h1 className="font-display text-2xl leading-tight md:text-3xl lg:text-4xl">{event.title}</h1>
+            <h1 className="font-display text-xl leading-tight sm:text-2xl md:text-3xl lg:text-4xl">{event.title}</h1>
 
             {/* Deux lignes seulement : le texte complet est repris juste en
                 dessous, dans « À propos ». Ici il sert d'accroche. */}
@@ -190,47 +197,54 @@ export function EventHero({
               )}
             </dl>
 
-            <div className="mt-6 flex flex-wrap items-center gap-2.5">
-              {event.ticketUrl ? (
-                <a
-                  href={event.ticketUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="flex items-center gap-2 rounded-xl bg-accent px-5 py-3 text-sm font-medium text-base transition-colors hover:bg-accent-hover"
+            {/* Deux rangées sur téléphone, une seule dès `sm`.
+                Empilés par `flex-wrap`, ces trois boutons se rangeaient en
+                escalier — largeurs inégales, alignés à gauche, la moitié
+                de la ligne vide. L'action principale et le cœur partagent
+                donc la première rangée, le calendrier prend la seconde. */}
+            <div className="mt-6 flex flex-col gap-2.5 sm:flex-row sm:flex-wrap sm:items-center">
+              <div className="flex items-center gap-2.5">
+                {event.ticketUrl ? (
+                  <a
+                    href={event.ticketUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-accent px-5 py-3 text-sm font-medium text-base transition-colors hover:bg-accent-hover sm:flex-none"
+                  >
+                    <Ticket size={16} /> Obtenir des billets
+                  </a>
+                ) : (
+                  typeof event.price === "number" && (
+                    <span className="flex-1 rounded-xl bg-white/10 px-5 py-3 text-center text-sm font-medium sm:flex-none">
+                      {event.price === 0
+                        ? "Entrée libre"
+                        : `À partir de ${event.price} ${currency ?? "EUR"}`}
+                    </span>
+                  )
+                )}
+
+                <button
+                  type="button"
+                  onClick={onToggleInteret}
+                  disabled={interetEnCours}
+                  aria-pressed={event.viewerInterested}
+                  aria-label={event.viewerInterested ? "Retirer de mes intérêts" : "Ça m'intéresse"}
+                  className={`grid h-12 w-12 shrink-0 place-items-center rounded-xl border transition-colors disabled:opacity-60 ${
+                    event.viewerInterested
+                      ? "border-accent bg-accent/20 text-accent"
+                      : "border-white/20 bg-white/5 text-white hover:bg-white/10"
+                  }`}
                 >
-                  <Ticket size={16} /> Obtenir des billets
-                </a>
-              ) : (
-                typeof event.price === "number" && (
-                  <span className="rounded-xl bg-white/10 px-5 py-3 text-sm font-medium">
-                    {event.price === 0
-                      ? "Entrée libre"
-                      : `À partir de ${event.price} ${currency ?? "EUR"}`}
-                  </span>
-                )
-              )}
+                  <Heart size={17} fill={event.viewerInterested ? "currentColor" : "none"} />
+                </button>
+              </div>
 
               <a
                 href={`/api/events/${event._id}/calendrier`}
-                className="flex items-center gap-2 rounded-xl border border-white/20 bg-white/5 px-5 py-3 text-sm font-medium text-white transition-colors hover:bg-white/10"
+                className="flex items-center justify-center gap-2 rounded-xl border border-white/20 bg-white/5 px-5 py-3 text-sm font-medium text-white transition-colors hover:bg-white/10 sm:justify-start"
               >
                 <CalendarPlus size={16} /> Ajouter au calendrier
               </a>
-
-              <button
-                type="button"
-                onClick={onToggleInteret}
-                disabled={interetEnCours}
-                aria-pressed={event.viewerInterested}
-                aria-label={event.viewerInterested ? "Retirer de mes intérêts" : "Ça m'intéresse"}
-                className={`grid h-12 w-12 place-items-center rounded-xl border transition-colors disabled:opacity-60 ${
-                  event.viewerInterested
-                    ? "border-accent bg-accent/20 text-accent"
-                    : "border-white/20 bg-white/5 text-white hover:bg-white/10"
-                }`}
-              >
-                <Heart size={17} fill={event.viewerInterested ? "currentColor" : "none"} />
-              </button>
             </div>
           </div>
         </div>

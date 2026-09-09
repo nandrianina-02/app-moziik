@@ -252,7 +252,12 @@ export function BulleMessage({
 
         {!message.supprime && (
           <div
-            className={`mt-0.5 flex items-center gap-0.5 text-ink-muted ${
+            // `flex-wrap` : la palette de réactions s'ajoute à la suite des
+            // boutons d'action, dans une colonne qui ne fait que 78 % de la
+            // largeur du fil. Sur un téléphone étroit, les quatre actions
+            // et les six émojis demandent environ 250 px pour 218 offerts —
+            // sans retour à la ligne, la palette sortait de l'écran.
+            className={`mt-0.5 flex max-w-full flex-wrap items-center gap-0.5 text-ink-muted ${
               aMoi ? "flex-row-reverse" : "flex-row"
             }`}
           >

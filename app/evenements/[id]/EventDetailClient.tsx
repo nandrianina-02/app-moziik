@@ -24,7 +24,7 @@ import type { EventDetail } from "@/components/events/detail/types";
 
 function Chargement() {
   return (
-    <div className="mx-auto w-full max-w-[1600px] px-6 py-8 md:px-10 md:py-10">
+    <div className="mx-auto w-full max-w-[1600px] px-4 py-6 sm:px-6 md:px-10 md:py-10">
       <Skeleton className="h-[420px] w-full rounded-xl2" />
       <div className="mt-8 grid gap-8 lg:grid-cols-[minmax(0,1fr)_340px]">
         <div className="space-y-4">
@@ -111,7 +111,7 @@ export function EventDetailClient() {
   const affiche = afficheDe(event);
 
   return (
-    <div className="mx-auto w-full max-w-[1600px] px-6 py-8 md:px-10 md:py-10">
+    <div className="mx-auto w-full max-w-[1600px] px-4 py-6 sm:px-6 md:px-10 md:py-10">
       {peutGerer && event.status !== "published" && (
         <p className="mb-4 rounded-xl border border-warning/30 bg-warning/10 px-4 py-3 text-sm text-warning">
           {event.status === "pending"
@@ -170,7 +170,10 @@ export function EventDetailClient() {
 
         <Link
           href="/evenements/nouveau"
-          className="rounded-xl bg-accent px-4 py-2.5 text-sm font-medium text-base transition-colors hover:bg-accent-hover"
+          // Pleine largeur tant qu'il est seul sur sa ligne : renvoyé à la
+          // ligne par `flex-wrap`, un bouton court restait collé à gauche
+          // sous un texte qui occupait toute la largeur.
+          className="w-full rounded-xl bg-accent px-4 py-2.5 text-center text-sm font-medium text-base transition-colors hover:bg-accent-hover sm:w-auto"
         >
           Créer un évènement
         </Link>

@@ -160,10 +160,14 @@ export function ListeConversations({
                 )}
 
                 <span className="min-w-0 flex-1">
-                  <span className="flex items-center gap-1.5">
+                  {/* `min-w-0` des deux côtés : un enfant de flex prend la
+                      largeur de son contenu pour largeur minimale, et
+                      `truncate` sans lui ne tronque rien — un nom de groupe
+                      long poussait la date hors de la colonne. */}
+                  <span className="flex min-w-0 items-center gap-1.5">
                     {c.type === "group" && <Users size={12} className="shrink-0 text-ink-muted" />}
                     <span
-                      className={`truncate text-sm ${c.nonLus > 0 ? "font-semibold text-ink" : "font-medium"}`}
+                      className={`min-w-0 truncate text-sm ${c.nonLus > 0 ? "font-semibold text-ink" : "font-medium"}`}
                     >
                       {c.titre}
                     </span>

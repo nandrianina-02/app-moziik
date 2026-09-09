@@ -12,8 +12,10 @@ import {
   Music2,
   BadgeCheck,
   FileText,
+  Sparkles,
 } from "lucide-react";
 import { SafeImage } from "@/components/ui/SafeImage";
+import { analyserParoles, parolesEnTexte } from "@/lib/lyrics";
 import { CommentsSection } from "@/components/music/CommentsSection";
 import { CompactSongRow } from "@/components/song/CompactSongRow";
 import { SongInfoCard } from "@/components/song/SongInfoCard";
@@ -137,7 +139,13 @@ function InfoTab({
 }
 
 function LyricsTab({ song }: { song: SongDetail }) {
-  if (!song.lyrics?.trim()) {
+  // Le champ peut contenir du LRC. L'afficher tel quel montrait des
+  // « [00:12.40] » en tête de chaque vers à tous les visiteurs — le
+  // format est un détail de stockage, pas quelque chose à lire.
+  const paroles = analyserParoles(song.lyrics);
+  const texte = parolesEnTexte(paroles).trim();
+
+  if (!texte) {
     return (
       <p className="rounded-xl2 border border-dashed border-border p-8 text-center text-sm text-ink-muted">
         Aucune parole disponible pour ce titre.
@@ -146,9 +154,17 @@ function LyricsTab({ song }: { song: SongDetail }) {
   }
   return (
     <div className="rounded-xl2 border border-border bg-surface p-6">
-      <p className="selectionnable whitespace-pre-line text-sm leading-relaxed text-ink">
-        {song.lyrics}
-      </p>
+      {paroles.synchronisees && (
+        <p className="mb-4 flex items-center gap-1.5 text-xs font-medium text-accent">
+          <Sparkles size={12} /> Paroles synchronisées — suivez-les dans le lecteur.
+        </p>
+      )}
+      <p className="selectionnable whitespace-pre-line text-sm leading-relaxed text-ink">{texte}</p>
+      {paroles.credits && (
+        <p className="mt-4 border-t border-border pt-3 text-xs text-ink-muted">
+          Paroles — {paroles.credits}
+        </p>
+      )}
     </div>
   );
 }

@@ -68,17 +68,33 @@ export const GET = withApiErrors(async (req: Request, { params }: { params: { id
    * précisément la partie que le public n'entend plus.
    */
   const brut = req.url ? new URL(req.url).searchParams.get("brut") === "1" : false;
-  if (brut) {
-    const artiste = authUser?.role === "artist" ? await Artist.findOne({ user: authUser.id }) : null;
-    const proprietaire = artiste && String(song.artist) === String(artiste._id);
-    if (authUser?.role !== "admin" && !proprietaire) {
-      throw new ApiError("Réservé au propriétaire du titre.", 403);
+
+  // Qui gère ce titre : l'artiste propriétaire, ou un administrateur.
+  // Calculé une seule fois, et seulement quand la question se pose — deux
+  // règles en dépendent, et la requête coûte un aller-retour de base.
+  let peutGerer = false;
+  if (brut || song.status !== "published") {
+    if (authUser?.role === "admin") {
+      peutGerer = true;
+    } else if (authUser) {
+      const artiste = await Artist.findOne({ user: authUser.id }).select("_id");
+      peutGerer = Boolean(artiste && String(song.artist) === String(artiste._id));
     }
+  }
+
+  if (brut && !peutGerer) {
+    throw new ApiError("Réservé au propriétaire du titre.", 403);
   }
 
   // Un titre non publié reste accessible à qui le gère : c'est ce qui
   // permet d'écouter un brouillon avant de le mettre en ligne.
-  if (song.status !== "published" && !brut) {
+  //
+  // Cette permission passait jusqu'ici par `brut=1`, seul chemin ouvert
+  // aux brouillons — donc le seul son qu'un artiste pouvait entendre de
+  // son propre titre était la version NON découpée. Assez pour vérifier
+  // un fichier, pas pour y caler des paroles : chaque horodatage aurait
+  // été décalé de la durée de l'intro rognée, une fois le titre publié.
+  if (song.status !== "published" && !peutGerer) {
     throw new ApiError("Ce titre n'est pas disponible.", 403);
   }
   const abonnement = authUser

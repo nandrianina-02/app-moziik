@@ -10,7 +10,7 @@ import { FilDiscussion } from "@/components/messages/FilDiscussion";
 import { NouvelleConversation } from "@/components/messages/NouvelleConversation";
 import { ReglagesGroupe } from "@/components/messages/ReglagesGroupe";
 import { useToast } from "@/context/ToastProvider";
-import { usePlayer } from "@/context/PlayerProvider";
+import { useLecteurActif } from "@/context/PlayerProvider";
 import type { ConversationAffichee } from "@/lib/messagerie";
 
 /**
@@ -60,8 +60,12 @@ export function MessagerieClient() {
   // Sans cela, la saisie passait sous le mini-lecteur dès qu'on écoutait
   // quelque chose — c'est-à-dire presque toujours, sur une plateforme
   // musicale.
-  const { currentSong } = usePlayer();
-  const hauteur = currentSong
+  // `useLecteurActif` et non `usePlayer` : ce dernier transporte la
+  // position de lecture, donc son objet change quatre fois par seconde —
+  // la messagerie entière se serait redessinée à cette cadence pour une
+  // information qui ne change qu'au lancement d'un morceau.
+  const lecteurVisible = useLecteurActif();
+  const hauteur = lecteurVisible
     ? "h-[calc(100dvh-13.5rem)] md:h-[calc(100dvh-11rem)]"
     : "h-[calc(100dvh-7.5rem)] md:h-[calc(100dvh-4rem)]";
 

@@ -6,6 +6,7 @@ import Artist from "@/models/Artist";
 import { ApiError, withApiErrors } from "@/lib/apiError";
 import { parseOrThrow, patchSongSchema } from "@/lib/validation";
 import { requireAuthUser } from "@/lib/mobileAuth";
+import { requireGestionTitre } from "@/lib/songAccess";
 
 export const GET = withApiErrors(async (_req: Request, { params }: { params: { id: string } }) => {
   await connectDB();
@@ -22,22 +23,10 @@ export const PATCH = withApiErrors(
     const authUser = await requireAuthUser(req);
 
     await connectDB();
-    const song = await Song.findById(params.id);
-    if (!song) throw new ApiError("Son introuvable.", 404);
-
-    // Garde-fou : song.artist devrait toujours être défini (required en
-    // base), mais un document créé avant l'ajout de cette contrainte, ou
-    // corrompu, plantait ici avec une erreur non gérée (500 opaque) au
-    // lieu d'un message clair.
-    if (!song.artist) {
-      throw new ApiError("Ce son n'a pas d'artiste associé et ne peut pas être modifié en l'état.", 500);
-    }
-
-    const ownerArtist = await Artist.findOne({ user: authUser.id });
-    const isOwner = ownerArtist && song.artist.equals(ownerArtist._id);
-    if (!isOwner && authUser.role !== "admin") {
-      throw new ApiError("Tu ne peux modifier que tes propres sons.", 403);
-    }
+    // Même règle que les routes filles (paroles…), écrite une seule fois :
+    // une règle d'accès recopiée finit par diverger, et cela se remarque
+    // le jour où elle laisse passer quelqu'un.
+    const song = await requireGestionTitre(req, params.id);
 
     const parsedUpdates = parseOrThrow(patchSongSchema, await req.json());
     const updates = parsedUpdates as Record<string, unknown>;

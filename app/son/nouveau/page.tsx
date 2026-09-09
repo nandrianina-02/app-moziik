@@ -1144,10 +1144,17 @@ export default function NewSongPage() {
                   <textarea
                     {...register("lyrics")}
                     rows={6}
-                    maxLength={5000}
+                    // 20 000, comme la validation serveur. À 5 000, un
+                    // fichier LRC de deux cents lignes était tronqué en
+                    // silence par le navigateur, sans le moindre message.
+                    maxLength={20000}
                     placeholder="Écrivez ou collez les paroles de votre morceau ici..."
                     className="w-full resize-none rounded-xl border border-border bg-base px-4 py-2.5 text-sm outline-none focus:border-accent"
                   />
+                  <span className="mt-1 block text-[11px] text-ink-muted">
+                    La synchronisation se fait après publication, depuis la page de modification
+                    du titre.
+                  </span>
                 </label>
 
                 <label className="block">

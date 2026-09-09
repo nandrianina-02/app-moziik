@@ -338,8 +338,6 @@ function ContenuLecteur({ song }: { song: PlayableSong }) {
         {onglet === "paroles" && (
           <LyricsPanel
             lyrics={details?.lyrics ?? song.lyrics}
-            progress={progress}
-            onSeek={seek}
             titre={song.title}
             artiste={song.artist?.stageName}
             className="min-h-0 flex-1"

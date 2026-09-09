@@ -195,6 +195,43 @@ type PlayerContextValue = {
 
 const PlayerContext = createContext<PlayerContextValue | null>(null);
 
+/**
+ * « Un morceau est-il chargé ? », et rien d'autre.
+ *
+ * Contexte séparé, à valeur booléenne, pour ce qui doit seulement savoir
+ * si le mini-lecteur occupe le bas de l'écran. `usePlayer()` transporte
+ * `progress`, donc son objet change quatre fois par seconde et réveille
+ * ses trente-six consommateurs autant de fois ; un booléen, lui, ne
+ * notifie que lorsqu'il bascule.
+ */
+const LecteurActifContext = createContext(false);
+
+export function useLecteurActif(): boolean {
+  return useContext(LecteurActifContext);
+}
+
+/**
+ * Ce qui ne change jamais d'identité : l'élément audio, et le déplacement.
+ *
+ * Créé une seule fois. C'est ce qui permet aux paroles synchronisées de
+ * suivre `currentTime` en s'abonnant à l'élément lui-même, sans passer
+ * par `progress` — donc sans redessiner plusieurs centaines de lignes
+ * quatre fois par seconde. `progress` reste la bonne source pour ce qui
+ * doit vraiment bouger en continu, comme une barre de progression.
+ */
+export type LecteurStable = {
+  audioRef: React.RefObject<HTMLAudioElement>;
+  seek: (seconds: number) => void;
+};
+
+const LecteurStableContext = createContext<LecteurStable | null>(null);
+
+export function useLecteurStable(): LecteurStable {
+  const ctx = useContext(LecteurStableContext);
+  if (!ctx) throw new Error("useLecteurStable doit être utilisé sous PlayerProvider.");
+  return ctx;
+}
+
 const PLAY_RECORD_THRESHOLD_SECONDS = 30;
 
 /**
@@ -1306,6 +1343,17 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
     setProgress(seconds);
   }
 
+  // Le déplacement passe par une ref plutôt que par `useCallback` : cela
+  // rend l'objet de contexte stable pour de bon, sans avoir à convertir
+  // `seek` — et sans risquer qu'un futur `seek` capture une valeur
+  // périmée parce qu'on aurait oublié une dépendance.
+  const seekRef = useRef(seek);
+  seekRef.current = seek;
+  const lecteurStable = useRef<LecteurStable>({
+    audioRef,
+    seek: (secondes: number) => seekRef.current(secondes),
+  }).current;
+
   function toggleShuffle() {
     // L'ordre ne porte que sur le lot chargé ; la réserve, elle, garde
     // l'ordre de la liste d'origine et c'est le tirage des lots suivants qui
@@ -1555,7 +1603,11 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
         closeFullPlayer: () => setFullPlayerOpen(false),
       }}
     >
-      {children}
+      <LecteurStableContext.Provider value={lecteurStable}>
+        <LecteurActifContext.Provider value={currentSong !== null}>
+          {children}
+        </LecteurActifContext.Provider>
+      </LecteurStableContext.Provider>
     </PlayerContext.Provider>
   );
 }

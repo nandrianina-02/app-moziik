@@ -1,8 +1,10 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Languages, Loader2, Mic2, RotateCcw, Sparkles } from "lucide-react";
-import { analyserParoles, ligneActive, parolesEnTexte } from "@/lib/lyrics";
+import { analyserParoles, parolesEnTexte, type LigneParoles } from "@/lib/lyrics";
+import { useLecteurStable } from "@/context/PlayerProvider";
+import { useLigneChantee } from "@/hooks/useLigneChantee";
 
 /**
  * Paroles du morceau en cours.
@@ -11,6 +13,15 @@ import { analyserParoles, ligneActive, parolesEnTexte } from "@/lib/lyrics";
  * confondus : synchronisées (elles défilent et se cliquent), simplement
  * disponibles (texte lisible, pas d'horodatage dans la source), ou
  * absentes — auquel cas on le dit, plutôt que d'afficher un vide.
+ *
+ * LA POSITION NE VIENT PAS DE REACT
+ *
+ * Ce panneau ne reçoit plus la seconde courante en propriété. Il la lit
+ * sur l'élément audio, par `useLigneChantee`, qui ne provoque un rendu
+ * que lorsque la ligne — ou le mot — change réellement. La liste
+ * elle-même est isolée dans un composant mémoïsé : le lecteur autour peut
+ * se redessiner quatre fois par seconde pour sa barre de progression sans
+ * entraîner avec lui trois cents lignes de texte.
  */
 
 /** Délai après un défilement manuel avant que le suivi automatique ne reprenne. */
@@ -29,21 +40,132 @@ const LANGUES_TRADUCTION = [
   { code: "mg", label: "Malagasy" },
 ] as const;
 
+/* ------------------------------------------------------------ la ligne -- */
+
+const Ligne = memo(function Ligne({
+  ligne,
+  texte,
+  active,
+  indexMot,
+  cliquable,
+  onSeek,
+}: {
+  ligne: LigneParoles;
+  /** Le texte à montrer : l'original, ou sa traduction. */
+  texte: string;
+  active: boolean;
+  indexMot: number;
+  cliquable: boolean;
+  onSeek: (seconds: number) => void;
+}) {
+  // Le mot à mot ne s'affiche que sur la ligne active, et jamais sur une
+  // traduction : les instants sont ceux des mots originaux, les plaquer
+  // sur une autre langue surlignerait n'importe quoi.
+  const motAMot = active && ligne.mots && texte === ligne.texte ? ligne.mots : null;
+
+  const contenu = (
+    <span
+      className={`block transition-all duration-300 ${
+        active
+          ? "text-lg font-semibold text-accent md:text-xl"
+          : // Les lignes deja chantees restaient a 70 %
+            // d'opacite, soit 3,34:1 sur le fond sombre. La
+            // hierarchie est deja portee par la ligne active —
+            // plus grande, grasse et en accent — sans avoir a
+            // rendre le reste illisible.
+            "text-[15px] text-ink-muted"
+      } selectionnable`}
+    >
+      {motAMot
+        ? motAMot.map((mot, i) => (
+            <span
+              key={`${mot.debut}-${i}`}
+              className={`transition-opacity duration-200 ${
+                indexMot >= 0 && i > indexMot ? "opacity-40" : "opacity-100"
+              }`}
+            >
+              {mot.texte}
+              {i < motAMot.length - 1 ? " " : ""}
+            </span>
+          ))
+        : texte}
+    </span>
+  );
+
+  if (!cliquable) return <p className="px-2 py-1">{contenu}</p>;
+  return (
+    <button
+      onClick={() => onSeek(ligne.temps as number)}
+      title="Reprendre la lecture à cette ligne"
+      className="w-full rounded-lg px-2 py-1 text-left transition-colors hover:bg-surface"
+    >
+      {contenu}
+    </button>
+  );
+});
+
+/* ------------------------------------------------------------ la liste -- */
+
+/**
+ * Isolée et mémoïsée : c'est elle qui coûte cher, et elle ne doit se
+ * redessiner que lorsqu'une de ces propriétés change vraiment.
+ */
+const ListeParoles = memo(function ListeParoles({
+  lignes,
+  index,
+  indexMot,
+  synchronisees,
+  traduction,
+  afficherTraduction,
+  onSeek,
+  poserRef,
+}: {
+  lignes: LigneParoles[];
+  index: number;
+  indexMot: number;
+  synchronisees: boolean;
+  traduction: string[] | null;
+  afficherTraduction: boolean;
+  onSeek: (seconds: number) => void;
+  poserRef: (i: number, el: HTMLElement | null) => void;
+}) {
+  return (
+    <ul className="space-y-1 pb-24">
+      {lignes.map((ligne, i) => {
+        const texte = afficherTraduction && traduction ? traduction[i] : ligne.texte;
+        if (!texte?.trim()) return <li key={i} className="h-4" aria-hidden />;
+
+        return (
+          <li key={i} ref={(el) => poserRef(i, el)}>
+            <Ligne
+              ligne={ligne}
+              texte={texte}
+              active={i === index}
+              indexMot={i === index ? indexMot : -1}
+              cliquable={synchronisees && ligne.temps !== null}
+              onSeek={onSeek}
+            />
+          </li>
+        );
+      })}
+    </ul>
+  );
+});
+
+/* ----------------------------------------------------------- le panneau -- */
+
 export function LyricsPanel({
   lyrics,
-  progress,
-  onSeek,
   titre,
   artiste,
   className = "",
 }: {
   lyrics?: string;
-  progress: number;
-  onSeek: (seconds: number) => void;
   titre: string;
   artiste?: string;
   className?: string;
 }) {
+  const { seek } = useLecteurStable();
   const paroles = useMemo(() => analyserParoles(lyrics), [lyrics]);
   const conteneurRef = useRef<HTMLDivElement>(null);
   const lignesRef = useRef<(HTMLElement | null)[]>([]);
@@ -62,7 +184,13 @@ export function LyricsPanel({
   const [afficherTraduction, setAfficherTraduction] = useState(false);
   const [langueCible, setLangueCible] = useState<string>("fr");
 
-  const index = paroles.synchronisees ? ligneActive(paroles.lignes, progress) : -1;
+  const { ligne: index, mot: indexMot } = useLigneChantee(paroles.lignes, paroles.synchronisees);
+
+  // Identités stables, pour que la mémoïsation de la liste serve à
+  // quelque chose : une fonction recréée à chaque rendu la casserait.
+  const poserRef = useCallback((i: number, el: HTMLElement | null) => {
+    lignesRef.current[i] = el;
+  }, []);
 
   // Une nouvelle chanson repart de zéro : traduction, suivi, position.
   useEffect(() => {
@@ -71,9 +199,12 @@ export function LyricsPanel({
     setErreurTraduction(null);
     setAfficherTraduction(false);
     setSuiviAuto(true);
+    lignesRef.current = [];
     conteneurRef.current?.scrollTo({ top: 0 });
   }, [lyrics]);
 
+  // Ne dépend que de l'index : c'est la règle qui évite de replacer le
+  // défilement à chaque `timeupdate`.
   useEffect(() => {
     if (!paroles.synchronisees || !suiviAuto || index < 0) return;
     const conteneur = conteneurRef.current;
@@ -237,53 +368,16 @@ export function LyricsPanel({
         {afficherTraduction && traductionBloc ? (
           <p className="selectionnable whitespace-pre-line text-[15px] leading-relaxed text-ink">{traductionBloc}</p>
         ) : (
-          <ul className="space-y-1 pb-24">
-            {paroles.lignes.map((ligne, i) => {
-              const texte = afficherTraduction && traduction ? traduction[i] : ligne.texte;
-              if (!texte?.trim()) return <li key={i} className="h-4" aria-hidden />;
-
-              const estActive = i === index;
-              const cliquable = paroles.synchronisees && ligne.temps !== null;
-
-              const contenu = (
-                <span
-                  className={`block transition-all duration-300 ${
-                    estActive
-                      ? "text-lg font-semibold text-accent md:text-xl"
-                      : // Les lignes deja chantees restaient a 70 %
-                        // d'opacite, soit 3,34:1 sur le fond sombre. La
-                        // hierarchie est deja portee par la ligne active —
-                        // plus grande, grasse et en accent — sans avoir a
-                        // rendre le reste illisible.
-                        "text-[15px] text-ink-muted"
-                  } selectionnable`}
-                >
-                  {texte}
-                </span>
-              );
-
-              return (
-                <li
-                  key={i}
-                  ref={(el) => {
-                    lignesRef.current[i] = el;
-                  }}
-                >
-                  {cliquable ? (
-                    <button
-                      onClick={() => onSeek(ligne.temps as number)}
-                      title="Reprendre la lecture à cette ligne"
-                      className="w-full rounded-lg px-2 py-1 text-left transition-colors hover:bg-surface"
-                    >
-                      {contenu}
-                    </button>
-                  ) : (
-                    <p className="px-2 py-1">{contenu}</p>
-                  )}
-                </li>
-              );
-            })}
-          </ul>
+          <ListeParoles
+            lignes={paroles.lignes}
+            index={index}
+            indexMot={indexMot}
+            synchronisees={paroles.synchronisees}
+            traduction={traduction}
+            afficherTraduction={afficherTraduction}
+            onSeek={seek}
+            poserRef={poserRef}
+          />
         )}
       </div>
 

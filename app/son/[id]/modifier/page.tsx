@@ -10,6 +10,7 @@ import {
   Calendar,
   Clock3,
   FileText,
+  Mic2,
   Gauge,
   Globe2,
   Hash,
@@ -33,6 +34,7 @@ import { CoverDropzone } from "@/components/song/CoverDropzone";
 import { AudioDropzone, formatBytes } from "@/components/song/AudioDropzone";
 import { VideoDropzone } from "@/components/song/VideoDropzone";
 import { TrimEditor } from "@/components/song/TrimEditor";
+import { LyricsStudio } from "@/components/song/LyricsStudio";
 import { estimerTempo } from "@/lib/bpm";
 import { SongPreviewSidebar, type ChecklistItem } from "@/components/song/SongPreviewSidebar";
 import { FeaturingPicker } from "@/components/modals/FeaturingPicker";
@@ -909,20 +911,22 @@ export default function EditSongPage() {
               )}
             </SectionCard>
 
+            {/* Paroles : saisie, import LRC et calage sur l'audio. */}
+            <SectionCard
+              icon={Mic2}
+              title="Paroles"
+              subtitle="Écrivez-les, importez un .lrc, ou calez-les sur l'audio pour qu'elles défilent dans le lecteur."
+            >
+              <LyricsStudio
+                songId={song._id}
+                valeur={watch("lyrics") ?? ""}
+                onChange={(lrc) => setValue("lyrics", lrc, { shouldDirty: true })}
+              />
+            </SectionCard>
+
             {/* Informations supplémentaires */}
             <SectionCard icon={FileText} title="Informations supplémentaires">
-              <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-                <label className="block">
-                  <span className="mb-1.5 block text-sm text-ink-muted">Paroles (optionnel)</span>
-                  <textarea
-                    {...register("lyrics")}
-                    rows={6}
-                    maxLength={5000}
-                    placeholder="Écrivez ou collez les paroles de votre morceau ici..."
-                    className="w-full resize-none rounded-xl border border-border bg-base px-4 py-2.5 text-sm outline-none focus:border-accent"
-                  />
-                </label>
-
+              <div className="grid grid-cols-1 gap-4">
                 <label className="block">
                   <span className="mb-1.5 block text-sm text-ink-muted">Description (optionnel)</span>
                   <textarea

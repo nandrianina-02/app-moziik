@@ -42,10 +42,13 @@ export function SectionResultats({
   section,
   requete,
   onVoirTout,
+  onOuvrir,
 }: {
   section: SectionRecherche;
   requete: string;
   onVoirTout?: (type: string) => void;
+  /** Prévient qu'un résultat a été ouvert, pour l'historique de recherche. */
+  onOuvrir?: (kind: SectionRecherche["kind"], item: Record<string, unknown>) => void;
 }) {
   const piste = useRef<HTMLDivElement>(null);
 
@@ -101,13 +104,21 @@ export function SectionResultats({
       {section.kind === "song" ? (
         <div className="space-y-1">
           {(section.items as unknown as PlayableSong[]).map((song, index) => (
-            <SongRow
+            // `SongRow` lance la lecture au lieu de naviguer : il n'a pas
+            // de lien auquel accrocher l'ouverture. Une capture sur son
+            // enveloppe suffit — lire un titre trouvé, c'est bien l'avoir
+            // ouvert.
+            <div
               key={song._id}
-              song={song}
-              queue={section.items as unknown as PlayableSong[]}
-              index={index}
-              source={{ type: "search", label: `« ${requete} » — ${section.title}` }}
-            />
+              onClickCapture={() => onOuvrir?.("song", song as unknown as Record<string, unknown>)}
+            >
+              <SongRow
+                song={song}
+                queue={section.items as unknown as PlayableSong[]}
+                index={index}
+                source={{ type: "search", label: `« ${requete} » — ${section.title}` }}
+              />
+            </div>
           ))}
         </div>
       ) : section.kind === "genre" ? (
@@ -126,7 +137,12 @@ export function SectionResultats({
           }
         >
           {section.items.map((item) => (
-            <Element key={String(item._id)} kind={section.kind} item={item} />
+            <Element
+              key={String(item._id)}
+              kind={section.kind}
+              item={item}
+              onOuvrir={onOuvrir ? () => onOuvrir(section.kind, item) : undefined}
+            />
           ))}
         </div>
       )}
@@ -134,17 +150,27 @@ export function SectionResultats({
   );
 }
 
-function Element({ kind, item }: { kind: SectionRecherche["kind"]; item: Record<string, unknown> }) {
+function Element({
+  kind,
+  item,
+  onOuvrir,
+}: {
+  kind: SectionRecherche["kind"];
+  item: Record<string, unknown>;
+  onOuvrir?: () => void;
+}) {
   switch (kind) {
     case "artist":
-      return <CarteArtiste artiste={item as unknown as ArtisteResultat} />;
+      return <CarteArtiste artiste={item as unknown as ArtisteResultat} onOuvrir={onOuvrir} />;
     case "album":
-      return <CarteAlbum album={item as unknown as AlbumResultat} />;
+      return <CarteAlbum album={item as unknown as AlbumResultat} onOuvrir={onOuvrir} />;
     case "playlist":
-      return <CartePlaylist playlist={item as unknown as PlaylistResultat} />;
+      return <CartePlaylist playlist={item as unknown as PlaylistResultat} onOuvrir={onOuvrir} />;
     case "event":
-      return <CarteEvenement evenement={item as unknown as EvenementResultat} />;
+      return <CarteEvenement evenement={item as unknown as EvenementResultat} onOuvrir={onOuvrir} />;
     case "user":
+      // Un profil n'entre pas dans l'historique de recherche : celui-ci
+      // sert à revenir à de la musique, pas à des comptes.
       return <CarteUtilisateur utilisateur={item as unknown as UtilisateurResultat} />;
     default:
       return null;

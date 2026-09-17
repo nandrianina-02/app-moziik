@@ -368,6 +368,56 @@ function SearchPageContent() {
   const totalTrouve = Object.values(resultat?.counts ?? {}).reduce((s, n) => s + (n as number), 0);
   const phraseMaigre = motsSignificatifs >= 4 && totalTrouve > 0 && totalTrouve <= 3;
 
+  /**
+   * Retient ce qu'on vient d'ouvrir depuis les résultats.
+   *
+   * L'historique ne se remplissait que par la touche Entrée — le seul
+   * chemin qui appelait `addRecentTerm`. Sur téléphone, où les résultats
+   * arrivent à la frappe et où l'on touche directement une pochette,
+   * personne ne valide : le bloc « Dernières recherches » restait donc
+   * vide en permanence, quel que soit l'usage.
+   *
+   * On mémorise le contenu ouvert plutôt que la saisie : c'est lui qu'on
+   * veut retrouver, et la vignette porte sa pochette.
+   */
+  const memoriserOuverture = useCallback(
+    (kind: SectionRecherche["kind"], item: Record<string, unknown>) => {
+      const id = String(item._id ?? "");
+      if (!id) return;
+      const titre = String(item.title ?? item.stageName ?? item.name ?? "").trim();
+      if (!titre) return;
+      const artiste = item.artist as { stageName?: string } | null | undefined;
+      const proprietaire = item.owner as { name?: string } | null | undefined;
+      const couverture = typeof item.coverUrl === "string" ? item.coverUrl : undefined;
+
+      const entrees: Partial<
+        Record<SectionRecherche["kind"], { type: RecentSearchItem["type"]; sousTitre: string; href: string }>
+      > = {
+        song: { type: "song", sousTitre: artiste?.stageName ?? "Titre", href: `/son/${id}` },
+        artist: { type: "artist", sousTitre: "Artiste", href: `/artiste/${id}` },
+        album: { type: "album", sousTitre: artiste?.stageName ?? "Album", href: `/album/${id}` },
+        playlist: { type: "playlist", sousTitre: proprietaire?.name ?? "Playlist", href: `/playlist/${id}` },
+        event: { type: "event", sousTitre: String(item.location ?? "Évènement"), href: `/evenements/${id}` },
+      };
+      const entree = entrees[kind];
+      // Profils et genres n'entrent pas dans l'historique : le premier
+      // n'est pas de la musique, le second est déjà une recherche.
+      if (!entree) return;
+
+      addRecentSearch({
+        _id: id,
+        type: entree.type,
+        title: titre,
+        coverUrl: couverture,
+        subtitle: entree.sousTitre,
+        verified: item.verified === true,
+        ...(typeof item.playsCount === "number" ? { playsCount: item.playsCount } : {}),
+        href: entree.href,
+      });
+    },
+    []
+  );
+
   return (
     <div className="mx-auto w-full max-w-6xl px-4 py-6 sm:px-6 md:px-10 md:py-10">
       <h1 className="mb-5 font-display text-2xl text-ink">Recherche</h1>
@@ -524,7 +574,15 @@ function SearchPageContent() {
             </>
           ) : type === "all" ? (
             <>
-              {resultat.top && <TopResult top={resultat.top} onPlay={peutEcouter ? ecouterTop : undefined} />}
+              {resultat.top && (
+                <TopResult
+                  top={resultat.top}
+                  onPlay={peutEcouter ? ecouterTop : undefined}
+                  onOuvrir={(kind, item) =>
+                    memoriserOuverture(kind as SectionRecherche["kind"], item)
+                  }
+                />
+              )}
               {resultat.sections.map((section) => (
                 <SectionResultats
                   key={section.key}
@@ -534,6 +592,7 @@ function SearchPageContent() {
                     setType(t);
                     window.scrollTo({ top: 0, behavior: "smooth" });
                   }}
+                  onOuvrir={memoriserOuverture}
                 />
               ))}
               {/* Sous une réponse maigre à une vraie phrase : les deux ou
@@ -545,7 +604,7 @@ function SearchPageContent() {
           ) : (
             listeComplete && (
               <>
-                <SectionResultats section={listeComplete} requete={terme} />
+                <SectionResultats section={listeComplete} requete={terme} onOuvrir={memoriserOuverture} />
                 {resteAcharger > 0 && (
                   <div className="flex justify-center">
                     <button
@@ -596,7 +655,14 @@ function SearchPageContent() {
                     </button>
                     {item.type === "term" ? (
                       <button
-                        onClick={() => setSaisie(item.title)}
+                        onClick={() => {
+                          setSaisie(item.title);
+                          // Dans l'URL aussi : sans cela, rafraîchir la
+                          // page ramenait à l'écran vide.
+                          router.replace(`/recherche?q=${encodeURIComponent(item.title)}`, {
+                            scroll: false,
+                          });
+                        }}
                         className="w-full text-left"
                       >
                         <span className="mb-3 grid aspect-square w-full place-items-center rounded-lg bg-accent/10 text-accent">

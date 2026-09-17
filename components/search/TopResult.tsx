@@ -24,7 +24,16 @@ const ETIQUETTE: Record<string, string> = {
  * « Artistes » qui ne contient qu'une carte de la taille de toutes les
  * autres. Le résultat principal dit d'emblée : c'est lui que tu cherchais.
  */
-export function TopResult({ top, onPlay }: { top: Top; onPlay?: () => void }) {
+export function TopResult({
+  top,
+  onPlay,
+  onOuvrir,
+}: {
+  top: Top;
+  onPlay?: () => void;
+  /** Prévient qu'on l'a ouvert ou écouté, pour l'historique de recherche. */
+  onOuvrir?: (kind: string, item: Record<string, unknown>) => void;
+}) {
   const kind = top.kind;
 
   const titre = String(top.title ?? top.stageName ?? top.name ?? "");
@@ -107,7 +116,10 @@ export function TopResult({ top, onPlay }: { top: Top; onPlay?: () => void }) {
         <div className="flex shrink-0 items-center gap-2">
           {onPlay && (
             <button
-              onClick={onPlay}
+              onClick={() => {
+                onOuvrir?.(String(kind), top);
+                onPlay();
+              }}
               className="flex items-center gap-1.5 rounded-full bg-accent px-4 py-2.5 text-sm font-medium text-base transition-colors hover:bg-accent-hover"
             >
               <Play size={15} fill="currentColor" /> Écouter
@@ -116,6 +128,7 @@ export function TopResult({ top, onPlay }: { top: Top; onPlay?: () => void }) {
           {lien && (
             <Link
               href={lien}
+              onClick={() => onOuvrir?.(String(kind), top)}
               className="flex items-center gap-1 rounded-full border border-border px-4 py-2.5 text-sm font-medium text-ink-muted transition-colors hover:border-accent hover:text-accent"
             >
               Ouvrir <ChevronRight size={14} />

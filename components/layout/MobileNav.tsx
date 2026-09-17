@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Home, Search, Library, MessagesSquare, User } from "lucide-react";
 import { useMessagesNonLus } from "@/context/MessagesProvider";
+import { useClavierVisible } from "@/hooks/useClavierVisible";
 
 // Cinq entrées, pas six : au-delà, les libellés se chevauchent sur un
 // écran de 360 px. Les évènements restent atteignables depuis l'accueil
@@ -20,6 +21,12 @@ const links = [
 export function MobileNav() {
   const pathname = usePathname();
   const { nonLus } = useMessagesNonLus();
+  // Clavier ouvert : la barre remonterait au-dessus de lui et mangerait
+  // la moitié de la place qui reste pour lire les résultats. Elle est de
+  // toute façon inatteignable tant qu'on tape.
+  const clavierVisible = useClavierVisible();
+
+  if (clavierVisible) return null;
 
   return (
     <nav className="md:hidden fixed bottom-0 inset-x-0 z-40 border-t border-border bg-surface/95 backdrop-blur print:hidden">

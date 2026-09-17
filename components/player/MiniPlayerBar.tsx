@@ -29,6 +29,7 @@ import { usePlayer } from "@/context/PlayerProvider";
 import { useToast } from "@/context/ToastProvider";
 import { useOnlineStatus } from "@/context/OnlineStatusProvider";
 import { useSidebar } from "@/context/SidebarProvider";
+import { useClavierVisible } from "@/hooks/useClavierVisible";
 import { useSession } from "next-auth/react";
 import { SeekBar } from "@/components/player/SeekBar";
 import { SongContextMenu } from "@/components/music/SongContextMenu";
@@ -157,6 +158,7 @@ export function MiniPlayerBar() {
   const pushToast = useToast();
   const { isOnline } = useOnlineStatus();
   const { collapsed } = useSidebar();
+  const clavierVisible = useClavierVisible();
 
   const [offlineState, setOfflineState] = useState<"idle" | "saving" | "saved">("idle");
   const [menuPosition, setMenuPosition] = useState<{ x: number; y: number } | null>(null);
@@ -301,6 +303,13 @@ export function MiniPlayerBar() {
     <div
       ref={refBarre}
       className={`fixed bottom-16 left-0 right-0 z-30 transition-[left] duration-300 ease-out md:bottom-0 md:px-4 md:pb-4 print:hidden ${
+        // Clavier ouvert : la vue web est redimensionnée, et une barre
+        // `fixed` vient se poser AU-DESSUS du clavier, en plein milieu de
+        // l'écran — par-dessus les suggestions de recherche qu'on est en
+        // train de lire. `hidden` et non l'opacité : il ne doit occuper
+        // ni place ni clics. La lecture, elle, continue.
+        clavierVisible ? "hidden md:block" : ""
+      } ${
         // Décalage exact sur la largeur de la sidebar pour que le lecteur
         // reste dans la zone de contenu et ne passe jamais dessous.
         collapsed ? "md:left-20" : "md:left-64"

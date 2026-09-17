@@ -15,7 +15,7 @@ const MAX_ITEMS = 12;
  * ont toujours un `type` parmi ceux d'alors, et les nouveaux champs sont
  * facultatifs.
  */
-export type TypeRecherche = "song" | "artist" | "album" | "playlist" | "term";
+export type TypeRecherche = "song" | "artist" | "album" | "playlist" | "event" | "term";
 
 export type RecentSearchItem = {
   /** Identifiant du contenu, ou la saisie normalisée pour un `term`. */

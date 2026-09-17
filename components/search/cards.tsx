@@ -70,13 +70,31 @@ function annee(date?: string) {
   return Number.isNaN(d.getTime()) ? null : d.getFullYear();
 }
 
-/** Enveloppe commune : même largeur, même comportement au survol. */
-// Sans préchargement : ce lien se répète à chaque élément de la liste, et Next tirerait sinon une charge de route par élément visible.
-function Carte({ href, children }: { href: string; children: React.ReactNode }) {
+/**
+ * Enveloppe commune : même largeur, même comportement au survol.
+ *
+ * `onOuvrir` sert à l'historique de recherche : c'est le seul endroit qui
+ * sache qu'un résultat vient d'être ouvert. Sans lui, l'historique ne se
+ * remplissait que si l'on validait par la touche Entrée — un geste que
+ * personne ne fait sur téléphone, où les résultats arrivent à la frappe.
+ *
+ * Sans préchargement : ce lien se répète à chaque élément de la liste, et
+ * Next tirerait sinon une charge de route par élément visible.
+ */
+function Carte({
+  href,
+  onOuvrir,
+  children,
+}: {
+  href: string;
+  onOuvrir?: () => void;
+  children: React.ReactNode;
+}) {
   return (
     <Link
       href={href}
       prefetch={false}
+      onClick={onOuvrir}
       className="group block w-40 shrink-0 rounded-xl2 border border-transparent p-2 transition-colors hover:border-border hover:bg-surface sm:w-44"
     >
       {children}
@@ -84,9 +102,9 @@ function Carte({ href, children }: { href: string; children: React.ReactNode }) 
   );
 }
 
-export function CarteArtiste({ artiste }: { artiste: ArtisteResultat }) {
+export function CarteArtiste({ artiste, onOuvrir }: { artiste: ArtisteResultat; onOuvrir?: () => void }) {
   return (
-    <Carte href={`/artiste/${artiste._id}`}>
+    <Carte href={`/artiste/${artiste._id}`} onOuvrir={onOuvrir}>
       <SafeImage
         src={artiste.coverUrl}
         alt={artiste.stageName}
@@ -105,10 +123,10 @@ export function CarteArtiste({ artiste }: { artiste: ArtisteResultat }) {
   );
 }
 
-export function CarteAlbum({ album }: { album: AlbumResultat }) {
+export function CarteAlbum({ album, onOuvrir }: { album: AlbumResultat; onOuvrir?: () => void }) {
   const nb = album.trackCount ?? album.songs?.length ?? 0;
   return (
-    <Carte href={`/album/${album._id}`}>
+    <Carte href={`/album/${album._id}`} onOuvrir={onOuvrir}>
       <SafeImage
         src={album.coverUrl}
         alt={album.title}
@@ -126,10 +144,10 @@ export function CarteAlbum({ album }: { album: AlbumResultat }) {
   );
 }
 
-export function CartePlaylist({ playlist }: { playlist: PlaylistResultat }) {
+export function CartePlaylist({ playlist, onOuvrir }: { playlist: PlaylistResultat; onOuvrir?: () => void }) {
   const nb = playlist.songs?.length ?? 0;
   return (
-    <Carte href={`/playlist/${playlist._id}`}>
+    <Carte href={`/playlist/${playlist._id}`} onOuvrir={onOuvrir}>
       <span className="relative mb-2.5 block">
         <SafeImage
           src={playlist.coverUrl}
@@ -151,10 +169,10 @@ export function CartePlaylist({ playlist }: { playlist: PlaylistResultat }) {
   );
 }
 
-export function CarteEvenement({ evenement }: { evenement: EvenementResultat }) {
+export function CarteEvenement({ evenement, onOuvrir }: { evenement: EvenementResultat; onOuvrir?: () => void }) {
   const d = evenement.date ? new Date(evenement.date) : null;
   return (
-    <Carte href={`/evenements/${evenement._id}`}>
+    <Carte href={`/evenements/${evenement._id}`} onOuvrir={onOuvrir}>
       <SafeImage
         src={evenement.coverUrl}
         alt={evenement.title}

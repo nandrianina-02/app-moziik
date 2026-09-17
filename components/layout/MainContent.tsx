@@ -3,6 +3,7 @@
 import { usePlayer } from "@/context/PlayerProvider";
 import { useOnlineStatus } from "@/context/OnlineStatusProvider";
 import { PageTransition } from "@/components/layout/PageTransition";
+import { useClavierVisible } from "@/hooks/useClavierVisible";
 
 /**
  * Réserve en bas de page exactement la place occupée par les éléments
@@ -16,6 +17,7 @@ import { PageTransition } from "@/components/layout/PageTransition";
 export function MainContent({ children }: { children: React.ReactNode }) {
   const { currentSong } = usePlayer();
   const { isOnline } = useOnlineStatus();
+  const clavierVisible = useClavierVisible();
 
   // pt-14 (mobile) : hauteur de l'en-tête mobile, qui est en `fixed`.
   // Hors-ligne, c'est le bandeau — rendu juste au-dessus, dans le flux —
@@ -30,7 +32,22 @@ export function MainContent({ children }: { children: React.ReactNode }) {
     // desktop, qui n'a pas de nav basse fixe.
     // md:pb-28 = hauteur de la carte du lecteur (86px) + sa marge basse
     // (16px), arrondi au cran Tailwind supérieur (112px).
-    <main className={`min-w-0 flex-1 ${topPad} ${currentSong ? "pb-40 md:pb-28" : "pb-16 md:pb-0"}`}>
+    // Clavier ouvert sur téléphone : les deux barres se retirent (elles
+    // se poseraient au-dessus du clavier), donc la réserve qu'elles
+    // occupaient n'a plus lieu d'être — sans quoi il resterait cent
+    // soixante pixels de vide entre le contenu et le clavier, sur l'écran
+    // où la place manque le plus.
+    <main
+      className={`min-w-0 flex-1 ${topPad} ${
+        clavierVisible
+          ? currentSong
+            ? "pb-0 md:pb-28"
+            : "pb-0 md:pb-0"
+          : currentSong
+            ? "pb-40 md:pb-28"
+            : "pb-16 md:pb-0"
+      }`}
+    >
       <PageTransition>{children}</PageTransition>
     </main>
   );

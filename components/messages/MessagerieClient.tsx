@@ -11,6 +11,7 @@ import { NouvelleConversation } from "@/components/messages/NouvelleConversation
 import { ReglagesGroupe } from "@/components/messages/ReglagesGroupe";
 import { useToast } from "@/context/ToastProvider";
 import { useLecteurActif } from "@/context/PlayerProvider";
+import { useClavierVisible } from "@/hooks/useClavierVisible";
 import type { ConversationAffichee } from "@/lib/messagerie";
 
 /**
@@ -64,10 +65,18 @@ export function MessagerieClient() {
   // position de lecture, donc son objet change quatre fois par seconde —
   // la messagerie entière se serait redessinée à cette cadence pour une
   // information qui ne change qu'au lancement d'un morceau.
+  //
+  // Clavier ouvert : la navigation basse et le mini-lecteur se retirent
+  // — ils se poseraient au-dessus du clavier — donc il ne reste à
+  // défalquer que l'en-tête. Garder l'ancien calcul laisserait la zone de
+  // saisie cent soixante pixels trop haut, au-dessus d'un vide.
   const lecteurVisible = useLecteurActif();
-  const hauteur = lecteurVisible
-    ? "h-[calc(100dvh-13.5rem)] md:h-[calc(100dvh-11rem)]"
-    : "h-[calc(100dvh-7.5rem)] md:h-[calc(100dvh-4rem)]";
+  const clavierVisible = useClavierVisible();
+  const hauteur = clavierVisible
+    ? "h-[calc(100dvh-3.5rem)] md:h-[calc(100dvh-4rem)]"
+    : lecteurVisible
+      ? "h-[calc(100dvh-13.5rem)] md:h-[calc(100dvh-11rem)]"
+      : "h-[calc(100dvh-7.5rem)] md:h-[calc(100dvh-4rem)]";
 
   const moiId = session?.user?.id ?? "";
   const actifId = params.get("c");

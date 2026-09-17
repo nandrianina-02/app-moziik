@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { BadgeCheck, Trophy, TrendingUp, TrendingDown, Minus, Play, Pause, MoreVertical, ChevronDown } from "lucide-react";
 import { SafeImage } from "@/components/ui/SafeImage";
 import { Skeleton, SkeletonRows } from "@/components/ui/Skeleton";
@@ -74,12 +75,36 @@ function itemToPlayableSong(item: RankingItem): PlayableSong {
   };
 }
 
+/**
+ * `useSearchParams` impose une frontière Suspense : sans elle, Next
+ * refuse de prérendre la page. Même découpage que /recherche.
+ */
 export default function ChartsPage() {
+  return (
+    <Suspense>
+      <ChartsPageContent />
+    </Suspense>
+  );
+}
+
+function ChartsPageContent() {
   const pushToast = useToast();
   const { univers } = useUnivers();
   const { data: session } = useSession();
-  const [period, setPeriod] = useState<Period>("week");
-  const [type, setType] = useState<ChartType>("songs");
+  // Le type et la période se lisent dans l'URL : l'accueil pointe
+  // directement le classement des artistes, et un lien partagé doit ouvrir
+  // le même écran que celui qu'on regardait.
+  const searchParams = useSearchParams();
+  const [period, setPeriod] = useState<Period>(() =>
+    periods.some((p) => p.value === searchParams.get("period"))
+      ? (searchParams.get("period") as Period)
+      : "week"
+  );
+  const [type, setType] = useState<ChartType>(() =>
+    types.some((t) => t.value === searchParams.get("type"))
+      ? (searchParams.get("type") as ChartType)
+      : "songs"
+  );
   const [genre, setGenre] = useState("");
   const [genres, setGenres] = useState<string[]>([]);
   const [ranking, setRanking] = useState<RankingItem[]>([]);

@@ -56,10 +56,12 @@ export function FeaturedArtists({ artists }: { artists: FeaturedArtist[] }) {
   }
 
   return (
-    <div className="rounded-xl2 border border-border bg-surface p-4">
+    // Pleine largeur sur téléphone, comme l'activité : chaque ligne porte
+    // un avatar, un nom et un bouton « Suivre ».
+    <div className="col-span-2 rounded-xl2 border border-border bg-surface p-4">
       <div className="mb-3 flex items-center justify-between">
         <h3 className="text-sm font-medium">Artistes en vedette</h3>
-        <Link href="/recherche" className="text-xs text-ink-muted hover:text-ink">
+        <Link href="/classements?type=artists" className="text-xs text-ink-muted hover:text-ink">
           Voir tout
         </Link>
       </div>
@@ -181,7 +183,10 @@ function timeAgo(iso: string) {
 export function ActivityFeed({ items }: { items: ActivityItem[] }) {
   if (items.length === 0) return null;
   return (
-    <div className="rounded-xl2 border border-border bg-surface p-4">
+    // `col-span-2` : sous `lg`, la colonne latérale devient une grille à
+    // deux colonnes (voir app/page.tsx). Une liste de phrases n'y tient
+    // pas en demi-largeur ; les cartes courtes, elles, s'y prêtent.
+    <div className="col-span-2 rounded-xl2 border border-border bg-surface p-4">
       <h3 className="mb-3 text-sm font-medium">Activité récente</h3>
       <div className="space-y-3">
         {items.map((item, i) => (

@@ -202,7 +202,11 @@ export default function NewSongPage() {
   } = useForm<FormValues>({
     defaultValues: {
       title: "",
-      genre: GENRES[0],
+      // Aucun genre présélectionné : le premier de la liste n'est pas
+      // un choix, c'est un ordre alphabétique. Le pré-cocher faisait
+      // publier en « Afrobeat » tout ce que personne n'avait pris le
+      // temps de classer.
+      genre: "",
       albumId: "",
       language: LANGUAGES[0],
       composer: "",
@@ -412,7 +416,7 @@ export default function NewSongPage() {
 
       /* --- Genre et langue : listes fermées du site, d'où le rapprochement. */
       const genre = genreCorrespondant(meta.genre, GENRES);
-      if (genre) poser("genre", "Genre", genre, valeurs.genre !== GENRES[0]);
+      if (genre) poser("genre", "Genre", genre, valeurs.genre !== "");
       else if (meta.genre)
         champs.push({
           champ: "Genre",
@@ -949,14 +953,21 @@ export default function NewSongPage() {
                       <span className="mb-1.5 block text-sm text-ink-muted">Genre *</span>
                       <select
                         {...register("genre", { required: true })}
+                        aria-invalid={errors.genre ? true : undefined}
                         className="w-full rounded-xl border border-border bg-base px-4 py-2.5 text-sm outline-none focus:border-accent"
                       >
+                        <option value="" disabled>
+                          Choisir un genre…
+                        </option>
                         {GENRES.map((g) => (
                           <option key={g} value={g}>
                             {g}
                           </option>
                         ))}
                       </select>
+                      {errors.genre && (
+                        <p className="mt-1.5 text-xs text-accent">Choisis un genre.</p>
+                      )}
                     </label>
 
                     <label className="block">

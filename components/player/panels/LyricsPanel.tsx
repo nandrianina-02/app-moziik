@@ -27,6 +27,9 @@ import { useLigneChantee } from "@/hooks/useLigneChantee";
 /** Délai après un défilement manuel avant que le suivi automatique ne reprenne. */
 const PAUSE_SUIVI_MS = 4000;
 
+/** Au-delà, un défilement doux est considéré comme abandonné. */
+const DUREE_DEFILEMENT_MAX_MS = 1500;
+
 /**
  * Langues de traduction proposées.
  *
@@ -172,10 +175,10 @@ export function LyricsPanel({
 
   const [suiviAuto, setSuiviAuto] = useState(true);
   const reprisePrevue = useRef<ReturnType<typeof setTimeout> | null>(null);
-  // Distingue le défilement que NOUS provoquons de celui de l'utilisateur :
-  // sans ce drapeau, chaque saut automatique se prend lui-même pour une
-  // intervention manuelle et désactive aussitôt le suivi.
-  const defilementProgramme = useRef(false);
+  // Position que NOUS avons demandée, ou null si aucun défilement
+  // automatique n'est en cours. Sans ce repère, chaque saut automatique se
+  // prendrait lui-même pour une intervention manuelle et couperait le suivi.
+  const cibleDefilement = useRef<number | null>(null);
 
   const [traduction, setTraduction] = useState<string[] | null>(null);
   const [traductionBloc, setTraductionBloc] = useState<string | null>(null);
@@ -199,7 +202,12 @@ export function LyricsPanel({
     setErreurTraduction(null);
     setAfficherTraduction(false);
     setSuiviAuto(true);
-    lignesRef.current = [];
+    // Surtout ne pas vider `lignesRef` ici : les rappels de ref sont
+    // appelés à la validation du rendu, donc AVANT cet effet. Le vider
+    // effaçait les références que React venait d'y poser, et la toute
+    // première ligne du morceau ne défilait pas. Les entrées périmées ne
+    // gênent pas — l'index reste borné par la longueur de la liste, et
+    // React remet à null ce qu'il démonte.
     conteneurRef.current?.scrollTo({ top: 0 });
   }, [lyrics]);
 
@@ -214,15 +222,36 @@ export function LyricsPanel({
     // On centre la ligne dans SON conteneur, sans `scrollIntoView` : celui-ci
     // fait aussi défiler tous les ancêtres, ce qui déplace la page entière
     // sous le lecteur.
-    const cible = ligne.offsetTop - conteneur.clientHeight / 2 + ligne.clientHeight / 2;
-    defilementProgramme.current = true;
-    conteneur.scrollTo({ top: Math.max(0, cible), behavior: "smooth" });
-    const relache = setTimeout(() => (defilementProgramme.current = false), 600);
+    const cible = Math.max(0, ligne.offsetTop - conteneur.clientHeight / 2 + ligne.clientHeight / 2);
+    cibleDefilement.current = cible;
+    conteneur.scrollTo({ top: cible, behavior: "smooth" });
+
+    // Filet de sécurité : un défilement doux interrompu à mi-course
+    // n'atteint jamais sa cible, et sans cette échéance le panneau
+    // prendrait tous les gestes suivants pour les siens.
+    const relache = setTimeout(() => (cibleDefilement.current = null), DUREE_DEFILEMENT_MAX_MS);
     return () => clearTimeout(relache);
   }, [index, suiviAuto, paroles.synchronisees]);
 
+  /**
+   * Distingue notre défilement de celui de l'utilisateur.
+   *
+   * On comparait à un simple délai de 600 ms. Un défilement doux sur une
+   * longue distance dure plus longtemps que cela : ses derniers
+   * évènements passaient pour un geste manuel, le suivi se coupait, puis
+   * reprenait quatre secondes plus tard d'un bond — le défilement
+   * paraissait sauter tout seul. On compare donc à la position demandée,
+   * ce qui ne dépend d'aucune durée.
+   */
   function auDefilement() {
-    if (defilementProgramme.current) return;
+    const conteneur = conteneurRef.current;
+    if (!conteneur) return;
+    if (cibleDefilement.current !== null) {
+      if (Math.abs(conteneur.scrollTop - cibleDefilement.current) <= 2) {
+        cibleDefilement.current = null;
+      }
+      return;
+    }
     setSuiviAuto(false);
     if (reprisePrevue.current) clearTimeout(reprisePrevue.current);
     reprisePrevue.current = setTimeout(() => setSuiviAuto(true), PAUSE_SUIVI_MS);

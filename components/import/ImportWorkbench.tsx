@@ -92,6 +92,20 @@ export function ImportWorkbench({
   const pushToast = useToast();
   const siteConfig = useSiteConfig();
   const genres = useMemo(() => (siteConfig.genres.length > 0 ? siteConfig.genres : ["Autre"]), [siteConfig.genres]);
+  /**
+   * Le genre posé quand le fichier n'en déclare aucun.
+   *
+   * Le premier de la liste n'est pas un défaut, c'est un ordre : le
+   * prendre revenait à étiqueter « Afrobeat » tout fichier sans balise.
+   * Un import en masse ne peut pas laisser le champ vide — le serveur
+   * exige un genre — mais il peut dire « je ne sais pas », ce que fait
+   * « Autre ». À défaut, on retombe sur l'ancien comportement : chaque
+   * ligne reste modifiable avant envoi.
+   */
+  const genreInconnu = useMemo(
+    () => genres.find((g) => /^autres?$/i.test(g)) ?? genres[0],
+    [genres]
+  );
 
   const [lignes, setLignes] = useState<LigneImport[]>([]);
   const [survol, setSurvol] = useState(false);
@@ -207,7 +221,7 @@ export function ImportWorkbench({
         artisteNom: "",
         album: "",
         albumId: "",
-        genre: genres[0],
+        genre: genreInconnu,
         annee: "",
         piste: "",
         compositeur: "",
@@ -256,7 +270,7 @@ export function ImportWorkbench({
 
         const genreDetecte = meta.genre
           ? genres.find((g) => g.toLowerCase() === meta.genre!.toLowerCase()) ?? meta.genre
-          : genres[0];
+          : genreInconnu;
 
         // Le tempo : la balise d'abord, elle ne se discute pas. À défaut,
         // on le mesure — la plupart des fichiers n'en portent aucune, et

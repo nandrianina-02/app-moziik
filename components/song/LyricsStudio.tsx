@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   ArrowDown,
   ArrowUp,
@@ -26,7 +26,6 @@ import {
   analyserParoles,
   formaterTemps,
   lireTemps,
-  parolesEnTexte,
   versLRC,
   type LigneEditable,
 } from "@/lib/lyrics";
@@ -79,8 +78,33 @@ export function LyricsStudio({
   const [enregistrement, setEnregistrement] = useState(false);
   const fichierRef = useRef<HTMLInputElement>(null);
 
-  const paroles = useMemo(() => analyserParoles(valeur), [valeur]);
-  const lignes = useMemo(() => lignesDepuisLRC(valeur), [valeur]);
+  /**
+   * Les lignes en cours d'édition, tenues ICI et pas relues du LRC.
+   *
+   * La version précédente les recalculait depuis `valeur` à chaque frappe.
+   * Or `analyserParoles` n'est pas l'inverse de `versLRC` : elle rogne les
+   * espaces, et surtout elle **trie par temps en rejetant les lignes non
+   * horodatées à la fin**. Dès la deuxième ligne marquée, tout ce qui
+   * restait à caler sautait en bas de la liste et le curseur désignait le
+   * mauvais vers. C'était le bon comportement pour lire des paroles, et le
+   * pire possible pour les écrire.
+   *
+   * Le sens de circulation est donc à sens unique pendant l'édition :
+   * l'état local produit le LRC, jamais l'inverse. On ne relit la chaîne
+   * que lorsqu'elle change pour une autre raison que nos propres frappes —
+   * un import de fichier, ou l'arrivée du morceau.
+   */
+  const [lignes, setLignes] = useState<LigneEditable[]>(() => lignesDepuisLRC(valeur));
+  const metaRef = useRef<Record<string, string>>(analyserParoles(valeur).meta);
+  const dernierEmis = useRef(valeur);
+
+  useEffect(() => {
+    if (valeur === dernierEmis.current) return;
+    dernierEmis.current = valeur;
+    metaRef.current = analyserParoles(valeur).meta;
+    setLignes(lignesDepuisLRC(valeur));
+  }, [valeur]);
+
   const calees = lignes.filter((l) => l.temps !== null).length;
   const aDuTexte = lignes.some((l) => l.texte.trim().length > 0);
 
@@ -133,8 +157,16 @@ export function LyricsStudio({
   /* ---------------------------------------------------------- édition -- */
 
   const remplacer = useCallback(
-    (suivantes: LigneEditable[]) => onChange(versLRC(suivantes, paroles.meta)),
-    [onChange, paroles.meta]
+    (suivantes: LigneEditable[]) => {
+      setLignes(suivantes);
+      const lrc = versLRC(suivantes, metaRef.current);
+      // Mémorisé avant d'émettre : sans cela, l'écho du parent passerait
+      // pour un changement extérieur et rejouerait `analyserParoles` sur
+      // ce qu'on vient d'écrire — donc le tri, donc le saut.
+      dernierEmis.current = lrc;
+      onChange(lrc);
+    },
+    [onChange]
   );
 
   function majLigne(i: number, patch: Partial<LigneEditable>) {
@@ -142,8 +174,9 @@ export function LyricsStudio({
   }
 
   function supprimerLigne(i: number) {
-    remplacer(lignes.filter((_, j) => j !== i));
-    setCurseur((c) => Math.max(0, Math.min(c, lignes.length - 2)));
+    const suivantes = lignes.filter((_, j) => j !== i);
+    remplacer(suivantes);
+    setCurseur((c) => Math.max(0, Math.min(c, suivantes.length - 1)));
   }
 
   function ajouterLigne(apres: number) {
@@ -223,7 +256,7 @@ export function LyricsStudio({
   }
 
   function toutEffacer() {
-    onChange("");
+    remplacer([]);
     setCurseur(0);
   }
 
@@ -303,7 +336,10 @@ export function LyricsStudio({
       {mode === "texte" ? (
         <ModeTexte
           lignes={lignes}
-          paroles={parolesEnTexte(paroles)}
+          // Le texte vient de l'état local, pas d'une relecture du LRC :
+          // sinon taper une espace en fin de vers la verrait disparaître
+          // aussitôt, rognée par l'analyse.
+          paroles={lignes.map((l) => l.texte).join("\n")}
           synchronisees={calees > 0}
           onTexte={(texte) => {
             // Réassocie les horodatages ligne à ligne tant que le nombre
@@ -435,9 +471,20 @@ function ModeSynchro({
   const [saisieTemps, setSaisieTemps] = useState<{ i: number; valeur: string } | null>(null);
 
   // La ligne au curseur reste visible pendant qu'on descend en rythme.
+  //
+  // Défilement calculé dans la liste, et non `scrollIntoView` : celui-ci
+  // fait aussi défiler tous les ancêtres, donc la page entière — à chaque
+  // vers marqué, le formulaire sautait sous les doigts.
   useEffect(() => {
-    const el = listeRef.current?.children[curseur] as HTMLElement | undefined;
-    el?.scrollIntoView({ block: "nearest" });
+    const liste = listeRef.current;
+    const el = liste?.children[curseur] as HTMLElement | undefined;
+    if (!liste || !el) return;
+    const haut = el.offsetTop;
+    const bas = haut + el.offsetHeight;
+    if (haut < liste.scrollTop) liste.scrollTop = haut;
+    else if (bas > liste.scrollTop + liste.clientHeight) {
+      liste.scrollTop = bas - liste.clientHeight;
+    }
   }, [curseur]);
 
   if (lignes.length === 0) {
@@ -502,7 +549,7 @@ function ModeSynchro({
       </div>
 
       {/* Les lignes */}
-      <ol ref={listeRef} className="max-h-[420px] space-y-1 overflow-y-auto pr-1">
+      <ol ref={listeRef} className="relative max-h-[420px] space-y-1 overflow-y-auto pr-1">
         {lignes.map((ligne, i) => {
           const auCurseur = i === curseur;
           const enSaisie = saisieTemps?.i === i;

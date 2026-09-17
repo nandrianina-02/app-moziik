@@ -250,7 +250,10 @@ export default function EditSongPage() {
   } = useForm<FormValues>({
     defaultValues: {
       title: "",
-      genre: GENRES[0],
+      // Vide, comme au dépôt : ces valeurs ne servent qu'avant l'arrivée
+      // du document, que `reset` recopie ensuite. Un genre pré-choisi ici
+      // s'afficherait une fraction de seconde sur un titre qui en a un autre.
+      genre: "",
       albumId: "",
       language: LANGUAGES[0],
       composer: "",

@@ -265,7 +265,10 @@ function estTronque(type: string, taille: number): boolean {
 /* ------------------------------------------- projections des documents -- */
 
 const CHAMPS_SONG =
-  "title coverUrl audioUrl duration genre tags releaseDate playsCount likesCount explicit artist album featuring composer producer univers";
+  // `bpm` : la lecture prolonge une recherche en suivant le tempo du
+  // dernier morceau (lib/playbackContinuation.ts). Sans lui dans la
+  // projection, cette source était la seule à ne pouvoir rien enchaîner.
+  "title coverUrl audioUrl duration genre bpm tags releaseDate playsCount likesCount explicit artist album featuring composer producer univers";
 const CHAMPS_ARTIST = "stageName verified coverUrl bannerUrl genres totalPlays followers bio user univers";
 const CHAMPS_ALBUM = "title coverUrl type releaseDate songs artist description univers";
 const CHAMPS_PLAYLIST = "title coverUrl description tags owner songs followers createdAt univers";

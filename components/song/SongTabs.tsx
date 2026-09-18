@@ -39,9 +39,16 @@ export function SongTabs({
   similarSongs: PlayableSong[];
   artistSongs: PlayableSong[];
 }) {
+  // L'onglet Paroles n'apparaît que s'il a quelque chose à montrer. Un
+  // onglet qui ne mène qu'à « Aucune parole disponible » se lit comme une
+  // promesse non tenue : mieux vaut ne rien promettre. Le test porte sur
+  // le texte décodé, pas sur le champ — un LRC qui ne contient que ses
+  // balises d'en-tête est vide pour un lecteur.
+  const aDesParoles = parolesEnTexte(analyserParoles(song.lyrics)).trim().length > 0;
+
   const tabs: { value: TabValue; label: string; icon: typeof Info }[] = [
     { value: "info", label: "Informations", icon: Info },
-    { value: "lyrics", label: "Paroles", icon: FileText },
+    ...(aDesParoles ? [{ value: "lyrics" as TabValue, label: "Paroles", icon: FileText }] : []),
     { value: "comments", label: "Commentaires", icon: MessageSquare },
     { value: "artist", label: "Artiste", icon: Mic2 },
     ...(album

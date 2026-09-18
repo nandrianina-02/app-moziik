@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { AnimatePresence, motion, useDragControls, useMotionValue, useTransform } from "framer-motion";
 import {
@@ -44,6 +44,7 @@ import { useOnlineStatus } from "@/context/OnlineStatusProvider";
 import { SeekBar } from "@/components/player/SeekBar";
 import { QueuePanel } from "@/components/player/panels/QueuePanel";
 import { LyricsPanel } from "@/components/player/panels/LyricsPanel";
+import { analyserParoles, parolesEnTexte } from "@/lib/lyrics";
 import { InfoPanel } from "@/components/player/panels/InfoPanel";
 import { CreditsPanel } from "@/components/player/panels/CreditsPanel";
 import { SimilarPanel } from "@/components/player/panels/SimilarPanel";
@@ -70,7 +71,9 @@ const CLOSE_VELOCITY = 700;
 
 type Onglet = "paroles" | "infos" | "credits" | "similaires" | "commentaires";
 
-const ONGLETS: { id: Onglet; label: string; court: string; icon: typeof Mic2 }[] = [
+type DefinitionOnglet = { id: Onglet; label: string; court: string; icon: typeof Mic2 };
+
+const ONGLETS: DefinitionOnglet[] = [
   { id: "paroles", label: "Paroles", court: "Paroles", icon: Mic2 },
   { id: "infos", label: "Informations", court: "Infos", icon: Info },
   { id: "credits", label: "Crédits", court: "Crédits", icon: Users },
@@ -133,7 +136,7 @@ function ContenuLecteur({ song }: { song: PlayableSong }) {
   } = usePlayer();
   const pushToast = useToast();
   const { isOnline } = useOnlineStatus();
-  const { details } = useSongDetails(song._id);
+  const { details, loading: detailsEnCours } = useSongDetails(song._id);
   usePlayerShortcuts({ pleinEcran: true });
 
   // Les deux mises en page ne peuvent pas coexister dans le DOM : elles
@@ -144,7 +147,34 @@ function ContenuLecteur({ song }: { song: PlayableSong }) {
   const bureau = useMediaQuery("(min-width: 1024px)");
   const colonneFile = useMediaQuery("(min-width: 1280px)");
 
+  /**
+   * Les onglets réellement proposés.
+   *
+   * « Paroles » disparaît quand le morceau n'en a pas. Tant que les
+   * détails chargent, on ne sait pas encore : on le garde plutôt que de
+   * le retirer pour le remettre une seconde plus tard. Le cas ne se pose
+   * que pour les files venues de la recherche ou de la station, dont la
+   * charge allégée ne transporte pas les paroles ; ailleurs, la file les
+   * connaît déjà et l'onglet est juste, dès l'ouverture.
+   */
+  const texteParoles = details?.lyrics ?? song.lyrics;
+  const parolesVides = useMemo(
+    () => parolesEnTexte(analyserParoles(texteParoles)).trim().length === 0,
+    [texteParoles]
+  );
+  const onglets = useMemo(
+    () => (parolesVides && !detailsEnCours ? ONGLETS.filter((o) => o.id !== "paroles") : ONGLETS),
+    [parolesVides, detailsEnCours]
+  );
+
   const [onglet, setOnglet] = useState<Onglet>("paroles");
+
+  // L'onglet ouvert vient de disparaître : on retombe sur le premier
+  // restant. Sans cela, le panneau se viderait sans que rien ne soit
+  // sélectionné dans la barre.
+  useEffect(() => {
+    if (!onglets.some((o) => o.id === onglet)) setOnglet(onglets[0].id);
+  }, [onglets, onglet]);
 
   /**
    * Glisser latéralement change d'onglet.
@@ -155,9 +185,11 @@ function ContenuLecteur({ song }: { song: PlayableSong }) {
    */
   const glissementOnglets = useGlissementOnglets((direction) => {
     setOnglet((actuel) => {
-      const index = ONGLETS.findIndex((o) => o.id === actuel);
-      const suivant = (index + direction + ONGLETS.length) % ONGLETS.length;
-      return ONGLETS[suivant].id;
+      // Sur `onglets` et non `ONGLETS` : glisser ne doit pas ramener à un
+      // onglet qui n'est plus dans la barre.
+      const index = onglets.findIndex((o) => o.id === actuel);
+      const suivant = (index + direction + onglets.length) % onglets.length;
+      return onglets[suivant].id;
     });
   });
   const [offlineState, setOfflineState] = useState<"idle" | "saving" | "saved">("idle");
@@ -373,7 +405,7 @@ function ContenuLecteur({ song }: { song: PlayableSong }) {
       aria-label="Détails du morceau"
       className="mb-4 flex shrink-0 gap-1 overflow-x-auto border-b border-border pb-px"
     >
-      {ONGLETS.map((o) => {
+      {onglets.map((o) => {
         const actif = onglet === o.id;
         return (
           <button

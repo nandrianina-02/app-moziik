@@ -48,6 +48,14 @@ export type PlayableSong = {
   featuring?: { artist: { _id: string; stageName: string; verified?: boolean }; confirmed: boolean }[];
   album?: { _id: string; title: string } | string;
   genre?: string;
+  /**
+   * Tempo, quand il est connu — mesuré à la publication, ou saisi.
+   *
+   * Absent sur une bonne part du catalogue (les imports antérieurs à
+   * l'analyse automatique) : tout ce qui s'en sert doit traiter
+   * « inconnu » comme un cas normal, jamais comme une exclusion.
+   */
+  bpm?: number;
   releaseDate?: string;
   likesCount?: number;
   playsCount?: number;

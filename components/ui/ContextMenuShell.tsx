@@ -53,13 +53,45 @@ export function ContextMenuShell({
     function handleKeyDown(e: KeyboardEvent) {
       if (e.key === "Escape") onClose();
     }
+
+    /**
+     * Le défilement referme le menu.
+     *
+     * Ce menu est en `position: fixed` à un point calculé une fois, au
+     * moment de l'ouverture (voir useClampedMenuPosition). Il reste donc
+     * collé à l'écran pendant que la ligne dont il vient s'en va vers le
+     * haut : au bout de deux tours de molette, il désigne un autre
+     * morceau que celui sur lequel on a cliqué — et « Supprimer » ne
+     * porte plus sur ce qu'on croit. Le refermer est la seule réponse
+     * honnête ; le repositionner suivrait une ancre qui peut sortir de
+     * l'écran.
+     *
+     * En capture : l'évènement `scroll` ne remonte pas jusqu'au document
+     * quand il vient d'un conteneur interne, et une page de ce site en
+     * compte beaucoup (files d'attente, listes de résultats, panneaux).
+     */
+    function handleScroll(e: Event) {
+      // Même sursis que pour le clic : l'ouverture par appui long peut
+      // être suivie d'un défilement résiduel de quelques pixels.
+      if (Date.now() - openedAtRef.current < 300) return;
+      // Un défilement DANS le menu ne le referme pas.
+      if (ref.current && e.target instanceof Node && ref.current.contains(e.target)) return;
+      onClose();
+    }
+
     document.addEventListener("mousedown", handlePointerDown);
     document.addEventListener("contextmenu", handlePointerDown);
     document.addEventListener("keydown", handleKeyDown);
+    document.addEventListener("scroll", handleScroll, true);
+    // Le clavier virtuel qui s'ouvre, l'écran qu'on tourne : l'ancre
+    // mesurée ne vaut plus rien non plus.
+    window.addEventListener("resize", handleScroll);
     return () => {
       document.removeEventListener("mousedown", handlePointerDown);
       document.removeEventListener("contextmenu", handlePointerDown);
       document.removeEventListener("keydown", handleKeyDown);
+      document.removeEventListener("scroll", handleScroll, true);
+      window.removeEventListener("resize", handleScroll);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [onClose]);

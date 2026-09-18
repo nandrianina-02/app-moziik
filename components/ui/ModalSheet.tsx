@@ -11,6 +11,14 @@ import { useMediaQuery } from "@/hooks/useMediaQuery";
 const SEUIL_FERMETURE = 110;
 /** Vitesse (px/s) qui ferme la feuille même sur un geste court. */
 const VITESSE_FERMETURE = 650;
+/**
+ * Course descendante à partir de laquelle un glissement dans le corps de
+ * la feuille devient une fermeture.
+ *
+ * Assez pour qu'une tape ne l'arme jamais, assez peu pour que le geste
+ * paraisse immédiat.
+ */
+const PRISE_GLISSEMENT = 12;
 
 /**
  * Surcouche modale : feuille qui monte depuis le bas sur mobile, boîte de
@@ -63,6 +71,10 @@ export function ModalSheet({
   const idTitre = useId();
   const feuille = useMediaQuery("(max-width: 639px)");
   const controles = useDragControls();
+  /** Zone défilante du corps : son `scrollTop` arbitre le geste ci-dessous. */
+  const zone = useRef<HTMLDivElement>(null);
+  /** Point de départ du doigt, et l'état du défilement à cet instant. */
+  const toucher = useRef<{ y: number; enHaut: boolean } | null>(null);
   const y = useMotionValue(0);
   const opaciteVoile = useTransform(y, [0, 320], [1, 0.35]);
 
@@ -82,6 +94,43 @@ export function ModalSheet({
     // le lecteur plein écran. Le parent est prévenu dans tous les cas.
     setTimeout(prevenirParent, 400);
   }, [prevenirParent]);
+
+  /**
+   * Glisser vers le bas n'importe où dans la feuille la referme.
+   *
+   * Le geste n'était possible que depuis la poignée : dix millimètres de
+   * cible, alors que le réflexe est de pousser la feuille entière. Il
+   * était réservé ainsi pour ne pas entrer en conflit avec le défilement
+   * du corps — et le conflit est réel : dans une liste de cent morceaux,
+   * un glissement vers le bas doit remonter la liste, pas fermer.
+   *
+   * L'arbitre est la position du défilement. Tant que la liste n'est pas
+   * au tout début, le doigt lui appartient. Une fois en haut, tirer vers
+   * le bas ne peut plus rien remonter : ce geste-là est une fermeture, et
+   * c'est ainsi que se comporte toute feuille de ce genre.
+   *
+   * Le sens compte aussi : on n'arme rien vers le haut, sinon on volerait
+   * au navigateur le premier pixel de chaque défilement.
+   */
+  function debutGlissement(e: React.PointerEvent) {
+    // Évènements pointeur et non tactiles : c'est ce que
+    // `dragControls.start` accepte, et ce dont framer-motion se sert pour
+    // capturer le pointeur. Le doigt seulement — à la souris, la feuille
+    // est une boîte de dialogue centrée qu'on ferme autrement.
+    if (!feuille || e.pointerType !== "touch") return;
+    const el = zone.current;
+    toucher.current = { y: e.clientY, enHaut: !el || el.scrollTop <= 0 };
+  }
+
+  function pendantGlissement(e: React.PointerEvent) {
+    const depart = toucher.current;
+    if (!depart || !depart.enHaut) return;
+    if (e.clientY - depart.y <= PRISE_GLISSEMENT) return;
+    // Une seule prise par contact : sans cela, chaque déplacement de la
+    // suite redémarrerait le glissement et remettrait la feuille à zéro.
+    toucher.current = null;
+    controles.start(e);
+  }
 
   useEffect(() => {
     function surTouche(e: KeyboardEvent) {
@@ -108,9 +157,14 @@ export function ModalSheet({
               aria-modal="true"
               aria-labelledby={idTitre}
               onClick={(e) => e.stopPropagation()}
+              onPointerDown={debutGlissement}
+              onPointerMove={pendantGlissement}
+              onPointerUp={() => (toucher.current = null)}
+              onPointerCancel={() => (toucher.current = null)}
               // Sur mobile seulement : glissement vers le bas pour fermer.
-              // `dragListener={false}` réserve le geste à la poignée, sans
-              // quoi il entrerait en conflit avec le défilement du corps.
+              // `dragListener={false}` laisse `pendantGlissement` décider
+              // quand le geste est une fermeture et quand il appartient au
+              // défilement du corps.
               drag={feuille ? "y" : false}
               dragControls={controles}
               dragListener={false}
@@ -131,9 +185,12 @@ export function ModalSheet({
               transition={{ type: "spring", stiffness: 340, damping: 34, mass: 0.85 }}
               className={`flex max-h-[92dvh] w-full flex-col overflow-hidden rounded-t-3xl border border-border bg-surface shadow-2xl sm:max-h-[86vh] sm:rounded-xl2 ${largeur}`}
             >
-              {/* Poignée de glissement — mobile uniquement. `touch-none`
-                  est obligatoire ici : c'est l'élément qui déclenche le
-                  geste, et le navigateur y défilerait sinon à sa place. */}
+              {/* Poignée de glissement — mobile uniquement. Elle démarre
+                  le geste sans condition, où que soit rendu le corps :
+                  c'est le repère visible de « ça se pousse vers le bas ».
+                  `touch-none` est obligatoire ici : c'est l'élément qui
+                  déclenche le geste, et le navigateur y défilerait sinon à
+                  sa place. */}
               <div
                 onPointerDown={(e) => controles.start(e)}
                 className="flex shrink-0 touch-none justify-center pb-1 pt-3 sm:hidden"
@@ -164,6 +221,7 @@ export function ModalSheet({
               {/* Seule zone défilante : bornée par la hauteur de la feuille,
                   donc jamais de contenu hors d'atteinte. */}
               <div
+                ref={zone}
                 className={`min-h-0 flex-1 overflow-y-auto overscroll-contain px-5 sm:px-6 ${
                   pied ? "pb-4" : "pb-[max(1.25rem,env(safe-area-inset-bottom))] sm:pb-6"
                 }`}

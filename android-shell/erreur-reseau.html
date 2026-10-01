@@ -78,8 +78,7 @@
     <div class="mark"><div class="eq"><i></i><i></i><i></i></div></div>
     <h1>Moziik n'a pas pu se connecter</h1>
     <p id="message">
-      Vérifie ta connexion, puis réessaie. Tes titres déjà téléchargés
-      restent écoutables une fois l'application ouverte.
+      Vérifie ta connexion : Moziik reprendra tout seul dès qu'elle revient.
     </p>
     <button id="reessayer" type="button">Réessayer</button>
     <p class="note" id="detail"></p>
@@ -106,7 +105,7 @@
 
     if (raison) document.getElementById('detail').textContent = 'Code : ' + raison;
 
-    document.getElementById('reessayer').addEventListener('click', function () {
+    function rouvrir() {
       // Le pont natif est disponible ici aussi (la page est servie depuis
       // l'origine locale de Capacitor) : on demande un rechargement complet
       // de l'app plutôt qu'un history.back() qui resterait sur l'erreur.
@@ -116,6 +115,72 @@
       } else {
         location.reload();
       }
+    }
+
+    document.getElementById('reessayer').addEventListener('click', rouvrir);
+
+    /**
+     * Reprise automatique.
+     *
+     * Cet écran s'affiche dans le métro, dans un ascenseur, le temps qu'un
+     * forfait se recharge. Obliger à retrouver l'application et à viser un
+     * bouton pour constater que le réseau est revenu, c'est laisser le
+     * travail à faire à la personne. On le fait pour elle.
+     *
+     * POURQUOI UN RECUL PROGRESSIF, ET PAS UN SIMPLE MINUTEUR
+     *
+     * `navigator.onLine` ne dit qu'une chose : qu'une interface réseau est
+     * active. Un portail captif d'hôtel, une borne sans sortie, un forfait
+     * épuisé — tous les trois répondent « en ligne » alors que rien ne
+     * passe. Un minuteur fixe rechargerait alors toutes les quatre
+     * secondes, indéfiniment : écran qui clignote et batterie qui fond,
+     * sans jamais aboutir.
+     *
+     * Le compteur vit dans `sessionStorage` parce qu'un rechargement
+     * détruit la page : une variable ordinaire repartirait de zéro à
+     * chaque tentative, ce qui est précisément la boucle qu'on évite. Il
+     * s'efface à la fermeture de l'application, donc une nouvelle session
+     * a droit à ses essais.
+     *
+     * L'évènement `online` reste traité à part, sans compteur : un
+     * changement d'état est un signal autrement plus sûr qu'une
+     * échéance.
+     */
+    var CLE_ESSAIS = 'moziik-essais-reprise';
+    var DELAIS = [4000, 8000, 16000, 32000, 60000];
+
+    function essaisFaits() {
+      try { return Number(sessionStorage.getItem(CLE_ESSAIS)) || 0; } catch (e) { return 0; }
+    }
+    function noterEssai(n) {
+      try { sessionStorage.setItem(CLE_ESSAIS, String(n)); } catch (e) { /* stockage refusé */ }
+    }
+
+    var reprisEnCours = false;
+    function tenterReprise(automatique) {
+      if (reprisEnCours || !navigator.onLine) return;
+      if (automatique) {
+        var faits = essaisFaits();
+        if (faits >= DELAIS.length) return;
+        noterEssai(faits + 1);
+      }
+      reprisEnCours = true;
+      rouvrir();
+    }
+
+    // Le réseau vient de revenir : on n'attend pas l'échéance suivante.
+    window.addEventListener('online', function () {
+      noterEssai(0);
+      tenterReprise(false);
+    });
+
+    var prochain = DELAIS[Math.min(essaisFaits(), DELAIS.length - 1)];
+    setTimeout(function () { tenterReprise(true); }, prochain);
+
+    // Le bouton repart toujours de zéro : c'est un geste délibéré, il ne
+    // doit pas se heurter au plafond des tentatives automatiques.
+    document.getElementById('reessayer').addEventListener('click', function () {
+      noterEssai(0);
     });
   })();
 </script>

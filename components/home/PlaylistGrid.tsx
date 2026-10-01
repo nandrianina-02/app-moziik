@@ -43,7 +43,7 @@ function PlaylistTile({ playlist }: { playlist: PlaylistCardData }) {
       <Link
         href={`/playlist/${playlist._id}`}
         prefetch={false}
-        className="group relative block aspect-[4/5] w-full overflow-hidden rounded-xl2 bg-surface"
+        className="pressable group relative block aspect-[4/5] w-full overflow-hidden rounded-xl2 bg-surface"
         onContextMenu={(e) => {
           e.preventDefault();
           openMenuAt(e.clientX, e.clientY);

@@ -65,7 +65,7 @@ function CustomCollectionTile({ item }: { item: CustomItem }) {
       onTouchEnd={longPress.onTouchEnd}
       onTouchMove={longPress.onTouchMove}
     >
-      <Link href={item.href} className="group">
+      <Link href={item.href} className="pressable group">
         <div className="relative aspect-square w-full overflow-hidden rounded-xl2 bg-surface">
           <SafeImage
             src={item.coverUrl}

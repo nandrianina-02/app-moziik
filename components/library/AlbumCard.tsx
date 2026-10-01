@@ -33,6 +33,7 @@ export function AlbumCard({ album, onUnsave }: { album: LibraryAlbum; onUnsave?:
       <Link
         href={`/album/${album._id}`}
         prefetch={false}
+        className="pressable block"
         onContextMenu={(e) => {
           e.preventDefault();
           openMenuAt(e.clientX, e.clientY);

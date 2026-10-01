@@ -38,7 +38,7 @@ export function ArtistListItem({
       <Link
         href={`/artiste/${artist._id}`}
         prefetch={false}
-        className="flex min-w-0 flex-1 items-center gap-3"
+        className="pressable-ligne flex min-w-0 flex-1 items-center gap-3"
         onContextMenu={(e) => {
           e.preventDefault();
           openMenuAt(e.clientX, e.clientY);

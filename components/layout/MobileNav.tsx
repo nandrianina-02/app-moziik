@@ -37,7 +37,7 @@ export function MobileNav() {
             <li key={href}>
               <Link
                 href={href}
-                className={`flex flex-col items-center gap-1 px-3 py-1 text-[11px] transition-colors ${
+                className={`pressable flex flex-col items-center gap-1 px-3 py-1 text-[11px] transition-colors ${
                   isActive ? "text-accent" : "text-ink-muted hover:text-accent"
                 }`}
               >

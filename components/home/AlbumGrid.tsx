@@ -43,7 +43,7 @@ function AlbumTile({ album }: { album: AlbumCardData }) {
       <Link
         href={`/album/${album._id}`}
         prefetch={false}
-        className="group"
+        className="pressable group"
         onContextMenu={(e) => {
           e.preventDefault();
           openMenuAt(e.clientX, e.clientY);

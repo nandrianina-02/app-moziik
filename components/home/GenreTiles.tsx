@@ -25,7 +25,7 @@ export function GenreTiles({ genres }: { genres: { genre: string; count: number 
           key={g.genre}
           href={`/titres?genre=${encodeURIComponent(g.genre)}`}
           prefetch={false}
-          className={`group relative flex aspect-[16/10] flex-col justify-between overflow-hidden rounded-xl2 bg-gradient-to-br p-3.5 text-white shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg ${
+          className={`pressable group relative flex aspect-[16/10] flex-col justify-between overflow-hidden rounded-xl2 bg-gradient-to-br p-3.5 text-white shadow-sm transition-shadow duration-200 hover:shadow-lg ${
             palette[i % palette.length]
           }`}
         >

@@ -225,6 +225,56 @@ html.light {
   .stagger > *:nth-child(8) { animation-delay: 280ms; }
   .stagger > *:nth-child(n+9) { animation-delay: 320ms; }
 
+  /* Retour au toucher.
+     ------------------------------------------------------------------
+     Le projet comptait 550 `transition-colors` et UN SEUL `active:scale`.
+     Autrement dit : tout réagit à la souris, rien ne réagit au doigt. Sur
+     un téléphone — le premier écran de Moziik — on touche une pochette et
+     il ne se passe rien jusqu'à ce que la page change. C'est précisément
+     ce qui fait qu'une application se lit comme un site web.
+
+     Deux réponses distinctes, parce que deux gestes différents :
+     l'enfoncement au doigt (l'élément recule), le survol à la souris
+     (l'élément avance vers soi). `@media (hover: hover)` sépare les deux
+     — sans cette garde, un téléphone garderait l'état de survol collé
+     après le toucher, et la carte resterait soulevée.
+
+     Le mouvement est court et discret : 140 ms, trois pour cent. Au-delà,
+     il se remarque au lieu de se sentir, et sur une grille de vingt
+     pochettes cela devient du bruit. `prefers-reduced-motion` est déjà
+     neutralisé plus haut, pour tout le fichier. */
+  .pressable {
+    transition: transform 140ms cubic-bezier(0.16, 1, 0.3, 1);
+    /* Évite le rectangle gris que WebKit et la WebView Android posent sur
+       tout élément touché : on fournit notre propre retour. */
+    -webkit-tap-highlight-color: transparent;
+  }
+  .pressable:active {
+    transform: scale(0.97);
+  }
+  @media (hover: hover) and (pointer: fine) {
+    .pressable:hover {
+      transform: translateY(-3px);
+    }
+    /* Au clic, la souris aussi enfonce : sans cette règle, le survol
+       l'emporterait et le bouton resterait soulevé pendant l'appui. */
+    .pressable:active {
+      transform: translateY(-1px) scale(0.985);
+    }
+  }
+
+  /* Variante pour les lignes de liste, qui ne doivent pas se soulever :
+     une rangée qui avance vers soi décolle du bloc auquel elle appartient.
+     Elle s'enfonce seulement, et moins fort — sur une ligne large, trois
+     pour cent déplacent le texte de plusieurs pixels. */
+  .pressable-ligne {
+    transition: transform 140ms cubic-bezier(0.16, 1, 0.3, 1);
+    -webkit-tap-highlight-color: transparent;
+  }
+  .pressable-ligne:active {
+    transform: scale(0.99);
+  }
+
   /* Révélation au scroll : état initial caché, transition vers visible
      quand l'élément entre dans le viewport (voir components/layout/Reveal.tsx).
      Une transition (pas une keyframe animation) car l'état de départ doit

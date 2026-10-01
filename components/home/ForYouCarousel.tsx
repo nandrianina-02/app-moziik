@@ -64,7 +64,7 @@ export function ForYouCarousel({ title, cards }: { title: string; cards: HubCard
             key={card._id}
             href={card.linkHref}
             prefetch={false}
-            className="group relative h-44 w-64 shrink-0 snap-start overflow-hidden rounded-xl2"
+            className="pressable group relative h-44 w-64 shrink-0 snap-start overflow-hidden rounded-xl2"
           >
             {card.coverUrl ? (
               <>

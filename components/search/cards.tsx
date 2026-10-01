@@ -95,7 +95,7 @@ function Carte({
       href={href}
       prefetch={false}
       onClick={onOuvrir}
-      className="group block w-40 shrink-0 rounded-xl2 border border-transparent p-2 transition-colors hover:border-border hover:bg-surface sm:w-44"
+      className="pressable group block w-40 shrink-0 rounded-xl2 border border-transparent p-2 transition-colors hover:border-border hover:bg-surface sm:w-44"
     >
       {children}
     </Link>

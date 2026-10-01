@@ -57,7 +57,7 @@ export function SongRow({
 
   return (
     <div
-      className={`group w-full flex items-center gap-3 rounded-xl px-2 py-2 transition-colors hover:bg-surface ${
+      className={`pressable-ligne group w-full flex items-center gap-3 rounded-xl px-2 py-2 transition-colors hover:bg-surface ${
         isCurrent ? "bg-surface" : ""
       }`}
       onContextMenu={handleContextMenu}

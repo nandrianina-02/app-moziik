@@ -23,7 +23,7 @@ export function CompactSongRow({
   return (
     <button
       onClick={handleClick}
-      className="group flex w-full items-center gap-3 rounded-lg p-1 text-left transition-colors hover:bg-base"
+      className="pressable-ligne group flex w-full items-center gap-3 rounded-lg p-1 text-left transition-colors hover:bg-base"
     >
       <div className="relative shrink-0">
         <SafeImage

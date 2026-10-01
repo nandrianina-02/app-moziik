@@ -52,7 +52,7 @@ export function SongCard({
 
   return (
     <div
-      className="group w-full text-left"
+      className="pressable group w-full text-left"
       onContextMenu={(e) => {
         e.preventDefault();
         openMenuAt(e.clientX, e.clientY);

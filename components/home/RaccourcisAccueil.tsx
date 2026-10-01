@@ -35,9 +35,9 @@ export function RaccourcisAccueil() {
           <li key={href}>
             <Link
               href={href}
-              className="group flex flex-col items-center gap-2 rounded-xl py-1 text-center"
+              className="pressable group flex flex-col items-center gap-2 rounded-xl py-1 text-center"
             >
-              <span className="grid h-14 w-14 place-items-center rounded-full bg-accent text-base transition-transform duration-200 group-hover:scale-105 sm:h-16 sm:w-16">
+              <span className="grid h-14 w-14 place-items-center rounded-full bg-accent text-base sm:h-16 sm:w-16">
                 <Icone size={24} />
               </span>
               <span className="w-full truncate text-xs font-medium text-ink sm:text-sm">

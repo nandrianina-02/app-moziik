@@ -1,0 +1,21 @@
+{
+  "name": "moziik-admin-mcp",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Serveur MCP d'administration Moziik : pilote le catalogue depuis Claude ou ChatGPT.",
+  "bin": {
+    "moziik-admin-mcp": "src/index.js"
+  },
+  "scripts": {
+    "start": "node src/index.js",
+    "jeton": "node src/jeton.js",
+    "test": "node test/outils.test.js"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.31.0"
+  }
+}

@@ -13,8 +13,16 @@ import User from "@/models/User";
 
 export const MOTIF_USERNAME = /^[a-z0-9._]{3,20}$/;
 
-/** Enlève accents, espaces et tout ce qui ne tient pas dans une adresse. */
-export function normaliserUsername(valeur: string): string {
+/**
+ * Enlève accents, espaces et tout ce qui ne tient pas dans une adresse.
+ *
+ * Accepte l'absence de valeur : neuf comptes de la base n'ont pas de nom
+ * du tout — créés par un chemin aujourd'hui disparu. `undefined.normalize`
+ * levait un TypeError qui remontait jusqu'à la route, et la page « Mon
+ * compte » affichait « Connecte-toi » à quelqu'un déjà connecté.
+ */
+export function normaliserUsername(valeur?: string | null): string {
+  if (!valeur) return "";
   return valeur
     .normalize("NFD")
     .replace(/[̀-ͯ]/g, "")
@@ -32,7 +40,7 @@ export function normaliserUsername(valeur: string): string {
  * bout de vingt essais on bascule sur un suffixe aléatoire plutôt que de
  * balayer indéfiniment une base qui compte peut-être mille homonymes.
  */
-export async function genererUsername(base: string): Promise<string> {
+export async function genererUsername(base?: string | null): Promise<string> {
   const racine = normaliserUsername(base) || "membre";
   const socle = racine.length >= 3 ? racine : `${racine}membre`.slice(0, 20);
 
@@ -55,12 +63,35 @@ export async function genererUsername(base: string): Promise<string> {
  */
 export async function assurerUsername(user: {
   _id: unknown;
-  name: string;
+  name?: string;
   username?: string;
-  save: () => Promise<unknown>;
-}): Promise<string> {
+}): Promise<string | undefined> {
   if (user.username) return user.username;
-  user.username = await genererUsername(user.name);
-  await user.save();
-  return user.username;
+
+  const choisi = await genererUsername(user.name);
+
+  // Écriture ciblée, et non `user.save()`.
+  //
+  // `save()` revalide le document ENTIER. Or dix comptes de la base
+  // portent un thème enregistré avant que `secondary`, `warning` et
+  // `radius` ne deviennent obligatoires : leur document ne passe plus la
+  // validation, et combler un nom d'utilisateur échouait à cause de
+  // champs sans aucun rapport. La page « Mon compte » devenait alors
+  // inaccessible — pour deux administrateurs sur quatre, dont le compte
+  // principal du catalogue.
+  //
+  // `updateOne` n'écrit que ce champ et ne valide que lui. Réparer les
+  // thèmes incomplets reste à faire, mais ce n'est pas à une lecture de
+  // profil de s'en charger.
+  try {
+    await User.updateOne({ _id: user._id }, { $set: { username: choisi } });
+    user.username = choisi;
+    return choisi;
+  } catch {
+    // Collision sur l'index unique — deux requêtes simultanées pour le
+    // même compte, ou un identifiant pris entre-temps. Le compte reste
+    // sans adresse publique jusqu'à la prochaine lecture, ce qui est sans
+    // conséquence : rien n'en dépend pour afficher un profil.
+    return undefined;
+  }
 }

@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useSession, signOut } from "next-auth/react";
 import {
+  History,
   BadgeCheck,
   Calendar,
   Check,
@@ -102,6 +103,8 @@ export default function AccountPage() {
   const [confirmDeconnexionTout, setConfirmDeconnexionTout] = useState(false);
   const [confirmSuppression, setConfirmSuppression] = useState(false);
   const [action, setAction] = useState(false);
+  /** Le profil n'a pas pu être lu, alors que la session est valide. */
+  const [echec, setEchec] = useState(false);
 
   const chargerProfil = useCallback(async () => {
     try {
@@ -120,7 +123,11 @@ export default function AccountPage() {
         timezone: data.user.preferences?.timezone ?? "",
         dateFormat: data.user.preferences?.dateFormat ?? "",
       });
+      setEchec(false);
     } catch {
+      // Distingué de « pas connecté » : c'est ce qui manquait, et c'est
+      // ce qui rendait la panne indéchiffrable.
+      setEchec(true);
       pushToast("error", "Impossible de charger le profil.");
     }
   }, [pushToast]);
@@ -253,9 +260,49 @@ export default function AccountPage() {
     );
   }
 
+  // Connecté, mais le profil n'est pas arrivé.
+  //
+  // Ce cas tombait dans la branche « pas connecté » juste en dessous : on
+  // affichait « Connecte-toi pour accéder à ton compte » à quelqu'un dont
+  // la session était parfaitement valide. Dix-neuf comptes de la base
+  // voyaient exactement cet écran — dont deux administrateurs — et rien
+  // n'indiquait que la cause était une erreur serveur.
+  if (status === "authenticated" && session?.user && !profil) {
+    return (
+      <div className="animate-fade-in-up mx-auto w-full max-w-4xl px-4 py-6 sm:px-6 md:px-10 md:py-10">
+        <h1 className="text-2xl font-display sm:text-3xl">Mon compte</h1>
+        <div className="mt-6 rounded-xl2 border border-border bg-surface p-6 text-center">
+          <p className="text-sm text-ink">
+            {echec
+              ? "Vos informations n'ont pas pu être chargées."
+              : "Chargement de vos informations…"}
+          </p>
+          {echec && (
+            <>
+              <p className="mx-auto mt-1.5 max-w-sm text-sm text-ink-muted">
+                Votre session est bien active : le problème vient du serveur, pas de votre
+                connexion.
+              </p>
+              <button
+                type="button"
+                onClick={() => {
+                  setLoading(true);
+                  chargerProfil().finally(() => setLoading(false));
+                }}
+                className="pressable mt-4 rounded-full bg-accent px-5 py-2.5 text-sm font-medium text-base transition-colors hover:bg-accent-hover"
+              >
+                Réessayer
+              </button>
+            </>
+          )}
+        </div>
+      </div>
+    );
+  }
+
   if (status !== "authenticated" || !session?.user || !profil) {
     return (
-      <div className="mx-auto w-full max-w-4xl px-4 py-6 sm:px-6 md:px-10 md:py-10">
+      <div className="animate-fade-in-up mx-auto w-full max-w-4xl px-4 py-6 sm:px-6 md:px-10 md:py-10">
         <h1 className="text-2xl font-display">Mon compte</h1>
         <p className="mt-2 text-sm text-ink-muted">
           Connecte-toi pour accéder à ton compte.{" "}
@@ -703,6 +750,21 @@ export default function AccountPage() {
                 {enregistrement ? <Loader2 size={15} className="animate-spin" /> : <Check size={15} />}
                 Enregistrer
               </button>
+            </div>
+          </AdminCard>
+
+          <AdminCard title="Historique d'activité">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <p className="text-sm text-ink-muted">
+                Vos écoutes, commentaires, playlists et connexions, du plus récent au plus
+                ancien.
+              </p>
+              <Link
+                href="/compte/activite"
+                className="pressable flex items-center gap-1.5 rounded-xl border border-border px-4 py-2 text-sm font-medium text-ink transition-colors hover:border-accent hover:text-accent"
+              >
+                <History size={14} /> Consulter
+              </Link>
             </div>
           </AdminCard>
 

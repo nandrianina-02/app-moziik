@@ -487,12 +487,28 @@ export const OUTILS = [
     lectureSeule: true,
     entree: obj({}),
     async executer(client) {
-      const r = await client.get("/api/artist/revenus");
-      return reponse({
-        total_usd: r.totalUSD,
-        total_ecoutes: r.totalPlays,
-        lignes: liste(r.royalties, ["period", "plays", "amountUSD", "artisteId", "status"]),
-      });
+      try {
+        const r = await client.get("/api/artist/revenus");
+        return reponse({
+          total_usd: r.totalUSD,
+          total_ecoutes: r.totalPlays,
+          lignes: liste(r.royalties, ["period", "plays", "amountUSD", "artisteId", "status"]),
+        });
+      } catch (err) {
+        // Un administrateur sans profil artiste reçoit « Profil artiste
+        // introuvable », ce qui se lit comme une panne alors que c'est le
+        // cas normal. On le dit, et on dit aussi qu'il n'y a pas d'autre
+        // route — sans quoi le modèle en cherchera une qui n'existe pas.
+        if (err && err.statut === 404) {
+          return erreur(
+            "Ce compte n'a pas de profil artiste, il n'a donc aucune rémunération à son nom. " +
+              "Il n'existe aucune route permettant de consulter les royalties de tout le " +
+              "catalogue : seul /api/artist/revenus existe, et il ne rend que celles du compte connecté.",
+            { statut: 404 }
+          );
+        }
+        throw err;
+      }
     },
   },
 

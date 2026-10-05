@@ -1,13 +1,16 @@
 "use client";
 
 import { useState } from "react";
-import { signIn } from "next-auth/react";
 import Link from "next/link";
 import { User, Mail, Lock, Eye, EyeOff, MailCheck } from "lucide-react";
 import { FormField } from "@/components/ui/FormField";
 import { GoogleIcon } from "@/components/ui/GoogleIcon";
+import { useConnexionGoogle } from "@/hooks/useConnexionGoogle";
 
 export function RegisterForm() {
+  // Même comportement que la connexion : fenêtre surgissante dans un
+  // navigateur, onglet Chrome dans l'app, redirection si bloquée.
+  const { lancer: connexionGoogle, enCours: googleEnCours } = useConnexionGoogle();
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -142,11 +145,12 @@ export function RegisterForm() {
       </div>
 
       <button
-        onClick={() => signIn("google", { callbackUrl: "/" })}
-        className="w-full flex items-center justify-center gap-2.5 rounded-xl border border-border py-3 text-sm font-medium transition-colors hover:border-accent"
+        onClick={connexionGoogle}
+        disabled={googleEnCours}
+        className="pressable w-full flex items-center justify-center gap-2.5 rounded-xl border border-border py-3 text-sm font-medium transition-colors hover:border-accent disabled:opacity-60"
       >
         <GoogleIcon size={18} />
-        Continuer avec Google
+        {googleEnCours ? "Fenêtre Google ouverte..." : "Continuer avec Google"}
       </button>
 
       <p className="text-sm text-ink-muted mt-6 text-center">

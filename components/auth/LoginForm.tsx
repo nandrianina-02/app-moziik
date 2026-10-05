@@ -8,7 +8,7 @@ import { Mail, Lock, Eye, EyeOff } from "lucide-react";
 import { FormField } from "@/components/ui/FormField";
 import { GoogleIcon } from "@/components/ui/GoogleIcon";
 import { useToast } from "@/context/ToastProvider";
-import { ouvrirConnexionGoogle } from "@/lib/native/authGoogle";
+import { useConnexionGoogle } from "@/hooks/useConnexionGoogle";
 
 export function LoginForm() {
   const router = useRouter();
@@ -29,6 +29,10 @@ export function LoginForm() {
   const [relaisAndroid, setRelaisAndroid] = useState(false);
   const [redirectionGoogle, setRedirectionGoogle] = useState(false);
 
+  // Fenêtre surgissante dans un navigateur, onglet Chrome dans l'app,
+  // redirection si la fenêtre est bloquée — voir hooks/useConnexionGoogle.ts.
+  const { lancer: connexionGoogle, enCours: googleEnCours } = useConnexionGoogle();
+
   useEffect(() => {
     setRelaisAndroid(new URLSearchParams(window.location.search).get("relais") === "android");
   }, []);
@@ -41,15 +45,6 @@ export function LoginForm() {
     setRedirectionGoogle(true);
     void signIn("google", { callbackUrl: "/api/mobile-auth/relais" });
   }, [relaisAndroid]);
-
-  /**
-   * Dans l'app Android, sort vers un onglet Chrome — Google refuse OAuth
-   * dans une WebView. Partout ailleurs, flux NextAuth habituel.
-   */
-  function connexionGoogle() {
-    if (ouvrirConnexionGoogle()) return;
-    signIn("google", { callbackUrl: "/" });
-  }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -165,11 +160,15 @@ export function LoginForm() {
 
       <button
         onClick={connexionGoogle}
-        disabled={redirectionGoogle}
-        className="w-full flex items-center justify-center gap-2.5 rounded-xl border border-border py-3 text-sm font-medium transition-colors hover:border-accent disabled:opacity-60"
+        disabled={redirectionGoogle || googleEnCours}
+        className="pressable w-full flex items-center justify-center gap-2.5 rounded-xl border border-border py-3 text-sm font-medium transition-colors hover:border-accent disabled:opacity-60"
       >
         <GoogleIcon size={18} />
-        {redirectionGoogle ? "Redirection vers Google..." : "Continuer avec Google"}
+        {redirectionGoogle
+          ? "Redirection vers Google..."
+          : googleEnCours
+            ? "Fenêtre Google ouverte..."
+            : "Continuer avec Google"}
       </button>
 
       <p className="text-sm text-ink-muted mt-6 text-center">

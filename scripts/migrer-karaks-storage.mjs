@@ -37,7 +37,7 @@
  *      Une poignée de documents, pour vérifier à l'écoute.
  *   4. node scripts/migrer-karaks-storage.mjs
  *
- * Options : --essai, --limite N, --collections songs,albums,…, --aide
+ * Options : --essai, --limite N, --parallele N (4 par défaut), --collections songs,albums,…, --aide
  */
 import fs from "node:fs";
 import path from "node:path";
@@ -68,6 +68,8 @@ if (args.includes("--aide")) {
 
 const ESSAI = args.includes("--essai");
 const LIMITE = Number(option("--limite") ?? Infinity);
+/** Titres copiés en même temps. */
+const PARALLELE = Math.max(1, Number(option("--parallele") ?? 4));
 const STOCKAGE = process.env.KARAKS_STORAGE_URL?.replace(/\/+$/, "");
 const CLE = process.env.KARAKS_STORAGE_API_KEY;
 const JOURNAL = path.resolve(process.cwd(), "scripts/.migration-karaks-storage.json");
@@ -247,17 +249,34 @@ async function deposer(octets, type, nom, nomDossier) {
     corps: { name: `${base}.${extension}`, mimeType: type, size: octets.byteLength, folderId: await dossier(nomDossier) },
   });
   let envoye = 0;
+  let essais = 0;
   while (envoye < octets.byteLength) {
     const fin = Math.min(envoye + envoi.chunkSize, octets.byteLength);
-    const reponse = await fetch(envoi.uploadUrl, {
-      method: "PUT",
-      headers: { "Content-Range": `bytes ${envoye}-${fin - 1}/${octets.byteLength}` },
-      body: octets.subarray(envoye, fin),
-    });
-    const donnees = await reponse.json().catch(() => null);
-    if (!reponse.ok) throw new Error(donnees?.error?.message ?? `Envoi refusé (${reponse.status})`);
-    envoye = donnees.upload.received;
-    if (donnees.file) return donnees.file.id;
+    try {
+      const reponse = await fetch(envoi.uploadUrl, {
+        method: "PUT",
+        headers: { "Content-Range": `bytes ${envoye}-${fin - 1}/${octets.byteLength}` },
+        body: octets.subarray(envoye, fin),
+      });
+      const donnees = await reponse.json().catch(() => null);
+      if (!reponse.ok) {
+        const erreur = new Error(donnees?.error?.message ?? `Envoi refusé (${reponse.status})`);
+        // Un refus (format, quota) ne changera pas ; une panne passagère, si.
+        if (reponse.status < 500 && reponse.status !== 429) erreur.definitif = true;
+        throw erreur;
+      }
+      envoye = donnees.upload.received;
+      essais = 0;
+      if (donnees.file) return donnees.file.id;
+    } catch (erreur) {
+      if (erreur.definitif || essais >= 4) throw erreur;
+      essais += 1;
+      await new Promise((r) => setTimeout(r, 2000 * essais));
+      // Après une coupure, le service dit combien d'octets il a gardés.
+      const etat = await fetch(envoi.uploadUrl).then((r) => r.json()).catch(() => null);
+      if (etat?.file) return etat.file.id;
+      if (typeof etat?.upload?.received === "number") envoye = etat.upload.received;
+    }
   }
   return envoi.upload.fileId;
 }
@@ -280,9 +299,22 @@ const bilan = { documents: 0, fichiers: 0, octets: 0, octetsVersions: 0, echecs:
 async function migrerTitres(db) {
   const titres = db.collection("songs");
   const curseur = titres.find({ audioUrl: { $regex: "res\\.cloudinary\\.com/" } }, { projection: { title: 1, audioUrl: 1, trimStart: 1, trimEnd: 1, duration: 1 } });
-  let vus = 0;
+  const liste = [];
   for await (const titre of curseur) {
-    if (vus++ >= LIMITE) break;
+    if (liste.length >= LIMITE) break;
+    liste.push(titre);
+  }
+  // Plusieurs titres à la fois : chacun attend surtout le réseau (Cloudinary
+  // qui fabrique une qualité, puis l'envoi par morceaux), pas le processeur.
+  let suivant = 0;
+  const ouvrier = async () => {
+    while (suivant < liste.length) await migrerTitre(titres, liste[suivant++]);
+  };
+  await Promise.all(Array.from({ length: Math.min(PARALLELE, liste.length) }, ouvrier));
+}
+
+async function migrerTitre(titres, titre) {
+  {
     try {
       if (ESSAI) {
         bilan.fichiers += 4;
@@ -290,7 +322,7 @@ async function migrerTitres(db) {
         // Les trois qualités cumulent 512 kb/s, soit 64 000 octets par seconde
         // servie : souvent plus que l'original lui-même.
         bilan.octetsVersions += (titre.duration ?? 0) * 64_000;
-        continue;
+        return;
       }
       const deja = journal.titres[String(titre._id)];
       const source = deja?.source ?? (await copier(titre.audioUrl, "songs", "video", true));

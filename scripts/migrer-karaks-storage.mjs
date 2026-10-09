@@ -37,7 +37,8 @@
  *      Une poignée de documents, pour vérifier à l'écoute.
  *   4. node scripts/migrer-karaks-storage.mjs
  *
- * Options : --essai, --limite N, --parallele N (4 par défaut), --collections songs,albums,…, --aide
+ * Options : --essai, --limite N, --parallele N (4 par défaut), --ffmpeg (qualités encodées
+ * localement si Cloudinary refuse), --collections songs,albums,…, --aide
  */
 import fs from "node:fs";
 import path from "node:path";
@@ -68,6 +69,8 @@ if (args.includes("--aide")) {
 
 const ESSAI = args.includes("--essai");
 const LIMITE = Number(option("--limite") ?? Infinity);
+/** Repli : encoder les qualités avec ffmpeg quand Cloudinary refuse (fichiers très longs). */
+const FFMPEG = args.includes("--ffmpeg");
 /** Titres copiés en même temps. */
 const PARALLELE = Math.max(1, Number(option("--parallele") ?? 4));
 const STOCKAGE = process.env.KARAKS_STORAGE_URL?.replace(/\/+$/, "");
@@ -209,6 +212,43 @@ async function poids(url) {
   return Number(reponse?.headers.get("content-length") ?? 0);
 }
 
+/**
+ * Encode une qualité d'écoute avec ffmpeg, depuis l'original : mêmes débits
+ * que le navigateur (lib/encodageAudio.ts), 64 kb/s en mono, découpe
+ * comprise. L'original n'est téléchargé qu'une fois par titre.
+ */
+const sources = new Map();
+async function encoderLocalement(titre, qualite) {
+  const { execFile } = await import("node:child_process");
+  const os = await import("node:os");
+  const dossierTmp = path.join(os.tmpdir(), "moziik-migration");
+  fs.mkdirSync(dossierTmp, { recursive: true });
+  const entree = path.join(dossierTmp, `${titre._id}-source`);
+  if (!sources.has(String(titre._id))) {
+    const { octets } = await telecharger(adresseLisible(titre.audioUrl, "video", true));
+    fs.writeFileSync(entree, octets);
+    sources.set(String(titre._id), entree);
+  }
+  const sortie = path.join(dossierTmp, `${titre._id}-${qualite}.mp3`);
+  const reglages = { low: ["-b:a", "64k", "-ac", "1"], medium: ["-b:a", "128k", "-ac", "2"], high: ["-b:a", "320k", "-ac", "2"] }[qualite];
+  const decoupe = [
+    ...(typeof titre.trimStart === "number" && titre.trimStart > 0 ? ["-ss", String(titre.trimStart)] : []),
+    ...(typeof titre.trimEnd === "number" && titre.trimEnd > 0 ? ["-to", String(titre.trimEnd)] : []),
+  ];
+  await new Promise((resolve, reject) =>
+    execFile(
+      "ffmpeg",
+      ["-y", "-loglevel", "error", "-i", entree, ...decoupe, "-vn", "-ar", "44100", "-codec:a", "libmp3lame", ...reglages, sortie],
+      { maxBuffer: 1024 * 1024 },
+      (erreur) => (erreur ? reject(new Error(`ffmpeg : ${erreur.message}`)) : resolve()),
+    ),
+  );
+  const octets = new Uint8Array(fs.readFileSync(sortie));
+  fs.rmSync(sortie, { force: true });
+  console.log(`  encodé localement : ${titre.title} (${qualite})`);
+  return octets;
+}
+
 // --- Karaks Storage ---------------------------------------------------------------
 
 async function appel(chemin, init = {}) {
@@ -345,8 +385,16 @@ async function migrerTitre(titres, titre) {
           variantes[qualite] = deja.variantes[qualite];
           continue;
         }
-        const { octets, type } = await telecharger(adresseVariante(titre.audioUrl, qualite, titre.trimStart, titre.trimEnd));
-        variantes[qualite] = await deposer(octets, type === "audio/mpeg" ? type : "audio/mpeg", `${titre.title}-${qualite}.mp3`, "songs");
+        let octets;
+        try {
+          ({ octets } = await telecharger(adresseVariante(titre.audioUrl, qualite, titre.trimStart, titre.trimEnd)));
+        } catch (erreur) {
+          // Cloudinary refuse de transformer à la volée un fichier trop long
+          // (423, puis 400). Avec --ffmpeg, la qualité est encodée ici.
+          if (!FFMPEG) throw erreur;
+          octets = await encoderLocalement(titre, qualite);
+        }
+        variantes[qualite] = await deposer(octets, "audio/mpeg", `${titre.title}-${qualite}.mp3`, "songs");
         journal.titres[String(titre._id)] = { source, variantes };
         noter();
       }

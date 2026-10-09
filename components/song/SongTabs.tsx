@@ -121,7 +121,7 @@ function InfoTab({
       {song.featuring && song.featuring.length > 0 && (
         <div className="rounded-xl2 border border-border bg-surface p-4">
           <h3 className="mb-3 text-sm font-medium">En featuring</h3>
-          <ul className="space-y-2">
+          <ul className="stagger space-y-2">
             {song.featuring.map((f) => (
               <li key={f.artist._id}>
                 <Link

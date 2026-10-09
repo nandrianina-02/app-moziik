@@ -261,7 +261,7 @@ export default function EventsPage() {
           </div>
 
           {chargement && (
-            <div className="space-y-4">
+            <div className="stagger space-y-4">
               {Array.from({ length: 4 }).map((_, i) => (
                 <EventRowSkeleton key={i} />
               ))}
@@ -280,7 +280,7 @@ export default function EventsPage() {
           )}
 
           {!chargement && affiches.length > 0 && (
-            <div className="space-y-4">
+            <div className="stagger space-y-4">
               {affiches.map((event) => (
                 <EventRow
                   key={event._id}

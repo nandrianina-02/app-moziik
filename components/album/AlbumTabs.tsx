@@ -206,7 +206,7 @@ function SimilarTab({ albums, artistName }: { albums: AlbumSummaryLite[]; artist
       <p className="mb-3 px-1 text-xs text-ink-muted">
         {artistName ? `D'autres sorties de ${artistName} :` : "Fans aussi aiment :"}
       </p>
-      <div className="grid gap-2 sm:grid-cols-2">
+      <div className="stagger grid gap-2 sm:grid-cols-2">
         {albums.map((a) => (
           <CompactAlbumRow key={a._id} album={a} />
         ))}

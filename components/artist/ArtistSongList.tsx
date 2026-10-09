@@ -143,7 +143,7 @@ export function ArtistSongList({
   });
 
   return (
-    <div className="space-y-0.5">
+    <div className="stagger space-y-0.5">
       {visible.map((song, i) => {
         const queueIndex = effectiveQueue.findIndex((s) => s._id === song._id);
         return (

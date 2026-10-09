@@ -17,7 +17,7 @@ import { useLongPress } from "@/components/music/useLongPress";
 export function TrendingList({ songs, source }: { songs: PlayableSong[]; source?: PlaySource }) {
   if (songs.length === 0) return null;
   return (
-    <ol className="space-y-0.5">
+    <ol className="stagger space-y-0.5">
       {songs.map((song, index) => (
         <TrendingRow key={song._id} song={song} songs={songs} index={index} source={source} />
       ))}

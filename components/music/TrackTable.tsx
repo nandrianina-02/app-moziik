@@ -80,7 +80,7 @@ export function TrackTable({
         <span />
       </div>
 
-      <div className="mt-1 space-y-0.5">
+      <div className="stagger mt-1 space-y-0.5">
         {visible.map((song, index) => (
           <TrackRow
             key={song._id}

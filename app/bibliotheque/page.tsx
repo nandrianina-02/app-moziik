@@ -289,7 +289,7 @@ export default function LibraryPage() {
                 ) : playlists.length === 0 ? (
                   <p className="text-xs text-ink-muted">Pas encore de playlist.</p>
                 ) : (
-                  <div className="space-y-1">
+                  <div className="stagger space-y-1">
                     {playlists.slice(0, 5).map((playlist) => (
                       <Link
                         key={playlist._id}
@@ -337,7 +337,7 @@ export default function LibraryPage() {
                     Aucun album enregistré — utilise l&apos;icône marque-page sur la page d&apos;un album.
                   </p>
                 ) : (
-                  <div className="space-y-1">
+                  <div className="stagger space-y-1">
                     {albumsSeuls.slice(0, 5).map((album) => (
                       <Link
                         key={album._id}
@@ -377,7 +377,7 @@ export default function LibraryPage() {
                 ) : followedArtists.length === 0 ? (
                   <p className="text-xs text-ink-muted">Tu ne suis encore aucun artiste.</p>
                 ) : (
-                  <div className="space-y-1">
+                  <div className="stagger space-y-1">
                     {followedArtists.slice(0, 5).map((artist) => (
                       <Link
                         key={artist._id}
@@ -470,7 +470,7 @@ export default function LibraryPage() {
         {isAuthed && tab === "albums" && (
           <div>
             {albumsLoading ? (
-              <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
+              <div className="stagger grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
                 {Array.from({ length: 5 }).map((_, i) => (
                   <SkeletonCard key={i} />
                 ))}
@@ -481,7 +481,7 @@ export default function LibraryPage() {
               </p>
             ) : (
               <>
-                <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
+                <div className="stagger grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
                   {albumsList.visible.map((album) => (
                     <AlbumCard key={album._id} album={album} onUnsave={handleUnsaveAlbum} />
                   ))}
@@ -524,7 +524,7 @@ export default function LibraryPage() {
             {!isAuthed ? (
               <p className="text-sm text-ink-muted">Connecte-toi pour retrouver tes podcasts ici.</p>
             ) : albumsLoading ? (
-              <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
+              <div className="stagger grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
                 {Array.from({ length: 5 }).map((_, i) => (
                   <SkeletonCard key={i} />
                 ))}

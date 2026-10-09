@@ -171,6 +171,11 @@ html.light {
   to { opacity: 1; }
 }
 
+@keyframes entreePage {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: none; }
+}
+
 @keyframes fadeInUp {
   from { opacity: 0; transform: translateY(10px); }
   to { opacity: 1; transform: translateY(0); }
@@ -205,6 +210,12 @@ html.light {
 
   .animate-fade-in {
     animation: fadeIn 0.4s ease-out both;
+  }
+  /* Arrivée d'une page (app/template.tsx). `backwards` et non `both` :
+     une fois jouée, l'animation ne laisse aucun transform, qui ferait du
+     conteneur la référence des fenêtres en position fixe. */
+  .entree-page {
+    animation: entreePage 0.28s cubic-bezier(0.16, 1, 0.3, 1) backwards;
   }
   .animate-fade-in-up {
     animation: fadeInUp 0.45s cubic-bezier(0.16, 1, 0.3, 1) backwards;

@@ -127,7 +127,7 @@ function CoverGrid({
 
   return (
     <div>
-      <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
+      <div className="stagger grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
         {visible.map((item) => (
           <Link key={item.id} href={item.href}>
             <SafeImage src={item.coverUrl} alt={item.title} width={160} height={160} className="mb-2 aspect-square w-full rounded-xl2 object-cover" />
@@ -525,7 +525,7 @@ export function ArtistDetailClient() {
                       <h2 className="mb-3 flex items-center gap-1.5 text-base text-ink font-display">
                         <MessageCircle size={16} /> Commentaires récents
                       </h2>
-                      <div className="space-y-3">
+                      <div className="stagger space-y-3">
                         {recentComments.map((c) => (
                           <div key={c._id} className="flex gap-3">
                             <SafeImage src={c.user.avatarUrl} alt={c.user.name} width={32} height={32} className="mt-0.5 shrink-0 rounded-full object-cover" />
@@ -547,7 +547,7 @@ export function ArtistDetailClient() {
                   {recentReleases.length > 0 && (
                     <section className="rounded-xl2 border border-border bg-surface p-4">
                       <h2 className="mb-3 text-sm font-medium">Dernières sorties</h2>
-                      <div className="space-y-1">
+                      <div className="stagger space-y-1">
                         {recentReleases.map((song) => {
                           const isNew = (() => {
                             const days = (Date.now() - new Date((song as any).releaseDate ?? (song as any).createdAt ?? 0).getTime()) / (24 * 60 * 60 * 1000);
@@ -587,7 +587,7 @@ export function ArtistDetailClient() {
                           </button>
                         )}
                       </div>
-                      <div className="space-y-1">
+                      <div className="stagger space-y-1">
                         {playlistsFeaturing.slice(0, 3).map((p) => (
                           <Link key={p._id} href={`/playlist/${p._id}`} className="flex items-center gap-3 rounded-xl px-1.5 py-1.5 hover:bg-base">
                             <SafeImage src={p.coverUrl} alt={p.title} width={36} height={36} className="shrink-0 rounded-lg object-cover" />

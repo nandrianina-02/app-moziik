@@ -170,7 +170,7 @@ export function SongTable({
           <span>Album</span>
         </div>
       )}
-      <div className="space-y-0.5">
+      <div className="stagger space-y-0.5">
         {visible.map((song, index) => (
           <SongTableRow key={song._id} song={song} queue={songs} index={index} onDeleted={onDeleted} source={source} />
         ))}

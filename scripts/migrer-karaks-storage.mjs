@@ -264,11 +264,11 @@ async function copier(url, nomDossier, ressource) {
 
 // --- Passes -----------------------------------------------------------------------
 
-const bilan = { documents: 0, fichiers: 0, octets: 0, echecs: 0 };
+const bilan = { documents: 0, fichiers: 0, octets: 0, octetsVersions: 0, echecs: 0 };
 
 async function migrerTitres(db) {
   const titres = db.collection("songs");
-  const curseur = titres.find({ audioUrl: { $regex: "res\\.cloudinary\\.com/" } }, { projection: { title: 1, audioUrl: 1, trimStart: 1, trimEnd: 1 } });
+  const curseur = titres.find({ audioUrl: { $regex: "res\\.cloudinary\\.com/" } }, { projection: { title: 1, audioUrl: 1, trimStart: 1, trimEnd: 1, duration: 1 } });
   let vus = 0;
   for await (const titre of curseur) {
     if (vus++ >= LIMITE) break;
@@ -276,6 +276,9 @@ async function migrerTitres(db) {
       if (ESSAI) {
         bilan.fichiers += 4;
         bilan.octets += await poids(adresseLisible(titre.audioUrl, "video"));
+        // Les trois qualités cumulent 512 kb/s, soit 64 000 octets par seconde
+        // servie : souvent plus que l'original lui-même.
+        bilan.octetsVersions += (titre.duration ?? 0) * 64_000;
         continue;
       }
       const deja = journal.titres[String(titre._id)];
@@ -372,7 +375,9 @@ async function main() {
   const mo = (bilan.octets / 1024 / 1024).toFixed(1);
   console.log(
     ESSAI
-      ? `\n${bilan.fichiers} fichiers à copier, ${mo} Mo hors qualités d'écoute (comptez environ 40 % de plus pour celles-ci).`
+      ? `\n${bilan.fichiers} fichiers à copier : ${mo} Mo d'originaux, clips et images, ` +
+        `et environ ${(bilan.octetsVersions / 1024 / 1024).toFixed(0)} Mo de qualités d'écoute, ` +
+        `soit ${((bilan.octets + bilan.octetsVersions) / 1024 ** 3).toFixed(1)} Go en tout.`
       : `\n${bilan.documents} documents mis à jour, ${bilan.fichiers} fichiers copiés, ${bilan.echecs} échec(s).`,
   );
   if (bilan.echecs > 0) {

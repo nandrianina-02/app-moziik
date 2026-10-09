@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { ImagePlus, Plus, Search, X } from "lucide-react";
 import { SafeImage } from "@/components/ui/SafeImage";
 import { useToast } from "@/context/ToastProvider";
-import { uploadToCloudinaryClient } from "@/lib/cloudinaryClient";
+import { envoyerFichier } from "@/lib/envoiFichier";
 import type { ArtisteAffiche, CategorieBillet, MomentProgramme } from "@/components/events/detail/types";
 
 /**
@@ -367,7 +367,7 @@ export function ChampsGalerie({
     try {
       const restant = max - urls.length;
       const lot = Array.from(fichiers).slice(0, restant);
-      const envoyes = await Promise.all(lot.map((f) => uploadToCloudinaryClient(f, "covers")));
+      const envoyes = await Promise.all(lot.map((f) => envoyerFichier(f, "covers")));
       onChange([...urls, ...envoyes.map((e) => e.url)]);
     } catch {
       pushToast("error", "L'envoi d'une photo a échoué.");

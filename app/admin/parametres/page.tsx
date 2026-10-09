@@ -22,7 +22,7 @@ import { FormField } from "@/components/ui/FormField";
 import { TagInput } from "@/components/ui/TagInput";
 import { ThemeEditor } from "@/components/theme/ThemeEditor";
 import { useToast } from "@/context/ToastProvider";
-import { uploadToCloudinaryClient } from "@/lib/cloudinaryClient";
+import { envoyerFichier } from "@/lib/envoiFichier";
 import { RESEAUX, urlSocialeValide, type IdentifiantReseau } from "@/lib/socialPlatforms";
 import { UNIVERS, UNIVERS_INFO, normaliserUnivers, type Univers } from "@/lib/univers";
 import { normaliserTheme, type ThemePreference } from "@/lib/theme";
@@ -158,7 +158,7 @@ export default function AdminSettingsPage() {
   async function envoyerImage(cle: "logoUrl" | "logoDarkUrl" | "faviconUrl", file: File) {
     setEnvoiEnCours(cle);
     try {
-      const { url } = await uploadToCloudinaryClient(file, "site-assets");
+      const { url } = await envoyerFichier(file, "site-assets");
       await enregistrerImage(cle, url);
     } catch {
       pushToast("error", "Échec de l'envoi du fichier.");

@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { Plus, Send, X, Loader2, CornerUpLeft, ImagePlus, Mic, Music2, Square } from "lucide-react";
 import { SelecteurContenu } from "@/components/messages/SelecteurContenu";
 import { SafeImage } from "@/components/ui/SafeImage";
-import { uploadToCloudinaryClient } from "@/lib/cloudinaryClient";
+import { envoyerFichier } from "@/lib/envoiFichier";
 import { useToast } from "@/context/ToastProvider";
 import {
   CORPS_MAX,
@@ -141,7 +141,7 @@ export function Composeur({
     setPieces((prev) => [...prev, provisoire]);
 
     try {
-      const { url, duration } = await uploadToCloudinaryClient(fichier, "messages");
+      const { url, duration } = await envoyerFichier(fichier, "messages");
       setPieces((prev) =>
         prev.map((p) =>
           p.url === provisoire.url

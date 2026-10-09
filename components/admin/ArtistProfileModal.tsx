@@ -6,7 +6,7 @@ import { ModalSheet } from "@/components/ui/ModalSheet";
 import { SafeImage } from "@/components/ui/SafeImage";
 import { Switch } from "@/components/ui/Switch";
 import { useToast } from "@/context/ToastProvider";
-import { uploadToCloudinaryClient } from "@/lib/cloudinaryClient";
+import { envoyerFichier } from "@/lib/envoiFichier";
 import { readApiError } from "@/lib/readApiError";
 import { SocialLinksEditor, type SocialLink } from "@/components/artist/SocialLinksEditor";
 
@@ -124,7 +124,7 @@ export function ArtistProfileModal({
     if (!fichier) return;
     setEnvoi(cible);
     try {
-      const { url } = await uploadToCloudinaryClient(fichier, cible === "photo" ? "avatars" : "covers");
+      const { url } = await envoyerFichier(fichier, cible === "photo" ? "avatars" : "covers");
       if (cible === "photo") setCoverUrl(url);
       else setBannerUrl(url);
     } catch {

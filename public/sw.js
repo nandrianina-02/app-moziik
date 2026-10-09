@@ -24,7 +24,7 @@
 // v7 : les pochettes sont désormais demandées en AVIF et à une qualité
 // plus basse, donc sous d'autres adresses — les entrées v6 ne seraient
 // jamais relues et occuperaient la place des nouvelles.
-const VERSION = "v7";
+const VERSION = "v8";
 const COQUILLE = `moziik-shell-${VERSION}`;
 const PAGES = `moziik-pages-${VERSION}`;
 const IMAGES = `moziik-images-${VERSION}`;
@@ -172,11 +172,17 @@ self.addEventListener("fetch", (event) => {
   }
   if (url.protocol !== "http:" && url.protocol !== "https:") return;
 
-  if (url.hostname.includes("res.cloudinary.com")) {
+  // Les images rangées sur Karaks Storage passent par /media/<id>, une
+  // adresse à nous : même règle que les pochettes Cloudinary. Les clips,
+  // servis à la même adresse, n'entrent pas ici : `destination` les sépare.
+  const imageStockage =
+    url.origin === self.location.origin && url.pathname.startsWith("/media/") && request.destination === "image";
+
+  if (url.hostname.includes("res.cloudinary.com") || imageStockage) {
     // L'audio (« /video/upload/ » chez Cloudinary) n'est servi hors-ligne
     // que s'il a été explicitement téléchargé : plusieurs mégaoctets par
     // morceau, hors de question de le faire à l'insu de l'utilisateur.
-    const estAudio = url.pathname.includes("/video/");
+    const estAudio = !imageStockage && url.pathname.includes("/video/");
     if (estAudio) {
       event.respondWith(
         chercher(MEDIAS, request).then((c) => c || fetch(request).catch(() => Response.error()))

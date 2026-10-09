@@ -7,6 +7,8 @@ import { ApiError, withApiErrors } from "@/lib/apiError";
 import { parseOrThrow, patchSongSchema } from "@/lib/validation";
 import { requireAuthUser } from "@/lib/mobileAuth";
 import { requireGestionTitre } from "@/lib/songAccess";
+import { identifiantFichier } from "@/lib/fichiers";
+import { retirerFichier } from "@/lib/karaksStorage";
 
 export const GET = withApiErrors(async (_req: Request, { params }: { params: { id: string } }) => {
   await connectDB();
@@ -30,6 +32,35 @@ export const PATCH = withApiErrors(
 
     const parsedUpdates = parseOrThrow(patchSongSchema, await req.json());
     const updates = parsedUpdates as Record<string, unknown>;
+
+    // Fichiers remplacés, retirés du stockage une fois la modification
+    // enregistrée : la source si l'audio change, les qualités si elles sont
+    // refaites (nouvel audio ou nouvelle découpe).
+    const avant = {
+      source: identifiantFichier(song.audioUrl),
+      variantes: song.audioVariantes ? [song.audioVariantes.low, song.audioVariantes.medium, song.audioVariantes.high] : [],
+    };
+
+    /**
+     * Sur Karaks Storage, la découpe est inscrite dans les fichiers des trois
+     * qualités. Changer les bornes sans les refaire ferait entendre l'ancienne
+     * découpe sous la nouvelle durée : le client doit envoyer les nouvelles
+     * versions en même temps (voir lib/envoiTitre.ts).
+     */
+    const decoupeChange =
+      ("trimStart" in updates && (updates.trimStart ?? undefined) !== song.trimStart) ||
+      ("trimEnd" in updates && (updates.trimEnd ?? undefined) !== song.trimEnd);
+    const audioChange = "audioUrl" in updates && updates.audioUrl !== song.audioUrl;
+    if (song.audioVariantes && decoupeChange && !audioChange && !("audioVariantes" in updates)) {
+      throw new ApiError("La découpe a changé : les versions d'écoute doivent être encodées de nouveau.", 409);
+    }
+    if ("audioVariantes" in updates) {
+      song.audioVariantes = (parsedUpdates.audioVariantes ?? undefined) as typeof song.audioVariantes;
+    } else if (audioChange) {
+      // Un autre fichier sans ses versions : les anciennes feraient entendre
+      // l'ancien titre.
+      song.audioVariantes = undefined;
+    }
     const allowed = [
       "title",
       "coverUrl",
@@ -134,6 +165,18 @@ export const PATCH = withApiErrors(
     // Les erreurs de validation/cast Mongoose sont traduites en 400 avec
     // leur message réel par withApiErrors (voir lib/apiError.ts).
     await song.save();
+
+    // Après l'enregistrement seulement : un échec plus haut laisse le titre
+    // intact, fichiers compris. Un fichier qui résiste reste dans la
+    // corbeille du stockage, sans conséquence pour l'écoute.
+    const gardes = new Set([
+      identifiantFichier(song.audioUrl),
+      ...(song.audioVariantes ? [song.audioVariantes.low, song.audioVariantes.medium, song.audioVariantes.high] : []),
+    ]);
+    const perimes = [avant.source, ...avant.variantes].filter((id): id is string => Boolean(id) && !gardes.has(id));
+    await Promise.all(
+      perimes.map((id) => retirerFichier(id).catch((e) => console.error("[stockage] retrait", id, e instanceof Error ? e.message : e))),
+    );
 
     await song.populate("artist", "stageName verified coverUrl");
     await song.populate("featuring.artist", "stageName verified");

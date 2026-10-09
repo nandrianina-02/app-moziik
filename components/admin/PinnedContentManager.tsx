@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { Search, Trash2, UploadCloud } from "lucide-react";
 import { SafeImage } from "@/components/ui/SafeImage";
 import { FormField } from "@/components/ui/FormField";
-import { uploadToCloudinaryClient } from "@/lib/cloudinaryClient";
+import { envoyerFichier } from "@/lib/envoiFichier";
 import { useToast } from "@/context/ToastProvider";
 import { ModalSheet } from "@/components/ui/ModalSheet";
 
@@ -106,7 +106,7 @@ export function PinnedContentManager({
   async function handleCoverUpload(file: File) {
     setUploading(true);
     try {
-      const { url } = await uploadToCloudinaryClient(file, "site-assets");
+      const { url } = await envoyerFichier(file, "site-assets");
       setCustomCoverUrl(url);
     } catch {
       pushToast("error", "Échec de l'envoi de l'image.");

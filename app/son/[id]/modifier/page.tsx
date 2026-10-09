@@ -39,11 +39,20 @@ import { estimerTempo } from "@/lib/bpm";
 import { SongPreviewSidebar, type ChecklistItem } from "@/components/song/SongPreviewSidebar";
 import { FeaturingPicker } from "@/components/modals/FeaturingPicker";
 import { ArtistSinglePicker } from "@/components/modals/ArtistSinglePicker";
-import { uploadToCloudinaryClient } from "@/lib/cloudinaryClient";
+import { envoyerFichier } from "@/lib/envoiFichier";
+import { envoyerTitre, envoyerVersions, type EtapeTitre } from "@/lib/envoiTitre";
+import { identifiantFichier } from "@/lib/fichiers";
 import { readApiError } from "@/lib/readApiError";
 import { useToast } from "@/context/ToastProvider";
 import { useSiteConfig, useIADisponible } from "@/context/SiteConfigProvider";
 import { SongAiAssist } from "@/components/song/SongAiAssist";
+
+/** Ce que fait l'envoi d'un titre, étape par étape : l'encodage peut prendre une minute. */
+const LIBELLES_ETAPE: Record<EtapeTitre, string> = {
+  source: "Envoi du fichier",
+  encodage: "Préparation des qualités d'écoute",
+  versions: "Envoi des qualités d'écoute",
+};
 
 const LANGUAGES = ["Malagasy", "Français", "Anglais", "Autre"];
 // Décalages fixes (pas de gestion de l'heure d'été) — suffisant pour une
@@ -218,6 +227,7 @@ export default function EditSongPage() {
   const [uploadingCover, setUploadingCover] = useState(false);
   const [uploadingAudio, setUploadingAudio] = useState(false);
   const [audioProgress, setAudioProgress] = useState(0);
+  const [audioEtape, setAudioEtape] = useState<EtapeTitre>("source");
   /**
    * Les bornes de découpe en cours d'édition.
    *
@@ -378,7 +388,10 @@ export default function EditSongPage() {
     isAdmin || (session?.user?.role === "artist" && !!ownArtistId && ownArtistId === song?.artist?._id);
 
   const effectiveCoverUrl = coverPreviewUrl ?? song?.coverUrl ?? null;
-  const effectiveAudioUrl = audioPreviewUrl ?? song?.audioUrl ?? null;
+  // Une source rangée sur Karaks Storage n'a pas d'adresse lisible : l'aperçu
+  // passe par l'écoute, comme pour le public.
+  const effectiveAudioUrl =
+    audioPreviewUrl ?? (song && identifiantFichier(song.audioUrl) ? `/api/stream/${song._id}?q=high` : song?.audioUrl ?? null);
   const effectiveDuration = pendingDuration ?? song?.duration ?? 0;
 
   const checklist: ChecklistItem[] = useMemo(() => {
@@ -450,18 +463,37 @@ export default function EditSongPage() {
       let coverUrl = song.coverUrl;
       if (coverFile) {
         setUploadingCover(true);
-        const upload = await uploadToCloudinaryClient(coverFile, "covers");
+        const upload = await envoyerFichier(coverFile, "covers");
         coverUrl = upload.url;
         setUploadingCover(false);
       }
 
       let audioUrl = song.audioUrl;
       let duration = song.duration;
+      let audioVariantes: Record<string, string> | null | undefined;
       if (audioFile) {
         setUploadingAudio(true);
-        const upload = await uploadToCloudinaryClient(audioFile, "songs", setAudioProgress);
-        audioUrl = upload.url;
+        const upload = await envoyerTitre(audioFile, decoupe, setAudioProgress, setAudioEtape);
+        audioUrl = upload.audioUrl;
+        // `null` en repli Cloudinary : les versions de l'ancien fichier
+        // ne doivent pas survivre à son remplacement.
+        audioVariantes = upload.audioVariantes ?? null;
         duration = Math.round(upload.duration ?? pendingDuration ?? song.duration);
+        setUploadingAudio(false);
+        setAudioProgress(0);
+      } else if (
+        identifiantFichier(song.audioUrl) &&
+        ((decoupe.debut ?? null) !== (song.trimStart ?? null) || (decoupe.fin ?? null) !== (song.trimEnd ?? null))
+      ) {
+        // Sur Karaks Storage, la découpe est inscrite dans les fichiers
+        // d'écoute : la changer, c'est les encoder de nouveau, depuis la
+        // source gardée intacte.
+        setUploadingAudio(true);
+        setAudioEtape("encodage");
+        const reponse = await fetch(`/api/stream/${song._id}?brut=1`);
+        if (!reponse.ok) throw new Error("Le fichier d'origine n'a pas pu être relu pour appliquer la découpe.");
+        const versions = await envoyerVersions(await reponse.blob(), decoupe, song.title, setAudioProgress, setAudioEtape);
+        audioVariantes = versions.variantes;
         setUploadingAudio(false);
         setAudioProgress(0);
       }
@@ -471,7 +503,7 @@ export default function EditSongPage() {
       let videoUrl = clipRetire ? "" : song.videoUrl ?? "";
       if (videoFile) {
         setUploadingVideo(true);
-        const upload = await uploadToCloudinaryClient(videoFile, "videos", setVideoProgress);
+        const upload = await envoyerFichier(videoFile, "videos", setVideoProgress);
         videoUrl = upload.url;
         setUploadingVideo(false);
         setVideoProgress(0);
@@ -501,6 +533,7 @@ export default function EditSongPage() {
         explicit: values.explicit,
         coverUrl,
         audioUrl,
+        ...(audioVariantes !== undefined ? { audioVariantes } : {}),
         duration,
         featuringIds: featuring.map((a) => a._id),
       };
@@ -797,12 +830,21 @@ export default function EditSongPage() {
             {/* Fichier audio */}
             <div className="rounded-xl2 border border-border bg-surface p-5 sm:p-6">
               <AudioDropzone
-                fileName={audioFile ? audioFile.name : song.audioUrl ? deriveFileName(song.audioUrl) : "Aucun fichier"}
+                fileName={
+                  audioFile
+                    ? audioFile.name
+                    : identifiantFichier(song.audioUrl)
+                      ? song.title
+                      : song.audioUrl
+                        ? deriveFileName(song.audioUrl)
+                        : "Aucun fichier"
+                }
                 fileSizeLabel={audioFile ? formatBytes(audioFile.size) : "Fichier actuel"}
                 audioSrc={effectiveAudioUrl}
                 isNewFile={Boolean(audioFile)}
                 uploading={uploadingAudio}
                 uploadProgress={audioProgress}
+                uploadLabel={LIBELLES_ETAPE[audioEtape]}
                 onFileSelected={(f) => {
                   setAudioFile(f);
                   setExtraTouched(true);

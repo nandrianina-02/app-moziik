@@ -24,7 +24,8 @@ import {
 import { estFichierAudio, formaterOctets, lireMetadonneesAudio, titreDepuisNomDeFichier } from "@/lib/audioMetadata";
 import { estimerTempo } from "@/lib/bpm";
 import { creerPochetteParDefaut } from "@/lib/defaultCover";
-import { uploadToCloudinaryClient } from "@/lib/cloudinaryClient";
+import { envoyerFichier } from "@/lib/envoiFichier";
+import { envoyerTitre } from "@/lib/envoiTitre";
 import { readApiError } from "@/lib/readApiError";
 import { useToast } from "@/context/ToastProvider";
 import { useSiteConfig } from "@/context/SiteConfigProvider";
@@ -491,10 +492,10 @@ export function ImportWorkbench({
         const duree = Math.round(ligne.meta?.duree ?? 0);
         if (duree <= 0) throw new Error("Durée introuvable.");
 
-        const pochetteEnvoyee = await uploadToCloudinaryClient(ligne.pochette, "covers");
+        const pochetteEnvoyee = await envoyerFichier(ligne.pochette, "covers");
         majLigne(ligne.id, { progression: 12 });
 
-        const audioEnvoye = await uploadToCloudinaryClient(ligne.fichier, "songs", (pct) =>
+        const audioEnvoye = await envoyerTitre(ligne.fichier, { debut: null, fin: null }, (pct) =>
           majLigne(ligne.id, { progression: 12 + Math.round(pct * 0.8) })
         );
         majLigne(ligne.id, { progression: 94 });
@@ -517,7 +518,8 @@ export function ImportWorkbench({
             bpm: ligne.bpm ? Number(ligne.bpm) : undefined,
             bpmSource: ligne.bpm ? ligne.bpmSource : undefined,
             coverUrl: pochetteEnvoyee.url,
-            audioUrl: audioEnvoye.url,
+            audioUrl: audioEnvoye.audioUrl,
+            audioVariantes: audioEnvoye.audioVariantes,
             duration: Math.round(audioEnvoye.duration ?? duree),
             releaseDate,
             saveAsDraft: modePublication === "brouillon",

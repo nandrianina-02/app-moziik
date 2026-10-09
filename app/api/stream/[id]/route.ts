@@ -11,6 +11,8 @@ import { getClientIp } from "@/lib/rateLimit";
 import { hasPremiumAccess } from "@/lib/premium";
 import { ECOUTES_ANONYMES_PAR_DEFAUT, limiterQualite } from "@/lib/acces";
 import { adresseAudio } from "@/lib/cloudinaryAudio";
+import { identifiantFichier } from "@/lib/fichiers";
+import { lienLecture } from "@/lib/karaksStorage";
 import type { AudioQuality } from "@/lib/offlineSettings";
 import { withApiErrors, ApiError } from "@/lib/apiError";
 
@@ -54,7 +56,7 @@ function jourCourant(timezone: string): string {
 
 export const GET = withApiErrors(async (req: Request, { params }: { params: { id: string } }) => {
   await connectDB();
-  const song = await Song.findById(params.id).select("audioUrl status trimStart trimEnd artist");
+  const song = await Song.findById(params.id).select("audioUrl audioVariantes status trimStart trimEnd artist");
   if (!song?.audioUrl) throw new ApiError("Titre introuvable.", 404);
 
   const authUser = await getAuthUser(req);
@@ -128,6 +130,19 @@ export const GET = withApiErrors(async (req: Request, { params }: { params: { id
   // plafond de l'abonnement s'applique ensuite.
   const demandee = req.url ? new URL(req.url).searchParams.get("q") : null;
   const qualite = limiterQualite(estQualite(demandee) ? demandee : "high", visiteur);
+
+  // Titre rangé sur Karaks Storage : chaque qualité est un fichier déjà
+  // encodé et découpé ; la source, elle, n'est servie qu'en `brut`. Un
+  // titre sans versions (envoi interrompu, ancienne donnée) retombe sur sa
+  // source plutôt que de rester muet.
+  const source = identifiantFichier(song.audioUrl);
+  if (source) {
+    const fichier = brut || !song.audioVariantes ? source : song.audioVariantes[qualite];
+    return NextResponse.redirect(await lienLecture(fichier), {
+      status: 302,
+      headers: { "Cache-Control": "private, no-store" },
+    });
+  }
 
   const adresse = brut
     ? adresseAudio(song.audioUrl, qualite)

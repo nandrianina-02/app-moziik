@@ -23,7 +23,7 @@ import {
 } from "lucide-react";
 import { useToast } from "@/context/ToastProvider";
 import { useSiteConfig } from "@/context/SiteConfigProvider";
-import { uploadToCloudinaryClient } from "@/lib/cloudinaryClient";
+import { envoyerFichier } from "@/lib/envoiFichier";
 import { SupportChat } from "@/components/support/SupportChat";
 import { SocialLinks } from "@/components/social/SocialLinks";
 import type { LienSocial } from "@/lib/socialPlatforms";
@@ -138,7 +138,7 @@ export default function ContactPage() {
       let attachmentUrl: string | undefined;
       if (file) {
         setUploadProgress(0);
-        const uploaded = await uploadToCloudinaryClient(file, "contact-attachments", setUploadProgress);
+        const uploaded = await envoyerFichier(file, "contact-attachments", setUploadProgress);
         attachmentUrl = uploaded.url;
         setUploadProgress(null);
       }

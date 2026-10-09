@@ -277,6 +277,43 @@ Tous les modèles vivent dans `models/` : `User`, `Artist`, `Song`,
   de l'audio n'a pas encore été vérifié sur le compte Cloudinary du projet
   — à confirmer sur un titre avant de découper tout le catalogue
 
+## Stockage des fichiers : Karaks Storage
+- Les fichiers partent sur **Karaks Storage**, le service de stockage
+  partagé avec Karaks, dès que `KARAKS_STORAGE_URL` et
+  `KARAKS_STORAGE_API_KEY` sont renseignées ; sans elles, Moziik continue
+  d'envoyer sur Cloudinary. Les adresses Cloudinary déjà en base restent
+  lisibles dans tous les cas
+- Le navigateur annonce le fichier à `/api/fichiers/envoi`, qui vérifie qui
+  envoie quoi (`lib/envoiRegles.ts`) et ouvre l'envoi avec la clé du
+  projet ; le fichier part ensuite **directement** vers Karaks Storage, par
+  morceaux de 4 Mo, avec reprise après coupure (`lib/envoiFichier.ts`). La
+  clé ne quitte jamais le serveur
+- Aucun fichier n'a d'adresse publique : la base enregistre
+  `/media/<file_…>` (images, clips, pièces jointes) ou `ks:<file_…>` (source
+  d'un titre). `/media` relaie les images avec un cache d'un an — un fichier
+  ne change jamais sous un même identifiant — et redirige le reste vers un
+  lien signé. La source d'un titre ne s'y lit jamais : elle passe par
+  `/api/stream`, qui applique la qualité de l'abonnement et le quota
+- **Les trois qualités d'écoute** (64 kb/s mono, 128 et 320 kb/s) sont
+  encodées **dans le navigateur de l'artiste**, à l'envoi, découpe
+  comprise (`lib/encodageAudio.ts`, MP3 par lamejs dans un Web Worker).
+  Karaks Storage ne transcode pas ; ainsi chaque qualité est un fichier, et
+  le serveur n'a plus qu'à choisir le bon. L'original est gardé intact : une
+  découpe modifiée réencode les trois versions à partir de lui, et les
+  anciennes partent à la corbeille du stockage. Changer la découpe sans
+  fournir les nouvelles versions est refusé (409)
+- Migration de l'existant : `node scripts/migrer-karaks-storage.mjs --essai`
+  (compte et poids), puis `--limite 5`, puis sans option. Cloudinary
+  fabrique une dernière fois les qualités découpées, Karaks Storage les
+  garde ensuite. Rien n'est supprimé chez Cloudinary ; l'APK Android y
+  reste. Le script reprend où il s'était arrêté
+  (`scripts/.migration-karaks-storage.json`)
+- Côté Karaks Storage : un projet « Moziik », dont les **origines
+  autorisées** contiennent l'adresse du site (envoi direct, lecture des
+  liens par script et mode hors connexion), et une clé avec les droits
+  `files:read`, `files:upload`, `files:delete`, `folders:read`,
+  `folders:write`, `links:create`, `stream:read`, `download:read`
+
 ## Analyse du tempo
 - Huit des douze modes d'écoute s'appuient sur le BPM (`lib/modes.ts`) :
   sans lui, « Sport », « Sommeil » et « Étude » n'ont rien à proposer. La

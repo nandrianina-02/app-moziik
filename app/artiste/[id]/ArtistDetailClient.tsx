@@ -37,7 +37,7 @@ import { ExpandableText, ShowMoreButton, useProgressiveList } from "@/components
 import { EditArtistProfileModal } from "@/components/artist/EditArtistProfileModal";
 import { ShareModal } from "@/components/share/ShareModal";
 import { buildArtistSubject } from "@/components/share/shareSubject";
-import { uploadToCloudinaryClient } from "@/lib/cloudinaryClient";
+import { envoyerFichier } from "@/lib/envoiFichier";
 import type { AlbumType } from "@/lib/albums";
 import { ArtistVideos } from "@/components/artist/ArtistVideos";
 
@@ -232,7 +232,7 @@ export function ArtistDetailClient() {
   async function handleBannerFile(file: File) {
     setUploadingBanner(true);
     try {
-      const { url } = await uploadToCloudinaryClient(file, "banners");
+      const { url } = await envoyerFichier(file, "banners");
       const res = await fetch("/api/artist/me", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
@@ -251,7 +251,7 @@ export function ArtistDetailClient() {
   async function handleAvatarFile(file: File) {
     setUploadingAvatar(true);
     try {
-      const { url } = await uploadToCloudinaryClient(file, "avatars");
+      const { url } = await envoyerFichier(file, "avatars");
       const res = await fetch("/api/artist/me", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },

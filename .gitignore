@@ -16,3 +16,6 @@ albums-*.json
 
 android/keystore.properties
 android/*.jks
+
+# Journal de reprise de la migration vers Karaks Storage (scripts/migrer-karaks-storage.mjs)
+scripts/.migration-karaks-storage.json

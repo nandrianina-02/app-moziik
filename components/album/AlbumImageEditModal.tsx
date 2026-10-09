@@ -4,7 +4,7 @@ import { useRef, useState } from "react";
 import { Upload, Trash2, Loader2, ImageIcon } from "lucide-react";
 import { SafeImage } from "@/components/ui/SafeImage";
 import { useToast } from "@/context/ToastProvider";
-import { uploadToCloudinaryClient } from "@/lib/cloudinaryClient";
+import { envoyerFichier } from "@/lib/envoiFichier";
 import { ModalSheet } from "@/components/ui/ModalSheet";
 
 /**
@@ -61,7 +61,7 @@ export function AlbumImageEditModal({
     }
     setUploading(true);
     try {
-      const uploaded = await uploadToCloudinaryClient(
+      const uploaded = await envoyerFichier(
         pendingFile,
         kind === "banner" ? "banners" : "covers",
         setProgress

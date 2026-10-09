@@ -4,7 +4,7 @@ import { useState } from "react";
 import { Camera, Loader2 } from "lucide-react";
 import { SafeImage } from "@/components/ui/SafeImage";
 import { useToast } from "@/context/ToastProvider";
-import { uploadToCloudinaryClient } from "@/lib/cloudinaryClient";
+import { envoyerFichier } from "@/lib/envoiFichier";
 
 /** Poids au-delà duquel on refuse avant d'envoyer : inutile de faire monter
  *  huit mégaoctets pour une vignette de 96 pixels. */
@@ -36,7 +36,7 @@ export function AvatarPicker({
     }
     setEnvoi(true);
     try {
-      const { url: nouvelle } = await uploadToCloudinaryClient(file, "avatars");
+      const { url: nouvelle } = await envoyerFichier(file, "avatars");
       await onChange(nouvelle);
     } catch {
       pushToast("error", "L'envoi de la photo a échoué.");

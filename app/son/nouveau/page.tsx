@@ -52,11 +52,19 @@ import {
   separerFeaturing,
   tonaliteCourte,
 } from "@/lib/metadataMapping";
-import { uploadToCloudinaryClient } from "@/lib/cloudinaryClient";
+import { envoyerFichier } from "@/lib/envoiFichier";
+import { envoyerTitre, type EtapeTitre } from "@/lib/envoiTitre";
 import { readApiError } from "@/lib/readApiError";
 import { useToast } from "@/context/ToastProvider";
 import { useSiteConfig, useIADisponible } from "@/context/SiteConfigProvider";
 import { estimerTempo } from "@/lib/bpm";
+
+/** Ce que fait l'envoi d'un titre, étape par étape : l'encodage peut prendre une minute. */
+const LIBELLES_ETAPE: Record<EtapeTitre, string> = {
+  source: "Envoi du fichier",
+  encodage: "Préparation des qualités d'écoute",
+  versions: "Envoi des qualités d'écoute",
+};
 
 // Constantes, helpers et SectionCard identiques à app/son/[id]/modifier —
 // c'est la même expérience de saisie, seule la persistance change
@@ -185,6 +193,7 @@ export default function NewSongPage() {
   const [uploadingCover, setUploadingCover] = useState(false);
   const [uploadingAudio, setUploadingAudio] = useState(false);
   const [audioProgress, setAudioProgress] = useState(0);
+  const [audioEtape, setAudioEtape] = useState<EtapeTitre>("source");
   const [videoFile, setVideoFile] = useState<File | null>(null);
   const [uploadingVideo, setUploadingVideo] = useState(false);
   const [videoProgress, setVideoProgress] = useState(0);
@@ -715,11 +724,11 @@ export default function NewSongPage() {
     setSaving(mode);
     try {
       setUploadingCover(true);
-      const coverUpload = await uploadToCloudinaryClient(coverFile, "covers");
+      const coverUpload = await envoyerFichier(coverFile, "covers");
       setUploadingCover(false);
 
       setUploadingAudio(true);
-      const audioUpload = await uploadToCloudinaryClient(audioFile, "songs", setAudioProgress);
+      const audioUpload = await envoyerTitre(audioFile, decoupe, setAudioProgress, setAudioEtape);
       setUploadingAudio(false);
       setAudioProgress(0);
 
@@ -729,7 +738,7 @@ export default function NewSongPage() {
       let videoUrl: string | undefined;
       if (videoFile) {
         setUploadingVideo(true);
-        const videoUpload = await uploadToCloudinaryClient(videoFile, "videos", setVideoProgress);
+        const videoUpload = await envoyerFichier(videoFile, "videos", setVideoProgress);
         setUploadingVideo(false);
         setVideoProgress(0);
         videoUrl = videoUpload.url;
@@ -769,7 +778,8 @@ export default function NewSongPage() {
         copyright: values.copyright.trim(),
         explicit: values.explicit,
         coverUrl: coverUpload.url,
-        audioUrl: audioUpload.url,
+        audioUrl: audioUpload.audioUrl,
+        audioVariantes: audioUpload.audioVariantes,
         videoUrl,
         duration: Math.round(audioUpload.duration ?? pendingDuration ?? 0),
         // Le serveur en déduit la durée réellement servie : la lui laisser
@@ -1030,6 +1040,7 @@ export default function NewSongPage() {
                 isNewFile={Boolean(audioFile)}
                 uploading={uploadingAudio}
                 uploadProgress={audioProgress}
+                uploadLabel={LIBELLES_ETAPE[audioEtape]}
                 onFileSelected={(f) => {
                   setAudioFile(f);
                   setExtraTouched(true);

@@ -54,6 +54,7 @@ export const POST = withApiErrors(async (req: Request) => {
   const {
     title,
     audioUrl,
+    audioVariantes,
     videoUrl,
     coverUrl,
     duration,
@@ -161,6 +162,7 @@ export const POST = withApiErrors(async (req: Request) => {
     universSource: classement.source,
     album: albumId || undefined,
     audioUrl,
+    audioVariantes,
     videoUrl: videoUrl || undefined,
     coverUrl,
     duration: Math.round((finCoupe ?? dureeFichier) - (debutCoupe ?? 0)),

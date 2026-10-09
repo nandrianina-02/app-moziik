@@ -22,7 +22,13 @@ export interface ISong {
   artist: Types.ObjectId; // ref Artist
   featuring: ISongFeaturing[]; // artistes en featuring
   album?: Types.ObjectId; // ref Album, absent si single
-  audioUrl: string; // Cloudinary (resource_type: video)
+  audioUrl: string; // URL Cloudinary, ou clé `ks:…` de la source sur Karaks Storage
+  /**
+   * Les trois qualités d'écoute, encodées à l'envoi, découpe comprise
+   * (lib/encodageAudio.ts). Présentes seulement pour un titre rangé sur
+   * Karaks Storage : Cloudinary, lui, les fabrique à la demande.
+   */
+  audioVariantes?: { low: string; medium: string; high: string };
   /**
    * Clip vidéo du morceau, s'il en a un.
    *
@@ -98,6 +104,10 @@ const SongSchema = new Schema<ISong>({
   ],
   album: { type: Schema.Types.ObjectId, ref: "Album" },
   audioUrl: { type: String, required: true },
+  audioVariantes: {
+    type: new Schema({ low: String, medium: String, high: String }, { _id: false }),
+    default: undefined,
+  },
   videoUrl: { type: String },
   coverUrl: { type: String, required: true },
   duration: { type: Number, required: true },

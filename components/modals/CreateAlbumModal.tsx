@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { FormField } from "@/components/ui/FormField";
 import { useToast } from "@/context/ToastProvider";
-import { uploadToCloudinaryClient } from "@/lib/cloudinaryClient";
+import { envoyerFichier } from "@/lib/envoiFichier";
 import { ModalSheet } from "@/components/ui/ModalSheet";
 import type { AlbumType } from "@/lib/albums";
 
@@ -23,7 +23,7 @@ export function CreateAlbumModal({ onClose, onCreated }: { onClose: () => void; 
     }
     setSubmitting(true);
     try {
-      const { url } = await uploadToCloudinaryClient(coverFile, "covers");
+      const { url } = await envoyerFichier(coverFile, "covers");
 
       const res = await fetch("/api/albums", {
         method: "POST",

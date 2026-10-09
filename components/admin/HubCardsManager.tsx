@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { Plus, Trash2, ArrowUp, ArrowDown, UploadCloud } from "lucide-react";
 import { SafeImage } from "@/components/ui/SafeImage";
 import { Toggle } from "@/components/admin/Toggle";
-import { uploadToCloudinaryClient } from "@/lib/cloudinaryClient";
+import { envoyerFichier } from "@/lib/envoiFichier";
 import { useToast } from "@/context/ToastProvider";
 import { ModalSheet } from "@/components/ui/ModalSheet";
 
@@ -93,7 +93,7 @@ export function HubCardsManager({ onClose }: { onClose: () => void }) {
   async function handleCoverChange(id: string, file: File) {
     setUploadingId(id);
     try {
-      const { url } = await uploadToCloudinaryClient(file, "site-assets");
+      const { url } = await envoyerFichier(file, "site-assets");
       await updateCard(id, { coverUrl: url });
     } catch {
       pushToast("error", "Échec de l'envoi de l'image.");

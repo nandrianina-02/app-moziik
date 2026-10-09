@@ -42,6 +42,7 @@ export function AudioDropzone({
   isNewFile,
   uploading,
   uploadProgress,
+  uploadLabel = "Téléchargement en cours...",
   onFileSelected,
   onDurationDetected,
   error,
@@ -52,6 +53,8 @@ export function AudioDropzone({
   isNewFile: boolean;
   uploading: boolean;
   uploadProgress: number;
+  /** Ce qui se passe pendant l'envoi : un titre est aussi encodé, pas seulement transféré. */
+  uploadLabel?: string;
   onFileSelected: (file: File) => void;
   onDurationDetected: (seconds: number) => void;
   error?: string;
@@ -139,7 +142,7 @@ export function AudioDropzone({
                   style={{ width: `${uploadProgress}%` }}
                 />
               </div>
-              <p className="mt-1.5 text-xs text-ink-muted">Téléchargement en cours... {uploadProgress}%</p>
+              <p className="mt-1.5 text-xs text-ink-muted">{uploadLabel} {uploadProgress}%</p>
             </div>
           )}
 

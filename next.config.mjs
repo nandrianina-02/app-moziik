@@ -1,3 +1,16 @@
+/**
+ * Karaks Storage : le navigateur y dépose les fichiers (connect-src) et y lit
+ * l'audio et les clips après la redirection de /api/stream et /media
+ * (media-src). Les images, elles, passent par /media, donc par 'self'.
+ */
+const STOCKAGE = (() => {
+  try {
+    return process.env.KARAKS_STORAGE_URL ? new URL(process.env.KARAKS_STORAGE_URL).origin : "";
+  } catch {
+    return "";
+  }
+})();
+
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   images: {
@@ -27,9 +40,9 @@ const nextConfig = {
       "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://js.stripe.com https://accounts.google.com",
       "style-src 'self' 'unsafe-inline'",
       "img-src 'self' data: blob: https://res.cloudinary.com https://lh3.googleusercontent.com",
-      "media-src 'self' blob: https://res.cloudinary.com",
+      `media-src 'self' blob: https://res.cloudinary.com ${STOCKAGE}`.trim(),
       "font-src 'self' data:",
-      "connect-src 'self' https://api.cloudinary.com https://res.cloudinary.com https://api.stripe.com",
+      `connect-src 'self' https://api.cloudinary.com https://res.cloudinary.com https://api.stripe.com ${STOCKAGE}`.trim(),
       // openstreetmap.org : le fond de carte du lieu, sur la fiche d'un
       // évènement. Fournisseur sans traceur ni clé d'API, et le cadre est
       // le seul moyen d'afficher une carte sans embarquer de bibliothèque.

@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { ApiError } from "@/lib/apiError";
+import { estAdresseFichier } from "@/lib/fichiers";
 import { IDS_RESEAUX, urlSocialeValide } from "@/lib/socialPlatforms";
 import { IDS_FONCTIONNALITES_IA } from "@/lib/ai/features";
 import { IDS_RECETTES, IDS_SELECTIONS } from "@/lib/curation/labels";
@@ -9,6 +10,22 @@ import {
   PIECES_MAX as MESSAGERIE_PIECES_MAX,
   TITRE_GROUPE_MAX as MESSAGERIE_TITRE_MAX,
 } from "@/lib/messagerie";
+
+
+/**
+ * Un champ de fichier : URL Cloudinary ou Google, adresse `/media/…` ou clé
+ * `ks:…` d'un fichier rangé sur Karaks Storage (voir lib/fichiers.ts).
+ */
+function champFichier(message = "Adresse de fichier invalide.", max = 600) {
+  return z.string().trim().max(max).refine(estAdresseFichier, message);
+}
+
+/** Les trois qualités d'écoute d'un titre, encodées à l'envoi (lib/encodageAudio.ts). */
+const variantesAudioSchema = z.object({
+  low: z.string().regex(/^file_[0-9A-Za-z]{6,32}$/),
+  medium: z.string().regex(/^file_[0-9A-Za-z]{6,32}$/),
+  high: z.string().regex(/^file_[0-9A-Za-z]{6,32}$/),
+});
 
 /**
  * Valide `data` contre `schema` et lève une ApiError 400 lisible en cas
@@ -66,16 +83,17 @@ export const contactSchema = z.object({
   email: z.string().trim().toLowerCase().email("Adresse email invalide.").max(254),
   subject: z.string().trim().max(150).optional(),
   message: z.string().trim().min(1, "Le message est requis.").max(5000),
-  attachmentUrl: z.string().trim().url("Lien de pièce jointe invalide.").max(500).optional().or(z.literal("")),
+  attachmentUrl: champFichier("Lien de pièce jointe invalide.", 500).optional().or(z.literal("")),
 });
 
 // ---- Songs -----------------------------------------------------------------
 
 export const createSongSchema = z.object({
   title: z.string().trim().min(1, "Titre requis.").max(200),
-  audioUrl: z.string().url("URL audio invalide."),
-  videoUrl: z.string().url("URL vidéo invalide.").optional().or(z.literal("")),
-  coverUrl: z.string().url("URL de pochette invalide."),
+  audioUrl: champFichier("URL audio invalide."),
+  audioVariantes: variantesAudioSchema.optional(),
+  videoUrl: champFichier("URL vidéo invalide.").optional().or(z.literal("")),
+  coverUrl: champFichier("URL de pochette invalide."),
   // Message orienté action : la durée n'est pas saisie à la main, elle
   // vient de Cloudinary ou, à défaut, des métadonnées lues par le
   // navigateur. Quand les deux échouent, le formulaire envoie 0 et
@@ -130,7 +148,7 @@ export const hubCardSchema = z.object({
   title: z.string().trim().min(1, "Titre requis.").max(60),
   subtitle: z.string().trim().max(140).optional(),
   badge: z.string().trim().max(10).optional(),
-  coverUrl: z.string().url("URL de pochette invalide.").optional().or(z.literal("")),
+  coverUrl: champFichier("URL de pochette invalide.").optional().or(z.literal("")),
   linkHref: z.string().trim().min(1, "Lien requis.").max(300),
   enabled: z.boolean().optional().default(true),
 });
@@ -160,7 +178,7 @@ export const pinnedContentSchema = z.discriminatedUnion("contentType", [
     contentType: z.literal("custom"),
     customTitle: z.string().trim().min(1, "Titre requis.").max(80),
     customSubtitle: z.string().trim().max(160).optional(),
-    customCoverUrl: z.string().url("URL de pochette invalide.").optional().or(z.literal("")),
+    customCoverUrl: champFichier("URL de pochette invalide.").optional().or(z.literal("")),
     customHref: z.string().trim().min(1, "Lien requis.").max(300),
     ...pinnedBaseFields,
   }),
@@ -175,15 +193,15 @@ export const contentSearchQuerySchema = z.object({
 
 export const createAlbumSchema = z.object({
   title: z.string().trim().min(1, "Titre requis.").max(200),
-  coverUrl: z.string().url("URL de pochette invalide."),
+  coverUrl: champFichier("URL de pochette invalide."),
   type: z.enum(["album", "ep", "single", "podcast"]).optional().default("album"),
   releaseDate: z.coerce.date(),
 });
 
 export const patchAlbumSchema = z.object({
   title: z.string().trim().min(1, "Titre requis.").max(200).optional(),
-  coverUrl: z.string().url("URL de pochette invalide.").optional(),
-  bannerUrl: z.string().url("URL de bannière invalide.").optional().or(z.literal("")),
+  coverUrl: champFichier("URL de pochette invalide.").optional(),
+  bannerUrl: champFichier("URL de bannière invalide.").optional().or(z.literal("")),
   description: z.string().max(2000).optional(),
   type: z.enum(["album", "ep", "single", "podcast"]).optional(),
   releaseDate: z.coerce.date().optional(),
@@ -194,8 +212,8 @@ export const patchAlbumSchema = z.object({
 
 export const patchArtistMeSchema = z.object({
   bio: z.string().max(2000).optional(),
-  coverUrl: z.string().url("URL de couverture invalide.").optional().or(z.literal("")),
-  bannerUrl: z.string().url("URL de bannière invalide.").optional().or(z.literal("")),
+  coverUrl: champFichier("URL de couverture invalide.").optional().or(z.literal("")),
+  bannerUrl: champFichier("URL de bannière invalide.").optional().or(z.literal("")),
   genres: z.array(z.string().trim().max(60)).max(10).optional(),
   socialLinks: z
     .array(z.object({ platform: z.string().trim().max(40), url: z.string().trim().max(300) }))
@@ -250,7 +268,7 @@ const programSlotSchema = z.object({
 const champsFicheEvenement = {
   category: z.enum(["musique", "concert", "festival", "culte", "conference", "atelier", "autre"]).optional(),
   endDate: z.coerce.date().optional(),
-  gallery: z.array(z.string().url("URL de photo invalide.")).max(20).optional(),
+  gallery: z.array(champFichier("URL de photo invalide.")).max(20).optional(),
   lineup: z.array(identifiant).max(50).optional(),
   highlights: listeDeTextes(8, 60),
   inclusions: listeDeTextes(12),
@@ -283,7 +301,7 @@ const champsFicheEvenement = {
 export const createEventSchema = z.object({
   title: z.string().trim().min(1, "Titre requis.").max(200),
   description: z.string().trim().min(1, "Description requise.").max(5000),
-  coverUrl: z.string().url("URL de pochette invalide.").optional().or(z.literal("")),
+  coverUrl: champFichier("URL de pochette invalide.").optional().or(z.literal("")),
   location: z.string().trim().min(1, "Lieu requis.").max(200),
   date: z.coerce.date(),
   ticketUrl: z.string().trim().url("Lien de billetterie invalide.").max(500).optional().or(z.literal("")),
@@ -294,7 +312,7 @@ export const createEventSchema = z.object({
 export const patchEventSchema = z.object({
   title: z.string().trim().min(1).max(200).optional(),
   description: z.string().trim().min(1).max(5000).optional(),
-  coverUrl: z.string().url("URL de pochette invalide.").optional().or(z.literal("")),
+  coverUrl: champFichier("URL de pochette invalide.").optional().or(z.literal("")),
   location: z.string().trim().min(1).max(200).optional(),
   date: z.coerce.date().optional(),
   ticketUrl: z.string().trim().url("Lien de billetterie invalide.").max(500).optional().or(z.literal("")),
@@ -363,7 +381,7 @@ export const patchMeProfileSchema = z.object({
       "3 à 20 caractères : lettres sans accent, chiffres, point ou tiret bas."
     )
     .optional(),
-  avatarUrl: z.string().trim().url("URL d'avatar invalide.").max(500).optional(),
+  avatarUrl: champFichier("URL d'avatar invalide.", 500).optional(),
   email: z.string().trim().toLowerCase().email("Adresse email invalide.").max(254).optional(),
   // Le vide est accepté : c'est ainsi qu'on retire un numéro déjà enregistré.
   phone: z
@@ -394,7 +412,7 @@ export const createNotificationSchema = z.object({
 export const createPlaylistSchema = z.object({
   title: z.string().trim().min(1, "Le titre est requis.").max(150),
   description: z.string().max(1000).optional(),
-  coverUrl: z.string().url("URL de pochette invalide.").optional().or(z.literal("")),
+  coverUrl: champFichier("URL de pochette invalide.").optional().or(z.literal("")),
   isPublic: z.boolean().optional().default(false),
   // Creation avec son contenu, en une seule requete. Sans cela, une
   // playlist composee ailleurs (proposition de l'IA) demanderait deux
@@ -405,7 +423,7 @@ export const createPlaylistSchema = z.object({
 export const patchPlaylistSchema = z.object({
   title: z.string().trim().min(1, "Le titre est requis.").max(150).optional(),
   description: z.string().max(1000).optional(),
-  coverUrl: z.string().url("URL de pochette invalide.").optional().or(z.literal("")),
+  coverUrl: champFichier("URL de pochette invalide.").optional().or(z.literal("")),
   tags: z.array(z.string().trim().min(1).max(30)).max(10).optional(),
   isPublic: z.boolean().optional(),
 });
@@ -451,11 +469,12 @@ export const featuringDecisionSchema = z.object({
 
 export const patchSongSchema = z.object({
   title: z.string().trim().min(1).max(200).optional(),
-  coverUrl: z.string().url("URL de pochette invalide.").optional(),
-  audioUrl: z.string().url("URL audio invalide.").optional(),
+  coverUrl: champFichier("URL de pochette invalide.").optional(),
+  audioUrl: champFichier("URL audio invalide.").optional(),
+  audioVariantes: variantesAudioSchema.nullable().optional(),
   // La chaîne vide retire le clip : c'est le seul moyen de dire
   // « il n'y en a plus » dans un PATCH partiel.
-  videoUrl: z.string().url("URL vidéo invalide.").optional().or(z.literal("")),
+  videoUrl: champFichier("URL vidéo invalide.").optional().or(z.literal("")),
   // `min(0)` et non `positive()` : la page de modification renvoie la
   // durée déjà en base quand on ne remplace pas le fichier audio. Or
   // Cloudinary ne renvoie pas toujours `duration` à l'upload, donc des
@@ -512,8 +531,8 @@ export const mobileMoneySchema = z.object({
 export const adminArtistPatchSchema = z.object({
   stageName: z.string().trim().min(1, "Nom de scène requis.").max(80).optional(),
   bio: z.string().max(2000).optional(),
-  coverUrl: z.string().url("URL de photo invalide.").optional().or(z.literal("")),
-  bannerUrl: z.string().url("URL de bannière invalide.").optional().or(z.literal("")),
+  coverUrl: champFichier("URL de photo invalide.").optional().or(z.literal("")),
+  bannerUrl: champFichier("URL de bannière invalide.").optional().or(z.literal("")),
   genres: z.array(z.string().trim().max(60)).max(10).optional(),
   socialLinks: z
     .array(z.object({ platform: z.string().trim().max(40), url: z.string().trim().max(300) }))
@@ -840,7 +859,7 @@ const pieceJointeSchema = z.object({
   // navigateur l'y envoie directement, parce qu'un mémo vocal de
   // plusieurs mégaoctets dépasserait la charge utile d'une route Next.
   // On vérifie donc l'hébergeur, faute de pouvoir vérifier le contenu.
-  url: z.string().trim().url().max(600),
+  url: champFichier(undefined, 600),
   nom: z.string().trim().max(200).default(""),
   taille: z.number().int().nonnegative().optional(),
   duree: z.number().nonnegative().optional(),
@@ -894,7 +913,7 @@ export const nouvelleConversationSchema = z
 
 export const majConversationSchema = z.object({
   titre: z.string().trim().min(1).max(MESSAGERIE_TITRE_MAX).optional(),
-  coverUrl: z.string().trim().url().max(500).optional(),
+  coverUrl: champFichier(undefined, 500).optional(),
   /** Comptes à ajouter au groupe. */
   ajouter: z.array(z.string().trim().length(24)).max(MESSAGERIE_MEMBRES_MAX).optional(),
   /** Compte à exclure — un seul à la fois, l'action est nominative. */

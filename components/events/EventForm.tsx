@@ -10,7 +10,7 @@ import { TagInput } from "@/components/ui/TagInput";
 import { SafeImage } from "@/components/ui/SafeImage";
 import { useToast } from "@/context/ToastProvider";
 import { useSiteConfig } from "@/context/SiteConfigProvider";
-import { uploadToCloudinaryClient } from "@/lib/cloudinaryClient";
+import { envoyerFichier } from "@/lib/envoiFichier";
 import { readApiError } from "@/lib/readApiError";
 import { EVENT_CATEGORIES, libelleCategorie } from "@/lib/evenements";
 import {
@@ -196,7 +196,7 @@ export function EventForm({
     if (!fichier) return;
     setEnvoiAffiche(true);
     try {
-      const envoi = await uploadToCloudinaryClient(fichier, "covers");
+      const envoi = await envoyerFichier(fichier, "covers");
       setCoverUrl(envoi.url);
     } catch {
       pushToast("error", "L'envoi de l'affiche a échoué.");

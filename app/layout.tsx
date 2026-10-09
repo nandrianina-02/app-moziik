@@ -16,19 +16,17 @@ import { Sidebar } from "@/components/layout/Sidebar";
 import { MainContent } from "@/components/layout/MainContent";
 import { NotificationsProvider } from "@/context/NotificationsProvider";
 import { MessagesProvider } from "@/context/MessagesProvider";
-import { NotificationsDrawer } from "@/components/notifications/NotificationsDrawer";
 import { MobileHeader } from "@/components/layout/MobileHeader";
 import { DesktopHeader } from "@/components/layout/DesktopHeader";
 import { MobileNav } from "@/components/layout/MobileNav";
 import { MiniPlayerBar } from "@/components/player/MiniPlayerBar";
-import { QuotaWall } from "@/components/player/QuotaWall";
-import { FullPlayerPage } from "@/components/player/FullPlayerPage";
 import { PlayerShortcuts } from "@/components/player/PlayerShortcuts";
-import { FloatingInstallButton } from "@/components/ui/FloatingInstallButton";
 import { OfflineBanner } from "@/components/ui/OfflineBanner";
+import { FloatingInstallButton, FullPlayerPage, NotificationsDrawer, QuotaWall } from "@/components/layout/ElementsDifferes";
 import { NativeShell } from "@/components/native/NativeShell";
 import { NativeMediaSession } from "@/components/native/NativeMediaSession";
 import { getSiteConfig } from "@/lib/siteConfig";
+import { configPublique } from "@/lib/configPublique";
 import { sizedIcon } from "@/lib/icons";
 
 const display = Sora({ subsets: ["latin"], variable: "--font-display" });
@@ -80,8 +78,15 @@ export const viewport: Viewport = {
   themeColor: "#FF6B4A",
 };
 
+/**
+ * Les pages restent statiques (servies par le réseau de Vercel), mais sont
+ * régénérées chaque minute : la configuration du site qu'elles portent ne
+ * retarde pas de plus d'une minute sur l'administration.
+ */
+export const revalidate = 60;
+
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
-  const config = await getSiteConfig();
+  const [config, publique] = await Promise.all([getSiteConfig(), configPublique()]);
   const mesure = (config.googleAnalyticsId ?? "").trim();
 
   return (
@@ -131,7 +136,9 @@ export default async function RootLayout({ children }: { children: React.ReactNo
             </Script>
           </>
         )}
-        <SiteConfigProvider>
+        {/* Passée par JSON, comme par /api/site-config : les dates y deviennent
+            des chaînes, la forme qu'attend le fournisseur. */}
+        <SiteConfigProvider initiale={JSON.parse(JSON.stringify(publique))}>
           <AuthProvider>
             {/* Au-dessus du thème et du lecteur : les deux ont besoin de
                 savoir si le visiteur est abonné — l'un pour les couleurs

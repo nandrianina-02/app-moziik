@@ -1,9 +1,6 @@
 import { NextResponse } from "next/server";
-import { getSiteConfig } from "@/lib/siteConfig";
 import { withApiErrors } from "@/lib/apiError";
-import { liensSociauxUtilisables } from "@/lib/socialPlatforms";
-import { fonctionnalitesIADisponibles } from "@/lib/ai/client";
-import { normaliserTheme } from "@/lib/theme";
+import { configPublique } from "@/lib/configPublique";
 
 // Sans ça, cette route (qui ne lit ni cookies ni headers) est traitée
 // comme statique par Next.js et figée au build : les modifications de
@@ -11,54 +8,12 @@ import { normaliserTheme } from "@/lib/theme";
 export const dynamic = "force-dynamic";
 
 export const GET = withApiErrors(async () => {
-  const config = await getSiteConfig();
-  // Ce que l'IA peut servir maintenant, pour que les pages n'affichent pas
-  // un bouton qui repondrait par une erreur. Aucun secret n'y transite :
-  // c'est une liste d'identifiants de fonctionnalites.
-  const aiFeatures = await fonctionnalitesIADisponibles();
-  return NextResponse.json(
-    {
-      aiFeatures,
-      siteName: config.siteName,
-      tagline: config.tagline,
-      description: config.description,
-      siteUrl: config.siteUrl,
-      defaultLanguage: config.defaultLanguage,
-      // L'univers servi à qui n'a rien choisi : le sélecteur s'en sert
-      // comme valeur de départ (context/UniversProvider.tsx).
-      defaultUnivers: config.defaultUnivers,
-      currency: config.currency,
-      timezone: config.timezone,
-      dateFormat: config.dateFormat,
-      logoUrl: config.logoUrl,
-      logoDarkUrl: config.logoDarkUrl,
-      supportEmail: config.supportEmail,
-      copyrightText: config.copyrightText,
-      plans: config.plans,
-      trialDays: config.trialDays,
-      anonymousDailyPlays: config.anonymousDailyPlays,
-      genres: config.genres,
-      // Le thème par défaut du site : c'est lui que voit tout visiteur qui
-      // n'a rien personnalisé, y compris déconnecté.
-      theme: normaliserTheme(config.theme),
-      legalEntityName: config.legalEntityName,
-      legalCapital: config.legalCapital,
-      legalRcsCity: config.legalRcsCity,
-      legalRcsNumber: config.legalRcsNumber,
-      legalAddress: config.legalAddress,
-      legalWebsite: config.legalWebsite,
-      legalUpdatedAt: config.legalUpdatedAt,
-      // L'application : sa présence conditionne l'affichage du bouton de
-      // téléchargement, il faut donc que le client la connaisse.
-      androidApkUrl: config.androidApkUrl,
-      androidVersion: config.androidVersion,
-      androidSizeMB: config.androidSizeMB,
-      androidPublishedAt: config.androidPublishedAt,
-      androidNotes: config.androidNotes,
-      // Nettoyes ici et pas seulement a la saisie : la base peut
-      // contenir des liens ecrits avant que le schema ne filtre.
-      socialLinks: liensSociauxUtilisables(config.socialLinks),
+  return NextResponse.json(await configPublique(), {
+    headers: {
+      // Identique pour tous les visiteurs, et demandée après chaque
+      // modification : le réseau de Vercel la garde une minute, et la sert
+      // encore cinq pendant qu'il la rafraîchit.
+      "Cache-Control": "public, max-age=0, s-maxage=60, stale-while-revalidate=300",
     },
-    { headers: { "Cache-Control": "no-store" } }
-  );
+  });
 });

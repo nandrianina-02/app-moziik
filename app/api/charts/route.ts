@@ -8,6 +8,7 @@ import { withApiErrors } from "@/lib/apiError";
 import { getAuthUser } from "@/lib/mobileAuth";
 import { universDeLaRequete } from "@/lib/universServer";
 import type { Univers } from "@/lib/univers";
+import { auCache } from "@/lib/cacheSections";
 
 type Period = "day" | "week" | "month" | "year" | "all";
 type ChartType = "songs" | "artists" | "albums" | "listeners";
@@ -138,18 +139,31 @@ export const GET = withApiErrors(async (req: Request) => {
 
   await connectDB();
   const univers = await universDeLaRequete(req);
-  const since = periodStart(period);
-  const { start: prevStart, end: prevEnd } = previousWindow(period, since);
 
-  const [fullRanking, previousRanking, totalPlaysAgg, previousPlaysAgg, genres] = await Promise.all([
-    buildRanking(type, since, null, genre, univers),
-    since ? buildRanking(type, prevStart, prevEnd, genre, univers) : Promise.resolve([]),
-    Play.countDocuments({ completed: true, univers, ...(since ? { playedAt: { $gte: since } } : {}) }),
-    prevStart
-      ? Play.countDocuments({ completed: true, univers, playedAt: { $gte: prevStart, $lt: prevEnd! } })
-      : Promise.resolve(0),
-    Song.distinct("genre", { status: "published", univers }),
-  ]);
+  /**
+   * Le classement est le même pour tous les visiteurs d'un univers : seul
+   * le rang du visiteur connecté, calculé plus bas, lui est propre. Les
+   * agrégations, elles, parcourent toutes les écoutes de la période — le
+   * plus lent de la page. Elles passent donc par le cache partagé, cinq
+   * minutes, vidé à chaque publication (voir lib/cacheSections.ts).
+   */
+  const { fullRanking, previousRanking, totalPlaysAgg, previousPlaysAgg, genres } = await auCache(
+    ["classement", type, period, genre ?? "", univers],
+    async () => {
+      const since = periodStart(period);
+      const { start: prevStart, end: prevEnd } = previousWindow(period, since);
+      const [fullRanking, previousRanking, totalPlaysAgg, previousPlaysAgg, genres] = await Promise.all([
+        buildRanking(type, since, null, genre, univers),
+        since ? buildRanking(type, prevStart, prevEnd, genre, univers) : Promise.resolve([]),
+        Play.countDocuments({ completed: true, univers, ...(since ? { playedAt: { $gte: since } } : {}) }),
+        prevStart
+          ? Play.countDocuments({ completed: true, univers, playedAt: { $gte: prevStart, $lt: prevEnd! } })
+          : Promise.resolve(0),
+        Song.distinct("genre", { status: "published", univers }),
+      ]);
+      return { fullRanking, previousRanking, totalPlaysAgg, previousPlaysAgg, genres };
+    },
+  );
 
   const previousRankById = new Map(previousRanking.map((item, i) => [String(item._id), i + 1]));
   const ranking = fullRanking.slice(0, 20).map((item, i) => {

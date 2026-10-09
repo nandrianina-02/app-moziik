@@ -1,5 +1,6 @@
 "use client";
 
+import dynamic from "next/dynamic";
 import { useEffect, useRef, useState } from "react";
 import { SafeImage } from "@/components/ui/SafeImage";
 import {
@@ -32,14 +33,20 @@ import { useSidebar } from "@/context/SidebarProvider";
 import { useClavierVisible } from "@/hooks/useClavierVisible";
 import { useSession } from "next-auth/react";
 import { SeekBar } from "@/components/player/SeekBar";
-import { SongContextMenu } from "@/components/music/SongContextMenu";
 import { useLongPress } from "@/components/music/useLongPress";
-import { DeviceMenu } from "@/components/player/DeviceMenu";
-import { AddToPlaylistModal } from "@/components/modals/AddToPlaylistModal";
-import { ShareModal } from "@/components/share/ShareModal";
 import { buildSongSubject } from "@/components/share/shareSubject";
 import { getOfflineSettings } from "@/lib/offlineSettings";
 import { downloadSongForOffline, isSongOffline, removeOfflineSong, queuePendingDownload } from "@/lib/offlineCache";
+
+// Menus et fenêtres du lecteur : ouverts à la demande, chargés de même. La
+// barre est présente sur toutes les pages ; les embarquer d'office alourdissait
+// chaque première visite pour des écrans que la plupart n'ouvrent jamais.
+const SongContextMenu = dynamic(() => import("@/components/music/SongContextMenu").then((m) => m.SongContextMenu), { ssr: false });
+const DeviceMenu = dynamic(() => import("@/components/player/DeviceMenu").then((m) => m.DeviceMenu), { ssr: false });
+const AddToPlaylistModal = dynamic(() => import("@/components/modals/AddToPlaylistModal").then((m) => m.AddToPlaylistModal), {
+  ssr: false,
+});
+const ShareModal = dynamic(() => import("@/components/share/ShareModal").then((m) => m.ShareModal), { ssr: false });
 
 function formatTime(seconds: number) {
   if (!Number.isFinite(seconds)) return "0:00";

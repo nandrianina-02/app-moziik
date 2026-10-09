@@ -6,6 +6,7 @@ import Artist from "@/models/Artist";
 import { withApiErrors } from "@/lib/apiError";
 import { universDeLaRequete } from "@/lib/universServer";
 import type { Univers } from "@/lib/univers";
+import { auCache } from "@/lib/cacheSections";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
@@ -51,6 +52,12 @@ async function topSongs(since: Date, limit: number, withEvolution: boolean, univ
 export const GET = withApiErrors(async (req: Request) => {
   await connectDB();
   const univers = await universDeLaRequete(req);
+  // Rien ici ne dépend du visiteur, seulement de son univers : la réponse
+  // passe par le cache partagé (cinq minutes, vidé à chaque publication).
+  return NextResponse.json(await auCache(["radio", univers], () => calculerRadio(univers)));
+});
+
+async function calculerRadio(univers: Univers) {
   const since24h = new Date(Date.now() - DAY_MS);
   const sinceWeek = new Date(Date.now() - 7 * DAY_MS);
 
@@ -79,7 +86,7 @@ export const GET = withApiErrors(async (req: Request) => {
     ]),
   ]);
 
-  return NextResponse.json({
+  return {
     topToday,
     trending,
     genres: genreCounts.filter((g) => g._id).map((g) => ({ genre: g._id as string, count: g.count as number })),
@@ -90,5 +97,5 @@ export const GET = withApiErrors(async (req: Request) => {
       verified: a.verified,
       plays: a.plays,
     })),
-  });
-});
+  };
+}

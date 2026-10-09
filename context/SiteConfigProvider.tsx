@@ -76,12 +76,22 @@ type Preferences = { language?: string; timezone?: string; dateFormat?: string; 
  */
 const PreferencesContext = createContext<Preferences | null>(null);
 
-export function SiteConfigProvider({ children }: { children: React.ReactNode }) {
-  const [config, setConfig] = useState<PublicSiteConfig>(CONFIG_PAR_DEFAUT);
+export function SiteConfigProvider({
+  children,
+  initiale,
+}: {
+  children: React.ReactNode;
+  /** Écrite dans la page par le layout : rien à attendre au premier affichage. */
+  initiale?: Partial<PublicSiteConfig>;
+}) {
+  const [config, setConfig] = useState<PublicSiteConfig>(() => (initiale ? { ...CONFIG_PAR_DEFAUT, ...initiale } : CONFIG_PAR_DEFAUT));
   const [preferences, setPreferences] = useState<Preferences | null>(null);
 
-  const refresh = useCallback(() => {
-    fetch("/api/site-config")
+  // `force` : relecture demandée après une modification. Le réseau de Vercel
+  // garde la réponse une minute ; une adresse unique passe outre, pour que
+  // l'administrateur voie aussitôt ce qu'il vient d'enregistrer.
+  const refresh = useCallback((force?: unknown) => {
+    fetch(force ? `/api/site-config?t=${Date.now()}` : "/api/site-config")
       .then((res) => (res.ok ? res.json() : null))
       .then((data) => data && setConfig(data))
       .catch(() => {
@@ -99,19 +109,23 @@ export function SiteConfigProvider({ children }: { children: React.ReactNode }) 
       .catch(() => setPreferences(null));
   }, []);
 
+  // Avec la configuration déjà dans la page, la redemander aussitôt ne
+  // ferait qu'un aller-retour de plus : seul un changement l'actualise.
+  const dejaLa = Boolean(initiale);
   useEffect(() => {
-    refresh();
+    if (!dejaLa) refresh();
+    const relireMaintenant = () => refresh(true);
     relirePreferences();
     // Déclenché depuis /admin/parametres après un enregistrement réussi,
     // pour que le logo/nom se mette à jour partout sans recharger la page.
-    window.addEventListener("moziik-site-config-change", refresh);
+    window.addEventListener("moziik-site-config-change", relireMaintenant);
     // Déclenché depuis « Mon compte » après un changement de réglages.
     window.addEventListener("moziik-preferences-change", relirePreferences);
     return () => {
-      window.removeEventListener("moziik-site-config-change", refresh);
+      window.removeEventListener("moziik-site-config-change", relireMaintenant);
       window.removeEventListener("moziik-preferences-change", relirePreferences);
     };
-  }, [refresh, relirePreferences]);
+  }, [dejaLa, refresh, relirePreferences]);
 
   return (
     <SiteConfigContext.Provider value={config}>

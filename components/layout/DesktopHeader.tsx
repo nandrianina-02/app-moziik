@@ -12,6 +12,7 @@ import { ThemeToggle } from "@/components/ui/ThemeToggle";
 import { UniversToggle } from "@/components/ui/UniversToggle";
 import { ModeSelector } from "@/components/ui/ModeSelector";
 import { useEscapeClose } from "@/hooks/useEscapeClose";
+import { useAcces } from "@/context/AccesProvider";
 
 /**
  * Barre supérieure de la maquette : recherche centrée, notifications,
@@ -28,21 +29,12 @@ export function DesktopHeader() {
   const router = useRouter();
   const [query, setQuery] = useState("");
   const [menuOpen, setMenuOpen] = useState(false);
-  const [premium, setPremium] = useState(false);
+  // Lu par AccesProvider, une fois pour toute l'application : le redemander
+  // ici doublait l'appel à chaque page.
+  const { premium } = useAcces();
   const menuRef = useRef<HTMLDivElement>(null);
 
   useEscapeClose(() => setMenuOpen(false), menuOpen);
-
-  useEffect(() => {
-    if (status !== "authenticated") {
-      setPremium(false);
-      return;
-    }
-    fetch("/api/me/subscription")
-      .then((res) => (res.ok ? res.json() : null))
-      .then((data) => data && setPremium(!!data.hasPremium))
-      .catch(() => {});
-  }, [status]);
 
   useEffect(() => {
     if (!menuOpen) return;

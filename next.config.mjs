@@ -13,6 +13,12 @@ const STOCKAGE = (() => {
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  experimental: {
+    // N'embarque que les icônes et animations réellement importées, au
+    // lieu de bibliothèques entières : près de deux cents fichiers tirent
+    // des icônes de lucide-react.
+    optimizePackageImports: ["lucide-react", "react-icons", "framer-motion"],
+  },
   images: {
     remotePatterns: [
       { protocol: "https", hostname: "res.cloudinary.com" },

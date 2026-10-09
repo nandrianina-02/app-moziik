@@ -212,11 +212,24 @@ async function poids(url) {
 // --- Karaks Storage ---------------------------------------------------------------
 
 async function appel(chemin, init = {}) {
-  const reponse = await fetch(`${STOCKAGE}${chemin}`, {
-    method: init.method ?? "GET",
-    headers: { Authorization: `Bearer ${CLE}`, ...(init.corps ? { "Content-Type": "application/json" } : {}) },
-    body: init.corps ? JSON.stringify(init.corps) : undefined,
-  });
+  const requete = () =>
+    fetch(`${STOCKAGE}${chemin}`, {
+      method: init.method ?? "GET",
+      headers: { Authorization: `Bearer ${CLE}`, ...(init.corps ? { "Content-Type": "application/json" } : {}) },
+      body: init.corps ? JSON.stringify(init.corps) : undefined,
+    });
+  // Une connexion coupée en route (« fetch failed ») se rattrape en
+  // réessayant ; au pire, une session d'envoi de plus, qui expire seule.
+  let reponse;
+  for (let essai = 1; ; essai += 1) {
+    try {
+      reponse = await requete();
+      break;
+    } catch (erreur) {
+      if (essai >= 4) throw erreur;
+      await new Promise((r) => setTimeout(r, 2000 * essai));
+    }
+  }
   const donnees = await reponse.json().catch(() => null);
   if (!reponse.ok) throw new Error(donnees?.error?.message ?? `Karaks Storage a répondu ${reponse.status}`);
   return donnees;

@@ -1,6 +1,7 @@
 "use client";
 
 import { createContext, useCallback, useContext, useEffect, useState } from "react";
+import { useSession } from "next-auth/react";
 import { defaultSiteConfig, type SiteConfig } from "@/config/site";
 import { THEME_PAR_DEFAUT, type ThemePreference } from "@/lib/theme";
 import { formatDate } from "@/lib/dates";
@@ -99,15 +100,20 @@ export function SiteConfigProvider({
       });
   }, []);
 
+  // Monté sous la session (app/layout.tsx) : un visiteur sans compte n'a
+  // pas de préférences, inutile de les demander à chaque page.
+  const { status } = useSession();
+  const connecte = status === "authenticated";
   const relirePreferences = useCallback(() => {
-    // La requête part pour tout le monde : ce fournisseur est monté
-    // au-dessus de la session, il ne sait pas encore qui regarde. La route
-    // répond « aucune préférence » sans erreur pour un visiteur anonyme.
+    if (!connecte) {
+      setPreferences(null);
+      return;
+    }
     fetch("/api/me/preferences")
       .then((res) => (res.ok ? res.json() : null))
       .then((data) => setPreferences(data?.preferences ?? null))
       .catch(() => setPreferences(null));
-  }, []);
+  }, [connecte]);
 
   // Avec la configuration déjà dans la page, la redemander aussitôt ne
   // ferait qu'un aller-retour de plus : seul un changement l'actualise.

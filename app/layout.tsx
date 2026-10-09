@@ -138,8 +138,10 @@ export default async function RootLayout({ children }: { children: React.ReactNo
         )}
         {/* Passée par JSON, comme par /api/site-config : les dates y deviennent
             des chaînes, la forme qu'attend le fournisseur. */}
-        <SiteConfigProvider initiale={JSON.parse(JSON.stringify(publique))}>
-          <AuthProvider>
+        {/* La session enveloppe la configuration : celle-ci n'a à lire les
+            préférences d'un compte que s'il y a un compte. */}
+        <AuthProvider>
+          <SiteConfigProvider initiale={JSON.parse(JSON.stringify(publique))}>
             {/* Au-dessus du thème et du lecteur : les deux ont besoin de
                 savoir si le visiteur est abonné — l'un pour les couleurs
                 personnalisées, l'autre pour la qualité servie. */}
@@ -201,8 +203,8 @@ export default async function RootLayout({ children }: { children: React.ReactNo
               </UniversProvider>
             </ThemeProvider>
             </AccesProvider>
-          </AuthProvider>
-        </SiteConfigProvider>
+          </SiteConfigProvider>
+        </AuthProvider>
       </body>
     </html>
   );

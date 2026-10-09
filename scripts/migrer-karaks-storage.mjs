@@ -149,9 +149,20 @@ function decrireCloudinary(url) {
 }
 
 /** Adresse lisible d'un fichier : signée s'il est distribué en `authenticated`. */
-function adresseLisible(url, ressource) {
+/**
+ * Type de distribution réel. Après scripts/proteger-audio.mjs, l'audio des
+ * titres est en `authenticated` alors que la base garde l'adresse en
+ * `/upload/` : même règle que lib/cloudinaryAudio.ts, le drapeau
+ * CLOUDINARY_AUDIO_AUTHENTICATED décide pour ces adresses-là.
+ */
+function typeReel(infos, audioTitre) {
+  if (infos.type === "authenticated") return "authenticated";
+  return audioTitre && process.env.CLOUDINARY_AUDIO_AUTHENTICATED === "true" ? "authenticated" : "upload";
+}
+
+function adresseLisible(url, ressource, audioTitre = false) {
   const infos = decrireCloudinary(url);
-  if (!infos || infos.type !== "authenticated") return url;
+  if (!infos || typeReel(infos, audioTitre) !== "authenticated") return url;
   return cloudinary.url(infos.publicId, { resource_type: ressource, type: "authenticated", sign_url: true, format: infos.format });
 }
 
@@ -166,8 +177,8 @@ function adresseVariante(audioUrl, qualite, debut, fin) {
   if (typeof fin === "number" && fin > 0) transformation.end_offset = fin;
   return cloudinary.url(infos.publicId, {
     resource_type: "video",
-    type: infos.type,
-    sign_url: infos.type === "authenticated",
+    type: typeReel(infos, true),
+    sign_url: typeReel(infos, true) === "authenticated",
     format: "mp3",
     transformation: [transformation],
   });
@@ -252,9 +263,9 @@ async function deposer(octets, type, nom, nomDossier) {
 }
 
 /** Copie une adresse Cloudinary, une seule fois quel que soit le nombre de documents qui la citent. */
-async function copier(url, nomDossier, ressource) {
+async function copier(url, nomDossier, ressource, audioTitre = false) {
   if (journal.fichiers[url]) return journal.fichiers[url];
-  const { octets, type } = await telecharger(adresseLisible(url, ressource));
+  const { octets, type } = await telecharger(adresseLisible(url, ressource, audioTitre));
   const nom = decodeURIComponent(url.split("?")[0].split("/").pop() ?? "fichier");
   const id = await deposer(octets, type, nom, nomDossier);
   journal.fichiers[url] = id;
@@ -275,14 +286,14 @@ async function migrerTitres(db) {
     try {
       if (ESSAI) {
         bilan.fichiers += 4;
-        bilan.octets += await poids(adresseLisible(titre.audioUrl, "video"));
+        bilan.octets += await poids(adresseLisible(titre.audioUrl, "video", true));
         // Les trois qualités cumulent 512 kb/s, soit 64 000 octets par seconde
         // servie : souvent plus que l'original lui-même.
         bilan.octetsVersions += (titre.duration ?? 0) * 64_000;
         continue;
       }
       const deja = journal.titres[String(titre._id)];
-      const source = deja?.source ?? (await copier(titre.audioUrl, "songs", "video"));
+      const source = deja?.source ?? (await copier(titre.audioUrl, "songs", "video", true));
       const variantes = {};
       for (const qualite of ["low", "medium", "high"]) {
         if (deja?.variantes?.[qualite]) {

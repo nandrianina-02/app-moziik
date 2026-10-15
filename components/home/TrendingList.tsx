@@ -6,6 +6,7 @@ import { BadgeCheck, Play, Pause } from "lucide-react";
 import { SafeImage } from "@/components/ui/SafeImage";
 import { usePlayer, type PlayableSong, type PlaySource } from "@/context/PlayerProvider";
 import { SongContextMenu } from "@/components/music/SongContextMenu";
+import { BoutonTelechargement } from "@/components/music/BoutonTelechargement";
 import { useLongPress } from "@/components/music/useLongPress";
 
 /**
@@ -83,6 +84,8 @@ function TrendingRow({
           {song.artist?.verified && <BadgeCheck size={10} className="shrink-0 text-verified" />}
         </span>
       </span>
+
+      <BoutonTelechargement song={song} className="h-7 w-7" />
 
       <button
         onClick={() => (isCurrent ? togglePlay() : playQueue(songs, index, source))}

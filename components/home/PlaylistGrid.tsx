@@ -5,6 +5,9 @@ import Link from "next/link";
 import { ListMusic, Share2 } from "lucide-react";
 import { SafeImage } from "@/components/ui/SafeImage";
 import { useLongPress } from "@/components/music/useLongPress";
+import { Download, Loader2 } from "lucide-react";
+import { useTelechargementLot } from "@/hooks/useTelechargementHorsLigne";
+import { downloadPlaylistForOffline } from "@/lib/offlineCache";
 import { ContextMenuShell, MenuItem } from "@/components/ui/ContextMenuShell";
 import { ShareModal } from "@/components/share/ShareModal";
 import { buildPlaylistSubject } from "@/components/share/shareSubject";
@@ -36,6 +39,7 @@ function PlaylistTile({ playlist }: { playlist: PlaylistCardData }) {
     setMenuPosition({ x, y });
   }
   const longPress = useLongPress((x, y) => openMenuAt(x, y));
+  const lot = useTelechargementLot();
 
   return (
     <div>
@@ -66,6 +70,29 @@ function PlaylistTile({ playlist }: { playlist: PlaylistCardData }) {
           </div>
         )}
         <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/20 to-transparent" />
+
+        {/* Hors du lien, posée par-dessus : un lien ne contient pas un
+            bouton, et le clic partirait sur la page au lieu de télécharger. */}
+        <span
+          role="button"
+          tabIndex={0}
+          aria-label={`Télécharger « ${playlist.title} » pour l'écoute hors connexion`}
+          aria-busy={lot.enCours}
+          onClick={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            lot.lancer(playlist.title, () => downloadPlaylistForOffline(playlist._id));
+          }}
+          onKeyDown={(e) => {
+            if (e.key !== "Enter" && e.key !== " ") return;
+            e.preventDefault();
+            e.stopPropagation();
+            lot.lancer(playlist.title, () => downloadPlaylistForOffline(playlist._id));
+          }}
+          className="pressable absolute bottom-2 left-2 z-10 grid h-9 w-9 cursor-pointer place-items-center rounded-full bg-black/55 text-white backdrop-blur-sm transition-colors hover:bg-black/75"
+        >
+          {lot.enCours ? <Loader2 size={16} className="animate-spin" /> : <Download size={16} />}
+        </span>
 
         <div className="absolute inset-x-0 bottom-0 p-3 text-white">
           <p className="truncate text-sm font-semibold">{playlist.title}</p>

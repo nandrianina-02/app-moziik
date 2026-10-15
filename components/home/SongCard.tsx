@@ -6,6 +6,7 @@ import { BadgeCheck, Play, Pause } from "lucide-react";
 import { SafeImage } from "@/components/ui/SafeImage";
 import { usePlayer, type PlayableSong, type PlaySource } from "@/context/PlayerProvider";
 import { SongContextMenu } from "@/components/music/SongContextMenu";
+import { BoutonTelechargement } from "@/components/music/BoutonTelechargement";
 import { useLongPress } from "@/components/music/useLongPress";
 
 function formatTime(seconds: number) {
@@ -61,8 +62,20 @@ export function SongCard({
       onTouchEnd={longPress.onTouchEnd}
       onTouchMove={longPress.onTouchMove}
     >
-      <button onClick={handleClick} className="w-full text-left">
-        <div className="relative aspect-square w-full overflow-hidden rounded-xl2 bg-surface">
+      {/* La pochette sort du bouton : elle porte maintenant sa propre
+          pastille, et un bouton ne peut pas en contenir un autre. Le clic
+          sur l'image lance la lecture, comme avant. */}
+      <div
+        role="button"
+        tabIndex={0}
+        onClick={handleClick}
+        onKeyDown={(e) => {
+          if (e.key === "Enter" || e.key === " ") {
+            e.preventDefault();
+            handleClick();
+          }
+        }}
+        className="relative aspect-square w-full cursor-pointer overflow-hidden rounded-xl2 bg-surface">
           <SafeImage
             src={song.coverUrl}
             alt={song.title}
@@ -78,7 +91,14 @@ export function SongCard({
               {isCurrent && isPlaying ? <Pause size={16} fill="currentColor" /> : <Play size={16} fill="currentColor" />}
             </span>
           </span>
-        </div>
+          {/* Hors du bouton de lecture, posé par-dessus : imbriquer un
+              bouton dans un autre est invalide, et le clic du premier
+              lancerait le second. */}
+          <span className="absolute bottom-2 left-2">
+            <BoutonTelechargement song={song} placement="pochette" />
+          </span>
+      </div>
+      <button onClick={handleClick} className="w-full text-left">
         <p className={`mt-2 truncate text-sm font-medium ${isCurrent ? "text-accent" : "text-ink"}`}>{song.title}</p>
         <p className="flex items-center gap-1 truncate text-xs text-ink-muted">
           {song.artist?.stageName ?? "Artiste supprimé"}

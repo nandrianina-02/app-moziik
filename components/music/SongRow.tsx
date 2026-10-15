@@ -6,6 +6,7 @@ import { useSession } from "next-auth/react";
 import { Play, Pause, BadgeCheck, Clock, MoreVertical } from "lucide-react";
 import { usePlayer, type PlayableSong, type PlaySource } from "@/context/PlayerProvider";
 import { SongContextMenu } from "@/components/music/SongContextMenu";
+import { BoutonTelechargement } from "@/components/music/BoutonTelechargement";
 import { useLongPress } from "@/components/music/useLongPress";
 
 function formatTime(seconds: number) {
@@ -95,6 +96,8 @@ export function SongRow({
         <Clock size={12} />
         {formatTime(song.duration)}
       </span>
+
+      <BoutonTelechargement song={song} />
 
       <button
         onClick={(e) => openMenuAt(e.clientX, e.clientY)}

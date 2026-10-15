@@ -114,7 +114,6 @@ type FormValues = {
   isrc: string;
   copyright: string;
   explicit: boolean;
-  releaseMode: "now" | "schedule";
   releaseDateInput: string;
   releaseTimeInput: string;
   timezone: string;
@@ -275,14 +274,12 @@ export default function EditSongPage() {
       isrc: "",
       copyright: "",
       explicit: false,
-      releaseMode: "now",
       releaseDateInput: "",
       releaseTimeInput: "",
       timezone: TIMEZONES[0].value,
     },
   });
 
-  const releaseMode = watch("releaseMode");
   const watchedTitle = watch("title");
   const watchedGenre = watch("genre");
   const watchedLanguage = watch("language");
@@ -308,7 +305,6 @@ export default function EditSongPage() {
         setTags(doc.tags ?? []);
 
         const release = new Date(doc.releaseDate);
-        const isFuture = release.getTime() > Date.now();
         reset({
           title: doc.title,
           genre: doc.genre,
@@ -323,7 +319,6 @@ export default function EditSongPage() {
           isrc: doc.isrc ?? "",
           copyright: doc.copyright ?? "",
           explicit: doc.explicit,
-          releaseMode: isFuture ? "schedule" : "now",
           releaseDateInput: toDateInputValue(release),
           releaseTimeInput: toTimeInputValue(release),
           timezone: TIMEZONES[0].value,
@@ -541,10 +536,14 @@ export default function EditSongPage() {
       if (isAdmin && targetArtist) payload.artistId = targetArtist._id;
 
       if (mode === "publish") {
-        const releaseDate =
-          values.releaseMode === "now"
-            ? new Date().toISOString()
-            : buildReleaseISO(values.releaseDateInput, values.releaseTimeInput, values.timezone);
+        // Toujours la date des champs : il n'y a plus de « maintenant » à
+        // la modification, et c'est tout l'intérêt — une mise à jour ne
+        // doit pas redater le morceau.
+        const releaseDate = buildReleaseISO(
+          values.releaseDateInput,
+          values.releaseTimeInput,
+          values.timezone
+        );
         if (!releaseDate) {
           pushToast("error", "Choisis une date et une heure de publication valides.");
           setSaving(null);
@@ -576,9 +575,9 @@ export default function EditSongPage() {
         "success",
         mode === "draft"
           ? "Brouillon enregistré."
-          : values.releaseMode === "now"
-            ? "Titre publié avec succès."
-            : "Publication programmée."
+          : new Date(payload.releaseDate as string) > new Date()
+            ? "Mis à jour — publication programmée."
+            : "Titre mis à jour."
       );
     } catch (err) {
       const message = err instanceof Error ? err.message : "La mise à jour a échoué.";
@@ -659,8 +658,13 @@ export default function EditSongPage() {
   }
 
   const lastSavedLabel = formatRelative(song.updatedAt);
+  // Lu sur le document, pas sur le formulaire : dit si le titre attend
+  // encore sa parution, ce qui change le texte de la section.
+  const sortiAVenir = new Date(song.releaseDate).getTime() > Date.now();
   const busy = saving !== null;
-  const publishLabel = releaseMode === "now" ? "Publier le titre" : "Programmer la publication";
+  // « Mettre à jour » dans tous les cas : c'est l'unique geste de cet
+  // écran. La date, elle, se lit juste au-dessus du bouton.
+  const publishLabel = "Mettre à jour";
 
   return (
     <form onSubmit={handleSubmit((values) => persist(values, "publish"))}>
@@ -895,65 +899,53 @@ export default function EditSongPage() {
               </div>
             </div>
 
-            {/* Publication */}
-            <SectionCard icon={Rocket} title="Publication">
-              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                <label
-                  className={`flex cursor-pointer items-start gap-2.5 rounded-xl border px-4 py-3 transition-colors ${
-                    releaseMode === "now" ? "border-accent bg-accent/5" : "border-border bg-base"
-                  }`}
-                >
-                  <input type="radio" value="now" {...register("releaseMode")} className="mt-1 accent-accent" />
-                  <span>
-                    <span className="block text-sm font-medium">Publier maintenant</span>
-                    <span className="block text-xs text-ink-muted">Le titre sera visible immédiatement sur Moziik.</span>
-                  </span>
-                </label>
+            {/* Publication.
 
-                <label
-                  className={`flex cursor-pointer items-start gap-2.5 rounded-xl border px-4 py-3 transition-colors ${
-                    releaseMode === "schedule" ? "border-accent bg-accent/5" : "border-border bg-base"
-                  }`}
-                >
-                  <input type="radio" value="schedule" {...register("releaseMode")} className="mt-1 accent-accent" />
-                  <span>
-                    <span className="block text-sm font-medium">Programmer la publication</span>
-                    <span className="block text-xs text-ink-muted">Choisissez la date et l&apos;heure de publication.</span>
+                Pas de « Publier maintenant » ici, contrairement au dépôt.
+                Un titre en ligne a DÉJÀ une date de sortie, et c'est elle
+                qui le situe dans le catalogue : la remplacer par celle du
+                jour à chaque correction d'une faute de frappe ferait
+                remonter en tête des nouveautés un morceau de 2019. La date
+                reste modifiable — c'est parfois ce qu'on vient faire — mais
+                elle ne change plus par accident. */}
+            <SectionCard
+              icon={Rocket}
+              title="Publication"
+              subtitle={
+                sortiAVenir
+                  ? "Ce titre paraîtra à la date ci-dessous."
+                  : "Ce titre est paru à la date ci-dessous. La modifier change sa place dans le catalogue."
+              }
+            >
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+                <FormField
+                  label="Date de sortie"
+                  type="date"
+                  icon={Calendar}
+                  {...register("releaseDateInput", { required: true })}
+                />
+                <FormField
+                  label="Heure"
+                  type="time"
+                  icon={Clock3}
+                  {...register("releaseTimeInput", { required: true })}
+                />
+                <label className="block">
+                  <span className="mb-1.5 flex items-center gap-1.5 text-sm text-ink-muted">
+                    <Globe2 size={14} /> Fuseau horaire
                   </span>
+                  <select
+                    {...register("timezone")}
+                    className="w-full rounded-xl border border-border bg-base px-4 py-2.5 text-sm outline-none focus:border-accent"
+                  >
+                    {TIMEZONES.map((tz) => (
+                      <option key={tz.value} value={tz.value}>
+                        {tz.label}
+                      </option>
+                    ))}
+                  </select>
                 </label>
               </div>
-
-              {releaseMode === "schedule" && (
-                <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-3">
-                  <FormField
-                    label="Date de sortie"
-                    type="date"
-                    icon={Calendar}
-                    {...register("releaseDateInput", { required: releaseMode === "schedule" })}
-                  />
-                  <FormField
-                    label="Heure"
-                    type="time"
-                    icon={Clock3}
-                    {...register("releaseTimeInput", { required: releaseMode === "schedule" })}
-                  />
-                  <label className="block">
-                    <span className="mb-1.5 flex items-center gap-1.5 text-sm text-ink-muted">
-                      <Globe2 size={14} /> Fuseau horaire
-                    </span>
-                    <select
-                      {...register("timezone")}
-                      className="w-full rounded-xl border border-border bg-base px-4 py-2.5 text-sm outline-none focus:border-accent"
-                    >
-                      {TIMEZONES.map((tz) => (
-                        <option key={tz.value} value={tz.value}>
-                          {tz.label}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
-                </div>
-              )}
             </SectionCard>
 
             {/* Paroles : saisie, import LRC et calage sur l'audio. */}

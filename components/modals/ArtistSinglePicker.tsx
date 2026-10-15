@@ -1,16 +1,23 @@
 "use client";
 
 import { useState } from "react";
-import { Search, BadgeCheck, X } from "lucide-react";
+import { Search, BadgeCheck, X, UserPlus } from "lucide-react";
 
 type ArtistOption = { _id: string; stageName: string; verified?: boolean };
 
 export function ArtistSinglePicker({
   selected,
   onChange,
+  onCreer,
 }: {
   selected: ArtistOption | null;
   onChange: (artist: ArtistOption | null) => void;
+  /**
+   * Proposé quand la recherche ne rend rien : c'est le seul moment où
+   * « créer » a du sens, et le seul endroit où l'on sait déjà quel nom
+   * manque. Absent, le sélecteur se comporte comme avant.
+   */
+  onCreer?: (nom: string) => void;
 }) {
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<ArtistOption[]>([]);
@@ -88,7 +95,18 @@ export function ArtistSinglePicker({
               </button>
             ))}
             {!searching && results.length === 0 && query.trim().length >= 2 && (
-              <p className="px-3.5 py-2 text-xs text-ink-muted">Aucun artiste trouvé.</p>
+              <div className="px-3.5 py-2">
+                <p className="text-xs text-ink-muted">Aucun artiste trouvé.</p>
+                {onCreer && (
+                  <button
+                    type="button"
+                    onClick={() => onCreer(query.trim())}
+                    className="pressable mt-1.5 flex items-center gap-1.5 text-xs font-medium text-accent hover:underline"
+                  >
+                    <UserPlus size={12} /> Créer « {query.trim()} »
+                  </button>
+                )}
+              </div>
             )}
           </div>
         )}

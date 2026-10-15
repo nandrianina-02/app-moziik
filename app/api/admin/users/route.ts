@@ -206,13 +206,19 @@ export const POST = withApiErrors(async (req: Request) => {
 
   // Un compte artiste sans profil n'apparaîtrait nulle part côté public :
   // on le crée dans la foulée, comme le fait la promotion de rôle.
+  let artist: { _id: string; stageName: string } | null = null;
   if (role === "artist") {
-    await Artist.create({ user: user._id, stageName: name, coverUrl: user.avatarUrl });
+    const profil = await Artist.create({ user: user._id, stageName: name, coverUrl: user.avatarUrl });
+    artist = { _id: profil._id.toString(), stageName: profil.stageName };
   }
 
   return NextResponse.json(
     {
       user: { _id: user._id, name: user.name, email: user.email, role: user.role },
+      // Rendu pour que l'appelant puisse enchaîner sans rechercher le
+      // profil par son nom : le formulaire de publication crée un artiste
+      // puis le sélectionne aussitôt, et un nom n'est pas une clé.
+      ...(artist ? { artist } : {}),
       temporaryPassword: motDePasse,
     },
     { status: 201 }

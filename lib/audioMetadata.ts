@@ -300,10 +300,31 @@ function intervenant(
   return undefined;
 }
 
-/** AAAA, AAAA-MM ou AAAA-MM-JJ → AAAA-MM-JJ ; rien si la date est partielle. */
-function dateComplete(valeur?: string): string | undefined {
-  const m = valeur?.trim().match(/^([0-9]{4})-([0-9]{2})-([0-9]{2})/);
-  return m ? `${m[1]}-${m[2]}-${m[3]}` : undefined;
+/**
+ * AAAA, AAAA-MM ou AAAA-MM-JJ → AAAA-MM-JJ.
+ *
+ * Une année suffit. La version precedente exigeait les trois parties et
+ * rejetait tout le reste : un fichier balise « 2025 » — le cas le plus
+ * frequent, parce que c'est ce qu'ecrivent la plupart des encodeurs —
+ * ressortait sans date, et le formulaire affichait « date incomplete dans
+ * le fichier » comme s'il manquait quelque chose. Il ne manquait rien : on
+ * demandait une precision que personne n'a, et dont le catalogue n'a pas
+ * besoin.
+ *
+ * Les parties absentes valent le premier jour. C'est deja ce que fait
+ * l'import en masse depuis toujours (components/import/ImportWorkbench.tsx,
+ * option « Annee lue dans les balises ») : le depot d'un titre seul etait
+ * le seul endroit a rester strict.
+ */
+function dateDeSortie(valeur?: string | number): string | undefined {
+  const brut = typeof valeur === "number" ? String(valeur) : valeur?.trim();
+  const m = brut?.match(/^([0-9]{4})(?:-([0-9]{2}))?(?:-([0-9]{2}))?/);
+  if (!m) return undefined;
+  const annee = Number(m[1]);
+  // Garde-fou : une balise corrompue donne vite « 0000 » ou « 9999 », et
+  // une date absurde desordonne tout le catalogue.
+  if (annee < 1900 || annee > new Date().getFullYear() + 5) return undefined;
+  return `${m[1]}-${m[2] ?? "01"}-${m[3] ?? "01"}`;
 }
 
 function premierNombre(valeur: unknown): number | undefined {
@@ -365,7 +386,13 @@ export async function lireMetadonneesAudio(fichier: File): Promise<MetadonneesAu
       premiereChaine((commun.comment ?? []).map((c) => c.text)) ||
       commun.longDescription?.trim() ||
       undefined,
-    dateSortie: dateComplete(commun.releasedate) || dateComplete(commun.date) || dateComplete(commun.originaldate),
+    // L'annee seule, en dernier recours : certains encodeurs ne
+    // renseignent que `year` et laissent les trois balises de date vides.
+    dateSortie:
+      dateDeSortie(commun.releasedate) ||
+      dateDeSortie(commun.date) ||
+      dateDeSortie(commun.originaldate) ||
+      dateDeSortie(premierNombre(commun.year)),
     genresSecondaires: genres.slice(1),
     motsCles,
     explicite: lireExplicite(resultat.native as Record<string, { id: string; value: unknown }[]> | undefined),

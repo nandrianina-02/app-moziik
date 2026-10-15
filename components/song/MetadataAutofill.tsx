@@ -14,6 +14,14 @@ export type ChampDetecte = {
   etat: EtatChamp;
   /** Précision affichée en petit : pourquoi conservé, pourquoi sans correspondance. */
   note?: string;
+  /**
+   * Geste proposé sous la ligne, quand il y en a un à faire.
+   *
+   * Le rapport est le seul endroit où l'on apprend qu'un artiste du
+   * fichier n'existe pas sur Moziik : renvoyer ailleurs pour y remédier
+   * oblige à retrouver soi-même le nom qu'on vient de lire.
+   */
+  action?: { libelle: string; onClick: () => void };
 };
 
 export type RapportMetadonnees = {
@@ -129,6 +137,15 @@ export function MetadataAutofill({
                         <span className="text-ink-muted">{c.champ} : </span>
                         <span className={`break-words ${style.texte}`}>{c.valeur}</span>
                         {c.note && <span className="block text-[11px] text-ink-muted">{c.note}</span>}
+                        {c.action && (
+                          <button
+                            type="button"
+                            onClick={c.action.onClick}
+                            className="pressable mt-1 block text-[11px] font-medium text-accent hover:underline"
+                          >
+                            {c.action.libelle}
+                          </button>
+                        )}
                       </span>
                     </li>
                   );

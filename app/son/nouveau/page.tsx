@@ -34,6 +34,7 @@ import { TrimEditor } from "@/components/song/TrimEditor";
 import { SongPreviewSidebar, type ChecklistItem } from "@/components/song/SongPreviewSidebar";
 import { FeaturingPicker } from "@/components/modals/FeaturingPicker";
 import { ArtistSinglePicker } from "@/components/modals/ArtistSinglePicker";
+import { CreateArtistModal } from "@/components/modals/CreateArtistModal";
 import { MetadataAutofill, type ChampDetecte, type RapportMetadonnees } from "@/components/song/MetadataAutofill";
 import { DuplicateWarning, type DoublonTitre } from "@/components/song/DuplicateWarning";
 import { SongAiAssist } from "@/components/song/SongAiAssist";
@@ -198,6 +199,14 @@ export default function NewSongPage() {
   const [uploadingVideo, setUploadingVideo] = useState(false);
   const [videoProgress, setVideoProgress] = useState(0);
   const [confirmDiscard, setConfirmDiscard] = useState(false);
+  /**
+   * Nom de l'artiste à créer, ou null quand la fenêtre est fermée.
+   *
+   * Alimenté par deux chemins : la recherche qui ne trouve rien, et le
+   * rapport de métadonnées quand le fichier nomme un artiste absent du
+   * catalogue — c'est précisément là qu'on s'en aperçoit.
+   */
+  const [creationArtiste, setCreationArtiste] = useState<string | null>(null);
 
   const {
     register,
@@ -479,31 +488,27 @@ export default function NewSongPage() {
         }
       }
 
-      /* --- Date de sortie : ne bascule en publication programmée que pour
-         une date à venir. Une date passée décrit la sortie d'origine, pas
-         un moment de publication sur Moziik. */
+      /* --- Date de sortie.
+         Le fichier porte une date : on la respecte, qu'elle soit passée ou
+         à venir, et le formulaire bascule sur « Programmer ». Une date
+         passée n'est pas une erreur — c'est une sortie d'origine, et c'est
+         le cas de tout le catalogue qu'on reprend. La laisser filer
+         remplaçait cette date par celle du jour, et un album de 2019
+         ressortait daté d'aujourd'hui.
+         Sans date dans le fichier, rien ne bouge : on publie maintenant. */
       if (meta.dateSortie) {
-        const prevue = new Date(`${meta.dateSortie}T00:00:00`);
-        if (prevue.getTime() > Date.now()) {
-          setValue("releaseMode", "schedule", { shouldDirty: true });
-          setValue("releaseDateInput", meta.dateSortie, { shouldDirty: true });
-          if (vide(valeurs.releaseTimeInput) || ecraser) setValue("releaseTimeInput", "00:00", { shouldDirty: true });
-          champs.push({
-            champ: "Date de sortie",
-            valeur: meta.dateSortie,
-            etat: "applique",
-            note: "publication programmée — vérifie l'heure",
-          });
-        } else {
-          champs.push({
-            champ: "Date de sortie",
-            valeur: meta.dateSortie,
-            etat: "conserve",
-            note: "date passée : la publication reste immédiate",
-          });
-        }
-      } else if (meta.annee) {
-        champs.push({ champ: "Année", valeur: String(meta.annee), etat: "conserve", note: "date incomplète dans le fichier" });
+        const aVenir = new Date(`${meta.dateSortie}T00:00:00`).getTime() > Date.now();
+        setValue("releaseMode", "schedule", { shouldDirty: true });
+        setValue("releaseDateInput", meta.dateSortie, { shouldDirty: true });
+        if (vide(valeurs.releaseTimeInput) || ecraser) setValue("releaseTimeInput", "00:00", { shouldDirty: true });
+        champs.push({
+          champ: "Date de sortie",
+          valeur: meta.dateSortie,
+          etat: "applique",
+          note: aVenir
+            ? "publication programmée — vérifiez l'heure"
+            : "sortie d'origine conservée, le titre paraît aussitôt",
+        });
       }
 
       /* --- Pochette intégrée. */
@@ -539,6 +544,12 @@ export default function NewSongPage() {
             valeur: meta.artiste,
             etat: "sans-correspondance",
             note: "aucun profil artiste à ce nom sur Moziik",
+            // Le nom lu dans le fichier part tel quel dans la fenêtre : on
+            // vient de le lire à l'écran, le ressaisir n'apporterait rien.
+            action: {
+              libelle: `Créer « ${meta.artiste} »`,
+              onClick: () => setCreationArtiste(meta.artiste as string),
+            },
           });
         }
       }
@@ -855,7 +866,18 @@ export default function NewSongPage() {
   }
 
   const busy = saving !== null;
-  const publishLabel = releaseMode === "now" ? "Publier le titre" : "Programmer la publication";
+  // « Programmer » est faux quand la date choisie est déjà passée : le
+  // serveur publie alors aussitôt (release <= maintenant, voir
+  // app/api/songs/route.ts). Annoncer une programmation qui n'aura pas
+  // lieu est exactement le genre de surprise qu'on veut éviter — et le cas
+  // est devenu courant depuis qu'on reprend la date d'origine des fichiers.
+  const dateChoisie =
+    releaseMode === "schedule"
+      ? buildReleaseISO(watch("releaseDateInput"), watch("releaseTimeInput"), watch("timezone"))
+      : null;
+  const parutionImmediate =
+    releaseMode === "now" || (dateChoisie !== null && new Date(dateChoisie) <= new Date());
+  const publishLabel = parutionImmediate ? "Publier le titre" : "Programmer la publication";
 
   return (
     <form onSubmit={handleSubmit((values) => persist(values, "publish"))}>
@@ -1010,7 +1032,13 @@ export default function NewSongPage() {
                     </select>
                   </label>
 
-                  {isAdmin && <ArtistSinglePicker selected={targetArtist} onChange={handleTargetArtistChange} />}
+                  {isAdmin && (
+                    <ArtistSinglePicker
+                      selected={targetArtist}
+                      onChange={handleTargetArtistChange}
+                      onCreer={setCreationArtiste}
+                    />
+                  )}
                   {!isAdmin && ownArtist && (
                     <div>
                       <span className="mb-1.5 block text-sm text-ink-muted">Artiste principal</span>
@@ -1275,6 +1303,14 @@ export default function NewSongPage() {
           busy={false}
           onConfirm={() => router.back()}
           onCancel={() => setConfirmDiscard(false)}
+        />
+      )}
+
+      {creationArtiste !== null && (
+        <CreateArtistModal
+          nomInitial={creationArtiste}
+          onCree={(artiste) => handleTargetArtistChange(artiste)}
+          onClose={() => setCreationArtiste(null)}
         />
       )}
     </form>

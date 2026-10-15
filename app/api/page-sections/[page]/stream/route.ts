@@ -1,5 +1,5 @@
 import { withApiErrors } from "@/lib/apiError";
-import { streamPageSections } from "@/lib/sectionStream";
+import { fenetreDemandee, streamPageSections } from "@/lib/sectionStream";
 import { getAuthUser } from "@/lib/mobileAuth";
 import { universDeLaRequete } from "@/lib/universServer";
 import { modeDeLaRequete } from "@/lib/modesServer";
@@ -21,6 +21,7 @@ export const GET = withApiErrors(async (req: Request, ctx: { params: { page: str
     page,
     authUser ? { id: authUser.id, role: authUser.role } : null,
     univers,
-    await modeDeLaRequete(req, { compte: authUser?.id })
+    await modeDeLaRequete(req, { compte: authUser?.id }),
+    fenetreDemandee(req)
   );
 });

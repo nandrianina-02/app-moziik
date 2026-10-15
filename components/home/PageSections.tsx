@@ -3,6 +3,7 @@
 import { Reveal } from "@/components/layout/Reveal";
 import { SectionBlock } from "@/components/home/SectionBlock";
 import { HomeSectionSkeleton } from "@/components/home/HomeSectionSkeleton";
+import { SuiteSections } from "@/components/home/SuiteSections";
 import { usePageSectionsStream } from "@/components/home/useHomepageStream";
 
 /**
@@ -19,24 +20,28 @@ import { usePageSectionsStream } from "@/components/home/useHomepageStream";
  * exactement son apparence actuelle.
  */
 export function PageSections({ page, className = "" }: { page: string; className?: string }) {
-  const { slots, starting, failed } = usePageSectionsStream(page);
+  const { slots, starting, failed, encore, suite, chargerSuite } = usePageSectionsStream(page);
 
   // Rien tant que la liste n'est pas connue : ces blocs sont secondaires et
   // situés hors du premier écran. Rendre un conteneur vide avec sa marge
   // décalerait la page pour finalement n'afficher, le plus souvent, rien.
-  if (failed || starting || slots.length === 0) return null;
+  // `encore` retient le rendu à vide : un premier lot sans section
+  // visible ne veut pas dire que la page n'en a aucune.
+  if (failed || starting || (slots.length === 0 && !encore)) return null;
 
   return (
     <div className={`space-y-10 ${className}`}>
       {slots.map((slot) =>
         slot.status === "ready" ? (
-          <Reveal key={slot.key}>
+          <Reveal key={slot.id}>
             <SectionBlock section={{ key: slot.key, title: slot.title, data: slot.data }} sourceLabel={page} />
           </Reveal>
         ) : (
-          <HomeSectionSkeleton key={slot.key} sectionKey={slot.key} title={slot.title} />
+          <HomeSectionSkeleton key={slot.id} sectionKey={slot.key} title={slot.title} />
         )
       )}
+
+      <SuiteSections encore={encore} suite={suite} charger={chargerSuite} />
     </div>
   );
 }

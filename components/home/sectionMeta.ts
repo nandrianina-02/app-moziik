@@ -24,3 +24,14 @@ export const SECTION_SUBTITLE: Record<string, string> = {
 
 /** Sections rendues dans la colonne latérale plutôt que dans le flux principal. */
 export const SIDEBAR_SECTION_KEYS = ["top_tracks", "events", "radio", "trending_artists", "activity"];
+
+/**
+ * Sections rendues hors de la colonne qui défile : la colonne latérale et
+ * la bannière Premium.
+ *
+ * Le serveur s'en sert pour les joindre au premier lot quel que soit leur
+ * rang dans la configuration admin. Sans cela, une colonne latérale placée
+ * en fin de liste resterait vide jusqu'à ce que l'utilisateur ait fait
+ * défiler toute la page — alors qu'elle est visible dès le premier écran.
+ */
+export const SECTIONS_HORS_FLUX = [...SIDEBAR_SECTION_KEYS, "premium"];

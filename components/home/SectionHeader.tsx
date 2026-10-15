@@ -18,7 +18,7 @@ export function SectionHeader({
   /** Pastille courte à côté du titre, ex. "NOUVEAU". */
   badge?: string;
   seeAllHref?: string;
-  /** Emoji ou petit visuel affiché avant le titre. */
+  /** Icône du jeu lucide affichée avant le titre. */
   icon?: React.ReactNode;
 }) {
   return (

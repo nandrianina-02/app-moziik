@@ -17,6 +17,7 @@ import { IHomepageSection, SectionPage } from "@/models/HomepageSection";
 import { UNIVERS_PAR_DEFAUT, type Univers } from "@/lib/univers";
 import { MODE_PAR_DEFAUT, type Mode } from "@/lib/modes";
 import { auCache, estPartageable } from "@/lib/cacheSections";
+import { SECTIONS_HORS_FLUX } from "@/components/home/sectionMeta";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
@@ -876,11 +877,22 @@ async function buildSection(section: IHomepageSection, ctx: SectionContext): Pro
  * diffuser chaque section dès qu'elle est prête (voir
  * app/api/homepage/stream/route.ts) au lieu d'attendre la plus lente.
  */
+export type FenetreSections = { depuis: number; combien: number };
+
 export async function preparePageSections(
   page: SectionPage,
   viewer: HomepageViewer,
   univers: Univers,
-  mode: Mode = MODE_PAR_DEFAUT
+  mode: Mode = MODE_PAR_DEFAUT,
+  /**
+   * Tranche à calculer, quand l'appelant charge la page par lots.
+   *
+   * Sans fenêtre, tout est calculé — c'est le comportement d'origine, et
+   * celui dont dépendent la réponse unique `/api/homepage` et le repli
+   * hors-ligne. Avec une fenêtre, les sections hors tranche ne sont pas
+   * touchées du tout : leurs requêtes MongoDB ne partent jamais.
+   */
+  fenetre?: FenetreSections
 ) {
   await connectDB();
 
@@ -909,20 +921,46 @@ export async function preparePageSections(
       (!s.modeEcoute || s.modeEcoute === mode)
   );
 
+  const visibles = enabled.filter((s) => s.key !== "hero");
+
+  /**
+   * Deux populations quand on charge par lots.
+   *
+   * Les sections de la colonne latérale et la bannière sont visibles dès
+   * le premier écran, où qu'elles soient rangées dans la configuration
+   * admin : elles rejoignent donc toujours le premier lot. Seule la
+   * colonne qui défile se découpe en tranches, et c'est elle que compte
+   * `total`.
+   */
+  const horsFlux = fenetre ? visibles.filter((s) => SECTIONS_HORS_FLUX.includes(s.key)) : [];
+  const flux = fenetre ? visibles.filter((s) => !SECTIONS_HORS_FLUX.includes(s.key)) : visibles;
+
+  const depuis = fenetre ? Math.min(Math.max(0, fenetre.depuis), flux.length) : 0;
+  const tranche = fenetre ? flux.slice(depuis, depuis + Math.max(1, fenetre.combien)) : flux;
+  const premier = depuis === 0;
+
   return {
     // La bannière est propre à l'accueil : ailleurs, la page a déjà son
-    // propre en-tête et une seconde bannière ferait doublon.
+    // propre en-tête et une seconde bannière ferait doublon. Elle n'est
+    // calculée qu'au premier lot : les suivants ne la renvoient pas.
     hero:
-      page === "home" && enabled.some((s) => s.key === "hero")
+      page === "home" && premier && enabled.some((s) => s.key === "hero")
         ? getHero(settings.heroMode, univers)
         : Promise.resolve([]),
-    sections: enabled
-      .filter((s) => s.key !== "hero")
-      .map((section) => ({
-        key: section.key,
-        title: section.title,
-        payload: buildSection(section, ctx),
-      })),
+    /** Vrai au premier lot seulement : les suivants n'ont pas de héros à annoncer. */
+    avecHero: premier,
+    depuis,
+    /** Rang à demander pour le lot suivant. */
+    suivant: depuis + tranche.length,
+    encore: depuis + tranche.length < flux.length,
+    sections: (premier ? [...tranche, ...horsFlux] : tranche).map((section) => ({
+      // Deux sections « custom » portent la même clé : c'est le slug qui
+      // les distingue, ici comme partout ailleurs dans le moteur.
+      id: section.slug ?? section.key,
+      key: section.key,
+      title: section.title,
+      payload: buildSection(section, ctx),
+    })),
   };
 }
 

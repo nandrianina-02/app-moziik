@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { Flame } from "lucide-react";
 import { useSession } from "next-auth/react";
 import { Reveal } from "@/components/layout/Reveal";
 import { Skeleton } from "@/components/ui/Skeleton";
@@ -16,6 +17,7 @@ import { SectionHeader } from "@/components/home/SectionHeader";
 import { TrendingList } from "@/components/home/TrendingList";
 import { SectionBlock } from "@/components/home/SectionBlock";
 import { HomeSectionSkeleton, HomeSidebarSkeleton } from "@/components/home/HomeSectionSkeleton";
+import { SuiteSections } from "@/components/home/SuiteSections";
 import { useHomepageStream, slotData } from "@/components/home/useHomepageStream";
 import { SIDEBAR_SECTION_KEYS } from "@/components/home/sectionMeta";
 
@@ -28,7 +30,8 @@ export default function HomePage() {
   // dessinée en entier presque tout de suite, chaque bloc remplaçant
   // ensuite son squelette. Auparavant, un seul appel bloquant maintenait
   // l'écran vide jusqu'à ce que la dernière section soit prête.
-  const { slots, hero, heroPending, starting, failed, reprise } = useHomepageStream();
+  const { slots, hero, heroPending, starting, failed, reprise, encore, suite, chargerSuite } =
+    useHomepageStream();
 
   useEffect(() => {
     // `failed` n'est vrai que si l'écran est resté vide : une page reprise
@@ -106,13 +109,17 @@ export default function HomePage() {
 
           {mainSlots.map((slot) =>
             slot.status === "ready" ? (
-              <Reveal key={slot.key}>
+              <Reveal key={slot.id}>
                 <SectionBlock section={{ key: slot.key, title: slot.title, data: slot.data }} />
               </Reveal>
             ) : (
-              <HomeSectionSkeleton key={slot.key} sectionKey={slot.key} title={slot.title} />
+              <HomeSectionSkeleton key={slot.id} sectionKey={slot.key} title={slot.title} />
             )
           )}
+
+          {/* La colonne latérale et la bannière arrivent toujours au
+              premier lot : seule cette colonne-ci se prolonge. */}
+          <SuiteSections encore={encore} suite={suite} charger={chargerSuite} />
         </div>
 
         {/* `lg:sticky` : la colonne latérale suit le défilement de la
@@ -132,7 +139,7 @@ export default function HomePage() {
               case "top_tracks":
                 return topTracks && topTracks.length > 0 ? (
                   <div key={slot.key} className="col-span-2 rounded-xl2 border border-border bg-surface p-4">
-                    <SectionHeader title={slot.title} seeAllHref="/classements" icon={<span>🔥</span>} />
+                    <SectionHeader title={slot.title} seeAllHref="/classements" icon={<Flame size={16} className="text-accent" />} />
                     <TrendingList songs={topTracks} source={{ type: "chart", label: slot.title }} />
                   </div>
                 ) : null;

@@ -19,3 +19,6 @@ android/*.jks
 
 # Journal de reprise de la migration vers Karaks Storage (scripts/migrer-karaks-storage.mjs)
 scripts/.migration-karaks-storage.json
+
+# File de travail locale, propre a chaque poste (voir claude.md)
+/tâches.md

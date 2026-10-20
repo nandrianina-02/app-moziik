@@ -1,0 +1,14 @@
+package com.moziik.app.donnees.reseau
+
+/**
+ * Adresse d'une image du site (pochette, photo de profil). Le site renvoie
+ * des adresses absolues (Cloudinary, Google) ou des chemins `/media/<id>`
+ * relatifs à son origine ; un identifiant de stockage brut (« ks:… ») ne
+ * s'affiche pas directement.
+ */
+fun adresseMedia(adresse: String?, site: String): String? = when {
+    adresse.isNullOrBlank() -> null
+    adresse.startsWith("https://") || adresse.startsWith("http://") -> adresse
+    adresse.startsWith("/") -> site.trimEnd('/') + adresse
+    else -> null
+}

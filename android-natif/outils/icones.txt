@@ -11,3 +11,17 @@ menu
 bell
 sun
 moon
+
+# Compte et formulaires
+mail
+lock
+eye
+eye-off
+mail-check
+circle-alert
+arrow-left
+log-out
+heart
+list-music
+users
+disc-3

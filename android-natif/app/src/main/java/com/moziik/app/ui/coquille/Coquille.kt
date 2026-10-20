@@ -78,9 +78,10 @@ fun Coquille(sombre: Boolean, onBasculerMode: () -> Unit) {
             },
             exitTransition = { fadeOut(tween(Mouvement.ENTREE_PAGE / 2)) },
         ) {
-            Destination.entries.forEach { d ->
+            Destination.entries.filter { it != Destination.COMPTE }.forEach { d ->
                 composable(d.route) { EcranProvisoire(titre = d.libelle) }
             }
+            grapheCompte(navigation)
         }
         BarreDuBas(
             courante = entree?.destination,

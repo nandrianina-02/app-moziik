@@ -2,6 +2,7 @@ plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
     alias(libs.plugins.kotlin.compose)
+    alias(libs.plugins.kotlin.serialization)
 }
 
 // Clé de publication : celle de l'app Capacitor (moziik-release.jks), pour que
@@ -24,6 +25,8 @@ android {
         versionCode = 2
         versionName = "2.0.0"
         vectorDrawables.useSupportLibrary = true
+        // Le site en production : l'app ne parle qu'à son API HTTP.
+        buildConfigField("String", "SITE", "\"https://app-moziik.vercel.app/\"")
     }
 
     signingConfigs {
@@ -48,16 +51,23 @@ android {
 
     buildTypes {
         // Version de test : identifiant à part, elle s'installe à côté de l'app actuelle.
+        // Le relais de connexion Google rend la main à l'app par un schéma
+        // propre à chaque version (app/api/mobile-auth/relais du site) : la
+        // version de test, installée à côté de l'app publiée, a le sien.
         debug {
             applicationIdSuffix = ".test"
             versionNameSuffix = "-test"
             resValue("string", "app_name", "Moziik test")
+            manifestPlaceholders["schemaRelais"] = "moziik-test"
+            buildConfigField("String", "RELAIS", "\"android-test\"")
         }
         release {
             isMinifyEnabled = true
             isShrinkResources = true
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
             resValue("string", "app_name", "Moziik")
+            manifestPlaceholders["schemaRelais"] = "moziik"
+            buildConfigField("String", "RELAIS", "\"android\"")
             if (clePublication != null) signingConfig = signingConfigs.getByName("release")
         }
     }
@@ -71,6 +81,7 @@ android {
     }
     buildFeatures {
         compose = true
+        buildConfig = true
     }
 }
 
@@ -87,7 +98,15 @@ dependencies {
     implementation(libs.androidx.compose.ui.tooling.preview)
     implementation(libs.androidx.compose.foundation)
     implementation(libs.androidx.compose.material3)
+    implementation(libs.androidx.browser)
+    implementation(libs.kotlinx.serialization.json)
+    implementation(libs.retrofit)
+    implementation(libs.retrofit.kotlinx.serialization)
+    implementation(libs.okhttp)
+    implementation(libs.coil.compose)
     debugImplementation(libs.androidx.compose.ui.tooling)
 
     testImplementation(libs.junit)
+    testImplementation(libs.okhttp.mockwebserver)
+    testImplementation(libs.kotlinx.coroutines.test)
 }

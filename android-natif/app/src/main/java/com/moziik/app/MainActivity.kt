@@ -1,5 +1,6 @@
 package com.moziik.app
 
+import android.content.Intent
 import android.graphics.Color
 import android.os.Bundle
 import androidx.activity.ComponentActivity
@@ -13,6 +14,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
+import kotlinx.coroutines.launch
 import com.moziik.app.theme.ChoixMode
 import com.moziik.app.theme.Mode
 import com.moziik.app.theme.MoziikTheme
@@ -25,6 +27,8 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         installSplashScreen()
         super.onCreate(savedInstanceState)
+        // Retour de la connexion Google alors que l'app avait été fermée entre-temps.
+        if (savedInstanceState == null) recevoirRelais(intent)
         setContent {
             // Réglage propre à l'appareil, comme l'interrupteur Soleil/Lune du site.
             var choix by rememberSaveable { mutableStateOf(THEME_PAR_DEFAUT.mode) }
@@ -44,5 +48,21 @@ class MainActivity : ComponentActivity() {
                 )
             }
         }
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        recevoirRelais(intent)
+    }
+
+    /** <schéma>://auth?code=… : le site rend la main après la connexion Google (app/api/mobile-auth/relais). */
+    private fun recevoirRelais(intent: Intent?) {
+        val lien = intent?.data ?: return
+        if (lien.host != "auth") return
+        val conteneur = (application as MoziikApplication).conteneur
+        // Portée de l'app, pas de l'activité : une rotation à ce moment n'annule pas l'échange du code.
+        conteneur.portee.launch { conteneur.session.terminerGoogle(lien.getQueryParameter("code"), lien.getQueryParameter("erreur")) }
+        // Consommé : le code ne sert qu'une fois, il ne doit pas être rejoué.
+        setIntent(Intent(intent).setData(null))
     }
 }

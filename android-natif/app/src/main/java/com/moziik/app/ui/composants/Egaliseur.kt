@@ -17,6 +17,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.semantics.contentDescription
@@ -33,9 +34,15 @@ import com.moziik.app.theme.compose
  * repli et d'indicateur « en cours de lecture ».
  */
 @Composable
-fun Egaliseur(modifier: Modifier = Modifier, hauteur: Dp = 12.dp, libelle: String? = "Chargement") {
+fun Egaliseur(
+    modifier: Modifier = Modifier,
+    hauteur: Dp = 12.dp,
+    libelle: String? = "Chargement",
+    /** L'accent par défaut ; la couleur du fond sur un bouton d'accent. */
+    couleur: Color? = null,
+) {
     val transition = rememberInfiniteTransition(label = "egaliseur")
-    val accent = LocalPalette.current.accent.compose
+    val accent = couleur ?: LocalPalette.current.accent.compose
     Row(
         modifier = modifier
             .height(hauteur)

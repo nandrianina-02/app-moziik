@@ -1,6 +1,7 @@
 "use client";
 
 import { idbGetAll, idbPut, idbDelete, STORES } from "@/lib/offlineDb";
+import { appareilEcoute } from "@/lib/appareilEcoute";
 
 export type SyncAction =
   | { type: "like_song"; songId: string; liked: boolean }
@@ -83,10 +84,14 @@ async function sendAction(action: SyncAction): Promise<boolean> {
           body: JSON.stringify({
             secondsListened: action.secondsListened,
             completed: action.completed,
-            device: "web-offline-sync",
+            device: appareilEcoute(),
           }),
         });
-        return res.ok;
+        // Refus définitif (titre supprimé, donnée invalide) : la retenter ne
+        // changerait rien, et la file s'arrête à la première action qui
+        // échoue — une seule écoute refusée bloquait toutes les suivantes,
+        // playlists comprises. 429 reste à retenter : c'est un délai, pas un refus.
+        return res.ok || (res.status >= 400 && res.status < 500 && res.status !== 429);
       }
       default:
         return true;

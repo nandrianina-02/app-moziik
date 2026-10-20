@@ -59,6 +59,8 @@ async function buildRanking(
       { $match: match },
       { $lookup: { from: "songs", localField: "song", foreignField: "_id", as: "song" } },
       { $unwind: "$song" },
+      // Un titre retiré ou refusé depuis ses écoutes ne figure plus au palmarès.
+      { $match: { "song.status": "published" } },
       ...genreMatch,
     ];
 

@@ -2,7 +2,7 @@ import type { HydratedDocument } from "mongoose";
 import Song, { type ISong } from "@/models/Song";
 import Artist from "@/models/Artist";
 import { ApiError } from "@/lib/apiError";
-import { requireAuthUser } from "@/lib/mobileAuth";
+import { getAuthUser, requireAuthUser } from "@/lib/mobileAuth";
 
 /**
  * « Ce compte peut-il modifier ce titre ? »
@@ -38,4 +38,22 @@ export async function requireGestionTitre(
     throw new ApiError("Tu ne peux modifier que tes propres sons.", 403);
   }
   return song;
+}
+
+/**
+ * La même règle pour une lecture, sans lever d'erreur : le visiteur gère-t-il
+ * l'œuvre de cet artiste (titre, album) ? Décide de ce qu'une réponse montre :
+ * un brouillon, un titre refusé ou planifié ne se voit que de son artiste et
+ * de l'administration.
+ *
+ * `artiste` : identifiant, ou artiste peuplé.
+ */
+export async function gereArtiste(req: Request, artiste: unknown): Promise<boolean> {
+  const authUser = await getAuthUser(req);
+  if (!authUser) return false;
+  if (authUser.role === "admin") return true;
+  const id = artiste && typeof artiste === "object" && "_id" in artiste ? (artiste as { _id: unknown })._id : artiste;
+  if (!id) return false;
+  const sien = await Artist.findOne({ user: authUser.id }).select("_id").lean();
+  return Boolean(sien && String(sien._id) === String(id));
 }

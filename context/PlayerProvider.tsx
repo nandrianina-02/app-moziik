@@ -35,6 +35,7 @@ import {
 import { adresseEcoute } from "@/lib/audioSource";
 import { useMode } from "@/context/ModeProvider";
 import { morceauxSuivants } from "@/lib/playbackContinuation";
+import { appareilEcoute } from "@/lib/appareilEcoute";
 
 export type PlayableSong = {
   _id: string;
@@ -873,7 +874,7 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
       fetch(`/api/songs/${currentSong._id}/play`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ secondsListened: progress, completed: true, device: "web" }),
+        body: JSON.stringify({ secondsListened: progress, completed: true, device: appareilEcoute() }),
       }).catch(() => {
         // Hors-ligne : on ne perd pas l'écoute, elle est rejouée à la reconnexion.
         enqueueSyncAction({

@@ -12,6 +12,9 @@ export const GET = withApiErrors(async (req: Request, { params }: { params: { id
   const playlist = await Playlist.findById(params.id)
     .populate({
       path: "songs",
+      // Un titre dépublié ou refusé depuis son ajout ne s'écoute plus : il
+      // ne s'affiche plus non plus dans les playlists.
+      match: { status: "published" },
       populate: [
         { path: "artist", select: "stageName verified" },
         // Alimente la colonne « Album » du tableau des titres : sans ce

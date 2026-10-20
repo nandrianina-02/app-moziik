@@ -5,6 +5,7 @@ import {
   type HomepageViewer,
 } from "@/lib/homeContentEngine";
 import type { SectionPage } from "@/models/HomepageSection";
+import { masquerAudio } from "@/lib/audioPublic";
 import type { Univers } from "@/lib/univers";
 import type { Mode } from "@/lib/modes";
 
@@ -88,7 +89,10 @@ export async function streamPageSections(
   const stream = new ReadableStream<Uint8Array>({
     async start(controller) {
       function send(event: unknown) {
-        controller.enqueue(encoder.encode(`${JSON.stringify(event)}\n`));
+        // Un flux ne passe pas par withApiErrors : l'audio brut des titres est retiré ici.
+        const ligne = JSON.stringify(event);
+        const propre = ligne.includes('"audioUrl"') ? JSON.stringify(masquerAudio(JSON.parse(ligne))) : ligne;
+        controller.enqueue(encoder.encode(`${propre}\n`));
       }
 
       send({

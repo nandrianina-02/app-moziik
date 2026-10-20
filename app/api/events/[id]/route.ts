@@ -17,9 +17,15 @@ export const GET = withApiErrors(async (req: Request, { params }: { params: { id
     .lean();
   if (!event) throw new ApiError("Évènement introuvable.", 404);
 
+  const authUser = await getAuthUser(req);
+
+  // Un évènement en attente de validation ou refusé ne se voit que de qui
+  // l'a créé et de l'administration (la page d'édition en a besoin).
+  const gere = authUser?.role === "admin" || (authUser && String(event.createdBy) === authUser.id);
+  if (event.status !== "published" && !gere) throw new ApiError("Évènement introuvable.", 404);
+
   // La liste des membres intéressés ne sort jamais de la base : la page
   // n'a besoin que du total, et de savoir si le visiteur en fait partie.
-  const authUser = await getAuthUser(req);
   const interested = (event.interested ?? []).map((id) => id.toString());
   const { interested: _liste, ...reste } = event;
 

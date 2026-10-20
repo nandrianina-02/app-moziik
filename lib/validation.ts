@@ -130,7 +130,14 @@ export const createSongSchema = z.object({
 export const songPlaySchema = z.object({
   secondsListened: z.number().min(0).max(6 * 60 * 60).optional().default(0),
   completed: z.boolean().optional().default(false),
-  device: z.enum(["mobile", "desktop", "pwa"]).optional(),
+  // « web » et « web-offline-sync » : ce qu'envoyaient les versions
+  // précédentes du site, refusées ici en 400 sans bruit — aucune écoute du
+  // site n'était enregistrée. Des navigateurs gardent encore ces versions en
+  // cache : leurs écoutes comptent, sans appareil connu.
+  device: z
+    .enum(["mobile", "desktop", "pwa", "web", "web-offline-sync"])
+    .optional()
+    .transform((d) => (d === "web" || d === "web-offline-sync" ? undefined : d)),
 });
 
 // ---- Admin -----------------------------------------------------------------

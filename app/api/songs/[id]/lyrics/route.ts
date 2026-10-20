@@ -4,7 +4,7 @@ import { connectDB } from "@/lib/db";
 import Song from "@/models/Song";
 import { ApiError, withApiErrors } from "@/lib/apiError";
 import { parseOrThrow } from "@/lib/validation";
-import { requireGestionTitre } from "@/lib/songAccess";
+import { gereArtiste, requireGestionTitre } from "@/lib/songAccess";
 import { structurerParoles, versLRC, type LigneEditable } from "@/lib/lyrics";
 
 /**
@@ -50,15 +50,17 @@ const corpsSchema = z
     message: "Fournir soit `raw`, soit `lines`.",
   });
 
-export const GET = withApiErrors(async (_req: Request, { params }: { params: { id: string } }) => {
+export const GET = withApiErrors(async (req: Request, { params }: { params: { id: string } }) => {
   await connectDB();
-  const song = await Song.findById(params.id).select("lyrics status").lean();
+  const song = await Song.findById(params.id).select("lyrics status artist").lean();
   if (!song) throw new ApiError("Son introuvable.", 404);
 
-  // Pas de contrôle d'accès en lecture : les paroles d'un titre publié
-  // sont publiques, exactement comme sur sa page. Un brouillon n'a pas
-  // d'adresse publique — le seul moyen d'arriver ici est d'en connaître
-  // l'identifiant, ce que la page d'édition a déjà.
+  // Les paroles d'un titre publié sont publiques, comme sur sa page. Celles
+  // d'un brouillon ne se lisent que de son artiste et de l'administration :
+  // connaître l'identifiant ne suffit pas, il circule (liens, partages).
+  if (song.status !== "published" && !(await gereArtiste(req, song.artist))) {
+    throw new ApiError("Son introuvable.", 404);
+  }
   return NextResponse.json({ lyrics: structurerParoles(song.lyrics), raw: song.lyrics ?? "" });
 });
 

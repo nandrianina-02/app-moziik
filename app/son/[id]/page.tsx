@@ -17,7 +17,8 @@ export async function generateMetadata({ params }: { params: { id: string } }): 
   try {
     await connectDB();
     const song = await Song.findById(params.id).populate("artist", "stageName");
-    if (!song) return { title: config.siteName };
+    // Un brouillon ne livre rien de lui dans l'aperçu d'un lien partagé.
+    if (!song || song.status !== "published") return { title: config.siteName };
 
     const artistName = (song.artist as unknown as { stageName?: string } | null)?.stageName;
     const title = artistName ? `${song.title} — ${artistName}` : song.title;

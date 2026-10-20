@@ -3,21 +3,28 @@ import mongoose from "mongoose";
 import { connectDB } from "@/lib/db";
 import Song from "@/models/Song";
 import Artist from "@/models/Artist";
-import { ApiError, withApiErrors } from "@/lib/apiError";
+import { ApiError, avecAudioBrut, withApiErrors } from "@/lib/apiError";
 import { parseOrThrow, patchSongSchema } from "@/lib/validation";
 import { requireAuthUser } from "@/lib/mobileAuth";
-import { requireGestionTitre } from "@/lib/songAccess";
+import { gereArtiste, requireGestionTitre } from "@/lib/songAccess";
 import { identifiantFichier } from "@/lib/fichiers";
 import { retirerFichier } from "@/lib/karaksStorage";
 
-export const GET = withApiErrors(async (_req: Request, { params }: { params: { id: string } }) => {
+export const GET = withApiErrors(async (req: Request, { params }: { params: { id: string } }) => {
   await connectDB();
   const song = await Song.findById(params.id)
     .populate("artist", "stageName verified coverUrl")
     .populate("featuring.artist", "stageName verified")
     .populate("album", "title coverUrl type");
   if (!song) throw new ApiError("Son introuvable.", 404);
-  return NextResponse.json({ song });
+
+  // Brouillon, titre planifié ou refusé : seuls son artiste et
+  // l'administration le voient. « Introuvable » plutôt que 403, pour ne pas
+  // confirmer qu'il existe. Qui le gère reçoit aussi l'adresse du fichier
+  // source, que l'éditeur relit pour la découpe et le ré-encodage.
+  const gere = await gereArtiste(req, song.artist);
+  if (song.status !== "published" && !gere) throw new ApiError("Son introuvable.", 404);
+  return gere ? avecAudioBrut(NextResponse.json({ song })) : NextResponse.json({ song });
 });
 
 export const PATCH = withApiErrors(
@@ -125,8 +132,15 @@ export const PATCH = withApiErrors(
       song.artist = parsedUpdates.artistId as unknown as typeof song.artist;
     }
 
+    // Une date de sortie publie ou planifie un titre déjà validé. Appliquée à
+    // un brouillon en attente ou à un titre refusé, elle le mettait en ligne
+    // sans passer par la validation : ceux-là gardent la date, et attendent
+    // l'administration comme à l'envoi (POST /api/songs). Un titre refusé
+    // qu'on renvoie repart en validation.
     if (parsedUpdates.releaseDate) {
-      song.status = new Date(parsedUpdates.releaseDate) <= new Date() ? "published" : "scheduled";
+      const valide = authUser.role === "admin" || song.status === "published" || song.status === "scheduled";
+      if (valide) song.status = new Date(parsedUpdates.releaseDate) <= new Date() ? "published" : "scheduled";
+      else if (song.status === "rejected") song.status = "draft";
     }
 
     /**
@@ -181,7 +195,8 @@ export const PATCH = withApiErrors(
     await song.populate("artist", "stageName verified coverUrl");
     await song.populate("featuring.artist", "stageName verified");
     await song.populate("album", "title coverUrl type");
-    return NextResponse.json({ song });
+    // Seul qui gère le titre arrive ici : l'éditeur relit le fichier source.
+    return avecAudioBrut(NextResponse.json({ song }));
   }
 );
 

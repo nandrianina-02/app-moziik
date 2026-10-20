@@ -575,9 +575,12 @@ export default function EditSongPage() {
         "success",
         mode === "draft"
           ? "Brouillon enregistré."
-          : new Date(payload.releaseDate as string) > new Date()
-            ? "Mis à jour — publication programmée."
-            : "Titre mis à jour."
+          : data.song?.status === "draft"
+            ? // Pas encore validé : la publication attend l'administration (voir PATCH /api/songs/[id]).
+              "Envoyé en validation : il sera publié une fois approuvé."
+            : new Date(payload.releaseDate as string) > new Date()
+              ? "Mis à jour — publication programmée."
+              : "Titre mis à jour."
       );
     } catch (err) {
       const message = err instanceof Error ? err.message : "La mise à jour a échoué.";

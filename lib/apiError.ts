@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { randomUUID } from "crypto";
 import mongoose from "mongoose";
 import { isDatabaseUnavailableError } from "@/lib/db";
+import { masquerAudio } from "@/lib/audioPublic";
 
 /**
  * Les documents refusés par une écriture groupée, réduits à ce qui aide.
@@ -20,6 +21,34 @@ function ecrituresRefusees(err: unknown): { index: number; code: number; champ?:
     const champ = e.errmsg?.match(/index:\s+(\S+?)_-?\d/)?.[1];
     return { index: e.index ?? -1, code: e.code ?? -1, ...(champ ? { champ } : {}) };
   });
+}
+
+/** Réponses autorisées à garder l'audio brut, voir avecAudioBrut. */
+const reponsesBrutes = new WeakSet<Response>();
+
+/**
+ * Garde l'adresse audio stockée et les champs internes du titre : réservé à
+ * qui le gère (son artiste, l'administration), pour l'éditeur qui relit le
+ * fichier source. Toute autre réponse en est purgée par withApiErrors.
+ */
+export function avecAudioBrut(reponse: NextResponse): NextResponse {
+  reponsesBrutes.add(reponse);
+  return reponse;
+}
+
+/**
+ * Toute réponse JSON de l'API passe ici : un titre n'y sort qu'avec
+ * /api/stream/<id> pour adresse (lib/audioPublic.ts). On ne relit que les
+ * réponses qui contiennent un `audioUrl` : les autres repartent telles
+ * quelles, sans coût. Les flux (NDJSON des sections) sont purgés à la source.
+ */
+async function sansAudioBrut(reponse: NextResponse): Promise<NextResponse> {
+  if (!reponse.headers.get("content-type")?.includes("application/json") || !reponse.body) return reponse;
+  const texte = await reponse.text();
+  const corps = texte.includes('"audioUrl"') ? JSON.stringify(masquerAudio(JSON.parse(texte))) : texte;
+  const entetes = new Headers(reponse.headers);
+  entetes.delete("content-length");
+  return new NextResponse(corps, { status: reponse.status, statusText: reponse.statusText, headers: entetes });
 }
 
 export class ApiError extends Error {
@@ -45,7 +74,8 @@ export function withApiErrors<T extends unknown[]>(
 ) {
   return async (...args: T): Promise<NextResponse> => {
     try {
-      return await handler(...args);
+      const reponse = await handler(...args);
+      return reponsesBrutes.has(reponse) ? reponse : await sansAudioBrut(reponse);
     } catch (err) {
       if (err instanceof ApiError) {
         return NextResponse.json({ error: err.message }, { status: err.status });

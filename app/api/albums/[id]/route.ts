@@ -5,13 +5,16 @@ import Artist from "@/models/Artist";
 import { ApiError, withApiErrors } from "@/lib/apiError";
 import { parseOrThrow, patchAlbumSchema } from "@/lib/validation";
 import { requireAuthUser } from "@/lib/mobileAuth";
+import { gereArtiste } from "@/lib/songAccess";
 
-export const GET = withApiErrors(async (_req: Request, { params }: { params: { id: string } }) => {
+export const GET = withApiErrors(async (req: Request, { params }: { params: { id: string } }) => {
   await connectDB();
-  const album = await Album.findById(params.id)
-    .populate("artist", "stageName verified bio")
-    .populate("songs");
+  const album = await Album.findById(params.id).populate("artist", "stageName verified bio");
   if (!album) throw new ApiError("Album introuvable.", 404);
+  // Les titres pas encore publiés (ou refusés) d'un album ne se voient que
+  // de son artiste et de l'administration.
+  const gere = await gereArtiste(req, album.artist);
+  await album.populate(gere ? "songs" : { path: "songs", match: { status: "published" } });
   return NextResponse.json({ album });
 });
 

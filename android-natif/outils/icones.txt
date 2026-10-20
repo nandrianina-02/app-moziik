@@ -1,0 +1,13 @@
+# Icônes Lucide utilisées par l'app (noms de fichiers de lucide-react).
+# Après un ajout : node android-natif/outils/icones.mjs <node_modules du site>
+
+# Coquille : barre du bas, en-tête
+house
+search
+library
+messages-square
+user
+menu
+bell
+sun
+moon

@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Fond de l'écran de démarrage, celui de l'app Capacitor : #0D0F1A dans les deux modes. -->
+    <color name="fond_demarrage">#0D0F1A</color>
+
+    <style name="Theme.Moziik.Demarrage" parent="Theme.SplashScreen">
+        <item name="windowSplashScreenBackground">@color/fond_demarrage</item>
+        <item name="windowSplashScreenAnimatedIcon">@mipmap/ic_launcher_foreground</item>
+        <item name="postSplashScreenTheme">@style/Theme.Moziik</item>
+    </style>
+
+    <!-- Tout le reste est dessiné par Compose ; la fenêtre ne fournit que le fond, sans clignotement blanc. -->
+    <style name="Theme.Moziik" parent="android:Theme.Material.NoActionBar">
+        <item name="android:windowBackground">@color/fond_demarrage</item>
+    </style>
+</resources>

@@ -1,0 +1,8 @@
+.gradle/
+build/
+local.properties
+.idea/
+*.iml
+# La clé de publication ne doit jamais entrer dans le dépôt (seule debug.keystore, clé de test, y est).
+*.jks
+keystore.properties

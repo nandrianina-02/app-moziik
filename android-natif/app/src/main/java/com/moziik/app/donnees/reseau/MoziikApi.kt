@@ -7,7 +7,7 @@ import retrofit2.http.POST
 
 /**
  * Les routes du site utilisées par l'app, telles qu'elles existent
- * (app/api/** du site) : mêmes chemins, mêmes corps, mêmes réponses.
+ * (dossier app/api du site) : mêmes chemins, mêmes corps, mêmes réponses.
  * L'authentification passe par les jetons mobiles (app/api/mobile-auth).
  */
 interface MoziikApi {

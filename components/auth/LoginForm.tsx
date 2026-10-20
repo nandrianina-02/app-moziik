@@ -26,7 +26,9 @@ export function LoginForm() {
   // l'app Android (lib/native/authGoogle.ts). Lu après le montage plutôt
   // qu'avec useSearchParams : ce dernier imposerait une frontière Suspense
   // à toute la page, alors qu'on n'a besoin de l'info qu'ici.
-  const [relaisAndroid, setRelaisAndroid] = useState(false);
+  // « android » : l'app publiée ; « android-test » : la version de test de
+  // l'app native, installée à côté, qui reçoit le code sur son propre schéma.
+  const [relaisAndroid, setRelaisAndroid] = useState<"android" | "android-test" | null>(null);
   const [redirectionGoogle, setRedirectionGoogle] = useState(false);
 
   // Fenêtre surgissante dans un navigateur, onglet Chrome dans l'app,
@@ -34,7 +36,8 @@ export function LoginForm() {
   const { lancer: connexionGoogle, enCours: googleEnCours } = useConnexionGoogle();
 
   useEffect(() => {
-    setRelaisAndroid(new URLSearchParams(window.location.search).get("relais") === "android");
+    const relais = new URLSearchParams(window.location.search).get("relais");
+    setRelaisAndroid(relais === "android" || relais === "android-test" ? relais : null);
   }, []);
 
   useEffect(() => {
@@ -43,7 +46,8 @@ export function LoginForm() {
     // lui réafficher le même bouton dans un onglet de navigateur serait
     // incompréhensible. On enchaîne directement sur Google.
     setRedirectionGoogle(true);
-    void signIn("google", { callbackUrl: "/api/mobile-auth/relais" });
+    const relais = relaisAndroid === "android-test" ? "/api/mobile-auth/relais?app=test" : "/api/mobile-auth/relais";
+    void signIn("google", { callbackUrl: relais });
   }, [relaisAndroid]);
 
   async function handleSubmit(e: React.FormEvent) {

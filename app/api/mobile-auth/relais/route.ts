@@ -30,11 +30,16 @@ import { emettreCodeRelais } from "@/lib/authRelay";
 // cache, donc un code déjà consommé.
 export const dynamic = "force-dynamic";
 
-export const GET = withApiErrors(async () => {
+export const GET = withApiErrors(async (req: Request) => {
   // Empêche qu'une IP moissonne des codes en boucle. Large, car un
   // utilisateur légitime peut réessayer plusieurs fois de suite si son
   // rebond échoue.
   checkRateLimitByIp("auth-relais", { limit: 20, windowMs: 15 * 60 * 1000 });
+
+  // La version de test de l'app native s'installe à côté de l'app publiée :
+  // elle a son propre schéma, sans quoi Android ne saurait pas à laquelle
+  // rendre la main. Liste fermée : jamais un schéma choisi par l'appelant.
+  const schema = new URL(req.url).searchParams.get("app") === "test" ? "moziik-test" : "moziik";
 
   const session = await getServerSession(authOptions);
 
@@ -42,10 +47,10 @@ export const GET = withApiErrors(async () => {
     // Arrivée ici sans session : la connexion a échoué ou a été
     // abandonnée. On renvoie l'app vers son écran de connexion plutôt que
     // de laisser un onglet Chrome orphelin devant une erreur JSON.
-    return NextResponse.redirect(new URL("moziik://auth?erreur=session"));
+    return NextResponse.redirect(new URL(`${schema}://auth?erreur=session`));
   }
 
   const code = await emettreCodeRelais(session.user.id);
 
-  return NextResponse.redirect(new URL(`moziik://auth?code=${encodeURIComponent(code)}`));
+  return NextResponse.redirect(new URL(`${schema}://auth?code=${encodeURIComponent(code)}`));
 });

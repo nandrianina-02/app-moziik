@@ -59,6 +59,12 @@ export const mobileRefreshSchema = z.object({
   refreshToken: z.string().min(1, "Refresh token requis."),
 });
 
+/** Code du relais de connexion Google (64 hexadécimaux, lib/authRelay.ts), échangé par l'app native. */
+export const mobileRelaisSchema = z.object({
+  code: z.string().regex(/^[0-9a-f]{64}$/, "Code de connexion invalide."),
+  device: z.string().trim().max(120).optional(),
+});
+
 export const forgotPasswordSchema = z.object({
   email: z.string().trim().toLowerCase().email("Adresse email invalide.").max(254),
 });

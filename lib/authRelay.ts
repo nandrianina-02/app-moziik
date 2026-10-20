@@ -45,22 +45,13 @@ export async function emettreCodeRelais(userId: string): Promise<string> {
 }
 
 /**
- * Échange un code contre un jeton de session NextAuth prêt à être posé en
- * cookie. Appelé côté WebView.
- *
- * Le jeton produit est volontairement identique, champ pour champ, à celui
- * qu'aurait fabriqué le callback `jwt` de lib/auth.ts après une connexion
- * ordinaire : c'est ce qui garantit que l'app et le site se comportent
- * exactement pareil ensuite — mêmes droits, même revalidation périodique
- * du rôle, même expiration.
+ * Consomme un code et rend le compte qui l'a obtenu. Commun aux deux
+ * sorties du relais : le cookie de session de la coquille Capacitor
+ * (consommerCodeRelais) et les jetons de l'app native
+ * (/api/mobile-auth/relais/jetons). Une seule règle, donc pas de divergence.
  */
-export async function consommerCodeRelais(code: string): Promise<{ jeton: string; role: UserRole }> {
+export async function utilisateurDuCode(code: string) {
   await connectDB();
-
-  const secret = process.env.NEXTAUTH_SECRET;
-  if (!secret) {
-    throw new ApiError("Connexion indisponible (NEXTAUTH_SECRET manquante).", 500);
-  }
 
   // findOneAndUpdate plutôt que find puis save : l'opération est atomique
   // côté Mongo, donc deux requêtes simultanées avec le même code ne
@@ -80,6 +71,26 @@ export async function consommerCodeRelais(code: string): Promise<{ jeton: string
   if (!user || user.suspended) {
     throw new ApiError("Compte introuvable ou suspendu.", 401);
   }
+  return user;
+}
+
+/**
+ * Échange un code contre un jeton de session NextAuth prêt à être posé en
+ * cookie. Appelé côté WebView.
+ *
+ * Le jeton produit est volontairement identique, champ pour champ, à celui
+ * qu'aurait fabriqué le callback `jwt` de lib/auth.ts après une connexion
+ * ordinaire : c'est ce qui garantit que l'app et le site se comportent
+ * exactement pareil ensuite — mêmes droits, même revalidation périodique
+ * du rôle, même expiration.
+ */
+export async function consommerCodeRelais(code: string): Promise<{ jeton: string; role: UserRole }> {
+  const secret = process.env.NEXTAUTH_SECRET;
+  if (!secret) {
+    throw new ApiError("Connexion indisponible (NEXTAUTH_SECRET manquante).", 500);
+  }
+
+  const user = await utilisateurDuCode(code);
 
   const jeton = await encode({
     secret,

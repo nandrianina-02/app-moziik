@@ -63,6 +63,11 @@ android {
             resValue("string", "app_name", "Moziik test")
             manifestPlaceholders["schemaRelais"] = "moziik-test"
             buildConfigField("String", "RELAIS", "\"android-test\"")
+            // Non débogable : sinon Android n'optimise pas le code et l'interface défile
+            // plusieurs fois plus lentement qu'elle ne le fera chez les auditeurs. La
+            // version de test doit donner une idée juste de la fluidité. Personne ne la
+            // débogue : elle n'est jamais construite sur un poste.
+            isDebuggable = false
         }
         release {
             isMinifyEnabled = true
@@ -113,7 +118,6 @@ dependencies {
     implementation(libs.androidx.media3.exoplayer)
     implementation(libs.androidx.media3.session)
     implementation(libs.androidx.media3.okhttp)
-    debugImplementation(libs.androidx.compose.ui.tooling)
 
     testImplementation(libs.junit)
     testImplementation(libs.okhttp.mockwebserver)

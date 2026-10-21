@@ -37,7 +37,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import coil.compose.SubcomposeAsyncImage
+import coil.compose.AsyncImage
 import com.moziik.app.BuildConfig
 import com.moziik.app.R
 import com.moziik.app.donnees.catalogue.Titre
@@ -55,28 +55,24 @@ fun duree(secondes: Double): String {
 
 /**
  * Une pochette ou une photo. Sans image (ou en attendant), la surface et
- * une note de musique : jamais un carré vide (SafeImage du site).
+ * une note de musique : jamais un carré vide (SafeImage du site). La note
+ * est dessinée sous l'image, qui la recouvre une fois chargée : une
+ * sous-composition par pochette ralentissait le défilement des listes.
  */
 @Composable
 fun Pochette(adresse: String?, modifier: Modifier = Modifier, forme: Shape = RoundedCornerShape(LocalPalette.current.rayon.dp), description: String? = null) {
     val p = LocalPalette.current
     val complete = remember(adresse) { adresseMedia(adresse, BuildConfig.SITE) ?: adresse?.takeIf { it.startsWith("http") } }
     Box(modifier.clip(forme).background(p.surface.compose), contentAlignment = Alignment.Center) {
-        SubcomposeAsyncImage(
-            model = complete,
-            contentDescription = description,
-            contentScale = ContentScale.Crop,
-            modifier = Modifier.fillMaxSize(),
-            loading = { RepliPochette() },
-            error = { RepliPochette() },
-        )
-    }
-}
-
-@Composable
-private fun RepliPochette() {
-    Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-        Icone(R.drawable.lucide_music_2, description = null, teinte = LocalPalette.current.encreAttenuee.compose.copy(alpha = 0.6f), taille = 22.dp)
+        Icone(R.drawable.lucide_music_2, description = null, teinte = p.encreAttenuee.compose.copy(alpha = 0.6f), taille = 22.dp)
+        if (complete != null) {
+            AsyncImage(
+                model = complete,
+                contentDescription = description,
+                contentScale = ContentScale.Crop,
+                modifier = Modifier.fillMaxSize(),
+            )
+        }
     }
 }
 

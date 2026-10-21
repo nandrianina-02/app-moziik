@@ -186,7 +186,8 @@ fun EcranAccueil() {
             }
             etat.sections.forEachIndexed { rang, section ->
                 item(key = "section-$rang-${section.cle}") {
-                    Box(Modifier.padding(top = 32.dp).apparitionUneFois("section-$rang-${section.cle}", minOf(rang + 2, 6), vus)) {
+                    // Une colonne : l'en-tête et le contenu d'une section se suivent (une boîte les superposait).
+                    Column(Modifier.padding(top = 32.dp).apparitionUneFois("section-$rang-${section.cle}", minOf(rang + 2, 6), vus)) {
                         BlocSection(section, lecture, lancement, suivre)
                     }
                 }

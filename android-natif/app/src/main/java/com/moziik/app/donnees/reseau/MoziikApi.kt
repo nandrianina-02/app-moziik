@@ -25,7 +25,16 @@ import com.moziik.app.donnees.catalogue.Station
 import com.moziik.app.donnees.catalogue.TermeRecherche
 import com.moziik.app.donnees.catalogue.UniversCourant
 import kotlinx.serialization.Serializable
+import com.moziik.app.donnees.catalogue.ListePlaylists
+import com.moziik.app.donnees.catalogue.ModificationPlaylist
+import com.moziik.app.donnees.catalogue.NouvellePlaylist
+import com.moziik.app.donnees.catalogue.ReponsePlaylistCreee
+import com.moziik.app.donnees.catalogue.TitreDePlaylist
+import com.moziik.app.donnees.catalogue.TitresDePlaylist
 import retrofit2.http.Body
+import retrofit2.http.DELETE
+import retrofit2.http.HTTP
+import retrofit2.http.PATCH
 import retrofit2.http.GET
 import retrofit2.http.POST
 import retrofit2.http.Path
@@ -176,6 +185,29 @@ interface MoziikApi {
     /** Bascule : le site répond l'état obtenu. */
     @POST("api/me/saved-albums")
     suspend fun basculerAlbum(@Body corps: AlbumAEnregistrer): EtatEnregistre
+
+    @GET("api/playlists?owner=me")
+    suspend fun mesPlaylists(): ListePlaylists
+
+    @POST("api/playlists")
+    suspend fun creerPlaylist(@Body corps: NouvellePlaylist): ReponsePlaylistCreee
+
+    @PATCH("api/playlists/{id}")
+    suspend fun modifierPlaylist(@Path("id") id: String, @Body corps: ModificationPlaylist)
+
+    @DELETE("api/playlists/{id}")
+    suspend fun supprimerPlaylist(@Path("id") id: String)
+
+    @POST("api/playlists/{id}/songs")
+    suspend fun ajouterTitres(@Path("id") id: String, @Body corps: TitresDePlaylist)
+
+    /** DELETE avec un corps : la route lit le titre à retirer dans le corps, pas dans l'adresse. */
+    @HTTP(method = "DELETE", path = "api/playlists/{id}/songs", hasBody = true)
+    suspend fun retirerTitre(@Path("id") id: String, @Body corps: TitreDePlaylist)
+
+    /** Les 12 derniers titres écoutés, distincts, de l'univers (F5). */
+    @GET("api/me/recent")
+    suspend fun recents(@Query("univers") univers: String?): ListeTitres
 
     @GET("api/me/followed-artists")
     suspend fun artistesSuivis(): ArtistesSuivis

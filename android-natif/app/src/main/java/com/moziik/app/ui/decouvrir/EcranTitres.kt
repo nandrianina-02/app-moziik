@@ -39,6 +39,7 @@ import com.moziik.app.ui.composants.MessageErreur
 import com.moziik.app.ui.composants.Puce
 import com.moziik.app.ui.conteneur
 import com.moziik.app.ui.fiches.BarreRetour
+import com.moziik.app.ui.menus.LocalMenus
 import com.moziik.app.ui.navigation
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
@@ -107,6 +108,7 @@ fun EcranTitres(genre: String?, onRetour: () -> Unit) {
     val c = conteneur()
     val p = LocalPalette.current
     val nav = navigation()
+    val menus = LocalMenus.current
     val modele: ModeleTitres = viewModel { ModeleTitres(c.catalogue, genre) }
     val etat by modele.etat.collectAsStateWithLifecycle()
     val genres by modele.genres.collectAsStateWithLifecycle()
@@ -151,7 +153,7 @@ fun EcranTitres(genre: String?, onRetour: () -> Unit) {
             CarteTitre(
                 titre, titre.id == lecture.courant?.id, lecture.enLecture,
                 onClick = { c.lecteur.lire(etat.titres, i, source) },
-                onAppuiLong = { nav.titre(titre.id) },
+                onAppuiLong = { menus.titre(titre) },
             )
         }
         item(key = "pied", span = { GridItemSpan(maxLineSpan) }) {

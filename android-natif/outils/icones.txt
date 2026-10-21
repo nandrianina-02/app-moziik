@@ -69,3 +69,13 @@ map-pin
 ticket
 tags
 chevron-right
+
+# Ma zone, menus des titres, playlists
+list-plus
+list-start
+pencil
+trash-2
+globe
+layout-grid
+circle-check
+podcast

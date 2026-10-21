@@ -75,6 +75,7 @@ import com.moziik.app.ui.composants.apparitionUneFois
 import com.moziik.app.ui.composants.pressable
 import com.moziik.app.ui.Navigation
 import com.moziik.app.ui.conteneur
+import com.moziik.app.ui.menus.LocalMenus
 import com.moziik.app.ui.navigation
 import com.moziik.app.ui.rememberLancement
 
@@ -346,10 +347,11 @@ private fun androidx.compose.foundation.lazy.LazyListScope.etatParDefaut(
         item(key = "populaires-titre") { EnTeteSection("Suggestions populaires", "Les titres les plus écoutés ce mois-ci", Modifier.padding(top = 28.dp)) }
         itemsIndexed(populaires, key = { _, t -> "populaire-${t.id}" }) { i, titre ->
             val nav = navigation()
+            val menus = LocalMenus.current
             LigneTitre(
                 titre, i + 1, titre.id == lecture.courant?.id, lecture.enLecture,
                 onClick = { lancement.titres(populaires, i, "Suggestions populaires") },
-                onAppuiLong = { nav.titre(titre.id) },
+                onAppuiLong = { menus.titre(titre) },
             )
         }
     }
@@ -395,6 +397,7 @@ private data class Vue(val titre: String, val ligne: String, val image: String?,
 private fun MeilleurResultat(resultat: Resultat, lancement: Lancement, source: String) {
     val p = LocalPalette.current
     val nav = navigation()
+    val menus = LocalMenus.current
     val carre = RoundedCornerShape(8.dp)
     val vue = when (resultat) {
         is Resultat.DeTitre -> Vue(resultat.titre.title, "Titre · ${resultat.titre.artist?.stageName ?: "Artiste supprimé"}", resultat.titre.coverUrl, carre)
@@ -440,13 +443,14 @@ private fun MeilleurResultat(resultat: Resultat, lancement: Lancement, source: S
 @Composable
 private fun BlocResultats(section: SectionResultats, enGrille: Boolean, lecture: EtatLecteur, lancement: Lancement, source: String) {
     val nav = navigation()
+    val menus = LocalMenus.current
     val titres = section.resultats.filterIsInstance<Resultat.DeTitre>().map { it.titre }
     if (titres.size == section.resultats.size) {
         titres.forEachIndexed { i, titre ->
             LigneTitre(
                 titre, null, titre.id == lecture.courant?.id, lecture.enLecture,
                 onClick = { lancement.titres(titres, i, source) },
-                onAppuiLong = { nav.titre(titre.id) },
+                onAppuiLong = { menus.titre(titre) },
             )
         }
         return
@@ -473,6 +477,7 @@ private fun BlocResultats(section: SectionResultats, enGrille: Boolean, lecture:
 @Composable
 private fun Vignette(resultat: Resultat, lancement: Lancement, titres: List<Titre>, source: String, modifier: Modifier) {
     val nav = navigation()
+    val menus = LocalMenus.current
     val chargement = lancement.enCours == cleDe(resultat)
     val ouvrir = { ouvrir(resultat, nav, lancement, titres, source) }
     when (resultat) {

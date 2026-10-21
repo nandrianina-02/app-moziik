@@ -96,7 +96,7 @@ fun MurQuota(onInscription: () -> Unit, onConnexion: () -> Unit, onFermer: () ->
  * du mini-lecteur ; il s'efface seul après quatre secondes.
  */
 @Composable
-fun BandeauMessage(message: String?, onFini: () -> Unit, modifier: Modifier = Modifier) {
+fun BandeauMessage(message: String?, onFini: () -> Unit, modifier: Modifier = Modifier, succes: Boolean = false) {
     val p = LocalPalette.current
     var affiche by remember { mutableStateOf<String?>(null) }
     LaunchedEffect(message) {
@@ -122,7 +122,7 @@ fun BandeauMessage(message: String?, onFini: () -> Unit, modifier: Modifier = Mo
                 .semantics { liveRegion = LiveRegionMode.Polite },
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            Icone(R.drawable.lucide_circle_alert, description = null, teinte = p.base.compose, taille = 16.dp)
+            Icone(if (succes) R.drawable.lucide_circle_check else R.drawable.lucide_circle_alert, description = null, teinte = p.base.compose, taille = 16.dp)
             Spacer(Modifier.width(10.dp))
             Text(affiche.orEmpty(), style = Texte.corps, color = p.base.compose)
         }

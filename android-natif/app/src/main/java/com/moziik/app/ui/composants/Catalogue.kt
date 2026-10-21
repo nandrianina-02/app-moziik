@@ -224,7 +224,7 @@ fun LigneTitre(
         modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(10.dp))
-            .combinedClickable(role = Role.Button, onLongClick = onAppuiLong, onLongClickLabel = onAppuiLong?.let { "Voir la fiche du titre" }, onClick = onClick)
+            .combinedClickable(role = Role.Button, onLongClick = onAppuiLong, onLongClickLabel = onAppuiLong?.let { "Plus d'options" }, onClick = onClick)
             .padding(horizontal = 4.dp, vertical = 6.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {

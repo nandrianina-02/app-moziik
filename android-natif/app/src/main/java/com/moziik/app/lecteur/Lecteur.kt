@@ -99,6 +99,25 @@ class Lecteur(private val contexte: Context, private val site: String) {
         }
     }
 
+    /**
+     * « Écouter ensuite » : juste après le titre en cours. Sans file en
+     * cours, le titre est simplement lancé.
+     */
+    fun lireEnsuite(titre: Titre, source: String?) = avec { c ->
+        if (c.mediaItemCount == 0) {
+            lire(listOf(titre), 0, source)
+        } else {
+            c.addMediaItem(c.currentMediaItemIndex + 1, titre.versElement(site, source))
+        }
+    }
+
+    /** « Ajouter à la file d'attente » : à la fin de la file. */
+    fun ajouterALaFile(titres: List<Titre>, source: String?) = avec { c ->
+        val jouables = titres.filter { it.publie }
+        if (jouables.isEmpty()) return@avec
+        if (c.mediaItemCount == 0) lire(jouables, 0, source) else c.addMediaItems(jouables.map { it.versElement(site, source) })
+    }
+
     /** Lecture/pause. Après une erreur ou la fin de la file, Lecture repart vraiment. */
     fun basculer() = avec { c ->
         when {

@@ -64,6 +64,7 @@ import com.moziik.app.ui.composants.NomArtiste
 import com.moziik.app.ui.composants.Pochette
 import com.moziik.app.ui.composants.duree
 import com.moziik.app.ui.conteneur
+import com.moziik.app.ui.menus.LocalMenus
 import com.moziik.app.ui.navigation
 import kotlinx.coroutines.launch
 
@@ -259,6 +260,7 @@ private fun BoutonAime(courant: TitreLu) {
     val p = LocalPalette.current
     val session by c.session.etat.collectAsStateWithLifecycle()
     val connecte = session is EtatSession.Connecte
+    val menus = LocalMenus.current
     var aime by remember(courant.id) { mutableStateOf(false) }
     val portee = rememberCoroutineScope()
     LaunchedEffect(courant.id, connecte) {
@@ -277,7 +279,10 @@ private fun BoutonAime(courant: TitreLu) {
                 aime = !avant
                 portee.launch {
                     appel { c.reseau.api.basculerAime(courant.id) }
-                        .onSuccess { aime = it.liked }
+                        .onSuccess {
+                            aime = it.liked
+                            menus.bibliothequeChangee()
+                        }
                         .onFailure {
                             aime = avant
                             c.alertes.signaler(AlerteLecture.Message(messageErreur(it)))

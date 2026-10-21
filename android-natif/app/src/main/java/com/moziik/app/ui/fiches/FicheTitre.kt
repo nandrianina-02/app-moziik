@@ -50,6 +50,7 @@ import com.moziik.app.ui.composants.Pochette
 import com.moziik.app.ui.composants.duree
 import com.moziik.app.ui.conteneur
 import com.moziik.app.ui.lecteur.BadgeParoles
+import com.moziik.app.ui.menus.LocalMenus
 import com.moziik.app.ui.navigation
 import com.moziik.app.ui.partager
 import kotlinx.coroutines.async
@@ -83,6 +84,7 @@ private fun CorpsTitre(donnees: DonneesTitre, onRetour: () -> Unit) {
     val c = conteneur()
     val p = LocalPalette.current
     val nav = navigation()
+    val menus = LocalMenus.current
     val contexte = LocalContext.current
     val portee = rememberCoroutineScope()
     val lecture by c.lecteur.etat.collectAsStateWithLifecycle()
@@ -128,6 +130,7 @@ private fun CorpsTitre(donnees: DonneesTitre, onRetour: () -> Unit) {
                             appel { c.reseau.api.basculerAime(titre.id) }
                                 .onSuccess {
                                     aime = it.liked
+                                    menus.bibliothequeChangee()
                                     if (it.liked != avant) aimes += if (it.liked) 1 else -1
                                 }
                                 .onFailure {
@@ -198,7 +201,7 @@ private fun CorpsTitre(donnees: DonneesTitre, onRetour: () -> Unit) {
                     t, null, t.id == lecture.courant?.id, lecture.enLecture,
                     onClick = { c.lecteur.lire(donnees.similaires, i, "Proche de « ${titre.title} »") },
                     modifier = Modifier.padding(horizontal = 12.dp),
-                    onAppuiLong = { nav.titre(t.id) },
+                    onAppuiLong = { menus.titre(t) },
                 )
             }
         }

@@ -65,7 +65,11 @@ import com.moziik.app.ui.Fiches
 import com.moziik.app.ui.LocalNavigation
 import com.moziik.app.ui.Navigation
 import com.moziik.app.ui.conteneur
+import com.moziik.app.ui.bibliotheque.EcranBibliotheque
 import com.moziik.app.ui.decouvrir.EcranClassements
+import com.moziik.app.ui.menus.HoteMenus
+import com.moziik.app.ui.menus.LocalMenus
+import com.moziik.app.ui.menus.Menus
 import com.moziik.app.ui.decouvrir.EcranEvenements
 import com.moziik.app.ui.decouvrir.EcranRadio
 import com.moziik.app.ui.decouvrir.EcranTitres
@@ -137,7 +141,9 @@ fun Coquille(sombre: Boolean, onBasculerMode: () -> Unit) {
         )
     }
 
-    CompositionLocalProvider(LocalNavigation provides navigationFiches) {
+    val menus = remember { Menus() }
+
+    CompositionLocalProvider(LocalNavigation provides navigationFiches, LocalMenus provides menus) {
     Box(Modifier.fillMaxSize().background(p.base.compose)) {
         Column(Modifier.fillMaxSize()) {
             EnTete(sombre = sombre, onBasculerMode = onBasculerMode)
@@ -156,9 +162,8 @@ fun Coquille(sombre: Boolean, onBasculerMode: () -> Unit) {
                 composable(Destination.RECHERCHE.route) {
                     EcranRecherche(termeDemande = termeDemande, onTermeConsomme = { termeDemande = null })
                 }
-                listOf(Destination.MA_ZONE, Destination.MESSAGES).forEach { d ->
-                    composable(d.route) { EcranProvisoire(titre = d.libelle) }
-                }
+                composable(Destination.MA_ZONE.route) { EcranBibliotheque(onConnexion = { aller(Destination.COMPTE) }) }
+                composable(Destination.MESSAGES.route) { EcranProvisoire(titre = Destination.MESSAGES.libelle) }
                 grapheCompte(navigation)
                 // Les fiches s'empilent sur l'onglet d'où on les ouvre.
                 val retour: () -> Unit = { navigation.popBackStack() }
@@ -175,7 +180,7 @@ fun Coquille(sombre: Boolean, onBasculerMode: () -> Unit) {
                 composable(Fiches.TITRES, listOf(facultatif("genre"))) { e -> EcranTitres(e.arguments?.getString("genre")?.ifEmpty { null }, retour) }
                 composable(Fiches.EVENEMENTS) { EcranEvenements(retour) }
             }
-            BandeauMessage((alerte as? AlerteLecture.Message)?.texte, onFini = c.alertes::oublier)
+            BandeauMessage((alerte as? AlerteLecture.Message)?.texte, onFini = c.alertes::oublier, succes = (alerte as? AlerteLecture.Message)?.succes == true)
             AnimatedVisibility(
                 visible = lecture.courant != null,
                 enter = fadeIn(tween(Mouvement.VOILE)) + expandVertically(tween(Mouvement.VOILE, easing = Mouvement.sortieDouce)),
@@ -196,6 +201,7 @@ fun Coquille(sombre: Boolean, onBasculerMode: () -> Unit) {
         }
     }
 
+        HoteMenus(menus)
     }
 
     // Retour : le lecteur plein écran se ferme avant toute navigation.

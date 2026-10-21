@@ -7,7 +7,8 @@ import kotlinx.coroutines.flow.asStateFlow
 sealed interface AlerteLecture {
     /** Limite d'écoute des visiteurs atteinte : le mur « La suite demande un compte » (5.3). */
     data object Quota : AlerteLecture
-    data class Message(val texte: String) : AlerteLecture
+    /** Un message court ; `succes` pour une confirmation (« Ajouté à… »), sinon un avertissement. */
+    data class Message(val texte: String, val succes: Boolean = false) : AlerteLecture
 }
 
 /**

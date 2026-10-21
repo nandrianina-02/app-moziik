@@ -83,7 +83,7 @@ data class PlaylistCourte(
 )
 
 @Serializable
-data class Proprietaire(val name: String? = null)
+data class Proprietaire(@SerialName("_id") val id: String? = null, val name: String? = null)
 
 /** Peuplé dans la recherche, simple identifiant dans la bannière de l'accueil : le nom n'est alors pas connu. */
 object ProprietaireSouple : JsonTransformingSerializer<Proprietaire>(Proprietaire.serializer()) {
@@ -317,6 +317,8 @@ data class PlaylistDetail(
     val coverUrl: String? = null,
     val description: String? = null,
     @Serializable(with = ProprietaireSouple::class) val owner: Proprietaire? = null,
+    /** Une playlist privée n'est servie qu'à son propriétaire : absente, la playlist est donc publique. */
+    val isPublic: Boolean = true,
 )
 
 /** GET /api/artists/{id} : la fiche, ses titres publiés, ses sorties et son voisinage. */

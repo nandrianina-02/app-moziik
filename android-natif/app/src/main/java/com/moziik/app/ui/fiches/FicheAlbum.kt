@@ -33,6 +33,7 @@ import com.moziik.app.theme.compose
 import com.moziik.app.ui.composants.CarteCollection
 import com.moziik.app.ui.composants.LigneTitre
 import com.moziik.app.ui.conteneur
+import com.moziik.app.ui.menus.LocalMenus
 import com.moziik.app.ui.navigation
 import com.moziik.app.ui.partager
 import kotlinx.coroutines.async
@@ -66,6 +67,7 @@ private fun CorpsAlbum(donnees: DonneesAlbum, onRetour: () -> Unit) {
     val c = conteneur()
     val p = LocalPalette.current
     val nav = navigation()
+    val menus = LocalMenus.current
     val contexte = LocalContext.current
     val portee = rememberCoroutineScope()
     val lecture by c.lecteur.etat.collectAsStateWithLifecycle()
@@ -134,7 +136,7 @@ private fun CorpsAlbum(donnees: DonneesAlbum, onRetour: () -> Unit) {
                 titre, i + 1, titre.id == lecture.courant?.id, lecture.enLecture,
                 onClick = { c.lecteur.lire(titres, i, album.title) },
                 modifier = Modifier.padding(horizontal = 12.dp),
-                onAppuiLong = { nav.titre(titre.id) },
+                onAppuiLong = { menus.titre(titre) },
             )
         }
         if (donnees.autres.isNotEmpty()) {

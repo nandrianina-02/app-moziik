@@ -86,6 +86,7 @@ import com.moziik.app.ui.composants.Pochette
 import com.moziik.app.ui.composants.apparitionUneFois
 import com.moziik.app.ui.composants.pressable
 import com.moziik.app.ui.conteneur
+import com.moziik.app.ui.menus.LocalMenus
 import com.moziik.app.ui.navigation
 import com.moziik.app.ui.ouvrirLien
 import com.moziik.app.ui.rememberLancement
@@ -128,6 +129,7 @@ fun EcranAccueil() {
     val p = LocalPalette.current
     val vus = remember { mutableSetOf<Any>() }
     val nav = navigation()
+    val menus = LocalMenus.current
 
     // Un lien des données du site : une fiche, une lecture, la recherche, ou une page externe.
     val suivre: (String, String) -> Unit = { cle, lien ->
@@ -203,6 +205,7 @@ fun EcranAccueil() {
 private fun EnTeteAccueil() {
     val p = LocalPalette.current
     val nav = navigation()
+    val menus = LocalMenus.current
     Row(Modifier.padding(top = 8.dp, bottom = 16.dp), verticalAlignment = Alignment.Top) {
         Column(Modifier.width(IntrinsicSize.Max)) {
             Text("Pour toi", style = Texte.titreFiche, color = p.accent.compose)
@@ -228,6 +231,7 @@ private fun EnTeteAccueil() {
 private fun RaccourcisAccueil(modifier: Modifier = Modifier) {
     val p = LocalPalette.current
     val nav = navigation()
+    val menus = LocalMenus.current
     val raccourcis: List<Triple<String, Int, () -> Unit>> = listOf(
         Triple("Artistes", R.drawable.lucide_mic_vocal) { nav.classements("artists") },
         Triple("Genres", R.drawable.lucide_tags) { nav.titres() },
@@ -360,6 +364,7 @@ private fun DiapoBanniere(diapo: Diapo, nouveautes: List<Titre>, lancement: Lanc
         else -> Triple("", null, null)
     }
     val nav = navigation()
+    val menus = LocalMenus.current
     val fiche: (() -> Unit)? = when {
         diapo.song != null -> ({ nav.titre(diapo.song.id) })
         diapo.album != null -> ({ nav.album(diapo.album.id) })
@@ -513,6 +518,7 @@ internal fun CarteBandeSon(prenom: String?, avatar: String?, lancement: Lancemen
 private fun BlocSection(section: Section, lecture: EtatLecteur, lancement: Lancement, suivre: (String, String) -> Unit) {
     val p = LocalPalette.current
     val nav = navigation()
+    val menus = LocalMenus.current
     val enCours = lecture.courant?.id
     when (section) {
         is Section.PourToi -> {
@@ -536,7 +542,7 @@ private fun BlocSection(section: Section, lecture: EtatLecteur, lancement: Lance
                     LigneTitre(
                         titre, i + 1, titre.id == enCours, lecture.enLecture,
                         onClick = { lancement.titres(section.titres, i, section.titre) },
-                        onAppuiLong = { nav.titre(titre.id) },
+                        onAppuiLong = { menus.titre(titre) },
                     )
                 }
             }
@@ -548,7 +554,7 @@ private fun BlocSection(section: Section, lecture: EtatLecteur, lancement: Lance
                         titre, titre.id == enCours, lecture.enLecture,
                         onClick = { lancement.titres(section.titres, i, section.titre) },
                         modifier = Modifier.width(140.dp),
-                        onAppuiLong = { nav.titre(titre.id) },
+                        onAppuiLong = { menus.titre(titre) },
                     )
                 }
             }
@@ -687,6 +693,7 @@ private val DEGRADES_GENRE = listOf(
 private fun TuilesGenres(section: Section.Genres) {
     val p = LocalPalette.current
     val nav = navigation()
+    val menus = LocalMenus.current
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
         section.genres.chunked(2).forEachIndexed { ligne, paire ->
             Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {

@@ -3,6 +3,7 @@ package com.moziik.app.donnees
 import android.content.Context
 import android.os.Build
 import com.moziik.app.BuildConfig
+import com.moziik.app.donnees.catalogue.Bibliotheque
 import com.moziik.app.donnees.catalogue.Catalogue
 import com.moziik.app.donnees.catalogue.HistoriqueRecherche
 import com.moziik.app.donnees.reseau.Reseau
@@ -28,6 +29,7 @@ class Conteneur(contexte: Context) {
     val session = Session(reseau.api, coffre, libelleAppareil())
     val catalogue = Catalogue(reseau.api, session, File(contexte.filesDir, "catalogue"))
     val historiqueRecherche = HistoriqueRecherche(contexte)
+    val bibliotheque = Bibliotheque(reseau.api, catalogue::univers)
     /** Messages du service de lecture à l'écran (quota atteint, titre indisponible). */
     val alertes = AlertesLecture()
     val lecteur = Lecteur(contexte, BuildConfig.SITE)

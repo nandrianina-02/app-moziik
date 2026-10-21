@@ -67,6 +67,8 @@ import com.moziik.app.ui.conteneur
 import com.moziik.app.ui.menus.LocalMenus
 import com.moziik.app.ui.navigation
 import kotlinx.coroutines.launch
+import com.moziik.app.ui.horsligne.PastilleTelechargement
+import com.moziik.app.lecteur.versTitre
 
 /**
  * Le lecteur plein écran (FullPlayerPage.tsx, mise en page téléphone) :
@@ -135,6 +137,8 @@ fun LecteurPleinEcran(etat: EtatLecteur, onFermer: () -> Unit) {
                             } ?: Modifier,
                         )
                     }
+                    PastilleTelechargement(courant.versTitre(), taille = 34.dp)
+                    Spacer(Modifier.width(4.dp))
                     BoutonAime(courant)
                 }
             }

@@ -4,6 +4,7 @@ import android.net.Uri
 import android.os.Bundle
 import androidx.media3.common.MediaItem
 import androidx.media3.common.MediaMetadata
+import com.moziik.app.donnees.catalogue.ArtisteCourt
 import com.moziik.app.donnees.catalogue.Titre
 import com.moziik.app.donnees.reseau.adresseMedia
 
@@ -103,3 +104,12 @@ fun MediaItem.versTitreLu(): TitreLu {
 
 /** La durée connue d'un élément, en secondes, avant même que le fichier soit chargé. */
 fun MediaItem.dureeSecondes(): Double = mediaMetadata.extras?.getDouble(DUREE) ?: 0.0
+
+/** Un titre de la file ramené au modèle du catalogue : pour le télécharger depuis le lecteur. */
+fun TitreLu.versTitre() = Titre(
+    id = id,
+    title = titre,
+    artist = artisteId?.let { ArtisteCourt(it, artiste, verifie) },
+    coverUrl = pochette,
+    duration = dureeSecondes,
+)

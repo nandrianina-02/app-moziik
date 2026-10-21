@@ -36,6 +36,9 @@ import com.moziik.app.ui.composants.Egaliseur
 import com.moziik.app.ui.composants.Icone
 import com.moziik.app.ui.composants.NomArtiste
 import com.moziik.app.ui.composants.Pochette
+import com.moziik.app.ui.composants.rememberTeintePochette
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.tween
 
 /**
  * Le mini-lecteur, au-dessus de la barre du bas, sur tous les écrans
@@ -48,10 +51,13 @@ fun MiniLecteur(etat: EtatLecteur, lecteur: Lecteur, onOuvrir: () -> Unit) {
     val courant = etat.courant ?: return
     val avancement by rememberAvancement(lecteur, courant.id)
     val filet = p.bordure.compose
+    // La teinte de la pochette n'est lisible qu'avec un texte clair : en mode clair, la surface reste.
+    val teinte = rememberTeintePochette(courant.pochette).takeIf { p.sombre }
+    val fond by animateColorAsState(teinte ?: p.surface.compose, tween(300), label = "fond")
     Column(
         Modifier
             .fillMaxWidth()
-            .background(p.surface.compose)
+            .background(fond)
             .drawBehind { drawLine(filet, Offset.Zero, Offset(size.width, 0f), 1.dp.toPx()) },
     ) {
         Row(Modifier.padding(start = 12.dp, end = 12.dp, top = 10.dp), verticalAlignment = Alignment.CenterVertically) {

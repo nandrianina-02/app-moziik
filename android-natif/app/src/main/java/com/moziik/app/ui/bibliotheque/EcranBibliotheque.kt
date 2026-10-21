@@ -75,6 +75,8 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import com.moziik.app.ui.horsligne.PastilleAlbum
+import com.moziik.app.ui.horsligne.PastillePlaylist
 
 /** Une liste de la bibliothèque, chargée à part : chacune s'affiche à son arrivée (F1). */
 data class Liste<T>(val elements: List<T>? = null, val erreur: String? = null)
@@ -207,7 +209,10 @@ fun EcranBibliotheque(onConnexion: () -> Unit) {
                         EnTeteSection("Albums", onVoirTout = { onglet = Onglet.ALBUMS })
                         LazyRow(horizontalArrangement = Arrangement.spacedBy(14.dp)) {
                             items(disques.take(8), key = { it.id }) { a ->
-                                CarteCollection(a.title, a.artist?.stageName ?: "Artiste supprimé", a.coverUrl, onClick = { nav.album(a.id) }, modifier = Modifier.width(132.dp), verifie = a.artist?.verified == true)
+                                CarteCollection(
+                                    a.title, a.artist?.stageName ?: "Artiste supprimé", a.coverUrl, onClick = { nav.album(a.id) },
+                                    modifier = Modifier.width(132.dp), verifie = a.artist?.verified == true, badge = R.drawable.lucide_disc_3, pastille = { PastilleAlbum(a.id, a.title, a.coverUrl) },
+                                )
                             }
                         }
                     }
@@ -237,11 +242,17 @@ fun EcranBibliotheque(onConnexion: () -> Unit) {
             Onglet.TITRES -> titresAimes(aimes, lecture, apercu = false, onVoirTout = null)
             Onglet.ALBUMS -> grille("albums", disques, albums.erreur, albums.elements == null, vide = "Aucun album enregistré. Touche « Ajouter » sur la fiche d'un album.") { a ->
                 a as AlbumCourt
-                CarteCollection(a.title, a.artist?.stageName ?: "Artiste supprimé", a.coverUrl, onClick = { nav.album(a.id) }, modifier = Modifier.fillMaxWidth(), verifie = a.artist?.verified == true)
+                CarteCollection(
+                    a.title, a.artist?.stageName ?: "Artiste supprimé", a.coverUrl, onClick = { nav.album(a.id) },
+                    modifier = Modifier.fillMaxWidth(), verifie = a.artist?.verified == true, badge = R.drawable.lucide_disc_3, pastille = { PastilleAlbum(a.id, a.title, a.coverUrl) },
+                )
             }
             Onglet.PODCASTS -> grille("podcasts", podcasts, albums.erreur, albums.elements == null) { a ->
                 a as AlbumCourt
-                CarteCollection(a.title, a.artist?.stageName ?: "Artiste supprimé", a.coverUrl, onClick = { nav.album(a.id) }, modifier = Modifier.fillMaxWidth())
+                CarteCollection(
+                    a.title, a.artist?.stageName ?: "Artiste supprimé", a.coverUrl, onClick = { nav.album(a.id) }, modifier = Modifier.fillMaxWidth(),
+                    badge = R.drawable.lucide_podcast, pastille = { PastilleAlbum(a.id, a.title, a.coverUrl) },
+                )
             }
             Onglet.ARTISTES -> grille("artistes", artistes.elements.orEmpty(), artistes.erreur, artistes.elements == null, colonnes = 3, vide = "Tu ne suis encore aucun artiste.") { a ->
                 a as ArtisteCarte
@@ -316,6 +327,8 @@ private fun CartePlaylist(pl: PlaylistMienne, modifier: Modifier, onClick: () ->
         pl.coverUrl,
         onClick = onClick,
         modifier = modifier,
+        badge = R.drawable.lucide_list_music,
+        pastille = if (pl.songs.isEmpty()) null else ({ PastillePlaylist(pl.id, pl.title, pl.coverUrl) }),
     )
 }
 

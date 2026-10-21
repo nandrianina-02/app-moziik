@@ -92,11 +92,15 @@ import com.moziik.app.ui.ouvrirLien
 import com.moziik.app.ui.rememberLancement
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.drop
+import com.moziik.app.donnees.catalogue.SectionsAuto
+import androidx.compose.ui.platform.LocalConfiguration
 import java.text.SimpleDateFormat
 import java.util.Locale
 import java.util.TimeZone
 import com.moziik.app.ui.composants.LogoMoziik
 import com.moziik.app.ui.composants.LienTexte
+import com.moziik.app.ui.horsligne.PastilleAlbum
+import com.moziik.app.ui.horsligne.PastillePlaylist
 
 /** Sous-titres des sections, repris de components/home/sectionMeta.ts. */
 private val SOUS_TITRES = mapOf(
@@ -193,7 +197,8 @@ fun EcranAccueil() {
                     CarteBandeSon(prenom, (session as? EtatSession.Connecte)?.utilisateur?.avatarUrl, lancement, Modifier.apparitionUneFois("bande-son", 1, vus))
                 }
             }
-            etat.sections.forEachIndexed { rang, section ->
+            val affichees = SectionsAuto.entrelacer(etat.sections, etat.auto)
+            affichees.forEachIndexed { rang, section ->
                 item(key = "section-$rang-${section.cle}") {
                     // Une colonne : l'en-tête et le contenu d'une section se suivent (une boîte les superposait).
                     Column(Modifier.padding(top = 32.dp).apparitionUneFois("section-$rang-${section.cle}", minOf(rang + 2, 6), vus)) {
@@ -545,15 +550,24 @@ private fun BlocSection(section: Section, lecture: EtatLecteur, lancement: Lance
                 }
             }
         } else {
-            EnTeteSection(section.titre, SOUS_TITRES[section.cle], onVoirTout = if (section.cle == "recently_played") null else ({ nav.titres() }))
-            LazyRow(horizontalArrangement = Arrangement.spacedBy(14.dp)) {
-                itemsIndexed(section.titres, key = { _, t -> t.id }) { i, titre ->
-                    CarteTitre(
-                        titre, titre.id == enCours, lecture.enLecture,
-                        onClick = { lancement.titres(section.titres, i, section.titre) },
-                        modifier = Modifier.width(140.dp),
-                        onAppuiLong = { menus.titre(titre) },
-                    )
+            val voirTout: (() -> Unit)? = when {
+                section.voirTout != null -> ({ nav.suivre(section.voirTout) })
+                section.cle == "recently_played" -> null
+                else -> ({ nav.titres() })
+            }
+            EnTeteSection(section.titre, SOUS_TITRES[section.cle], onVoirTout = voirTout)
+            if (section.liste) {
+                ListeParTrois(section, lecture, lancement)
+            } else {
+                LazyRow(horizontalArrangement = Arrangement.spacedBy(14.dp)) {
+                    itemsIndexed(section.titres, key = { _, t -> t.id }) { i, titre ->
+                        CarteTitre(
+                            titre, titre.id == enCours, lecture.enLecture,
+                            onClick = { lancement.titres(section.titres, i, section.titre) },
+                            modifier = Modifier.width(150.dp),
+                            onAppuiLong = { menus.titre(titre) },
+                        )
+                    }
                 }
             }
         }
@@ -562,14 +576,19 @@ private fun BlocSection(section: Section, lecture: EtatLecteur, lancement: Lance
             TuilesGenres(section)
         }
         is Section.Albums -> {
-            EnTeteSection(section.titre, SOUS_TITRES[section.cle], onVoirTout = { nav.classements("albums") })
+            EnTeteSection(
+                section.titre, SOUS_TITRES[section.cle],
+                onVoirTout = section.voirTout?.let { v -> { nav.suivre(v); Unit } } ?: if (section.cle.startsWith("auto-")) null else ({ nav.classements("albums") }),
+            )
             LazyRow(horizontalArrangement = Arrangement.spacedBy(14.dp)) {
                 items(section.albums, key = { it.id }) { album ->
                     CarteCollection(
                         album.title, album.artist?.stageName, album.coverUrl,
                         onClick = { nav.album(album.id) },
-                        modifier = Modifier.width(140.dp),
+                        modifier = Modifier.width(150.dp),
                         verifie = album.artist?.verified == true,
+                        badge = if (album.type == "podcast") R.drawable.lucide_podcast else R.drawable.lucide_disc_3,
+                        pastille = { PastilleAlbum(album.id, album.title, album.coverUrl) },
                     )
                 }
             }
@@ -581,20 +600,22 @@ private fun BlocSection(section: Section, lecture: EtatLecteur, lancement: Lance
                     CarteCollection(
                         playlist.title, playlist.songsCount?.let { "$it titre${if (it > 1) "s" else ""}" }, playlist.coverUrl,
                         onClick = { nav.playlist(playlist.id) },
-                        modifier = Modifier.width(140.dp),
+                        modifier = Modifier.width(150.dp),
+                        badge = R.drawable.lucide_list_music,
+                        pastille = { PastillePlaylist(playlist.id, playlist.title, playlist.coverUrl) },
                     )
                 }
             }
         }
         is Section.Artistes -> {
             EnTeteSection(section.titre)
-            LazyRow(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+            LazyRow(horizontalArrangement = Arrangement.spacedBy(if (section.grands) 20.dp else 16.dp)) {
                 items(section.artistes, key = { it.id }) { artiste ->
                     CarteArtiste(
                         artiste.stageName, artiste.coverUrl, artiste.verified,
                         artiste.followersCount?.let { "$it abonné${if (it > 1) "s" else ""}" },
                         onClick = { nav.artiste(artiste.id) },
-                        modifier = Modifier.width(96.dp),
+                        modifier = Modifier.width(if (section.grands) 150.dp else 96.dp),
                     )
                 }
             }
@@ -631,6 +652,32 @@ private fun BlocSection(section: Section, lecture: EtatLecteur, lancement: Lance
                         onClick = { suivre(cle, e.href) },
                         modifier = Modifier.width(140.dp),
                         chargement = lancement.enCours == cle,
+                    )
+                }
+            }
+        }
+    }
+}
+
+/**
+ * Une section en lignes, groupées par trois en colonnes qui défilent de
+ * côté : plus de titres sous les yeux qu'en cartes, sans allonger la page.
+ * Chaque colonne laisse dépasser la suivante, pour dire qu'il y en a
+ * d'autres.
+ */
+@Composable
+private fun ListeParTrois(section: Section.Titres, lecture: EtatLecteur, lancement: Lancement) {
+    val menus = LocalMenus.current
+    val largeur = (LocalConfiguration.current.screenWidthDp * 0.86f).dp
+    LazyRow(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+        itemsIndexed(section.titres.chunked(3), key = { i, _ -> "${section.cle}-$i" }) { colonne, trois ->
+            Column(Modifier.width(largeur)) {
+                trois.forEachIndexed { i, titre ->
+                    LigneTitre(
+                        titre, null, titre.id == lecture.courant?.id, lecture.enLecture,
+                        onClick = { lancement.titres(section.titres, colonne * 3 + i, section.titre) },
+                        onAppuiLong = { menus.titre(titre) },
+                        avecDuree = false,
                     )
                 }
             }

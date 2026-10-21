@@ -15,6 +15,9 @@ import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.jsonPrimitive
 import java.io.File
 import java.util.Calendar
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.coroutineScope
 
 /** Les diapositives lisibles de la bannière ; une diapositive d'une forme inattendue est écartée. */
 fun diaposDe(accueil: Accueil): List<Diapo> = accueil.hero.mapNotNull { lire(Diapo.serializer(), it) }
@@ -24,12 +27,20 @@ sealed interface Section {
     val cle: String
     val titre: String
 
-    data class Titres(override val cle: String, override val titre: String, val titres: List<Titre>) : Section
+    /** `liste` : en lignes groupées par trois (nouveautés, artiste à l'honneur) plutôt qu'en cartes. */
+    data class Titres(
+        override val cle: String,
+        override val titre: String,
+        val titres: List<Titre>,
+        val liste: Boolean = false,
+        val voirTout: Cible? = null,
+    ) : Section
     data class PourToi(override val cle: String, override val titre: String, val cartes: List<CartePourToi>) : Section
     data class Genres(override val cle: String, override val titre: String, val genres: List<Genre>) : Section
-    data class Albums(override val cle: String, override val titre: String, val albums: List<AlbumCourt>) : Section
+    data class Albums(override val cle: String, override val titre: String, val albums: List<AlbumCourt>, val voirTout: Cible? = null) : Section
     data class Playlists(override val cle: String, override val titre: String, val playlists: List<PlaylistCourte>) : Section
-    data class Artistes(override val cle: String, override val titre: String, val artistes: List<ArtisteCarte>) : Section
+    /** `grands` : de grandes photos rondes, pour faire connaître des visages (artistes en herbe). */
+    data class Artistes(override val cle: String, override val titre: String, val artistes: List<ArtisteCarte>, val grands: Boolean = false) : Section
     data class Evenements(override val cle: String, override val titre: String, val evenements: List<EvenementCourt>) : Section
     data class Collection(override val cle: String, override val titre: String, val elements: List<ElementCollection>) : Section
 }
@@ -191,6 +202,42 @@ class Catalogue(
     fun accueilGarde(): Accueil? = runCatching {
         fichierAccueil().takeIf { it.exists() }?.readText()?.let { JsonMoziik.decodeFromString(Accueil.serializer(), it) }
     }.getOrNull()
+
+    /**
+     * Les sections que l'app compose elle-même (SectionsAuto), lues en
+     * parallèle. Une source en panne retire ses sections sans bloquer les
+     * autres.
+     */
+    suspend fun sectionsAuto(maintenant: Long = System.currentTimeMillis()): List<Section> = coroutineScope {
+        val u = univers()
+        val jour = SectionsAuto.jour(maintenant)
+        val recents = async { appel { api.titres(limite = 100, univers = u) }.getOrNull()?.songs.orEmpty() }
+        val populaires = async { appel { api.titres(tri = "popular", limite = 100, univers = u) }.getOrNull()?.songs.orEmpty() }
+        val albums = async {
+            // /api/albums ne filtre pas l'univers : l'app le fait (un album suit l'univers de son auteur).
+            appel { api.albums() }.getOrNull()?.albums.orEmpty().filter { u == null || it.univers == null || it.univers == u }
+        }
+        val r = recents.await().filter { it.publie }
+        val pop = populaires.await().filter { it.publie }
+        val honneur = SectionsAuto.artisteALHonneur(r, pop, jour)?.let { artiste ->
+            async {
+                appel { api.titres(tri = "popular", limite = 9, univers = u, artiste = artiste.id) }.getOrNull()
+                    ?.songs?.filter { it.publie }?.let { artiste to it }
+            }
+        }
+        val herbe = SectionsAuto.artistesEnHerbe(r).map { a ->
+            async {
+                appel { api.artiste(a.id).artist }.getOrNull()
+                    ?.takeIf { !it.coverUrl.isNullOrBlank() }
+                    ?.let { ArtisteCarte(it.id, it.stageName, it.verified, it.coverUrl, it.followersCount) }
+            }
+        }
+        SectionsAuto.composer(
+            MatiereAuto(r, pop, albums.await(), honneur?.await(), herbe.awaitAll().filterNotNull()),
+            jour,
+            maintenant,
+        )
+    }
 
     suspend fun accueil(): Accueil {
         val accueil = appel { api.accueil(univers(), heureLocale(), mode()) }.getOrThrow()

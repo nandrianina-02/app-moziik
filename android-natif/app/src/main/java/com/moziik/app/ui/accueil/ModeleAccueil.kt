@@ -21,7 +21,10 @@ import kotlinx.coroutines.withContext
 
 data class EtatAccueil(
     val diapos: List<Diapo> = emptyList(),
+    /** Les sections de l'administration, dans son ordre. */
     val sections: List<Section> = emptyList(),
+    /** Celles que l'app compose (SectionsAuto), arrivées après : glissées entre les premières à l'affichage. */
+    val auto: List<Section> = emptyList(),
     val chargement: Boolean = true,
     /** Ce qui est affiché vient de la dernière visite : le dire, plutôt que présenter d'hier comme frais. */
     val reprise: Boolean = false,
@@ -55,9 +58,14 @@ class ModeleAccueil(private val catalogue: Catalogue, session: Session) : ViewMo
         chargement = viewModelScope.launch {
             try {
                 val accueil = catalogue.accueil()
+                val precedentes = _etat.value.auto
                 _etat.value = withContext(Dispatchers.Default) {
-                    EtatAccueil(diaposDe(accueil), sectionsDe(accueil), chargement = false)
+                    // Les sections automatiques de la visite précédente restent en place le temps d'être recomposées.
+                    EtatAccueil(diaposDe(accueil), sectionsDe(accueil), auto = precedentes, chargement = false)
                 }
+                // Après l'accueil du site, jamais avant : il s'affiche sans attendre ces dix requêtes de plus.
+                val auto = runCatching { catalogue.sectionsAuto() }.getOrNull()
+                if (auto != null) _etat.update { it.copy(auto = auto) }
             } catch (e: kotlinx.coroutines.CancellationException) {
                 throw e
             } catch (e: Exception) {

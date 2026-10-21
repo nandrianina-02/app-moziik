@@ -7,6 +7,7 @@ import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.JsonTransformingSerializer
 import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.JsonArray
 
 /**
  * Les formes du catalogue telles que le site les renvoie. Seuls les champs
@@ -71,7 +72,13 @@ data class AlbumCourt(
     val type: String? = null,
     @Serializable(with = ArtisteSouple::class) val artist: ArtisteCourt? = null,
     val releaseDate: String? = null,
-)
+    val univers: String? = null,
+    /** Identifiants ou titres peuplés selon la route : seul leur nombre sert ici. */
+    @SerialName("songs") val pistes: JsonElement? = null,
+) {
+    /** Le nombre de pistes, s'il est connu : un album vide n'est pas proposé. */
+    val nombrePistes: Int? get() = (pistes as? JsonArray)?.size
+}
 
 @Serializable
 data class PlaylistCourte(

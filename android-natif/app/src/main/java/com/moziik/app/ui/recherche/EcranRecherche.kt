@@ -78,6 +78,9 @@ import com.moziik.app.ui.conteneur
 import com.moziik.app.ui.menus.LocalMenus
 import com.moziik.app.ui.navigation
 import com.moziik.app.ui.rememberLancement
+import com.moziik.app.ui.horsligne.PastilleAlbum
+import com.moziik.app.ui.horsligne.PastillePlaylist
+import com.moziik.app.ui.horsligne.PastilleTelechargement
 
 /**
  * La recherche (app/recherche/page.tsx) : un champ, les filtres par type,
@@ -547,9 +550,18 @@ private fun Vignette(resultat: Resultat, lancement: Lancement, titres: List<Titr
     val ouvrir = { ouvrir(resultat, nav, lancement, titres, source) }
     when (resultat) {
         is Resultat.DArtiste -> CarteArtiste(resultat.artiste.stageName, resultat.artiste.coverUrl, resultat.artiste.verified, null, ouvrir, modifier, chargement)
-        is Resultat.DAlbum -> CarteCollection(resultat.album.title, resultat.album.artist?.stageName, resultat.album.coverUrl, ouvrir, modifier, resultat.album.artist?.verified == true, chargement)
-        is Resultat.DePlaylist -> CarteCollection(resultat.playlist.title, resultat.playlist.owner?.name, resultat.playlist.coverUrl, ouvrir, modifier, chargement = chargement)
+        is Resultat.DAlbum -> CarteCollection(
+            resultat.album.title, resultat.album.artist?.stageName, resultat.album.coverUrl, ouvrir, modifier, resultat.album.artist?.verified == true, chargement,
+            badge = R.drawable.lucide_disc_3, pastille = { PastilleAlbum(resultat.album.id, resultat.album.title, resultat.album.coverUrl) },
+        )
+        is Resultat.DePlaylist -> CarteCollection(
+            resultat.playlist.title, resultat.playlist.owner?.name, resultat.playlist.coverUrl, ouvrir, modifier, chargement = chargement,
+            badge = R.drawable.lucide_list_music, pastille = { PastillePlaylist(resultat.playlist.id, resultat.playlist.title, resultat.playlist.coverUrl) },
+        )
         is Resultat.DeGenre -> CarteCollection(resultat.nom, "${resultat.nombre} titre${if (resultat.nombre > 1) "s" else ""}", null, ouvrir, modifier, chargement = chargement)
-        is Resultat.DeTitre -> CarteCollection(resultat.titre.title, resultat.titre.artist?.stageName, resultat.titre.coverUrl, ouvrir, modifier, resultat.titre.artist?.verified == true, chargement)
+        is Resultat.DeTitre -> CarteCollection(
+            resultat.titre.title, resultat.titre.artist?.stageName, resultat.titre.coverUrl, ouvrir, modifier, resultat.titre.artist?.verified == true, chargement,
+            pastille = { PastilleTelechargement(resultat.titre) },
+        )
     }
 }

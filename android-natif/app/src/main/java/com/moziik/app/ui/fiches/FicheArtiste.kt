@@ -52,6 +52,7 @@ import com.moziik.app.ui.partager
 import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.launch
+import com.moziik.app.ui.horsligne.PastillePlaylist
 
 data class DonneesArtiste(val reponse: ReponseArtiste, val suivi: Boolean)
 
@@ -175,7 +176,10 @@ private fun CorpsArtiste(donnees: DonneesArtiste, onRetour: () -> Unit) {
                 SectionFiche("Playlists qui le diffusent") {
                     LazyRow(contentPadding = PaddingValues(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(14.dp)) {
                         items(r.playlistsFeaturing, key = { it.id }) { pl ->
-                            CarteCollection(pl.title, null, pl.coverUrl, onClick = { nav.playlist(pl.id) }, modifier = Modifier.width(140.dp))
+                            CarteCollection(
+                                pl.title, null, pl.coverUrl, onClick = { nav.playlist(pl.id) }, modifier = Modifier.width(140.dp),
+                                badge = R.drawable.lucide_list_music, pastille = { PastillePlaylist(pl.id, pl.title, pl.coverUrl) },
+                            )
                         }
                     }
                 }

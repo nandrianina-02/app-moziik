@@ -49,6 +49,19 @@ import com.moziik.app.theme.LocalPalette
 import com.moziik.app.theme.Mouvement
 import com.moziik.app.theme.Texte
 import com.moziik.app.theme.compose
+import com.moziik.app.ui.horsligne.PastilleTelechargement
+
+/** « 48 », « 1,93 k », « 64,3 k », « 1,2 M » : un compteur lisible sous une carte. */
+fun nombreCourt(n: Int): String {
+    fun format(v: Double, decimales: Int, unite: String) =
+        String.format(java.util.Locale.FRANCE, "%.${decimales}f", v).trimEnd('0').trimEnd(',') + " " + unite
+    return when {
+        n < 1_000 -> n.toString()
+        n < 10_000 -> format(n / 1_000.0, 2, "k")
+        n < 1_000_000 -> format(n / 1_000.0, 1, "k")
+        else -> format(n / 1_000_000.0, 1, "M")
+    }
+}
 
 /** « 3:07 » : durée d'un titre, comme formatTime du site. */
 fun duree(secondes: Double): String {
@@ -160,11 +173,20 @@ fun Puce(libelle: String, actif: Boolean, onClick: () -> Unit) {
 
 /**
  * La carte d'un titre (SongCard.tsx) : pochette carrée avec sa durée, le
- * bouton de lecture posé dessus, titre et artiste dessous. Le titre en
- * cours passe à l'accent.
+ * bouton de lecture posé dessus et la pastille de téléchargement en bas à
+ * gauche ; titre, artiste et compteurs dessous. Le titre en cours passe à
+ * l'accent.
  */
 @Composable
-fun CarteTitre(titre: Titre, enCours: Boolean, enLecture: Boolean, onClick: () -> Unit, modifier: Modifier = Modifier, onAppuiLong: (() -> Unit)? = null) {
+fun CarteTitre(
+    titre: Titre,
+    enCours: Boolean,
+    enLecture: Boolean,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    onAppuiLong: (() -> Unit)? = null,
+    compteurs: Boolean = true,
+) {
     val p = LocalPalette.current
     Column(modifier.pressable(onLongClick = onAppuiLong, onClick = onClick)) {
         Box(Modifier.fillMaxWidth().aspectRatio(1f)) {
@@ -190,6 +212,7 @@ fun CarteTitre(titre: Titre, enCours: Boolean, enLecture: Boolean, onClick: () -
                     Icone(R.drawable.lucide_play_plein, description = null, teinte = p.base.compose, taille = 14.dp, modifier = Modifier.padding(start = 2.dp))
                 }
             }
+            PastilleTelechargement(titre, Modifier.align(Alignment.BottomStart).padding(8.dp))
         }
         Spacer(Modifier.height(8.dp))
         Text(
@@ -200,6 +223,25 @@ fun CarteTitre(titre: Titre, enCours: Boolean, enLecture: Boolean, onClick: () -
             overflow = TextOverflow.Ellipsis,
         )
         NomArtiste(titre.artist?.stageName, titre.artist?.verified == true)
+        if (compteurs) Compteurs(titre.playsCount, titre.likesCount, Modifier.padding(top = 4.dp))
+    }
+}
+
+/** Écoutes et j'aime d'un titre ou d'une collection, sous sa carte : la popularité se lit sans ouvrir la fiche. */
+@Composable
+fun Compteurs(ecoutes: Int, aimes: Int?, modifier: Modifier = Modifier) {
+    val p = LocalPalette.current
+    val style = Texte.secondaire.copy(fontSize = 11.sp, fontFeatureSettings = "tnum")
+    Row(modifier, verticalAlignment = Alignment.CenterVertically) {
+        Icone(R.drawable.lucide_headphones, description = "Écoutes", teinte = p.encreAttenuee.compose, taille = 12.dp)
+        Spacer(Modifier.width(4.dp))
+        Text(nombreCourt(ecoutes), style = style, color = p.encreAttenuee.compose)
+        if (aimes != null) {
+            Spacer(Modifier.width(10.dp))
+            Icone(R.drawable.lucide_heart, description = "J'aime", teinte = p.encreAttenuee.compose, taille = 12.dp)
+            Spacer(Modifier.width(4.dp))
+            Text(nombreCourt(aimes), style = style, color = p.encreAttenuee.compose)
+        }
     }
 }
 
@@ -218,6 +260,8 @@ fun LigneTitre(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
     onAppuiLong: (() -> Unit)? = null,
+    /** Sans la durée : les listes de l'accueil laissent la place à la pastille et au menu. */
+    avecDuree: Boolean = true,
 ) {
     val p = LocalPalette.current
     Row(
@@ -251,8 +295,20 @@ fun LigneTitre(
         Spacer(Modifier.width(8.dp))
         if (enCours && enLecture) {
             Egaliseur(hauteur = 12.dp, libelle = "En cours de lecture", modifier = Modifier.padding(end = 8.dp))
+        } else if (avecDuree) {
+            Text(duree(titre.duration), style = Texte.secondaire.copy(fontFeatureSettings = "tnum"), color = p.encreAttenuee.compose, modifier = Modifier.padding(end = 8.dp))
+        }
+        PastilleTelechargement(titre, taille = 28.dp)
+        if (onAppuiLong != null) {
+            // Le même menu que l'appui long, pour qui ne connaît pas ce geste.
+            Box(
+                Modifier.size(36.dp).clip(CircleShape).pressable(onClick = onAppuiLong),
+                contentAlignment = Alignment.Center,
+            ) {
+                Icone(R.drawable.lucide_ellipsis_vertical, description = "Plus d'options", teinte = p.encreAttenuee.compose, taille = 18.dp)
+            }
         } else {
-            Text(duree(titre.duration), style = Texte.secondaire.copy(fontFeatureSettings = "tnum"), color = p.encreAttenuee.compose, modifier = Modifier.padding(end = 4.dp))
+            Spacer(Modifier.width(4.dp))
         }
     }
 }
@@ -267,6 +323,10 @@ fun CarteCollection(
     modifier: Modifier = Modifier,
     verifie: Boolean = false,
     chargement: Boolean = false,
+    /** Le type de collection, en pictogramme sur la pochette (album, playlist). */
+    badge: Int? = null,
+    /** La pastille de téléchargement du lot, en bas à gauche de la pochette. */
+    pastille: (@Composable () -> Unit)? = null,
 ) {
     val p = LocalPalette.current
     Column(modifier.pressable(onClick = onClick)) {
@@ -277,6 +337,15 @@ fun CarteCollection(
                     Egaliseur(hauteur = 14.dp, libelle = "Chargement", couleur = Color.White)
                 }
             }
+            if (badge != null) {
+                Box(
+                    Modifier.align(Alignment.BottomEnd).padding(8.dp).size(30.dp).clip(RoundedCornerShape(8.dp)).background(Color.Black.copy(alpha = 0.45f)),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Icone(badge, description = null, teinte = Color.White, taille = 16.dp)
+                }
+            }
+            if (pastille != null) Box(Modifier.align(Alignment.BottomStart).padding(8.dp)) { pastille() }
         }
         Spacer(Modifier.height(8.dp))
         Text(

@@ -112,3 +112,6 @@ monitor
 download
 hard-drive
 wifi-off
+
+# Accueil enrichi
+ellipsis-vertical

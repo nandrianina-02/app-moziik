@@ -69,6 +69,7 @@ import kotlinx.coroutines.launch
 import java.text.NumberFormat
 import java.util.Locale
 import com.moziik.app.ui.composants.LogoMoziik
+import com.moziik.app.ui.horsligne.PastilleTelechargement
 
 /** Les onglets du site (app/classements/page.tsx), dans son ordre et avec ses libellés. */
 enum class TypeClassement(val cle: String, val libelle: String) {
@@ -382,5 +383,11 @@ private fun LignePlace(e: EntreeClassement, type: TypeClassement, maxEcoutes: In
         }
         Spacer(Modifier.width(8.dp))
         Evolution(e.evolution, avecEvolution)
+        if (type == TypeClassement.TITRES) {
+            e.versTitre()?.let { titre ->
+                Spacer(Modifier.width(8.dp))
+                PastilleTelechargement(titre, taille = 28.dp)
+            }
+        }
     }
 }

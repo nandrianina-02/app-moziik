@@ -40,6 +40,7 @@ import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.launch
 import com.moziik.app.ui.horsligne.BoutonTelechargerLot
+import com.moziik.app.ui.horsligne.PastilleAlbum
 
 data class DonneesAlbum(val album: AlbumDetail, val autres: List<AlbumCourt>, val enregistre: Boolean)
 
@@ -157,7 +158,7 @@ fun RangeeAlbums(albums: List<AlbumCourt>, onOuvrir: (String) -> Unit) {
     LazyRow(contentPadding = PaddingValues(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(14.dp)) {
         items(albums, key = { it.id }) { a ->
             val ligne = listOfNotNull(TYPES[a.type], annee(a.releaseDate)).joinToString(" · ").ifEmpty { null }
-            CarteCollection(a.title, ligne, a.coverUrl, onClick = { onOuvrir(a.id) }, modifier = Modifier.width(140.dp))
+            CarteCollection(a.title, ligne, a.coverUrl, onClick = { onOuvrir(a.id) }, modifier = Modifier.width(140.dp), badge = R.drawable.lucide_disc_3, pastille = { PastilleAlbum(a.id, a.title, a.coverUrl) })
         }
     }
 }

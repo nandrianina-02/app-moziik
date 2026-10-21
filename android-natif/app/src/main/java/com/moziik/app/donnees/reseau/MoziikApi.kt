@@ -160,6 +160,7 @@ interface MoziikApi {
         @Query("sort") tri: String? = null,
         @Query("limit") limite: Int = 50,
         @Query("univers") univers: String? = null,
+        @Query("artist") artiste: String? = null,
     ): ListeTitres
 
     /** Aucun filtre de statut côté site : l'app écarte elle-même un titre non publié. */
@@ -208,6 +209,10 @@ interface MoziikApi {
     /** Toujours avec l'artiste : sans lui, le site renvoie tous les albums de la base. */
     @GET("api/albums")
     suspend fun albumsDe(@Query("artist") artiste: String): ListeAlbums
+
+    /** Tous les albums, du plus récent au plus ancien, sans filtre d'univers. */
+    @GET("api/albums")
+    suspend fun albums(): ListeAlbums
 
     @GET("api/me/saved-albums")
     suspend fun albumsEnregistres(): ListeAlbums

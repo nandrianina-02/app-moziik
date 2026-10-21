@@ -58,6 +58,9 @@ import androidx.navigation.compose.rememberNavController
 import androidx.navigation.NamedNavArgument
 import androidx.navigation.navArgument
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.repeatOnLifecycle
+import androidx.compose.foundation.layout.offset
+import androidx.compose.ui.semantics.contentDescription
 import com.moziik.app.donnees.session.EtatSession
 import com.moziik.app.lecteur.AlerteLecture
 import com.moziik.app.ui.accueil.EcranAccueil
@@ -68,6 +71,8 @@ import com.moziik.app.ui.conteneur
 import com.moziik.app.ui.bibliotheque.EcranBibliotheque
 import com.moziik.app.ui.decouvrir.EcranClassements
 import com.moziik.app.ui.menus.HoteMenus
+import com.moziik.app.ui.messages.EcranConversation
+import com.moziik.app.ui.messages.EcranMessages
 import com.moziik.app.ui.menus.LocalMenus
 import com.moziik.app.ui.menus.Menus
 import com.moziik.app.ui.decouvrir.EcranEvenements
@@ -107,6 +112,23 @@ fun Coquille(sombre: Boolean, onBasculerMode: () -> Unit) {
     val alerte by c.alertes.alerte.collectAsStateWithLifecycle()
     val session by c.session.etat.collectAsStateWithLifecycle()
     var pleinEcran by rememberSaveable { mutableStateOf(false) }
+    // Une conversation occupe tout l'écran : sans en-tête, barre du bas ni mini-lecteur, le clavier a la place.
+    val pleinePage = entree?.destination?.route == Fiches.CONVERSATION
+    val nonLus by c.messagerie.nonLus.collectAsStateWithLifecycle()
+    val cycle = androidx.lifecycle.compose.LocalLifecycleOwner.current
+    // Le compteur de la barre du bas : relu chaque minute tant que l'app est à l'écran (H4).
+    LaunchedEffect(session) {
+        if (session !is EtatSession.Connecte) {
+            c.messagerie.oublierNonLus()
+            return@LaunchedEffect
+        }
+        cycle.repeatOnLifecycle(androidx.lifecycle.Lifecycle.State.STARTED) {
+            while (true) {
+                c.messagerie.actualiserNonLus()
+                kotlinx.coroutines.delay(60_000)
+            }
+        }
+    }
     // Sur une fiche, l'onglet d'où elle a été ouverte reste allumé dans la barre du bas.
     var onglet by rememberSaveable { mutableStateOf(Destination.ACCUEIL) }
     LaunchedEffect(entree) {
@@ -146,7 +168,7 @@ fun Coquille(sombre: Boolean, onBasculerMode: () -> Unit) {
     CompositionLocalProvider(LocalNavigation provides navigationFiches, LocalMenus provides menus) {
     Box(Modifier.fillMaxSize().background(p.base.compose)) {
         Column(Modifier.fillMaxSize()) {
-            EnTete(sombre = sombre, onBasculerMode = onBasculerMode)
+            if (!pleinePage) EnTete(sombre = sombre, onBasculerMode = onBasculerMode)
             NavHost(
                 navController = navigation,
                 startDestination = Destination.ACCUEIL.route,
@@ -163,7 +185,9 @@ fun Coquille(sombre: Boolean, onBasculerMode: () -> Unit) {
                     EcranRecherche(termeDemande = termeDemande, onTermeConsomme = { termeDemande = null })
                 }
                 composable(Destination.MA_ZONE.route) { EcranBibliotheque(onConnexion = { aller(Destination.COMPTE) }) }
-                composable(Destination.MESSAGES.route) { EcranProvisoire(titre = Destination.MESSAGES.libelle) }
+                composable(Destination.MESSAGES.route) {
+                    EcranMessages(onConnexion = { aller(Destination.COMPTE) }, onOuvrir = { navigationFiches.conversation(it) })
+                }
                 grapheCompte(navigation)
                 // Les fiches s'empilent sur l'onglet d'où on les ouvre.
                 val retour: () -> Unit = { navigation.popBackStack() }
@@ -179,16 +203,17 @@ fun Coquille(sombre: Boolean, onBasculerMode: () -> Unit) {
                 composable(Fiches.RADIO, listOf(facultatif("station"))) { e -> EcranRadio(e.arguments?.getString("station")?.ifEmpty { null }, retour) }
                 composable(Fiches.TITRES, listOf(facultatif("genre"))) { e -> EcranTitres(e.arguments?.getString("genre")?.ifEmpty { null }, retour) }
                 composable(Fiches.EVENEMENTS) { EcranEvenements(retour) }
+                composable(Fiches.CONVERSATION) { e -> EcranConversation(e.arguments?.getString("id").orEmpty(), retour) }
             }
             BandeauMessage((alerte as? AlerteLecture.Message)?.texte, onFini = c.alertes::oublier, succes = (alerte as? AlerteLecture.Message)?.succes == true)
             AnimatedVisibility(
-                visible = lecture.courant != null,
+                visible = lecture.courant != null && !pleinePage,
                 enter = fadeIn(tween(Mouvement.VOILE)) + expandVertically(tween(Mouvement.VOILE, easing = Mouvement.sortieDouce)),
                 exit = fadeOut(tween(Mouvement.VOILE)) + shrinkVertically(tween(Mouvement.VOILE)),
             ) {
                 MiniLecteur(lecture, c.lecteur, onOuvrir = { pleinEcran = true })
             }
-            BarreDuBas(onglet = onglet, onChoisir = aller)
+            if (!pleinePage) BarreDuBas(onglet = onglet, nonLus = nonLus, onChoisir = aller)
         }
 
         // Le plein écran monte du bas et y redescend, par-dessus la coquille.
@@ -261,7 +286,7 @@ private fun EnTete(sombre: Boolean, onBasculerMode: () -> Unit) {
 }
 
 @Composable
-private fun BarreDuBas(onglet: Destination, onChoisir: (Destination) -> Unit) {
+private fun BarreDuBas(onglet: Destination, nonLus: Int, onChoisir: (Destination) -> Unit) {
     val p = LocalPalette.current
     Row(
         Modifier
@@ -285,7 +310,23 @@ private fun BarreDuBas(onglet: Destination, onChoisir: (Destination) -> Unit) {
                     .padding(vertical = 6.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
             ) {
-                Icone(dessin = d.icone, description = null, teinte = couleur)
+                Box {
+                    Icone(dessin = d.icone, description = null, teinte = couleur)
+                    if (d == Destination.MESSAGES && nonLus > 0) {
+                        Text(
+                            if (nonLus > 99) "99+" else "$nonLus",
+                            style = Texte.pastille,
+                            color = p.base.compose,
+                            modifier = Modifier
+                                .align(Alignment.TopEnd)
+                                .offset(x = 10.dp, y = (-4).dp)
+                                .clip(CircleShape)
+                                .background(p.accent.compose)
+                                .padding(horizontal = 5.dp, vertical = 1.dp)
+                                .semantics { contentDescription = "$nonLus message${if (nonLus > 1) "s" else ""} non lu${if (nonLus > 1) "s" else ""}" },
+                        )
+                    }
+                }
                 Spacer(Modifier.height(3.dp))
                 Text(d.libelle, style = Texte.navigation, color = couleur)
             }

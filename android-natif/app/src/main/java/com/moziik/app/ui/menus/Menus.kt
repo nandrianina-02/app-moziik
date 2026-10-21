@@ -54,6 +54,8 @@ import androidx.compose.ui.window.Dialog
 import com.moziik.app.R
 import com.moziik.app.donnees.catalogue.PlaylistMienne
 import com.moziik.app.donnees.catalogue.Titre
+import com.moziik.app.donnees.messagerie.PartageEnvoye
+import com.moziik.app.ui.messages.ChoixDestinataire
 import com.moziik.app.donnees.reseau.messageErreur
 import com.moziik.app.donnees.session.EtatSession
 import com.moziik.app.donnees.session.appel
@@ -98,6 +100,17 @@ class Menus {
         private set
     var version by mutableIntStateOf(0)
         private set
+    var envoi by mutableStateOf<PartageEnvoye?>(null)
+        private set
+
+    /** « Envoyer dans un message » (H10). */
+    fun envoyerDansUnMessage(partage: PartageEnvoye) {
+        envoi = partage
+    }
+
+    fun fermerEnvoi() {
+        envoi = null
+    }
 
     fun titre(titre: Titre, source: String? = null, extras: List<ActionMenu> = emptyList()) {
         this.source = source
@@ -137,6 +150,22 @@ val LocalMenus = staticCompositionLocalOf<Menus> { error("Menus absents : l'écr
 fun HoteMenus(menus: Menus) {
     menus.titre?.let { MenuTitre(it, menus) }
     menus.ajout?.let { AjoutPlaylist(it, menus) }
+    menus.envoi?.let { partage ->
+        val c = conteneur()
+        val nav = navigation()
+        var conversations by remember { mutableStateOf<List<com.moziik.app.donnees.messagerie.Conversation>?>(null) }
+        LaunchedEffect(partage) { conversations = runCatching { c.messagerie.conversations() }.getOrNull() }
+        ChoixDestinataire(
+            titre = "Envoyer à…",
+            partage = partage,
+            conversations = conversations,
+            onFermer = menus::fermerEnvoi,
+            onConversation = { id ->
+                menus.fermerEnvoi()
+                nav.conversation(id)
+            },
+        )
+    }
     menus.creation?.let { titres ->
         val c = conteneur()
         DialoguePlaylist(
@@ -247,6 +276,12 @@ private fun MenuTitre(titre: Titre, menus: Menus) {
                             }
                             .onFailure { c.alertes.signaler(AlerteLecture.Message(messageErreur(it))) }
                     }
+                }
+            }
+            LigneMenu(R.drawable.lucide_message_circle, "Envoyer dans un message") {
+                exiger("Connecte-toi pour écrire aux autres membres.") {
+                    fermer()
+                    menus.envoyerDansUnMessage(PartageEnvoye("song", titre.id))
                 }
             }
             LigneMenu(R.drawable.lucide_share_2, "Partager") {

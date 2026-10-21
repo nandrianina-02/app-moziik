@@ -31,6 +31,15 @@ import com.moziik.app.donnees.catalogue.NouvellePlaylist
 import com.moziik.app.donnees.catalogue.ReponsePlaylistCreee
 import com.moziik.app.donnees.catalogue.TitreDePlaylist
 import com.moziik.app.donnees.catalogue.TitresDePlaylist
+import com.moziik.app.donnees.messagerie.CompteurNonLus
+import com.moziik.app.donnees.messagerie.ConversationAOuvrir
+import com.moziik.app.donnees.messagerie.Destinataires
+import com.moziik.app.donnees.messagerie.ListeConversations
+import com.moziik.app.donnees.messagerie.ModificationMessage
+import com.moziik.app.donnees.messagerie.NouveauMessage
+import com.moziik.app.donnees.messagerie.PageMessages
+import com.moziik.app.donnees.messagerie.ReponseConversation
+import com.moziik.app.donnees.messagerie.ReponseMessage
 import retrofit2.http.Body
 import retrofit2.http.DELETE
 import retrofit2.http.HTTP
@@ -208,6 +217,42 @@ interface MoziikApi {
     /** Les 12 derniers titres écoutés, distincts, de l'univers (F5). */
     @GET("api/me/recent")
     suspend fun recents(@Query("univers") univers: String?): ListeTitres
+
+    // Messagerie (H4 à H8)
+
+    @GET("api/messagerie/non-lus")
+    suspend fun nonLus(): CompteurNonLus
+
+    @GET("api/messagerie/conversations")
+    suspend fun conversations(): ListeConversations
+
+    @GET("api/messagerie/conversations/{id}")
+    suspend fun conversation(@Path("id") id: String): ReponseConversation
+
+    /** 40 messages avant `avant`, ou ceux créés ou modifiés depuis `depuis`. */
+    @GET("api/messagerie/conversations/{id}/messages")
+    suspend fun messages(@Path("id") id: String, @Query("avant") avant: String?, @Query("depuis") depuis: String?): PageMessages
+
+    @POST("api/messagerie/conversations/{id}/messages")
+    suspend fun envoyerMessage(@Path("id") id: String, @Body corps: NouveauMessage): ReponseMessage
+
+    @PATCH("api/messagerie/messages/{id}")
+    suspend fun modifierMessage(@Path("id") id: String, @Body corps: ModificationMessage): ReponseMessage
+
+    @DELETE("api/messagerie/messages/{id}")
+    suspend fun supprimerMessage(@Path("id") id: String): ReponseMessage
+
+    @POST("api/messagerie/conversations/{id}/lu")
+    suspend fun marquerLu(@Path("id") id: String)
+
+    @POST("api/messagerie/conversations/{id}/saisie")
+    suspend fun signalerSaisie(@Path("id") id: String)
+
+    @GET("api/messagerie/destinataires")
+    suspend fun destinataires(@Query("q") recherche: String?): Destinataires
+
+    @POST("api/messagerie/conversations")
+    suspend fun ouvrirConversation(@Body corps: ConversationAOuvrir): ReponseConversation
 
     @GET("api/me/followed-artists")
     suspend fun artistesSuivis(): ArtistesSuivis

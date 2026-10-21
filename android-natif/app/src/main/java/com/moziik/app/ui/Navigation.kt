@@ -19,6 +19,7 @@ object Fiches {
     const val RADIO = "radio?station={station}"
     const val TITRES = "titres?genre={genre}"
     const val EVENEMENTS = "evenements"
+    const val CONVERSATION = "conversation/{id}"
 }
 
 /**
@@ -39,6 +40,7 @@ class Navigation(
     fun radio(station: String? = null) = aller("radio?station=${Uri.encode(station.orEmpty())}")
     fun titres(genre: String? = null) = aller("titres?genre=${Uri.encode(genre.orEmpty())}")
     fun evenements() = aller("evenements")
+    fun conversation(id: String) = aller("conversation/$id")
     fun rechercher(terme: String) {
         onAvantNavigation()
         onRechercher(terme)

@@ -6,6 +6,7 @@ import com.moziik.app.BuildConfig
 import com.moziik.app.donnees.catalogue.Bibliotheque
 import com.moziik.app.donnees.catalogue.Catalogue
 import com.moziik.app.donnees.catalogue.HistoriqueRecherche
+import com.moziik.app.donnees.messagerie.Messagerie
 import com.moziik.app.donnees.reseau.Reseau
 import com.moziik.app.donnees.session.CoffreSession
 import com.moziik.app.donnees.session.Session
@@ -30,6 +31,7 @@ class Conteneur(contexte: Context) {
     val catalogue = Catalogue(reseau.api, session, File(contexte.filesDir, "catalogue"))
     val historiqueRecherche = HistoriqueRecherche(contexte)
     val bibliotheque = Bibliotheque(reseau.api, catalogue::univers)
+    val messagerie = Messagerie(reseau.api)
     /** Messages du service de lecture à l'écran (quota atteint, titre indisponible). */
     val alertes = AlertesLecture()
     val lecteur = Lecteur(contexte, BuildConfig.SITE)

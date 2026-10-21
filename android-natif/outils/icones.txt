@@ -79,3 +79,12 @@ globe
 layout-grid
 circle-check
 podcast
+
+# Messagerie
+send-horizontal
+bell-off
+message-circle
+copy
+reply
+message-square-plus
+check-check

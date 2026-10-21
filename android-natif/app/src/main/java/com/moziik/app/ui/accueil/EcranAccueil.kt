@@ -85,6 +85,7 @@ import com.moziik.app.ui.composants.Pochette
 import com.moziik.app.ui.composants.apparitionUneFois
 import com.moziik.app.ui.composants.pressable
 import com.moziik.app.ui.conteneur
+import com.moziik.app.ui.navigation
 import com.moziik.app.ui.ouvrirLien
 import com.moziik.app.ui.rememberLancement
 import kotlinx.coroutines.delay
@@ -115,7 +116,7 @@ private const val DELAI_DIAPO_MS = 7_000L
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun EcranAccueil(onRechercher: (String) -> Unit) {
+fun EcranAccueil() {
     val c = conteneur()
     val modele: ModeleAccueil = viewModel { ModeleAccueil(c.catalogue, c.session) }
     val etat by modele.etat.collectAsStateWithLifecycle()
@@ -125,16 +126,19 @@ fun EcranAccueil(onRechercher: (String) -> Unit) {
     val contexte = LocalContext.current
     val p = LocalPalette.current
     val vus = remember { mutableSetOf<Any>() }
+    val nav = navigation()
 
-    // Un lien des données du site : lecture, recherche, ou page externe.
+    // Un lien des données du site : une fiche, une lecture, la recherche, ou une page externe.
     val suivre: (String, String) -> Unit = { cle, lien ->
-        when (val cible = cibleDe(lien, BuildConfig.SITE)) {
-            is Cible.Ancre -> etat.sections.filterIsInstance<Section.Titres>().firstOrNull { it.cle == cible.cle }
-                ?.let { lancement.titres(it.titres, 0, it.titre) }
-            is Cible.DeRecherche -> onRechercher(cible.terme)
-            is Cible.Externe -> ouvrirLien(contexte, cible.adresse, p.base.enArgb().toInt())
-            Cible.Inconnue -> Unit
-            else -> lancement.cible(cle, cible)
+        val cible = cibleDe(lien, BuildConfig.SITE)
+        if (!nav.suivre(cible)) {
+            when (cible) {
+                is Cible.Ancre -> etat.sections.filterIsInstance<Section.Titres>().firstOrNull { it.cle == cible.cle }
+                    ?.let { lancement.titres(it.titres, 0, it.titre) }
+                is Cible.Externe -> ouvrirLien(contexte, cible.adresse, p.base.enArgb().toInt())
+                Cible.Inconnue -> Unit
+                else -> lancement.cible(cle, cible)
+            }
         }
     }
 
@@ -311,6 +315,14 @@ private fun DiapoBanniere(diapo: Diapo, nouveautes: List<Titre>, lancement: Lanc
         diapo.custom != null -> Triple(diapo.custom.title, diapo.custom.subtitle, diapo.custom.coverUrl)
         else -> Triple("", null, null)
     }
+    val nav = navigation()
+    val fiche: (() -> Unit)? = when {
+        diapo.song != null -> ({ nav.titre(diapo.song.id) })
+        diapo.album != null -> ({ nav.album(diapo.album.id) })
+        diapo.artist != null -> ({ nav.artiste(diapo.artist.id) })
+        diapo.playlist != null -> ({ nav.playlist(diapo.playlist.id) })
+        else -> null
+    }
     // Les évènements attendent leur écran : leur diapositive informe, sans bouton qui ne mènerait nulle part.
     val action: (() -> Unit)? = when {
         diapo.song != null -> {
@@ -363,6 +375,19 @@ private fun DiapoBanniere(diapo: Diapo, nouveautes: List<Titre>, lancement: Lanc
                     }
                     Spacer(Modifier.width(8.dp))
                     Text(if (diapo.custom != null) "Découvrir" else "Écouter maintenant", style = Texte.corpsFort, color = p.base.compose)
+                }
+                if (fiche != null) {
+                    Spacer(Modifier.height(10.dp))
+                    Text(
+                        "Voir la fiche",
+                        style = Texte.corpsFort,
+                        color = Color.White,
+                        modifier = Modifier
+                            .clip(CircleShape)
+                            .border(BorderStroke(1.dp, Color.White.copy(alpha = 0.25f)), CircleShape)
+                            .pressable(onClick = fiche)
+                            .padding(horizontal = 20.dp, vertical = 10.dp),
+                    )
                 }
             }
         }
@@ -443,6 +468,7 @@ private fun CarteBandeSon(prenom: String?, avatar: String?, lancement: Lancement
 @Composable
 private fun BlocSection(section: Section, lecture: EtatLecteur, lancement: Lancement, suivre: (String, String) -> Unit) {
     val p = LocalPalette.current
+    val nav = navigation()
     val enCours = lecture.courant?.id
     when (section) {
         is Section.PourToi -> {
@@ -463,14 +489,23 @@ private fun BlocSection(section: Section, lecture: EtatLecteur, lancement: Lance
             ) {
                 EnTeteSection(section.titre, icone = R.drawable.lucide_trending_up)
                 section.titres.forEachIndexed { i, titre ->
-                    LigneTitre(titre, i + 1, titre.id == enCours, lecture.enLecture, onClick = { lancement.titres(section.titres, i, section.titre) })
+                    LigneTitre(
+                        titre, i + 1, titre.id == enCours, lecture.enLecture,
+                        onClick = { lancement.titres(section.titres, i, section.titre) },
+                        onAppuiLong = { nav.titre(titre.id) },
+                    )
                 }
             }
         } else {
             EnTeteSection(section.titre, SOUS_TITRES[section.cle])
             LazyRow(horizontalArrangement = Arrangement.spacedBy(14.dp)) {
                 itemsIndexed(section.titres, key = { _, t -> t.id }) { i, titre ->
-                    CarteTitre(titre, titre.id == enCours, lecture.enLecture, onClick = { lancement.titres(section.titres, i, section.titre) }, modifier = Modifier.width(140.dp))
+                    CarteTitre(
+                        titre, titre.id == enCours, lecture.enLecture,
+                        onClick = { lancement.titres(section.titres, i, section.titre) },
+                        modifier = Modifier.width(140.dp),
+                        onAppuiLong = { nav.titre(titre.id) },
+                    )
                 }
             }
         }
@@ -482,13 +517,11 @@ private fun BlocSection(section: Section, lecture: EtatLecteur, lancement: Lance
             EnTeteSection(section.titre, SOUS_TITRES[section.cle])
             LazyRow(horizontalArrangement = Arrangement.spacedBy(14.dp)) {
                 items(section.albums, key = { it.id }) { album ->
-                    val cle = "album-${album.id}"
                     CarteCollection(
                         album.title, album.artist?.stageName, album.coverUrl,
-                        onClick = { lancement.cible(cle, Cible.DAlbum(album.id)) },
+                        onClick = { nav.album(album.id) },
                         modifier = Modifier.width(140.dp),
                         verifie = album.artist?.verified == true,
-                        chargement = lancement.enCours == cle,
                     )
                 }
             }
@@ -497,12 +530,10 @@ private fun BlocSection(section: Section, lecture: EtatLecteur, lancement: Lance
             EnTeteSection(section.titre, SOUS_TITRES[section.cle])
             LazyRow(horizontalArrangement = Arrangement.spacedBy(14.dp)) {
                 items(section.playlists, key = { it.id }) { playlist ->
-                    val cle = "playlist-${playlist.id}"
                     CarteCollection(
                         playlist.title, playlist.songsCount?.let { "$it titre${if (it > 1) "s" else ""}" }, playlist.coverUrl,
-                        onClick = { lancement.cible(cle, Cible.DePlaylist(playlist.id)) },
+                        onClick = { nav.playlist(playlist.id) },
                         modifier = Modifier.width(140.dp),
-                        chargement = lancement.enCours == cle,
                     )
                 }
             }
@@ -511,13 +542,11 @@ private fun BlocSection(section: Section, lecture: EtatLecteur, lancement: Lance
             EnTeteSection(section.titre)
             LazyRow(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
                 items(section.artistes, key = { it.id }) { artiste ->
-                    val cle = "artiste-${artiste.id}"
                     CarteArtiste(
                         artiste.stageName, artiste.coverUrl, artiste.verified,
                         artiste.followersCount?.let { "$it abonné${if (it > 1) "s" else ""}" },
-                        onClick = { lancement.cible(cle, Cible.DArtiste(artiste.id)) },
+                        onClick = { nav.artiste(artiste.id) },
                         modifier = Modifier.width(96.dp),
-                        chargement = lancement.enCours == cle,
                     )
                 }
             }

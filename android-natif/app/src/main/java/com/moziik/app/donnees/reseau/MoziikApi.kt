@@ -1,6 +1,12 @@
 package com.moziik.app.donnees.reseau
 
 import com.moziik.app.donnees.catalogue.Accueil
+import com.moziik.app.donnees.catalogue.AlbumAEnregistrer
+import com.moziik.app.donnees.catalogue.ArtistesSuivis
+import com.moziik.app.donnees.catalogue.EtatEnregistre
+import com.moziik.app.donnees.catalogue.EtatSuivi
+import com.moziik.app.donnees.catalogue.ListeAlbums
+import com.moziik.app.donnees.catalogue.ReponseParoles
 import com.moziik.app.donnees.catalogue.Classement
 import com.moziik.app.donnees.catalogue.Ecoute
 import com.moziik.app.donnees.catalogue.EtatAime
@@ -117,6 +123,31 @@ interface MoziikApi {
 
     @POST("api/songs/{id}/play")
     suspend fun ecoute(@Path("id") id: String, @Body corps: Ecoute)
+
+    @GET("api/songs/{id}/lyrics")
+    suspend fun paroles(@Path("id") id: String): ReponseParoles
+
+    /** Compte un partage (20 par minute et par adresse IP). */
+    @POST("api/songs/{id}/share")
+    suspend fun partage(@Path("id") id: String)
+
+    /** Toujours avec l'artiste : sans lui, le site renvoie tous les albums de la base. */
+    @GET("api/albums")
+    suspend fun albumsDe(@Query("artist") artiste: String): ListeAlbums
+
+    @GET("api/me/saved-albums")
+    suspend fun albumsEnregistres(): ListeAlbums
+
+    /** Bascule : le site répond l'état obtenu. */
+    @POST("api/me/saved-albums")
+    suspend fun basculerAlbum(@Body corps: AlbumAEnregistrer): EtatEnregistre
+
+    @GET("api/me/followed-artists")
+    suspend fun artistesSuivis(): ArtistesSuivis
+
+    /** Bascule : le site répond l'état obtenu et le nouveau nombre d'abonnés. */
+    @POST("api/artists/{id}/follow")
+    suspend fun basculerSuivi(@Path("id") id: String): EtatSuivi
 }
 
 @Serializable

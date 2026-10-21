@@ -31,7 +31,9 @@ import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -47,7 +49,6 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
-import androidx.navigation.NavDestination
 import androidx.navigation.NavDestination.Companion.hierarchy
 import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.compose.NavHost
@@ -58,7 +59,14 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.moziik.app.donnees.session.EtatSession
 import com.moziik.app.lecteur.AlerteLecture
 import com.moziik.app.ui.accueil.EcranAccueil
+import com.moziik.app.ui.Fiches
+import com.moziik.app.ui.LocalNavigation
+import com.moziik.app.ui.Navigation
 import com.moziik.app.ui.conteneur
+import com.moziik.app.ui.fiches.FicheAlbum
+import com.moziik.app.ui.fiches.FicheArtiste
+import com.moziik.app.ui.fiches.FichePlaylist
+import com.moziik.app.ui.fiches.FicheTitre
 import com.moziik.app.ui.lecteur.BandeauMessage
 import com.moziik.app.ui.lecteur.LecteurPleinEcran
 import com.moziik.app.ui.lecteur.MiniLecteur
@@ -89,6 +97,12 @@ fun Coquille(sombre: Boolean, onBasculerMode: () -> Unit) {
     val alerte by c.alertes.alerte.collectAsStateWithLifecycle()
     val session by c.session.etat.collectAsStateWithLifecycle()
     var pleinEcran by rememberSaveable { mutableStateOf(false) }
+    // Sur une fiche, l'onglet d'où elle a été ouverte reste allumé dans la barre du bas.
+    var onglet by rememberSaveable { mutableStateOf(Destination.ACCUEIL) }
+    LaunchedEffect(entree) {
+        val destination = entree?.destination ?: return@LaunchedEffect
+        Destination.entries.firstOrNull { d -> destination.hierarchy.any { it.route == d.route } }?.let { onglet = it }
+    }
     // Terme transmis à l'onglet Recherche par un lien de l'accueil (« /recherche?q=… »).
     var termeDemande by rememberSaveable { mutableStateOf<String?>(null) }
 
@@ -106,6 +120,18 @@ fun Coquille(sombre: Boolean, onBasculerMode: () -> Unit) {
         if (session is EtatSession.Connecte && c.alertes.alerte.value == AlerteLecture.Quota) c.alertes.oublier()
     }
 
+    val navigationFiches = remember(navigation) {
+        Navigation(
+            navigation,
+            onRechercher = { terme ->
+                termeDemande = terme
+                aller(Destination.RECHERCHE)
+            },
+            onAvantNavigation = { pleinEcran = false },
+        )
+    }
+
+    CompositionLocalProvider(LocalNavigation provides navigationFiches) {
     Box(Modifier.fillMaxSize().background(p.base.compose)) {
         Column(Modifier.fillMaxSize()) {
             EnTete(sombre = sombre, onBasculerMode = onBasculerMode)
@@ -120,12 +146,7 @@ fun Coquille(sombre: Boolean, onBasculerMode: () -> Unit) {
                 },
                 exitTransition = { fadeOut(tween(Mouvement.ENTREE_PAGE / 2)) },
             ) {
-                composable(Destination.ACCUEIL.route) {
-                    EcranAccueil(onRechercher = { terme ->
-                        termeDemande = terme
-                        aller(Destination.RECHERCHE)
-                    })
-                }
+                composable(Destination.ACCUEIL.route) { EcranAccueil() }
                 composable(Destination.RECHERCHE.route) {
                     EcranRecherche(termeDemande = termeDemande, onTermeConsomme = { termeDemande = null })
                 }
@@ -133,6 +154,12 @@ fun Coquille(sombre: Boolean, onBasculerMode: () -> Unit) {
                     composable(d.route) { EcranProvisoire(titre = d.libelle) }
                 }
                 grapheCompte(navigation)
+                // Les fiches s'empilent sur l'onglet d'où on les ouvre.
+                val retour: () -> Unit = { navigation.popBackStack() }
+                composable(Fiches.ALBUM) { e -> FicheAlbum(e.arguments?.getString("id").orEmpty(), retour) }
+                composable(Fiches.ARTISTE) { e -> FicheArtiste(e.arguments?.getString("id").orEmpty(), retour) }
+                composable(Fiches.PLAYLIST) { e -> FichePlaylist(e.arguments?.getString("id").orEmpty(), retour) }
+                composable(Fiches.TITRE) { e -> FicheTitre(e.arguments?.getString("id").orEmpty(), retour) }
             }
             BandeauMessage((alerte as? AlerteLecture.Message)?.texte, onFini = c.alertes::oublier)
             AnimatedVisibility(
@@ -142,7 +169,7 @@ fun Coquille(sombre: Boolean, onBasculerMode: () -> Unit) {
             ) {
                 MiniLecteur(lecture, c.lecteur, onOuvrir = { pleinEcran = true })
             }
-            BarreDuBas(courante = entree?.destination, onChoisir = aller)
+            BarreDuBas(onglet = onglet, onChoisir = aller)
         }
 
         // Le plein écran monte du bas et y redescend, par-dessus la coquille.
@@ -153,6 +180,8 @@ fun Coquille(sombre: Boolean, onBasculerMode: () -> Unit) {
         ) {
             LecteurPleinEcran(lecture, onFermer = { pleinEcran = false })
         }
+    }
+
     }
 
     // Retour : le lecteur plein écran se ferme avant toute navigation.
@@ -212,7 +241,7 @@ private fun EnTete(sombre: Boolean, onBasculerMode: () -> Unit) {
 }
 
 @Composable
-private fun BarreDuBas(courante: NavDestination?, onChoisir: (Destination) -> Unit) {
+private fun BarreDuBas(onglet: Destination, onChoisir: (Destination) -> Unit) {
     val p = LocalPalette.current
     Row(
         Modifier
@@ -225,7 +254,7 @@ private fun BarreDuBas(courante: NavDestination?, onChoisir: (Destination) -> Un
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Destination.entries.forEach { d ->
-            val active = courante?.hierarchy?.any { it.route == d.route } == true
+            val active = d == onglet
             val couleur = if (active) p.accent.compose else p.encreAttenuee.compose
             Column(
                 Modifier

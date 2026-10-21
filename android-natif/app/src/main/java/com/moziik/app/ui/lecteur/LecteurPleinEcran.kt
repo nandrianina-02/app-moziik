@@ -31,12 +31,16 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -60,13 +64,14 @@ import com.moziik.app.ui.composants.NomArtiste
 import com.moziik.app.ui.composants.Pochette
 import com.moziik.app.ui.composants.duree
 import com.moziik.app.ui.conteneur
+import com.moziik.app.ui.navigation
 import kotlinx.coroutines.launch
 
 /**
  * Le lecteur plein écran (FullPlayerPage.tsx, mise en page téléphone) :
- * pochette, titre, j'aime, progression, transport, puis la suite de la
- * file. Les onglets Paroles, Infos, Crédits et Avis viendront avec les
- * fiches titre.
+ * pochette, titre, j'aime, progression, transport, puis deux onglets,
+ * les paroles et la suite de la file. Le titre et l'artiste ouvrent leur
+ * fiche.
  */
 @Composable
 fun LecteurPleinEcran(etat: EtatLecteur, onFermer: () -> Unit) {
@@ -75,9 +80,11 @@ fun LecteurPleinEcran(etat: EtatLecteur, onFermer: () -> Unit) {
     val p = LocalPalette.current
     val courant = etat.courant ?: return
     val avancement by rememberAvancement(lecteur, courant.id)
+    val nav = navigation()
     val aSuivre = remember(etat.file, etat.suivants) {
         etat.suivants.mapNotNull { i -> etat.file.getOrNull(i)?.let { IndexedValue(i, it) } }
     }
+    var onglet by rememberSaveable { mutableStateOf(OngletLecteur.PAROLES) }
 
     Column(
         Modifier
@@ -111,9 +118,21 @@ fun LecteurPleinEcran(etat: EtatLecteur, onFermer: () -> Unit) {
             item(key = "titre") {
                 Row(Modifier.fillMaxWidth().padding(top = 24.dp), verticalAlignment = Alignment.CenterVertically) {
                     Column(Modifier.weight(1f)) {
-                        Text(courant.titre, style = Texte.titreLecteur, color = p.encre.compose, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                        Text(
+                            courant.titre,
+                            style = Texte.titreLecteur,
+                            color = p.encre.compose,
+                            maxLines = 2,
+                            overflow = TextOverflow.Ellipsis,
+                            modifier = Modifier.clip(RoundedCornerShape(6.dp)).clickable(role = Role.Button, onClickLabel = "Voir la fiche du titre") { nav.titre(courant.id) },
+                        )
                         Spacer(Modifier.height(2.dp))
-                        NomArtiste(courant.artiste, courant.verifie, taille = 14.dp)
+                        NomArtiste(
+                            courant.artiste, courant.verifie, taille = 14.dp,
+                            modifier = courant.artisteId?.let { a ->
+                                Modifier.clip(RoundedCornerShape(6.dp)).clickable(role = Role.Button, onClickLabel = "Voir l'artiste") { nav.artiste(a) }
+                            } ?: Modifier,
+                        )
                     }
                     BoutonAime(courant)
                 }
@@ -129,17 +148,61 @@ fun LecteurPleinEcran(etat: EtatLecteur, onFermer: () -> Unit) {
                 }
             }
             item(key = "transport") { Transport(etat) }
-            if (aSuivre.isNotEmpty()) {
-                item(key = "a-suivre") {
-                    Row(Modifier.padding(top = 36.dp, bottom = 8.dp), verticalAlignment = Alignment.CenterVertically) {
-                        Icone(R.drawable.lucide_list_music, description = null, teinte = p.accent.compose, taille = 16.dp)
-                        Spacer(Modifier.width(8.dp))
-                        Text("À suivre", style = Texte.titreSection, color = p.encre.compose)
+            item(key = "onglets") { Onglets(onglet) { onglet = it } }
+            when (onglet) {
+                OngletLecteur.PAROLES -> item(key = "paroles") {
+                    PanneauParoles(courant, avancement, lecteur::deplacer, hauteur = 420.dp)
+                }
+                OngletLecteur.FILE -> if (aSuivre.isEmpty()) {
+                    item(key = "file-vide") {
+                        Text(
+                            "Rien après ce titre : la suite se compose seule, avec des titres proches.",
+                            style = Texte.corps, color = p.encreAttenuee.compose, modifier = Modifier.padding(vertical = 16.dp),
+                        )
+                    }
+                } else {
+                    itemsIndexed(aSuivre, key = { _, e -> "suivant-${e.index}-${e.value.id}" }) { _, element ->
+                        LigneFile(element.value) { lecteur.allerA(element.index) }
                     }
                 }
-                itemsIndexed(aSuivre, key = { _, e -> "suivant-${e.index}-${e.value.id}" }) { _, element ->
-                    LigneFile(element.value) { lecteur.allerA(element.index) }
-                }
+            }
+        }
+    }
+}
+
+private enum class OngletLecteur(val libelle: String, val icone: Int) {
+    PAROLES("Paroles", R.drawable.lucide_mic_vocal),
+    FILE("À suivre", R.drawable.lucide_list_music),
+}
+
+/** Les onglets du lecteur, soulignés à l'accent comme ceux du site. */
+@Composable
+private fun Onglets(actif: OngletLecteur, onChoisir: (OngletLecteur) -> Unit) {
+    val p = LocalPalette.current
+    val filet = p.bordure.compose
+    Row(
+        Modifier
+            .fillMaxWidth()
+            .padding(top = 28.dp, bottom = 12.dp)
+            .drawBehind { drawLine(filet, Offset(0f, size.height), Offset(size.width, size.height), 1.dp.toPx()) },
+    ) {
+        OngletLecteur.entries.forEach { o ->
+            val choisi = o == actif
+            val couleur = if (choisi) p.accent.compose else p.encreAttenuee.compose
+            val accent = p.accent.compose
+            Row(
+                Modifier
+                    .clickable(role = Role.Tab) { onChoisir(o) }
+                    .semantics { selected = choisi }
+                    .drawBehind {
+                        if (choisi) drawLine(accent, Offset(0f, size.height), Offset(size.width, size.height), 2.dp.toPx())
+                    }
+                    .padding(horizontal = 12.dp, vertical = 10.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Icone(o.icone, description = null, teinte = couleur, taille = 15.dp)
+                Spacer(Modifier.width(6.dp))
+                Text(o.libelle, style = Texte.corps.copy(fontWeight = FontWeight.Medium), color = couleur)
             }
         }
     }

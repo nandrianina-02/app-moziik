@@ -45,9 +45,22 @@ data class Titre(
     val status: String? = null,
     val playsCount: Int = 0,
     val likesCount: Int = 0,
+    val sharesCount: Int = 0,
+    val releaseDate: String? = null,
+    val language: String? = null,
+    @Serializable(with = AlbumSouple::class) val album: AlbumDuTitre? = null,
 ) {
     /** Un brouillon n'est jamais proposé à l'écoute (spécification, domaine D). */
     val publie: Boolean get() = status == null || status == "published"
+}
+
+/** L'album d'un titre : peuplé sur la fiche titre, simple identifiant dans les listes. */
+@Serializable
+data class AlbumDuTitre(@SerialName("_id") val id: String, val title: String? = null, val coverUrl: String? = null, val type: String? = null)
+
+object AlbumSouple : JsonTransformingSerializer<AlbumDuTitre>(AlbumDuTitre.serializer()) {
+    override fun transformDeserialize(element: JsonElement): JsonElement =
+        if (element is JsonPrimitive) buildJsonObject { put("_id", element) } else element
 }
 
 @Serializable
@@ -57,6 +70,7 @@ data class AlbumCourt(
     val coverUrl: String? = null,
     val type: String? = null,
     @Serializable(with = ArtisteSouple::class) val artist: ArtisteCourt? = null,
+    val releaseDate: String? = null,
 )
 
 @Serializable
@@ -210,16 +224,70 @@ data class AlbumDetail(
     val title: String,
     @Serializable(with = ArtisteSouple::class) val artist: ArtisteCourt? = null,
     val songs: List<Titre> = emptyList(),
+    val coverUrl: String? = null,
+    val bannerUrl: String? = null,
+    val description: String? = null,
+    /** album, ep, single ou podcast : le vocabulaire de la fiche en dépend (un podcast compte des épisodes). */
+    val type: String? = null,
+    val releaseDate: String? = null,
 )
+
+@Serializable
+data class ListeAlbums(val albums: List<AlbumCourt> = emptyList())
+
+@Serializable
+data class AlbumAEnregistrer(val albumId: String)
+
+@Serializable
+data class EtatEnregistre(val saved: Boolean = false)
 
 @Serializable
 data class ReponsePlaylist(val playlist: PlaylistDetail)
 
 @Serializable
-data class PlaylistDetail(@SerialName("_id") val id: String, val title: String, val songs: List<Titre> = emptyList())
+data class PlaylistDetail(
+    @SerialName("_id") val id: String,
+    val title: String,
+    val songs: List<Titre> = emptyList(),
+    val coverUrl: String? = null,
+    val description: String? = null,
+    @Serializable(with = ProprietaireSouple::class) val owner: Proprietaire? = null,
+)
+
+/** GET /api/artists/{id} : la fiche, ses titres publiés, ses sorties et son voisinage. */
+@Serializable
+data class ReponseArtiste(
+    val artist: ArtisteDetail,
+    val songs: List<Titre> = emptyList(),
+    val topSongs: List<Titre> = emptyList(),
+    val albums: List<AlbumCourt> = emptyList(),
+    val singles: List<AlbumCourt> = emptyList(),
+    val playlistsFeaturing: List<PlaylistCourte> = emptyList(),
+    val similarArtists: List<ArtisteCarte> = emptyList(),
+)
 
 @Serializable
-data class ReponseArtiste(val artist: ArtisteCarte, val songs: List<Titre> = emptyList(), val topSongs: List<Titre> = emptyList())
+data class ArtisteDetail(
+    @SerialName("_id") val id: String,
+    val stageName: String,
+    val bio: String? = null,
+    val coverUrl: String? = null,
+    val bannerUrl: String? = null,
+    val verified: Boolean = false,
+    val followersCount: Int = 0,
+    val totalPlays: Int = 0,
+    val songsCount: Int = 0,
+)
+
+@Serializable
+data class ArtistesSuivis(val artists: List<ArtisteCarte> = emptyList())
+
+@Serializable
+data class EtatSuivi(val following: Boolean = false, val followersCount: Int = 0)
+
+/** GET /api/songs/{id}/lyrics : `raw` est le texte enregistré, analysé par l'app comme par le site. */
+@Serializable
+data class ReponseParoles(val raw: String = "")
 
 @Serializable
 data class UniversCourant(val univers: String? = null)

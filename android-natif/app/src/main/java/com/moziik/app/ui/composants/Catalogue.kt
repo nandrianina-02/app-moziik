@@ -3,7 +3,8 @@ package com.moziik.app.ui.composants
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
+import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.Arrangement
@@ -100,14 +101,15 @@ fun NomArtiste(nom: String?, verifie: Boolean, modifier: Modifier = Modifier, ta
 }
 
 /** Appui sur un élément pressable : échelle 0,97 en 140 ms, comme la classe .pressable du site. */
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
-fun Modifier.pressable(role: Role = Role.Button, onClick: () -> Unit): Modifier {
+fun Modifier.pressable(role: Role = Role.Button, onLongClick: (() -> Unit)? = null, onClick: () -> Unit): Modifier {
     val interactions = remember { MutableInteractionSource() }
     val appuye by interactions.collectIsPressedAsState()
     val echelle by animateFloatAsState(if (appuye) 0.97f else 1f, tween(Mouvement.APPUI), label = "appui")
     return this
         .graphicsLayer { scaleX = echelle; scaleY = echelle }
-        .clickable(interactionSource = interactions, indication = null, role = role, onClick = onClick)
+        .combinedClickable(interactionSource = interactions, indication = null, role = role, onLongClick = onLongClick, onClick = onClick)
 }
 
 /** En-tête de section, unifié comme SectionHeader.tsx : titre en Sora, sous-titre discret. */
@@ -134,9 +136,9 @@ fun EnTeteSection(titre: String, sousTitre: String? = null, modifier: Modifier =
  * cours passe à l'accent.
  */
 @Composable
-fun CarteTitre(titre: Titre, enCours: Boolean, enLecture: Boolean, onClick: () -> Unit, modifier: Modifier = Modifier) {
+fun CarteTitre(titre: Titre, enCours: Boolean, enLecture: Boolean, onClick: () -> Unit, modifier: Modifier = Modifier, onAppuiLong: (() -> Unit)? = null) {
     val p = LocalPalette.current
-    Column(modifier.pressable(onClick = onClick)) {
+    Column(modifier.pressable(onLongClick = onAppuiLong, onClick = onClick)) {
         Box(Modifier.fillMaxWidth().aspectRatio(1f)) {
             Pochette(titre.coverUrl, Modifier.fillMaxSize(), description = null)
             Text(
@@ -175,16 +177,26 @@ fun CarteTitre(titre: Titre, enCours: Boolean, enLecture: Boolean, onClick: () -
 
 /**
  * Une ligne de titre numérotée (TrendingList.tsx) : rang en chiffres fixes,
- * pochette, titre, artiste, et l'état de lecture à droite.
+ * pochette, titre, artiste, et l'état de lecture à droite. L'appui long
+ * ouvre la fiche du titre, comme le menu contextuel du site.
  */
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
-fun LigneTitre(titre: Titre, rang: Int?, enCours: Boolean, enLecture: Boolean, onClick: () -> Unit, modifier: Modifier = Modifier) {
+fun LigneTitre(
+    titre: Titre,
+    rang: Int?,
+    enCours: Boolean,
+    enLecture: Boolean,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    onAppuiLong: (() -> Unit)? = null,
+) {
     val p = LocalPalette.current
     Row(
         modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(10.dp))
-            .clickable(role = Role.Button, onClick = onClick)
+            .combinedClickable(role = Role.Button, onLongClick = onAppuiLong, onLongClickLabel = onAppuiLong?.let { "Voir la fiche du titre" }, onClick = onClick)
             .padding(horizontal = 4.dp, vertical = 6.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {

@@ -47,3 +47,12 @@ search-x
 history
 sparkles
 trending-up
+
+# Fiches
+plus
+check
+share-2
+mic-vocal
+rotate-ccw
+user-plus
+user-check

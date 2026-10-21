@@ -72,7 +72,9 @@ import com.moziik.app.ui.composants.MessageErreur
 import com.moziik.app.ui.composants.Pochette
 import com.moziik.app.ui.composants.apparitionUneFois
 import com.moziik.app.ui.composants.pressable
+import com.moziik.app.ui.Navigation
 import com.moziik.app.ui.conteneur
+import com.moziik.app.ui.navigation
 import com.moziik.app.ui.rememberLancement
 
 /**
@@ -359,21 +361,37 @@ private fun androidx.compose.foundation.lazy.LazyListScope.etatParDefaut(
     if (populaires.isNotEmpty()) {
         item(key = "populaires-titre") { EnTeteSection("Suggestions populaires", "Les titres les plus écoutés ce mois-ci", Modifier.padding(top = 28.dp)) }
         itemsIndexed(populaires, key = { _, t -> "populaire-${t.id}" }) { i, titre ->
-            LigneTitre(titre, i + 1, titre.id == lecture.courant?.id, lecture.enLecture, onClick = { lancement.titres(populaires, i, "Suggestions populaires") })
+            val nav = navigation()
+            LigneTitre(
+                titre, i + 1, titre.id == lecture.courant?.id, lecture.enLecture,
+                onClick = { lancement.titres(populaires, i, "Suggestions populaires") },
+                onAppuiLong = { nav.titre(titre.id) },
+            )
         }
     }
 }
 
-private fun ouvrir(resultat: Resultat, lancement: Lancement, liste: List<Titre>, source: String) {
+/** Écouter un résultat : un titre se joue dans sa liste ; un artiste, un album, une playlist ou un genre se chargent puis se jouent. */
+private fun ecouter(resultat: Resultat, lancement: Lancement, liste: List<Titre>, source: String) {
     when (resultat) {
         is Resultat.DeTitre -> {
             val position = liste.indexOfFirst { it.id == resultat.titre.id }
             if (position >= 0) lancement.titres(liste, position, source) else lancement.titres(listOf(resultat.titre), 0, source)
         }
-        is Resultat.DArtiste -> lancement.cible("artiste-${resultat.artiste.id}", Cible.DArtiste(resultat.artiste.id))
-        is Resultat.DAlbum -> lancement.cible("album-${resultat.album.id}", Cible.DAlbum(resultat.album.id))
-        is Resultat.DePlaylist -> lancement.cible("playlist-${resultat.playlist.id}", Cible.DePlaylist(resultat.playlist.id))
-        is Resultat.DeGenre -> lancement.cible("genre-${resultat.nom}", Cible.DeGenre(resultat.nom))
+        is Resultat.DArtiste -> lancement.cible(cleDe(resultat), Cible.DArtiste(resultat.artiste.id))
+        is Resultat.DAlbum -> lancement.cible(cleDe(resultat), Cible.DAlbum(resultat.album.id))
+        is Resultat.DePlaylist -> lancement.cible(cleDe(resultat), Cible.DePlaylist(resultat.playlist.id))
+        is Resultat.DeGenre -> lancement.cible(cleDe(resultat), Cible.DeGenre(resultat.nom))
+    }
+}
+
+/** Ouvrir un résultat : la fiche s'il en a une ; un genre, qui n'en a pas encore, se joue. */
+private fun ouvrir(resultat: Resultat, nav: Navigation, lancement: Lancement, liste: List<Titre>, source: String) {
+    when (resultat) {
+        is Resultat.DArtiste -> nav.artiste(resultat.artiste.id)
+        is Resultat.DAlbum -> nav.album(resultat.album.id)
+        is Resultat.DePlaylist -> nav.playlist(resultat.playlist.id)
+        else -> ecouter(resultat, lancement, liste, source)
     }
 }
 
@@ -391,6 +409,7 @@ private data class Vue(val titre: String, val ligne: String, val image: String?,
 @Composable
 private fun MeilleurResultat(resultat: Resultat, lancement: Lancement, source: String) {
     val p = LocalPalette.current
+    val nav = navigation()
     val carre = RoundedCornerShape(8.dp)
     val vue = when (resultat) {
         is Resultat.DeTitre -> Vue(resultat.titre.title, "Titre · ${resultat.titre.artist?.stageName ?: "Artiste supprimé"}", resultat.titre.coverUrl, carre)
@@ -406,7 +425,9 @@ private fun MeilleurResultat(resultat: Resultat, lancement: Lancement, source: S
             .clip(RoundedCornerShape(p.rayon.dp))
             .border(BorderStroke(1.dp, p.bordure.compose), RoundedCornerShape(p.rayon.dp))
             .background(p.surface.compose)
-            .pressable { ouvrir(resultat, lancement, emptyList(), source) }
+            .pressable {
+                if (resultat is Resultat.DeTitre) nav.titre(resultat.titre.id) else ouvrir(resultat, nav, lancement, emptyList(), source)
+            }
             .padding(14.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
@@ -418,7 +439,10 @@ private fun MeilleurResultat(resultat: Resultat, lancement: Lancement, source: S
             Text(vue.ligne, style = Texte.secondaire, color = p.encreAttenuee.compose, maxLines = 1, overflow = TextOverflow.Ellipsis)
         }
         Spacer(Modifier.width(12.dp))
-        Box(Modifier.size(44.dp).clip(CircleShape).background(p.accent.compose), contentAlignment = Alignment.Center) {
+        Box(
+            Modifier.size(44.dp).clip(CircleShape).background(p.accent.compose).pressable { ecouter(resultat, lancement, emptyList(), source) },
+            contentAlignment = Alignment.Center,
+        ) {
             if (chargement) {
                 Egaliseur(hauteur = 14.dp, libelle = "Chargement", couleur = p.base.compose)
             } else {
@@ -430,10 +454,15 @@ private fun MeilleurResultat(resultat: Resultat, lancement: Lancement, source: S
 
 @Composable
 private fun BlocResultats(section: SectionResultats, enGrille: Boolean, lecture: EtatLecteur, lancement: Lancement, source: String) {
+    val nav = navigation()
     val titres = section.resultats.filterIsInstance<Resultat.DeTitre>().map { it.titre }
     if (titres.size == section.resultats.size) {
         titres.forEachIndexed { i, titre ->
-            LigneTitre(titre, null, titre.id == lecture.courant?.id, lecture.enLecture, onClick = { lancement.titres(titres, i, source) })
+            LigneTitre(
+                titre, null, titre.id == lecture.courant?.id, lecture.enLecture,
+                onClick = { lancement.titres(titres, i, source) },
+                onAppuiLong = { nav.titre(titre.id) },
+            )
         }
         return
     }
@@ -458,8 +487,9 @@ private fun BlocResultats(section: SectionResultats, enGrille: Boolean, lecture:
 
 @Composable
 private fun Vignette(resultat: Resultat, lancement: Lancement, titres: List<Titre>, source: String, modifier: Modifier) {
+    val nav = navigation()
     val chargement = lancement.enCours == cleDe(resultat)
-    val ouvrir = { ouvrir(resultat, lancement, titres, source) }
+    val ouvrir = { ouvrir(resultat, nav, lancement, titres, source) }
     when (resultat) {
         is Resultat.DArtiste -> CarteArtiste(resultat.artiste.stageName, resultat.artiste.coverUrl, resultat.artiste.verified, null, ouvrir, modifier, chargement)
         is Resultat.DAlbum -> CarteCollection(resultat.album.title, resultat.album.artist?.stageName, resultat.album.coverUrl, ouvrir, modifier, resultat.album.artist?.verified == true, chargement)

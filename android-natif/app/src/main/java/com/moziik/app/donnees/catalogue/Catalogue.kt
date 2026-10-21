@@ -119,6 +119,10 @@ fun resultatsDe(reponse: ReponseRecherche): Resultats {
     return Resultats(meilleur, sections, reponse.approximatif)
 }
 
+/** Ses titres les plus écoutés d'abord, puis le reste de son catalogue, du plus récent au plus ancien. */
+fun titresDeLArtiste(reponse: ReponseArtiste): List<Titre> =
+    (reponse.topSongs + reponse.songs).distinctBy { it.id }.filter { it.publie }
+
 /** Une liste prête à jouer, et ce qu'elle est (« depuis … » dans le lecteur). */
 data class AEcouter(val titres: List<Titre>, val source: String)
 
@@ -196,23 +200,67 @@ class Catalogue(
             )
         }
 
+    // ------------------------------------------------------------ Fiches
+
+    /** Un titre non publié n'a pas de fiche publique : le site ne filtre pas cette route, l'app le fait. */
+    suspend fun titre(id: String): Titre =
+        appel { api.titre(id).song }.getOrThrow().takeIf { it.publie } ?: throw com.moziik.app.donnees.reseau.ErreurApi(404, "Son introuvable.")
+
+    suspend fun similaires(id: String): List<Titre> = appel { api.similaires(id, 12).songs }.getOrThrow().filter { it.publie }
+
+    /**
+     * L'album n'a pas de statut : ses pistes non publiées sont écartées ici.
+     * Elles n'ont que l'identifiant de l'artiste, que celui de l'album complète.
+     */
+    suspend fun album(id: String): AlbumDetail {
+        val album = appel { api.album(id).album }.getOrThrow()
+        return album.copy(
+            songs = album.songs.filter { it.publie }.map { t ->
+                if (t.artist?.stageName == null && album.artist != null) t.copy(artist = album.artist) else t
+            },
+        )
+    }
+
+    suspend fun albumsDe(artiste: String): List<AlbumCourt> = appel { api.albumsDe(artiste).albums }.getOrThrow()
+
+    suspend fun playlist(id: String): PlaylistDetail =
+        appel { api.playlist(id).playlist }.getOrThrow().let { it.copy(songs = it.songs.filter { t -> t.publie }) }
+
+    suspend fun artiste(id: String): ReponseArtiste = appel { api.artiste(id) }.getOrThrow()
+
+    /** Faux pour un visiteur : il n'a ni albums enregistrés ni artistes suivis. */
+    suspend fun albumEnregistre(id: String): Boolean =
+        compte() != null && appel { api.albumsEnregistres().albums }.getOrDefault(emptyList()).any { it.id == id }
+
+    suspend fun basculerAlbum(id: String): Boolean = appel { api.basculerAlbum(AlbumAEnregistrer(id)).saved }.getOrThrow()
+
+    /** Le site ne dit pas sur la fiche si l'on suit l'artiste : on le déduit de la liste des suivis (D12). */
+    suspend fun artisteSuivi(id: String): Boolean =
+        compte() != null && appel { api.artistesSuivis().artists }.getOrDefault(emptyList()).any { it.id == id }
+
+    suspend fun basculerSuivi(id: String): EtatSuivi = appel { api.basculerSuivi(id) }.getOrThrow()
+
+    private val paroles = object : LinkedHashMap<String, Paroles>(16, 0.75f, true) {
+        override fun removeEldestEntry(eldest: MutableMap.MutableEntry<String, Paroles>?) = size > 20
+    }
+
+    /** Les paroles d'un titre, gardées pour les vingt derniers : rouvrir l'onglet ne les redemande pas. */
+    suspend fun paroles(id: String): Paroles {
+        synchronized(paroles) { paroles[id] }?.let { return it }
+        val brut = appel { api.paroles(id).raw }.getOrThrow()
+        val analysees = withContext(Dispatchers.Default) { analyserParoles(brut) }
+        synchronized(paroles) { paroles[id] = analysees }
+        return analysees
+    }
+
     /** Ce qu'il faut jouer pour une cible du routeur, ou null si elle ne se joue pas. */
     suspend fun aEcouter(cible: Cible): AEcouter? = when (cible) {
-        is Cible.DeTitre -> appel { api.titre(cible.id).song }.getOrThrow().takeIf { it.publie }?.let { AEcouter(listOf(it), it.title) }
-        is Cible.DAlbum -> {
-            val album = appel { api.album(cible.id).album }.getOrThrow()
-            // Les pistes d'un album n'ont que l'identifiant de l'artiste : celui de l'album le complète.
-            val titres = album.songs.filter { it.publie }.map { t ->
-                if (t.artist?.stageName == null && album.artist != null) t.copy(artist = album.artist) else t
-            }
-            AEcouter(titres, album.title)
-        }
-        is Cible.DePlaylist -> appel { api.playlist(cible.id).playlist }.getOrThrow().let { AEcouter(it.songs.filter { t -> t.publie }, it.title) }
+        is Cible.DeTitre -> titre(cible.id).let { AEcouter(listOf(it), it.title) }
+        is Cible.DAlbum -> album(cible.id).let { AEcouter(it.songs, it.title) }
+        is Cible.DePlaylist -> playlist(cible.id).let { AEcouter(it.songs, it.title) }
         is Cible.DArtiste -> {
-            val reponse = appel { api.artiste(cible.id) }.getOrThrow()
-            // Ses titres les plus écoutés d'abord, puis le reste du catalogue, du plus récent au plus ancien.
-            val titres = (reponse.topSongs + reponse.songs).distinctBy { it.id }.filter { it.publie }
-            AEcouter(titres, reponse.artist.stageName)
+            val reponse = artiste(cible.id)
+            AEcouter(titresDeLArtiste(reponse), reponse.artist.stageName)
         }
         // Comme une station de genre de la page Radio : les plus écoutés, mélangés (lib/radios.ts).
         is Cible.DeGenre -> AEcouter(

@@ -12,6 +12,7 @@ import androidx.media3.common.PlaybackException
 import androidx.media3.common.Player
 import androidx.media3.common.Timeline
 import androidx.media3.common.util.UnstableApi
+import androidx.media3.datasource.DefaultDataSource
 import androidx.media3.datasource.HttpDataSource
 import androidx.media3.datasource.ResolvingDataSource
 import androidx.media3.datasource.okhttp.OkHttpDataSource
@@ -29,6 +30,7 @@ import com.moziik.app.MainActivity
 import com.moziik.app.MoziikApplication
 import com.moziik.app.R
 import com.moziik.app.donnees.catalogue.Ecoute
+import com.moziik.app.donnees.horsligne.EcouteGardee
 import com.moziik.app.donnees.session.EtatSession
 import com.moziik.app.donnees.session.appel
 import kotlinx.coroutines.MainScope
@@ -76,8 +78,14 @@ class ServiceLecture : MediaSessionService() {
         resolution = ResolutionFlux(c.reseau.client, BuildConfig.SITE, estVisiteur = { c.session.etat.value is EtatSession.Anonyme })
         prolongement = Prolongement(c.reseau.api, c.catalogue::univers, c.catalogue::mode)
 
-        val fichiers = ResolvingDataSource.Factory(OkHttpDataSource.Factory(c.reseau.clientPublic)) { spec ->
-            resolution.resoudre(spec.uri.toString())?.let { spec.withUri(Uri.parse(it)) } ?: spec
+        // Un titre téléchargé se lit depuis le téléphone, sans passer par le site (spécification 6.2) :
+        // DefaultDataSource lit les fichiers locaux et confie le reste à OkHttp.
+        val sources = DefaultDataSource.Factory(this, OkHttpDataSource.Factory(c.reseau.clientPublic))
+        val fichiers = ResolvingDataSource.Factory(sources) { spec ->
+            val adresse = spec.uri.toString()
+            val local = idDuFlux(adresse, BuildConfig.SITE)?.let { c.horsLigne.telechargements.fichier(it) }
+            if (local != null) spec.withUri(Uri.fromFile(local))
+            else resolution.resoudre(adresse)?.let { spec.withUri(Uri.parse(it)) } ?: spec
         }
         val joueur = ExoPlayer.Builder(this)
             .setMediaSourceFactory(DefaultMediaSourceFactory(fichiers).setLoadErrorHandlingPolicy(PolitiqueErreurs()))
@@ -139,10 +147,14 @@ class ServiceLecture : MediaSessionService() {
 
     private fun declarer(ecoute: EcouteFinie?) {
         ecoute ?: return
-        val api = conteneur.reseau.api
+        val c = conteneur
+        val secondes = minOf(ecoute.secondes, ECOUTE_MAX_SECONDES).toDouble()
+        c.horsLigne.telechargements.marquerEcoute(ecoute.id)
         // Portée de l'app : la déclaration part même si le service s'arrête juste après.
-        conteneur.portee.launch {
-            appel { api.ecoute(ecoute.id, Ecoute(minOf(ecoute.secondes, ECOUTE_MAX_SECONDES).toDouble(), ecoute.complete)) }
+        c.portee.launch {
+            val echec = appel { c.reseau.api.ecoute(ecoute.id, Ecoute(secondes, ecoute.complete)) }.exceptionOrNull()
+            // Sans réseau, l'écoute est gardée et déclarée au retour de la connexion (6.4).
+            if (echec is IOException) c.horsLigne.ecoutes.garder(EcouteGardee(ecoute.id, secondes, ecoute.complete))
         }
     }
 

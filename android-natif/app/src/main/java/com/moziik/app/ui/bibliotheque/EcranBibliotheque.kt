@@ -65,6 +65,7 @@ import com.moziik.app.ui.composants.Puce
 import com.moziik.app.ui.composants.apparitionUneFois
 import com.moziik.app.ui.composants.pressable
 import com.moziik.app.ui.conteneur
+import com.moziik.app.ui.horsligne.listeTelechargements
 import com.moziik.app.ui.menus.LocalMenus
 import com.moziik.app.ui.menus.TuileIA
 import com.moziik.app.ui.menus.fonctionIA
@@ -113,12 +114,13 @@ class ModeleBibliotheque(private val bibliotheque: Bibliotheque) : ViewModel() {
     }
 }
 
-private enum class Onglet(val libelle: String) { TOUT("Tout"), PLAYLISTS("Playlists"), TITRES("Titres"), ALBUMS("Albums"), ARTISTES("Artistes"), PODCASTS("Podcasts") }
+private enum class Onglet(val libelle: String) { TOUT("Tout"), PLAYLISTS("Playlists"), TITRES("Titres"), ALBUMS("Albums"), ARTISTES("Artistes"), PODCASTS("Podcasts"), TELECHARGEMENTS("Téléchargements") }
 
 /**
  * « Ma zone » (app/bibliotheque/page.tsx) : playlists, titres aimés, albums
- * et podcasts enregistrés, artistes suivis, écoutes récentes. Réservée aux
- * comptes connectés ; les téléchargements viendront avec le hors connexion.
+ * et podcasts enregistrés, artistes suivis, écoutes récentes, titres
+ * téléchargés. Réservée aux comptes connectés : une déconnexion efface les
+ * téléchargements (6.1).
  */
 @Composable
 fun EcranBibliotheque(onConnexion: () -> Unit) {
@@ -138,7 +140,10 @@ fun EcranBibliotheque(onConnexion: () -> Unit) {
     val artistes by modele.artistes.collectAsStateWithLifecycle()
     val recents by modele.recents.collectAsStateWithLifecycle()
     val lecture by c.lecteur.etat.collectAsStateWithLifecycle()
-    var onglet by rememberSaveable { mutableStateOf(Onglet.TOUT) }
+    val telecharges by c.horsLigne.telechargements.titres.collectAsStateWithLifecycle()
+    val titresHorsLigne = androidx.compose.runtime.remember(telecharges) { telecharges.map(c.horsLigne.telechargements::versTitre) }
+    // Sans réseau, rien d'autre ne se charge : Ma zone s'ouvre sur ce qui est sur le téléphone.
+    var onglet by rememberSaveable { mutableStateOf(if (c.horsLigne.horsReseau.value) Onglet.TELECHARGEMENTS else Onglet.TOUT) }
     val p = LocalPalette.current
     val nav = navigation()
     val vus = androidx.compose.runtime.remember { mutableSetOf<Any>() }
@@ -242,6 +247,7 @@ fun EcranBibliotheque(onConnexion: () -> Unit) {
                 a as ArtisteCarte
                 CarteArtiste(a.stageName, a.coverUrl, a.verified, a.followersCount?.let { "$it abonné${if (it > 1) "s" else ""}" }, onClick = { nav.artiste(a.id) }, modifier = Modifier.fillMaxWidth())
             }
+            Onglet.TELECHARGEMENTS -> listeTelechargements(titresHorsLigne, lecture)
             Onglet.TOUT -> Unit
         }
     }

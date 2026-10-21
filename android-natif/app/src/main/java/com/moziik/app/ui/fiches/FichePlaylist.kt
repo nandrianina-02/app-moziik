@@ -62,6 +62,7 @@ import com.moziik.app.ui.partager
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import com.moziik.app.ui.horsligne.BoutonTelechargerLot
 
 /**
  * La fiche d'une playlist (F7). Son propriétaire la modifie ici même
@@ -117,6 +118,7 @@ private fun CorpsPlaylist(playlist: PlaylistDetail, onRetour: () -> Unit, onRech
                 if (titres.isNotEmpty()) {
                     BoutonFiche(R.drawable.lucide_play_plein, "Tout écouter", onClick = { c.lecteur.lire(titres, 0, playlist.title) }, principal = true)
                     BoutonFiche(R.drawable.lucide_shuffle, null, onClick = { c.lecteur.lire(titres.shuffled(), 0, playlist.title) }, description = "Lecture aléatoire")
+                    BoutonTelechargerLot(titres, "playlist", playlist.title)
                 }
                 // Une playlist privée ne se partage pas : son lien ne s'ouvrirait chez personne.
                 if (playlist.isPublic) {

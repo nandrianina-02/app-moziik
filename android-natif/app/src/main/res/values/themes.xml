@@ -2,10 +2,13 @@
 <resources>
     <!-- Fond de l'écran de démarrage, celui de l'app Capacitor : #0D0F1A dans les deux modes. -->
     <color name="fond_demarrage">#0D0F1A</color>
+    <!-- L'orange de public/logo.png, fond de l'icône de l'app. -->
+    <color name="icone_fond">#F84925</color>
 
-    <style name="Theme.Moziik.Demarrage" parent="Theme.SplashScreen">
+    <style name="Theme.Moziik.Demarrage" parent="Theme.SplashScreen.IconBackground">
         <item name="windowSplashScreenBackground">@color/fond_demarrage</item>
         <item name="windowSplashScreenAnimatedIcon">@mipmap/ic_launcher_foreground</item>
+        <item name="windowSplashScreenIconBackgroundColor">@color/icone_fond</item>
         <item name="postSplashScreenTheme">@style/Theme.Moziik</item>
     </style>
 

@@ -107,3 +107,8 @@ smartphone
 key-round
 user-round-pen
 monitor
+
+# Hors connexion
+download
+hard-drive
+wifi-off

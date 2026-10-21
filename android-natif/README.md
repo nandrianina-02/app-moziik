@@ -24,6 +24,8 @@ Elle ne parle au serveur que par l'API HTTP du site, avec les jetons mobiles
 | Fonctions IA du site, selon leur activation : composer une playlist, assistant d'écoute, recherche par description, traduction des paroles | `donnees/catalogue/IA.kt`, `ui/menus/ComposerIA.kt` |
 | Compte : profil, préférences (univers, mode d'écoute), lecture (qualité, économie de données), apparence, abonnement, sécurité (mot de passe, appareils) ; thème du site ; reprise de la lecture au lancement | `ui/compte/Reglages.kt`, `donnees/compte/` |
 | Logo animé du site (public/moziik-animated.svg), redessiné en natif : en-tête et chargements | `ui/composants/LogoMoziik.kt` |
+| Icône de l'app tirée de public/logo.png (adaptative, ronde, monochrome) | `outils/icone-app.py`, `app/src/main/res/mipmap-*` |
+| Hors connexion (Premium) : titre, album ou playlist téléchargés, lecture depuis le téléphone, onglet Téléchargements (place, nettoyage 90 jours, Wi-Fi seulement), file reprise au retour du réseau, écoutes gardées puis déclarées | `donnees/horsligne/`, `ui/horsligne/` |
 | Paroles synchronisées dans le lecteur, analysées comme sur le site (LRC, mot à mot) | `donnees/catalogue/Paroles.kt`, `ui/lecteur/PanneauParoles.kt` |
 | Lecteur : Media3 en arrière-plan (notification, écran verrouillé, casque), file prolongée, écoutes déclarées au temps réel, quota des visiteurs | `lecteur/`, `ui/lecteur/` |
 

@@ -51,6 +51,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.moziik.app.R
 import com.moziik.app.donnees.catalogue.PlaylistMienne
 import com.moziik.app.donnees.catalogue.Titre
@@ -72,6 +73,7 @@ import com.moziik.app.ui.composants.MessageErreur
 import com.moziik.app.ui.composants.NomArtiste
 import com.moziik.app.ui.composants.Pochette
 import com.moziik.app.ui.conteneur
+import com.moziik.app.ui.horsligne.reagirAuRefus
 import com.moziik.app.ui.navigation
 import com.moziik.app.ui.partager
 import kotlinx.coroutines.CancellationException
@@ -238,6 +240,10 @@ private fun MenuTitre(titre: Titre, menus: Menus) {
     val portee = rememberCoroutineScope()
     val connecte = c.session.etat.value is EtatSession.Connecte
     var aime by remember(titre.id) { mutableStateOf<Boolean?>(null) }
+    val telecharges by c.horsLigne.telechargements.titres.collectAsStateWithLifecycle()
+    val attente by c.horsLigne.attente.collectAsStateWithLifecycle()
+    val telecharge = telecharges.any { it.id == titre.id }
+    val enAttente = titre.id in attente
     LaunchedEffect(titre.id) {
         aime = if (connecte) appel { c.reseau.api.aime(titre.id).liked }.getOrNull() else false
     }
@@ -287,6 +293,20 @@ private fun MenuTitre(titre: Titre, menus: Menus) {
                             }
                             .onFailure { c.alertes.signaler(AlerteLecture.Message(messageErreur(it))) }
                     }
+                }
+            }
+            if (titre.publie) {
+                LigneMenu(
+                    if (telecharge) R.drawable.lucide_circle_check else if (enAttente) R.drawable.lucide_x else R.drawable.lucide_download,
+                    when {
+                        telecharge -> "Retirer des téléchargements"
+                        enAttente -> "Annuler le téléchargement"
+                        else -> "Télécharger"
+                    },
+                    actif = telecharge,
+                ) {
+                    fermer()
+                    c.portee.launch { reagirAuRefus(c.horsLigne.basculer(titre), c, nav) }
                 }
             }
             LigneMenu(R.drawable.lucide_message_circle, "Envoyer dans un message") {

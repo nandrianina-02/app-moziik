@@ -8,7 +8,8 @@ package com.moziik.app.donnees.reseau
  */
 fun adresseMedia(adresse: String?, site: String): String? = when {
     adresse.isNullOrBlank() -> null
-    adresse.startsWith("https://") || adresse.startsWith("http://") -> adresse
+    // file:// : la pochette d'un titre téléchargé, gardée sur le téléphone.
+    adresse.startsWith("https://") || adresse.startsWith("http://") || adresse.startsWith("file://") -> adresse
     adresse.startsWith("/") -> site.trimEnd('/') + adresse
     else -> null
 }

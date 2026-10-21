@@ -194,6 +194,10 @@ interface MoziikApi {
     @POST("api/songs/{id}/play")
     suspend fun ecoute(@Path("id") id: String, @Body corps: Ecoute)
 
+    /** Compte le téléchargement complet d'un album (20 par minute et par adresse IP). */
+    @POST("api/albums/{id}/download")
+    suspend fun albumTelecharge(@Path("id") id: String)
+
     @GET("api/songs/{id}/lyrics")
     suspend fun paroles(@Path("id") id: String): ReponseParoles
 

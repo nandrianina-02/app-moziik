@@ -173,6 +173,15 @@ class ReglagesAppareil(private val contexte: Context) {
     fun choisirEconomie(e: String) = ecrire("economie", e).also { _economie.value = e }
     fun choisirApparence(a: String?) = ecrire("apparence", a).also { _apparence.value = a }
 
+    private val _wifiSeulement = MutableStateFlow(preferences.getBoolean("wifiSeulement", false))
+    /** Les téléchargements attendent un réseau non facturé (spécification 6.2). */
+    val wifiSeulement: StateFlow<Boolean> = _wifiSeulement.asStateFlow()
+
+    fun choisirWifiSeulement(oui: Boolean) {
+        preferences.edit().putBoolean("wifiSeulement", oui).apply()
+        _wifiSeulement.value = oui
+    }
+
     var themeGarde: String?
         get() = preferences.getString("theme", null)
         set(valeur) = ecrire("theme", valeur)
@@ -198,7 +207,18 @@ class ReglagesAppareil(private val contexte: Context) {
 
     fun economieActive(): Boolean = qualiteEffective() == "low" && _qualite.value != "low"
 
-    private fun reseauFacture(): Boolean {
+    /** Un réseau joignable, quel qu'il soit. */
+    fun reseauDisponible(): Boolean {
+        val connectivite = contexte.getSystemService(Context.CONNECTIVITY_SERVICE) as? ConnectivityManager ?: return true
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.M) {
+            @Suppress("DEPRECATION")
+            return connectivite.activeNetworkInfo?.isConnected == true
+        }
+        val capacites = connectivite.getNetworkCapabilities(connectivite.activeNetwork ?: return false) ?: return false
+        return capacites.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
+    }
+
+    fun reseauFacture(): Boolean {
         val connectivite = contexte.getSystemService(Context.CONNECTIVITY_SERVICE) as? ConnectivityManager ?: return false
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N &&
             connectivite.restrictBackgroundStatus == ConnectivityManager.RESTRICT_BACKGROUND_STATUS_ENABLED

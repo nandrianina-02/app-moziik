@@ -91,10 +91,12 @@ import com.moziik.app.ui.navigation
 import com.moziik.app.ui.ouvrirLien
 import com.moziik.app.ui.rememberLancement
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.drop
 import java.text.SimpleDateFormat
 import java.util.Locale
 import java.util.TimeZone
 import com.moziik.app.ui.composants.LogoMoziik
+import com.moziik.app.ui.composants.LienTexte
 
 /** Sous-titres des sections, repris de components/home/sectionMeta.ts. */
 private val SOUS_TITRES = mapOf(
@@ -283,6 +285,19 @@ private fun ErreurAccueil(message: String, onReessayer: () -> Unit) {
         Text(message, style = Texte.corps, color = p.encreAttenuee.compose)
         Spacer(Modifier.height(20.dp))
         BoutonPrincipal("Réessayer", onReessayer, Modifier.width(180.dp))
+        // Sans réseau, la musique déjà sur le téléphone reste à portée (6.4).
+        val c = conteneur()
+        val telecharges by c.horsLigne.telechargements.titres.collectAsStateWithLifecycle()
+        if (telecharges.isNotEmpty()) {
+            Spacer(Modifier.height(8.dp))
+            LienTexte("Écouter mes téléchargements (${telecharges.size})", {
+                c.lecteur.lire(telecharges.map(c.horsLigne.telechargements::versTitre), 0, "Téléchargements")
+            })
+        }
+        // Le réseau revenu, l'accueil se recharge seul ; une panne du site, elle, attend « Réessayer ».
+        LaunchedEffect(Unit) {
+            c.horsLigne.horsReseau.drop(1).collect { if (!it) onReessayer() }
+        }
     }
 }
 

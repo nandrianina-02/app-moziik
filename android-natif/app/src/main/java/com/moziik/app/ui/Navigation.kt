@@ -41,6 +41,8 @@ class Navigation(
     fun titres(genre: String? = null) = aller("titres?genre=${Uri.encode(genre.orEmpty())}")
     fun evenements() = aller("evenements")
     fun conversation(id: String) = aller("conversation/$id")
+    /** L'écran Abonnement de l'onglet Compte : là où mène une fonction réservée à Premium. */
+    fun abonnement() = aller("compte/abonnement")
     fun rechercher(terme: String) {
         onAvantNavigation()
         onRechercher(terme)

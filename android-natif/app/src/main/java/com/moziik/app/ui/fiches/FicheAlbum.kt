@@ -39,6 +39,7 @@ import com.moziik.app.ui.partager
 import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.launch
+import com.moziik.app.ui.horsligne.BoutonTelechargerLot
 
 data class DonneesAlbum(val album: AlbumDetail, val autres: List<AlbumCourt>, val enregistre: Boolean)
 
@@ -117,6 +118,7 @@ private fun CorpsAlbum(donnees: DonneesAlbum, onRetour: () -> Unit) {
                         }
                     },
                 )
+                BoutonTelechargerLot(titres, "album", album.title, albumId = album.id)
                 BoutonFiche(R.drawable.lucide_share_2, null, onClick = { partager(contexte, "album/${album.id}", album.title) }, description = "Partager")
             }
         }

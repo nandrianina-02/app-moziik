@@ -9,6 +9,9 @@ import com.moziik.app.donnees.catalogue.FonctionsIA
 import com.moziik.app.donnees.catalogue.HistoriqueRecherche
 import com.moziik.app.donnees.compte.Compte
 import com.moziik.app.donnees.compte.ReglagesAppareil
+import com.moziik.app.donnees.horsligne.EcoutesEnAttente
+import com.moziik.app.donnees.horsligne.HorsLigne
+import com.moziik.app.donnees.horsligne.Telechargements
 import com.moziik.app.donnees.messagerie.Messagerie
 import com.moziik.app.donnees.reseau.Reseau
 import com.moziik.app.donnees.session.CoffreSession
@@ -41,6 +44,18 @@ class Conteneur(contexte: Context) {
     /** Messages du service de lecture à l'écran (quota atteint, titre indisponible). */
     val alertes = AlertesLecture()
     val lecteur = Lecteur(contexte, BuildConfig.SITE)
+    val horsLigne = HorsLigne(
+        contexte,
+        contexte.filesDir,
+        Telechargements(contexte.filesDir, reseau.client, BuildConfig.SITE),
+        EcoutesEnAttente(contexte.filesDir, reseau.api),
+        reseau.api,
+        compte,
+        session,
+        reglages,
+        alertes,
+        portee,
+    )
 }
 
 /**

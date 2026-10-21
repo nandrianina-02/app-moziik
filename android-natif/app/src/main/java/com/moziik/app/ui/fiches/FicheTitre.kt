@@ -56,6 +56,7 @@ import com.moziik.app.ui.partager
 import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.launch
+import com.moziik.app.ui.horsligne.BoutonTelechargerTitre
 
 data class DonneesTitre(val titre: Titre, val similaires: List<Titre>, val paroles: Paroles?)
 
@@ -140,6 +141,7 @@ private fun CorpsTitre(donnees: DonneesTitre, onRetour: () -> Unit) {
                         }
                     },
                 )
+                BoutonTelechargerTitre(titre)
                 BoutonFiche(
                     R.drawable.lucide_share_2, null,
                     onClick = {

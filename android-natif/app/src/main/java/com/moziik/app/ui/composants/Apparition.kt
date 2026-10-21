@@ -31,3 +31,14 @@ fun Modifier.apparition(rang: Int = 0): Modifier = composed {
         translationY = montee * (1f - avancement.value)
     }
 }
+
+/**
+ * L'apparition d'un élément de liste paresseuse, jouée une seule fois par
+ * clé : un élément qui sort de l'écran puis revient au défilement ne
+ * rejoue pas son entrée.
+ */
+@androidx.compose.runtime.Composable
+fun Modifier.apparitionUneFois(cle: Any, rang: Int, vus: MutableSet<Any>): Modifier {
+    val premiere = remember(cle) { vus.add(cle) }
+    return if (premiere) apparition(rang) else this
+}

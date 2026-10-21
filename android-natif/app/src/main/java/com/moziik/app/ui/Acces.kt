@@ -28,3 +28,14 @@ fun ouvrirConnexionGoogle(contexte: Context, couleurBarre: Int) {
         .build()
         .launchUrl(contexte, adresse)
 }
+
+/** Un lien vers l'extérieur (bannière personnalisée) : onglet du navigateur aux couleurs de l'app. */
+fun ouvrirLien(contexte: Context, adresse: String, couleurBarre: Int) {
+    runCatching {
+        CustomTabsIntent.Builder()
+            .setDefaultColorSchemeParams(CustomTabColorSchemeParams.Builder().setToolbarColor(couleurBarre).build())
+            .setShowTitle(true)
+            .build()
+            .launchUrl(contexte, Uri.parse(adresse))
+    }
+}

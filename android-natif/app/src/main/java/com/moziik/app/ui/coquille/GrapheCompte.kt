@@ -18,7 +18,8 @@ import com.moziik.app.ui.compte.EcranMonCompte
 import com.moziik.app.ui.conteneur
 
 private const val RACINE = "compte/racine"
-private const val INSCRIPTION = "compte/inscription"
+/** Ouverte aussi depuis le mur des visiteurs du lecteur. */
+internal const val INSCRIPTION = "compte/inscription"
 private const val MOT_DE_PASSE = "compte/mot-de-passe-oublie"
 
 /**

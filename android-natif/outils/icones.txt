@@ -25,3 +25,25 @@ heart
 list-music
 users
 disc-3
+
+# Lecteur
+play plein
+pause plein
+skip-back plein
+skip-forward plein
+shuffle
+repeat
+repeat-1
+chevron-down
+heart plein
+headphones
+music-2
+badge-check
+x
+
+# Accueil et recherche
+calendar-days
+search-x
+history
+sparkles
+trending-up

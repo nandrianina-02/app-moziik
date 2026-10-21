@@ -1,9 +1,24 @@
 package com.moziik.app.donnees.reseau
 
+import com.moziik.app.donnees.catalogue.Accueil
+import com.moziik.app.donnees.catalogue.Classement
+import com.moziik.app.donnees.catalogue.Ecoute
+import com.moziik.app.donnees.catalogue.EtatAime
+import com.moziik.app.donnees.catalogue.ListeTitres
+import com.moziik.app.donnees.catalogue.ReponseAlbum
+import com.moziik.app.donnees.catalogue.ReponseArtiste
+import com.moziik.app.donnees.catalogue.ReponsePlaylist
+import com.moziik.app.donnees.catalogue.ReponseRecherche
+import com.moziik.app.donnees.catalogue.ReponseTitre
+import com.moziik.app.donnees.catalogue.Station
+import com.moziik.app.donnees.catalogue.TermeRecherche
+import com.moziik.app.donnees.catalogue.UniversCourant
 import kotlinx.serialization.Serializable
 import retrofit2.http.Body
 import retrofit2.http.GET
 import retrofit2.http.POST
+import retrofit2.http.Path
+import retrofit2.http.Query
 
 /**
  * Les routes du site utilisées par l'app, telles qu'elles existent
@@ -36,6 +51,72 @@ interface MoziikApi {
 
     @GET("api/me/profile")
     suspend fun profil(): Profil
+
+    // Catalogue. L'app n'a pas les cookies du site : l'univers voyage en
+    // paramètre, sinon le site sert son univers par défaut et non celui du
+    // compte (spécification, 2.0).
+
+    @GET("api/me/univers")
+    suspend fun univers(): UniversCourant
+
+    /** Repli JSON de l'accueil prévu pour le mobile ; `heure` choisit le moment de la journée. */
+    @GET("api/homepage")
+    suspend fun accueil(@Query("univers") univers: String?, @Query("heure") heure: Int): Accueil
+
+    @GET("api/search")
+    suspend fun recherche(
+        @Query("q") terme: String,
+        @Query("type") type: String,
+        @Query("page") page: Int,
+        @Query("limit") limite: Int,
+        @Query("univers") univers: String?,
+    ): ReponseRecherche
+
+    @POST("api/search/journal")
+    suspend fun journalRecherche(@Body corps: TermeRecherche)
+
+    @GET("api/charts")
+    suspend fun classement(@Query("period") periode: String, @Query("type") type: String, @Query("univers") univers: String?): Classement
+
+    @GET("api/songs")
+    suspend fun titres(
+        @Query("genre") genre: String? = null,
+        @Query("sort") tri: String? = null,
+        @Query("limit") limite: Int = 50,
+        @Query("univers") univers: String? = null,
+    ): ListeTitres
+
+    /** Aucun filtre de statut côté site : l'app écarte elle-même un titre non publié. */
+    @GET("api/songs/{id}")
+    suspend fun titre(@Path("id") id: String): ReponseTitre
+
+    @GET("api/songs/{id}/similar")
+    suspend fun similaires(@Path("id") id: String, @Query("limit") limite: Int): ListeTitres
+
+    @GET("api/recommendations")
+    suspend fun recommandations(@Query("univers") univers: String?, @Query("heure") heure: Int): ListeTitres
+
+    @GET("api/station")
+    suspend fun station(@Query("heure") heure: Int, @Query("univers") univers: String?): Station
+
+    @GET("api/albums/{id}")
+    suspend fun album(@Path("id") id: String): ReponseAlbum
+
+    @GET("api/playlists/{id}")
+    suspend fun playlist(@Path("id") id: String): ReponsePlaylist
+
+    @GET("api/artists/{id}")
+    suspend fun artiste(@Path("id") id: String): ReponseArtiste
+
+    @GET("api/songs/{id}/like")
+    suspend fun aime(@Path("id") id: String): EtatAime
+
+    /** Bascule : le site répond l'état obtenu. */
+    @POST("api/songs/{id}/like")
+    suspend fun basculerAime(@Path("id") id: String): EtatAime
+
+    @POST("api/songs/{id}/play")
+    suspend fun ecoute(@Path("id") id: String, @Body corps: Ecoute)
 }
 
 @Serializable

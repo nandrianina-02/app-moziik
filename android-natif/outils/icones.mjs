@@ -69,19 +69,23 @@ function elements(nom) {
 }
 
 mkdirSync(sortie, { recursive: true });
-for (const nom of noms) {
+for (const ligne of noms) {
+  // « play plein » : la même icône remplie, comme fill="currentColor" sur le
+  // site (bouton Lecture, j'aime actif). Fichier lucide_<nom>_plein.xml.
+  const [nom, variante] = ligne.split(/\s+/);
+  const plein = variante === "plein";
   const traces = elements(nom)
     .map((e) => enTrace(e))
     .map(
       (d) =>
-        `    <path\n        android:pathData="${d}"\n        android:fillColor="#00000000"\n        android:strokeColor="#FF000000"\n` +
+        `    <path\n        android:pathData="${d}"\n        android:fillColor="${plein ? "#FF000000" : "#00000000"}"\n        android:strokeColor="#FF000000"\n` +
         `        android:strokeWidth="2"\n        android:strokeLineCap="round"\n        android:strokeLineJoin="round" />`,
     )
     .join("\n");
-  const fichier = `lucide_${nom.replace(/-/g, "_")}.xml`;
+  const fichier = `lucide_${nom.replace(/-/g, "_")}${plein ? "_plein" : ""}.xml`;
   writeFileSync(
     join(sortie, fichier),
-    `<?xml version="1.0" encoding="utf-8"?>\n<!-- Lucide « ${nom} » (ISC), généré par outils/icones.mjs : ne pas modifier à la main. -->\n` +
+    `<?xml version="1.0" encoding="utf-8"?>\n<!-- Lucide « ${ligne} » (ISC), généré par outils/icones.mjs : ne pas modifier à la main. -->\n` +
       `<vector xmlns:android="http://schemas.android.com/apk/res/android"\n    android:width="24dp"\n    android:height="24dp"\n` +
       `    android:viewportWidth="24"\n    android:viewportHeight="24">\n${traces}\n</vector>\n`,
   );

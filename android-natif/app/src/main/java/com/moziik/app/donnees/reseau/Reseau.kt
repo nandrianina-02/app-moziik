@@ -103,10 +103,16 @@ fun renouvellementPar(client: OkHttpClient, site: String): (String) -> Renouvele
 
 /** Le client HTTP et l'API, tels que l'app les utilise. */
 class Reseau(site: String, stockage: StockageSession) {
-    private val base = OkHttpClient.Builder()
+    /**
+     * Sans jeton : pour les fichiers audio, servis par Cloudinary ou Karaks
+     * Storage après la redirection de /api/stream. Le jeton du compte n'a
+     * rien à faire chez ces hébergeurs.
+     */
+    val clientPublic: OkHttpClient = OkHttpClient.Builder()
         .connectTimeout(15, TimeUnit.SECONDS)
         .readTimeout(30, TimeUnit.SECONDS)
         .build()
+    private val base = clientPublic
 
     val client: OkHttpClient = base.newBuilder()
         .addInterceptor(AjoutJeton(stockage))

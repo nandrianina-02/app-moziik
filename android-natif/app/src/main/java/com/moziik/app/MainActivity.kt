@@ -50,6 +50,17 @@ class MainActivity : ComponentActivity() {
         }
     }
 
+    // La télécommande du lecteur suit l'écran ; la musique, elle, continue dans son service.
+    override fun onStart() {
+        super.onStart()
+        (application as MoziikApplication).conteneur.lecteur.connecter()
+    }
+
+    override fun onStop() {
+        (application as MoziikApplication).conteneur.lecteur.liberer()
+        super.onStop()
+    }
+
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         recevoirRelais(intent)

@@ -14,6 +14,10 @@ Elle ne parle au serveur que par l'API HTTP du site, avec les jetons mobiles
 | Polices du site : Sora (titres), Plus Jakarta Sans (texte), licence OFL | `app/src/main/res/font/`, `licences/` |
 | Icônes Lucide du site, converties en vecteurs Android | `outils/icones.mjs`, `outils/icones.txt` |
 | Coquille : en-tête, barre du bas à cinq entrées, transitions du site | `app/src/main/java/com/moziik/app/ui/coquille/` |
+| Compte : connexion e-mail et Google, inscription, session chiffrée, jeton renouvelé | `donnees/session/`, `donnees/reseau/`, `ui/compte/` |
+| Accueil : bannière, « Ma bande son », sections de l'administration, copie de la dernière visite | `donnees/catalogue/`, `ui/accueil/` |
+| Recherche : filtres par type, meilleur résultat, dernières recherches, titres populaires | `ui/recherche/` |
+| Lecteur : Media3 en arrière-plan (notification, écran verrouillé, casque), file prolongée, écoutes déclarées au temps réel, quota des visiteurs | `lecteur/`, `ui/lecteur/` |
 
 ## Construire
 
@@ -37,6 +41,7 @@ si besoin (Gradle 8.11.1, JDK 17).
 
 ## Ajouter une icône
 
-1. Ajouter son nom Lucide (nom de fichier de `lucide-react`) dans `outils/icones.txt`.
+1. Ajouter son nom Lucide (nom de fichier de `lucide-react`) dans `outils/icones.txt`,
+   suivi de `plein` pour sa version remplie (`lucide_<nom>_plein`).
 2. `node android-natif/outils/icones.mjs <node_modules du site>`
 3. L'utiliser : `Icone(R.drawable.lucide_<nom>, ...)`.

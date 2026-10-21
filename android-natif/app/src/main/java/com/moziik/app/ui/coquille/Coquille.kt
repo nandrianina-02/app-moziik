@@ -1,9 +1,14 @@
 package com.moziik.app.ui.coquille
 
+import androidx.activity.compose.BackHandler
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.tween
+import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkVertically
 import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -26,7 +31,11 @@ import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -45,6 +54,16 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.moziik.app.donnees.session.EtatSession
+import com.moziik.app.lecteur.AlerteLecture
+import com.moziik.app.ui.accueil.EcranAccueil
+import com.moziik.app.ui.conteneur
+import com.moziik.app.ui.lecteur.BandeauMessage
+import com.moziik.app.ui.lecteur.LecteurPleinEcran
+import com.moziik.app.ui.lecteur.MiniLecteur
+import com.moziik.app.ui.lecteur.MurQuota
+import com.moziik.app.ui.recherche.EcranRecherche
 import com.moziik.app.R
 import com.moziik.app.theme.LocalPalette
 import com.moziik.app.theme.Mouvement
@@ -56,43 +75,103 @@ import com.moziik.app.ui.ecrans.EcranProvisoire
 
 /**
  * La coquille commune à tous les écrans, comme celle du site sur mobile :
- * en-tête de 56 dp, contenu, barre de navigation basse à cinq entrées.
+ * en-tête de 56 dp, contenu, mini-lecteur, barre de navigation basse à
+ * cinq entrées ; le lecteur plein écran se pose par-dessus.
  */
 @Composable
 fun Coquille(sombre: Boolean, onBasculerMode: () -> Unit) {
     val p = LocalPalette.current
+    val c = conteneur()
     val navigation = rememberNavController()
     val entree by navigation.currentBackStackEntryAsState()
     val montee = with(LocalDensity.current) { 6.dp.roundToPx() }
+    val lecture by c.lecteur.etat.collectAsStateWithLifecycle()
+    val alerte by c.alertes.alerte.collectAsStateWithLifecycle()
+    val session by c.session.etat.collectAsStateWithLifecycle()
+    var pleinEcran by rememberSaveable { mutableStateOf(false) }
+    // Terme transmis à l'onglet Recherche par un lien de l'accueil (« /recherche?q=… »).
+    var termeDemande by rememberSaveable { mutableStateOf<String?>(null) }
 
-    Column(Modifier.fillMaxSize().background(p.base.compose)) {
-        EnTete(sombre = sombre, onBasculerMode = onBasculerMode)
-        NavHost(
-            navController = navigation,
-            startDestination = Destination.ACCUEIL.route,
-            modifier = Modifier.weight(1f),
-            // Entrée de page du site : fondu et 6 dp de montée, 280 ms.
-            enterTransition = {
-                fadeIn(tween(Mouvement.ENTREE_PAGE, easing = Mouvement.sortieDouce)) +
-                    slideInVertically(tween(Mouvement.ENTREE_PAGE, easing = Mouvement.sortieDouce)) { montee }
-            },
-            exitTransition = { fadeOut(tween(Mouvement.ENTREE_PAGE / 2)) },
-        ) {
-            Destination.entries.filter { it != Destination.COMPTE }.forEach { d ->
-                composable(d.route) { EcranProvisoire(titre = d.libelle) }
-            }
-            grapheCompte(navigation)
+    val aller: (Destination) -> Unit = { d ->
+        navigation.navigate(d.route) {
+            // Comme une barre d'onglets : une seule pile, l'état de chaque onglet est gardé.
+            popUpTo(navigation.graph.findStartDestination().id) { saveState = true }
+            launchSingleTop = true
+            restoreState = true
         }
-        BarreDuBas(
-            courante = entree?.destination,
-            onChoisir = { d ->
-                navigation.navigate(d.route) {
-                    // Comme une barre d'onglets : une seule pile, l'état de chaque onglet est gardé.
-                    popUpTo(navigation.graph.findStartDestination().id) { saveState = true }
-                    launchSingleTop = true
-                    restoreState = true
+    }
+
+    // Se connecter lève aussitôt le mur des visiteurs (spécification 5.3).
+    LaunchedEffect(session) {
+        if (session is EtatSession.Connecte && c.alertes.alerte.value == AlerteLecture.Quota) c.alertes.oublier()
+    }
+
+    Box(Modifier.fillMaxSize().background(p.base.compose)) {
+        Column(Modifier.fillMaxSize()) {
+            EnTete(sombre = sombre, onBasculerMode = onBasculerMode)
+            NavHost(
+                navController = navigation,
+                startDestination = Destination.ACCUEIL.route,
+                modifier = Modifier.weight(1f),
+                // Entrée de page du site : fondu et 6 dp de montée, 280 ms.
+                enterTransition = {
+                    fadeIn(tween(Mouvement.ENTREE_PAGE, easing = Mouvement.sortieDouce)) +
+                        slideInVertically(tween(Mouvement.ENTREE_PAGE, easing = Mouvement.sortieDouce)) { montee }
+                },
+                exitTransition = { fadeOut(tween(Mouvement.ENTREE_PAGE / 2)) },
+            ) {
+                composable(Destination.ACCUEIL.route) {
+                    EcranAccueil(onRechercher = { terme ->
+                        termeDemande = terme
+                        aller(Destination.RECHERCHE)
+                    })
                 }
+                composable(Destination.RECHERCHE.route) {
+                    EcranRecherche(termeDemande = termeDemande, onTermeConsomme = { termeDemande = null })
+                }
+                listOf(Destination.MA_ZONE, Destination.MESSAGES).forEach { d ->
+                    composable(d.route) { EcranProvisoire(titre = d.libelle) }
+                }
+                grapheCompte(navigation)
+            }
+            BandeauMessage((alerte as? AlerteLecture.Message)?.texte, onFini = c.alertes::oublier)
+            AnimatedVisibility(
+                visible = lecture.courant != null,
+                enter = fadeIn(tween(Mouvement.VOILE)) + expandVertically(tween(Mouvement.VOILE, easing = Mouvement.sortieDouce)),
+                exit = fadeOut(tween(Mouvement.VOILE)) + shrinkVertically(tween(Mouvement.VOILE)),
+            ) {
+                MiniLecteur(lecture, c.lecteur, onOuvrir = { pleinEcran = true })
+            }
+            BarreDuBas(courante = entree?.destination, onChoisir = aller)
+        }
+
+        // Le plein écran monte du bas et y redescend, par-dessus la coquille.
+        AnimatedVisibility(
+            visible = pleinEcran && lecture.courant != null,
+            enter = slideInVertically(tween(Mouvement.TIROIR, easing = Mouvement.sortieDouce)) { it },
+            exit = slideOutVertically(tween(Mouvement.VOILE)) { it },
+        ) {
+            LecteurPleinEcran(lecture, onFermer = { pleinEcran = false })
+        }
+    }
+
+    // Retour : le lecteur plein écran se ferme avant toute navigation.
+    BackHandler(enabled = pleinEcran) { pleinEcran = false }
+
+    if (alerte == AlerteLecture.Quota) {
+        MurQuota(
+            onInscription = {
+                c.alertes.oublier()
+                pleinEcran = false
+                aller(Destination.COMPTE)
+                navigation.navigate(INSCRIPTION)
             },
+            onConnexion = {
+                c.alertes.oublier()
+                pleinEcran = false
+                aller(Destination.COMPTE)
+            },
+            onFermer = c.alertes::oublier,
         )
     }
 }

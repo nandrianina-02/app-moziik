@@ -1,0 +1,279 @@
+package com.moziik.app.ui.composants
+
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsPressedAsState
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.aspectRatio
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Shape
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import coil.compose.SubcomposeAsyncImage
+import com.moziik.app.BuildConfig
+import com.moziik.app.R
+import com.moziik.app.donnees.catalogue.Titre
+import com.moziik.app.donnees.reseau.adresseMedia
+import com.moziik.app.theme.LocalPalette
+import com.moziik.app.theme.Mouvement
+import com.moziik.app.theme.Texte
+import com.moziik.app.theme.compose
+
+/** « 3:07 » : durée d'un titre, comme formatTime du site. */
+fun duree(secondes: Double): String {
+    val total = secondes.toInt().coerceAtLeast(0)
+    return "${total / 60}:${(total % 60).toString().padStart(2, '0')}"
+}
+
+/**
+ * Une pochette ou une photo. Sans image (ou en attendant), la surface et
+ * une note de musique : jamais un carré vide (SafeImage du site).
+ */
+@Composable
+fun Pochette(adresse: String?, modifier: Modifier = Modifier, forme: Shape = RoundedCornerShape(LocalPalette.current.rayon.dp), description: String? = null) {
+    val p = LocalPalette.current
+    val complete = remember(adresse) { adresseMedia(adresse, BuildConfig.SITE) ?: adresse?.takeIf { it.startsWith("http") } }
+    Box(modifier.clip(forme).background(p.surface.compose), contentAlignment = Alignment.Center) {
+        SubcomposeAsyncImage(
+            model = complete,
+            contentDescription = description,
+            contentScale = ContentScale.Crop,
+            modifier = Modifier.fillMaxSize(),
+            loading = { RepliPochette() },
+            error = { RepliPochette() },
+        )
+    }
+}
+
+@Composable
+private fun RepliPochette() {
+    Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+        Icone(R.drawable.lucide_music_2, description = null, teinte = LocalPalette.current.encreAttenuee.compose.copy(alpha = 0.6f), taille = 22.dp)
+    }
+}
+
+/** Le nom d'un artiste et son badge vérifié, ou « Artiste supprimé ». */
+@Composable
+fun NomArtiste(nom: String?, verifie: Boolean, modifier: Modifier = Modifier, taille: Dp = 11.dp, couleur: Color = LocalPalette.current.encreAttenuee.compose) {
+    val p = LocalPalette.current
+    Row(modifier, verticalAlignment = Alignment.CenterVertically) {
+        Text(
+            nom ?: "Artiste supprimé",
+            style = Texte.secondaire,
+            color = couleur,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.weight(1f, fill = false),
+        )
+        if (verifie) {
+            Spacer(Modifier.width(4.dp))
+            Icone(R.drawable.lucide_badge_check, description = "Artiste vérifié", teinte = p.verifie.compose, taille = taille)
+        }
+    }
+}
+
+/** Appui sur un élément pressable : échelle 0,97 en 140 ms, comme la classe .pressable du site. */
+@Composable
+fun Modifier.pressable(role: Role = Role.Button, onClick: () -> Unit): Modifier {
+    val interactions = remember { MutableInteractionSource() }
+    val appuye by interactions.collectIsPressedAsState()
+    val echelle by animateFloatAsState(if (appuye) 0.97f else 1f, tween(Mouvement.APPUI), label = "appui")
+    return this
+        .graphicsLayer { scaleX = echelle; scaleY = echelle }
+        .clickable(interactionSource = interactions, indication = null, role = role, onClick = onClick)
+}
+
+/** En-tête de section, unifié comme SectionHeader.tsx : titre en Sora, sous-titre discret. */
+@Composable
+fun EnTeteSection(titre: String, sousTitre: String? = null, modifier: Modifier = Modifier, icone: Int? = null) {
+    val p = LocalPalette.current
+    Column(modifier.fillMaxWidth().padding(bottom = 12.dp)) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            if (icone != null) {
+                Icone(icone, description = null, teinte = p.accent.compose, taille = 16.dp)
+                Spacer(Modifier.width(8.dp))
+            }
+            Text(titre, style = Texte.titreSection, color = p.encre.compose, maxLines = 1, overflow = TextOverflow.Ellipsis)
+        }
+        if (sousTitre != null) {
+            Text(sousTitre, style = Texte.secondaire, color = p.encreAttenuee.compose, maxLines = 1, overflow = TextOverflow.Ellipsis)
+        }
+    }
+}
+
+/**
+ * La carte d'un titre (SongCard.tsx) : pochette carrée avec sa durée, le
+ * bouton de lecture posé dessus, titre et artiste dessous. Le titre en
+ * cours passe à l'accent.
+ */
+@Composable
+fun CarteTitre(titre: Titre, enCours: Boolean, enLecture: Boolean, onClick: () -> Unit, modifier: Modifier = Modifier) {
+    val p = LocalPalette.current
+    Column(modifier.pressable(onClick = onClick)) {
+        Box(Modifier.fillMaxWidth().aspectRatio(1f)) {
+            Pochette(titre.coverUrl, Modifier.fillMaxSize(), description = null)
+            Text(
+                duree(titre.duration),
+                style = Texte.secondaire.copy(fontSize = 11.sp),
+                color = Color.White,
+                modifier = Modifier
+                    .align(Alignment.TopEnd)
+                    .padding(8.dp)
+                    .clip(CircleShape)
+                    .background(Color.Black.copy(alpha = 0.6f))
+                    .padding(horizontal = 8.dp, vertical = 2.dp),
+            )
+            Box(
+                Modifier.align(Alignment.BottomEnd).padding(8.dp).size(36.dp).clip(CircleShape).background(p.accent.compose),
+                contentAlignment = Alignment.Center,
+            ) {
+                if (enCours && enLecture) {
+                    Egaliseur(hauteur = 14.dp, libelle = "En cours de lecture", couleur = p.base.compose)
+                } else {
+                    Icone(R.drawable.lucide_play_plein, description = null, teinte = p.base.compose, taille = 14.dp, modifier = Modifier.padding(start = 2.dp))
+                }
+            }
+        }
+        Spacer(Modifier.height(8.dp))
+        Text(
+            titre.title,
+            style = Texte.corps.copy(fontWeight = androidx.compose.ui.text.font.FontWeight.Medium),
+            color = if (enCours) p.accent.compose else p.encre.compose,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+        )
+        NomArtiste(titre.artist?.stageName, titre.artist?.verified == true)
+    }
+}
+
+/**
+ * Une ligne de titre numérotée (TrendingList.tsx) : rang en chiffres fixes,
+ * pochette, titre, artiste, et l'état de lecture à droite.
+ */
+@Composable
+fun LigneTitre(titre: Titre, rang: Int?, enCours: Boolean, enLecture: Boolean, onClick: () -> Unit, modifier: Modifier = Modifier) {
+    val p = LocalPalette.current
+    Row(
+        modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(10.dp))
+            .clickable(role = Role.Button, onClick = onClick)
+            .padding(horizontal = 4.dp, vertical = 6.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        if (rang != null) {
+            Text(
+                rang.toString().padStart(2, '0'),
+                style = Texte.secondaire.copy(fontFeatureSettings = "tnum"),
+                color = if (enCours) p.accent.compose else p.encreAttenuee.compose,
+                modifier = Modifier.width(26.dp),
+            )
+        }
+        Pochette(titre.coverUrl, Modifier.size(44.dp), RoundedCornerShape(8.dp))
+        Spacer(Modifier.width(12.dp))
+        Column(Modifier.weight(1f)) {
+            Text(
+                titre.title,
+                style = Texte.corps.copy(fontWeight = androidx.compose.ui.text.font.FontWeight.Medium),
+                color = if (enCours) p.accent.compose else p.encre.compose,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+            NomArtiste(titre.artist?.stageName, titre.artist?.verified == true)
+        }
+        Spacer(Modifier.width(8.dp))
+        if (enCours && enLecture) {
+            Egaliseur(hauteur = 12.dp, libelle = "En cours de lecture", modifier = Modifier.padding(end = 8.dp))
+        } else {
+            Text(duree(titre.duration), style = Texte.secondaire.copy(fontFeatureSettings = "tnum"), color = p.encreAttenuee.compose, modifier = Modifier.padding(end = 4.dp))
+        }
+    }
+}
+
+/** Album, playlist ou élément de collection : pochette carrée, titre, ligne secondaire. */
+@Composable
+fun CarteCollection(
+    titre: String,
+    sousTitre: String?,
+    pochette: String?,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    verifie: Boolean = false,
+    chargement: Boolean = false,
+) {
+    val p = LocalPalette.current
+    Column(modifier.pressable(onClick = onClick)) {
+        Box(Modifier.fillMaxWidth().aspectRatio(1f), contentAlignment = Alignment.Center) {
+            Pochette(pochette, Modifier.fillMaxSize())
+            if (chargement) {
+                Box(Modifier.size(40.dp).clip(CircleShape).background(Color.Black.copy(alpha = 0.55f)), contentAlignment = Alignment.Center) {
+                    Egaliseur(hauteur = 14.dp, libelle = "Chargement", couleur = Color.White)
+                }
+            }
+        }
+        Spacer(Modifier.height(8.dp))
+        Text(
+            titre,
+            style = Texte.corps.copy(fontWeight = androidx.compose.ui.text.font.FontWeight.Medium),
+            color = p.encre.compose,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+        )
+        if (sousTitre != null) NomArtiste(sousTitre, verifie)
+    }
+}
+
+/** Un artiste : photo ronde, nom centré (ArtistRow de SectionBlock.tsx). */
+@Composable
+fun CarteArtiste(nom: String, photo: String?, verifie: Boolean, ligne: String?, onClick: () -> Unit, modifier: Modifier = Modifier, chargement: Boolean = false) {
+    val p = LocalPalette.current
+    Column(modifier.pressable(onClick = onClick), horizontalAlignment = Alignment.CenterHorizontally) {
+        Box(Modifier.fillMaxWidth().aspectRatio(1f), contentAlignment = Alignment.Center) {
+            Pochette(photo, Modifier.fillMaxSize(), CircleShape)
+            if (chargement) Egaliseur(hauteur = 14.dp, libelle = "Chargement", couleur = Color.White)
+        }
+        Spacer(Modifier.height(8.dp))
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.Center) {
+            Text(
+                nom,
+                style = Texte.secondaire.copy(fontWeight = androidx.compose.ui.text.font.FontWeight.Medium),
+                color = p.encre.compose,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.weight(1f, fill = false),
+            )
+            if (verifie) {
+                Spacer(Modifier.width(3.dp))
+                Icone(R.drawable.lucide_badge_check, description = "Artiste vérifié", teinte = p.verifie.compose, taille = 11.dp)
+            }
+        }
+        if (ligne != null) Text(ligne, style = Texte.secondaire.copy(fontSize = 11.sp), color = p.encreAttenuee.compose, maxLines = 1)
+    }
+}

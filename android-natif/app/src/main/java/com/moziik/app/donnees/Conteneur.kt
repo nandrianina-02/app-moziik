@@ -3,12 +3,17 @@ package com.moziik.app.donnees
 import android.content.Context
 import android.os.Build
 import com.moziik.app.BuildConfig
+import com.moziik.app.donnees.catalogue.Catalogue
+import com.moziik.app.donnees.catalogue.HistoriqueRecherche
 import com.moziik.app.donnees.reseau.Reseau
 import com.moziik.app.donnees.session.CoffreSession
 import com.moziik.app.donnees.session.Session
+import com.moziik.app.lecteur.AlertesLecture
+import com.moziik.app.lecteur.Lecteur
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
+import java.io.File
 
 /**
  * Les objets partagés par toute l'app, créés une fois au démarrage du
@@ -21,6 +26,11 @@ class Conteneur(contexte: Context) {
     val coffre = CoffreSession(contexte)
     val reseau = Reseau(BuildConfig.SITE, coffre)
     val session = Session(reseau.api, coffre, libelleAppareil())
+    val catalogue = Catalogue(reseau.api, session, File(contexte.filesDir, "catalogue"))
+    val historiqueRecherche = HistoriqueRecherche(contexte)
+    /** Messages du service de lecture à l'écran (quota atteint, titre indisponible). */
+    val alertes = AlertesLecture()
+    val lecteur = Lecteur(contexte, BuildConfig.SITE)
 }
 
 /**

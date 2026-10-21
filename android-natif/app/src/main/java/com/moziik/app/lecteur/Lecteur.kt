@@ -2,6 +2,8 @@ package com.moziik.app.lecteur
 
 import android.content.ComponentName
 import android.content.Context
+import android.os.Handler
+import android.os.Looper
 import androidx.core.content.ContextCompat
 import androidx.media3.common.C
 import androidx.media3.common.Player
@@ -9,6 +11,9 @@ import androidx.media3.session.MediaController
 import androidx.media3.session.SessionToken
 import com.google.common.util.concurrent.ListenableFuture
 import com.moziik.app.donnees.catalogue.Titre
+import com.moziik.app.donnees.reseau.JsonMoziik
+import kotlinx.serialization.Serializable
+import java.io.File
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -41,7 +46,55 @@ class Lecteur(private val contexte: Context, private val site: String) {
     val etat: StateFlow<EtatLecteur> = _etat.asStateFlow()
 
     private val ecouteur = object : Player.Listener {
-        override fun onEvents(player: Player, events: Player.Events) = publier()
+        override fun onEvents(player: Player, events: Player.Events) {
+            publier()
+            // La file sauvegardée à chaque changement, la position à chaque pause (E10).
+            if (events.containsAny(Player.EVENT_TIMELINE_CHANGED, Player.EVENT_MEDIA_ITEM_TRANSITION, Player.EVENT_IS_PLAYING_CHANGED)) sauvegarder()
+            if (events.contains(Player.EVENT_IS_PLAYING_CHANGED)) {
+                minuterie.removeCallbacks(sauvegardePeriodique)
+                if (player.isPlaying) minuterie.postDelayed(sauvegardePeriodique, SAUVEGARDE_MS)
+            }
+        }
+    }
+
+    // ------------------------------------------------------------ Reprise (E10)
+
+    @Serializable
+    private data class Reprise(val file: List<TitreLu>, val index: Int, val positionMs: Long)
+
+    private val fichierReprise = File(contexte.filesDir, "reprise-lecture.json")
+    private var repriseFaite = false
+    private val minuterie = Handler(Looper.getMainLooper())
+    /** La position, toutes les 5 secondes pendant la lecture : une coupure brutale ne la perd pas. */
+    private val sauvegardePeriodique: Runnable = object : Runnable {
+        override fun run() {
+            sauvegarder()
+            if (controleur?.isPlaying == true) minuterie.postDelayed(this, SAUVEGARDE_MS)
+        }
+    }
+
+    private fun sauvegarder() {
+        val c = controleur ?: return
+        if (c.mediaItemCount == 0) return
+        val reprise = Reprise((0 until c.mediaItemCount).map { c.getMediaItemAt(it).versTitreLu() }, c.currentMediaItemIndex, c.currentPosition)
+        runCatching { fichierReprise.writeText(JsonMoziik.encodeToString(Reprise.serializer(), reprise)) }
+    }
+
+    /**
+     * Au lancement, si le service n'a plus de file : la dernière file,
+     * prête mais en pause. Pas de reprise sous une seconde d'écoute ni
+     * dans les cinq dernières secondes d'un titre (E10).
+     */
+    private fun reprendre(c: MediaController) {
+        if (repriseFaite) return
+        repriseFaite = true
+        if (c.mediaItemCount > 0) return
+        val reprise = runCatching { JsonMoziik.decodeFromString(Reprise.serializer(), fichierReprise.readText()) }.getOrNull() ?: return
+        if (reprise.file.isEmpty()) return
+        val index = reprise.index.coerceIn(0, reprise.file.lastIndex)
+        val dureeMs = (reprise.file[index].dureeSecondes * 1000).toLong()
+        val position = reprise.positionMs.takeIf { it > 1_000 && (dureeMs <= 0 || it < dureeMs - 5_000) } ?: 0L
+        c.setMediaItems(reprise.file.map { it.versElement(site) }, index, position)
     }
 
     fun connecter() {
@@ -56,6 +109,7 @@ class Lecteur(private val contexte: Context, private val site: String) {
                 return@addListener
             }
             controleur = c
+            reprendre(c)
             c.addListener(ecouteur)
             publier()
             enAttente.toList().forEach { it(c) }
@@ -64,6 +118,8 @@ class Lecteur(private val contexte: Context, private val site: String) {
     }
 
     fun liberer() {
+        sauvegarder()
+        minuterie.removeCallbacks(sauvegardePeriodique)
         controleur?.removeListener(ecouteur)
         connexion?.let { MediaController.releaseFuture(it) }
         connexion = null
@@ -189,5 +245,6 @@ class Lecteur(private val contexte: Context, private val site: String) {
 
     private companion object {
         const val SUIVANTS_MAX = 30
+        const val SAUVEGARDE_MS = 5_000L
     }
 }

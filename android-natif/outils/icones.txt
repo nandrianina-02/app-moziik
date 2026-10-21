@@ -88,3 +88,22 @@ copy
 reply
 message-square-plus
 check-check
+
+# Compte et réglages, modes d écoute
+plane
+dumbbell
+graduation-cap
+briefcase-business
+bed-double
+leaf
+sunrise
+compass
+wand-sparkles
+sliders-horizontal
+crown
+shield
+palette
+smartphone
+key-round
+user-round-pen
+monitor

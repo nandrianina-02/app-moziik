@@ -139,6 +139,32 @@ class Catalogue(
     private val dossier: File,
 ) {
     @Volatile private var universConnu: Pair<String?, String>? = null
+    @Volatile private var modeConnu: Pair<String?, String?>? = null
+
+    private val _preferences = kotlinx.coroutines.flow.MutableStateFlow(0)
+    /** Augmente à chaque changement d'univers ou de mode : l'accueil se recharge. */
+    val preferences: kotlinx.coroutines.flow.StateFlow<Int> = _preferences
+
+    /** Après un changement d'univers ou de mode dans les préférences : relus au prochain appel, accueil rechargé. */
+    fun preferencesChangees() {
+        universConnu = null
+        modeConnu = null
+        _preferences.value++
+    }
+
+    /**
+     * Le mode d'écoute choisi sur le compte, s'il est concret. « auto » ou
+     * rien : null, et le site déduit le moment de l'heure envoyée (A3).
+     * Envoyé, il prime sur l'heure.
+     */
+    suspend fun mode(): String? {
+        val compte = compte()
+        modeConnu?.let { (c, m) -> if (c == compte) return m }
+        if (compte == null) return null
+        val mode = appel { api.mode().mode }.getOrNull()?.takeIf { it != "auto" }
+        modeConnu = compte to mode
+        return mode
+    }
 
     private fun compte(): String? = (session.etat.value as? EtatSession.Connecte)?.utilisateur?.id
 
@@ -167,7 +193,7 @@ class Catalogue(
     }.getOrNull()
 
     suspend fun accueil(): Accueil {
-        val accueil = appel { api.accueil(univers(), heureLocale()) }.getOrThrow()
+        val accueil = appel { api.accueil(univers(), heureLocale(), mode()) }.getOrThrow()
         val fichier = fichierAccueil()
         withContext(Dispatchers.IO) {
             runCatching {
@@ -296,7 +322,7 @@ class Catalogue(
 
     /** « Ma bande son » : la station personnelle, générique pour un visiteur (D14). */
     suspend fun station(): AEcouter {
-        val station = appel { api.station(heureLocale(), univers()) }.getOrThrow()
+        val station = appel { api.station(heureLocale(), univers(), mode()) }.getOrThrow()
         return AEcouter(station.songs, station.presentation?.nom ?: "Ma bande son")
     }
 

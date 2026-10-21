@@ -47,7 +47,17 @@ import com.moziik.app.donnees.messagerie.NouveauMessage
 import com.moziik.app.donnees.messagerie.PageMessages
 import com.moziik.app.donnees.messagerie.ReponseConversation
 import com.moziik.app.donnees.messagerie.ReponseMessage
+import com.moziik.app.donnees.compte.Appareils
+import com.moziik.app.donnees.compte.ChangementMotDePasse
+import com.moziik.app.donnees.compte.ChoixMode
+import com.moziik.app.donnees.compte.ChoixUnivers
+import com.moziik.app.donnees.compte.ConfigurationTheme
+import com.moziik.app.donnees.compte.EtatAbonnement
+import com.moziik.app.donnees.compte.ModeCourant
+import com.moziik.app.donnees.compte.ModificationProfil
+import com.moziik.app.donnees.compte.ThemesCompte
 import retrofit2.http.Body
+import retrofit2.http.PUT
 import retrofit2.http.DELETE
 import retrofit2.http.HTTP
 import retrofit2.http.PATCH
@@ -97,7 +107,7 @@ interface MoziikApi {
 
     /** Repli JSON de l'accueil prévu pour le mobile ; `heure` choisit le moment de la journée. */
     @GET("api/homepage")
-    suspend fun accueil(@Query("univers") univers: String?, @Query("heure") heure: Int): Accueil
+    suspend fun accueil(@Query("univers") univers: String?, @Query("heure") heure: Int, @Query("mode") mode: String? = null): Accueil
 
     @GET("api/search")
     suspend fun recherche(
@@ -160,10 +170,10 @@ interface MoziikApi {
     suspend fun similaires(@Path("id") id: String, @Query("limit") limite: Int): ListeTitres
 
     @GET("api/recommendations")
-    suspend fun recommandations(@Query("univers") univers: String?, @Query("heure") heure: Int): ListeTitres
+    suspend fun recommandations(@Query("univers") univers: String?, @Query("heure") heure: Int, @Query("mode") mode: String? = null): ListeTitres
 
     @GET("api/station")
-    suspend fun station(@Query("heure") heure: Int, @Query("univers") univers: String?): Station
+    suspend fun station(@Query("heure") heure: Int, @Query("univers") univers: String?, @Query("mode") mode: String? = null): Station
 
     @GET("api/albums/{id}")
     suspend fun album(@Path("id") id: String): ReponseAlbum
@@ -224,6 +234,42 @@ interface MoziikApi {
     /** Les 12 derniers titres écoutés, distincts, de l'univers (F5). */
     @GET("api/me/recent")
     suspend fun recents(@Query("univers") univers: String?): ListeTitres
+
+    // Compte : préférences, sécurité, abonnement (domaines A, B, C)
+
+    @GET("api/me/subscription")
+    suspend fun abonnement(): EtatAbonnement
+
+    @GET("api/me/sessions")
+    suspend fun appareils(): Appareils
+
+    @DELETE("api/me/sessions")
+    suspend fun deconnecterAppareil(@Query("id") id: String)
+
+    @DELETE("api/me/sessions")
+    suspend fun fermerToutesLesSessions()
+
+    @POST("api/me/password")
+    suspend fun changerMotDePasse(@Body corps: ChangementMotDePasse)
+
+    @PATCH("api/me/profile")
+    suspend fun modifierProfil(@Body corps: ModificationProfil)
+
+    @PUT("api/me/univers")
+    suspend fun changerUnivers(@Body corps: ChoixUnivers)
+
+    @GET("api/me/mode")
+    suspend fun mode(): ModeCourant
+
+    @PUT("api/me/mode")
+    suspend fun changerMode(@Body corps: ChoixMode)
+
+    @GET("api/me/theme")
+    suspend fun themes(): ThemesCompte
+
+    /** La même route que `configuration`, lue pour son seul thème. */
+    @GET("api/site-config")
+    suspend fun themeDuSite(): ConfigurationTheme
 
     // Fonctions IA, chacune activable par l'administration (aiFeatures)
 

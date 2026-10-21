@@ -11,7 +11,13 @@ import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.remember
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.moziik.app.donnees.compte.ThemeSite
+import com.moziik.app.donnees.compte.themeDepuisJson
+import com.moziik.app.donnees.compte.versPreference
+import com.moziik.app.donnees.reseau.JsonMoziik
+import com.moziik.app.donnees.session.EtatSession
 import androidx.compose.runtime.setValue
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import kotlinx.coroutines.launch
@@ -30,8 +36,24 @@ class MainActivity : ComponentActivity() {
         // Retour de la connexion Google alors que l'app avait été fermée entre-temps.
         if (savedInstanceState == null) recevoirRelais(intent)
         setContent {
-            // Réglage propre à l'appareil, comme l'interrupteur Soleil/Lune du site.
-            var choix by rememberSaveable { mutableStateOf(THEME_PAR_DEFAUT.mode) }
+            val conteneur = (application as MoziikApplication).conteneur
+            // Le thème du site (ou le thème personnel d'un abonné), gardé pour s'afficher dès le lancement (A5).
+            var theme by remember { mutableStateOf(conteneur.reglages.themeGarde?.let(::themeDepuisJson) ?: THEME_PAR_DEFAUT) }
+            val session by conteneur.session.etat.collectAsStateWithLifecycle()
+            LaunchedEffect(session) {
+                conteneur.compte.themeApplique(session is EtatSession.Connecte)?.let { lu ->
+                    theme = lu.versPreference()
+                    conteneur.reglages.themeGarde = JsonMoziik.encodeToString(ThemeSite.serializer(), lu)
+                }
+            }
+            // Clair ou sombre : réglage propre à l'appareil, comme l'interrupteur Soleil/Lune du site ; il prime sur le thème.
+            val apparence by conteneur.reglages.apparence.collectAsStateWithLifecycle()
+            val choix = when (apparence) {
+                "clair" -> ChoixMode.CLAIR
+                "sombre" -> ChoixMode.SOMBRE
+                "systeme" -> ChoixMode.SYSTEME
+                else -> theme.mode
+            }
             val mode = modeApplique(choix, isSystemInDarkTheme())
             val sombre = mode == Mode.SOMBRE
 
@@ -41,10 +63,10 @@ class MainActivity : ComponentActivity() {
                 enableEdgeToEdge(statusBarStyle = transparent, navigationBarStyle = transparent)
             }
 
-            MoziikTheme(preference = THEME_PAR_DEFAUT, mode = mode) {
+            MoziikTheme(preference = theme, mode = mode) {
                 Coquille(
                     sombre = sombre,
-                    onBasculerMode = { choix = if (sombre) ChoixMode.CLAIR else ChoixMode.SOMBRE },
+                    onBasculerMode = { conteneur.reglages.choisirApparence(if (sombre) "clair" else "sombre") },
                 )
             }
         }

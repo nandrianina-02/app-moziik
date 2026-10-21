@@ -95,6 +95,7 @@ import com.moziik.app.theme.compose
 import com.moziik.app.ui.composants.Egaliseur
 import com.moziik.app.ui.composants.Icone
 import com.moziik.app.ui.ecrans.EcranProvisoire
+import com.moziik.app.ui.composants.LogoMoziik
 
 /**
  * La coquille commune à tous les écrans, comme celle du site sur mobile :
@@ -263,9 +264,8 @@ private fun EnTete(sombre: Boolean, onBasculerMode: () -> Unit) {
         verticalAlignment = Alignment.CenterVertically,
     ) {
         // Sans logo publié par le site, l'égaliseur sert de marque (comme MobileHeader.tsx).
-        Egaliseur(hauteur = 20.dp, libelle = null)
-        Spacer(Modifier.width(10.dp))
-        Text("Moziik", style = Texte.marque, color = p.encre.compose)
+        // Le logo s'écrit une fois à l'ouverture de l'app, puis reste en place.
+        LogoMoziik(hauteur = 22.dp, anime = true)
         Spacer(Modifier.weight(1f))
         Box(
             Modifier

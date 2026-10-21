@@ -102,6 +102,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.launch
+import com.moziik.app.ui.composants.LogoMoziik
 
 /** Le fil se relit toutes les 4 secondes, en ne demandant que ce qui a changé (H6). */
 private const val RAFRAICHISSEMENT_FIL_MS = 4_000L
@@ -271,7 +272,7 @@ fun EcranConversation(id: String, onRetour: () -> Unit) {
         Box(Modifier.weight(1f)) {
             when {
                 erreur != null && !pret -> MessageErreur(erreur, Modifier.padding(16.dp))
-                !pret -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { Egaliseur(hauteur = 20.dp) }
+                !pret -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { LogoMoziik(hauteur = 30.dp, boucle = true) }
                 messages.isEmpty() && !envoi -> Text(
                     if (assistant) "Demande-lui un titre, une ambiance, un artiste à découvrir : il cherche dans le catalogue de Moziik." else "Aucun message. Écris le premier.",
                     style = Texte.corps, color = p.encreAttenuee.compose, textAlign = TextAlign.Center,

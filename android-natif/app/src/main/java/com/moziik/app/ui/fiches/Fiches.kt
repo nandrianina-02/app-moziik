@@ -50,6 +50,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import com.moziik.app.ui.composants.LogoMoziik
 
 sealed interface EtatFiche<out T> {
     data object Chargement : EtatFiche<Nothing>
@@ -104,7 +105,7 @@ fun <T> ContenuFiche(etat: EtatFiche<T>, onReessayer: () -> Unit, contenu: @Comp
     val p = LocalPalette.current
     when (etat) {
         EtatFiche.Chargement -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-            Egaliseur(hauteur = 22.dp, libelle = "Chargement")
+            LogoMoziik(hauteur = 30.dp, boucle = true)
         }
         is EtatFiche.Erreur -> Column(
             Modifier.fillMaxSize().padding(32.dp),

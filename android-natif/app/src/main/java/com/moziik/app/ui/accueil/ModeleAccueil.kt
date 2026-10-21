@@ -45,6 +45,8 @@ class ModeleAccueil(private val catalogue: Catalogue, session: Session) : ViewMo
         charger()
         // Connexion ou déconnexion : les sections personnelles (écoutes récentes, recommandations) changent.
         viewModelScope.launch { session.etat.drop(1).collect { charger() } }
+        // Un autre univers ou mode d'écoute : d'autres sections.
+        viewModelScope.launch { catalogue.preferences.drop(1).collect { charger() } }
     }
 
     fun charger() {

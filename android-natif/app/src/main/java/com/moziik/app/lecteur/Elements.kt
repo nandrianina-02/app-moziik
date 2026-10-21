@@ -27,6 +27,7 @@ private const val VERIFIE = "verifie"
 private const val SOURCE = "source"
 
 /** Ce que le lecteur montre d'un titre en cours ou en file. */
+@kotlinx.serialization.Serializable
 data class TitreLu(
     val id: String,
     val titre: String,
@@ -44,7 +45,7 @@ data class TitreLu(
  * la notification et à l'écran verrouillé ; l'adresse, elle, est reposée
  * par le service (une MediaController ne transmet pas l'URI).
  */
-fun Titre.versElement(site: String, source: String?): MediaItem {
+fun Titre.versElement(site: String, source: String?, qualite: String = "high"): MediaItem {
     val extras = Bundle().apply {
         putDouble(DUREE, duration)
         putString(ARTISTE_ID, artist?.id)
@@ -61,9 +62,28 @@ fun Titre.versElement(site: String, source: String?): MediaItem {
         .build()
     return MediaItem.Builder()
         .setMediaId(id)
-        .setUri(adresseFlux(site, id))
+        .setUri(adresseFlux(site, id, qualite))
         .setMediaMetadata(metadonnees)
         .build()
+}
+
+/** Un élément de file reconstruit depuis sa sauvegarde, pour reprendre la lecture au lancement (E10). */
+fun TitreLu.versElement(site: String): MediaItem {
+    val extras = Bundle().apply {
+        putDouble(DUREE, dureeSecondes)
+        putString(ARTISTE_ID, artisteId)
+        putBoolean(VERIFIE, verifie)
+        putString(SOURCE, source)
+    }
+    val metadonnees = MediaMetadata.Builder()
+        .setTitle(titre)
+        .setArtist(artiste ?: "Artiste supprimé")
+        .setArtworkUri(pochette?.let(Uri::parse))
+        .setIsPlayable(true)
+        .setIsBrowsable(false)
+        .setExtras(extras)
+        .build()
+    return MediaItem.Builder().setMediaId(id).setUri(adresseFlux(site, id)).setMediaMetadata(metadonnees).build()
 }
 
 fun MediaItem.versTitreLu(): TitreLu {

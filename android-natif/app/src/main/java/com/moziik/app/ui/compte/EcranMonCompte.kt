@@ -48,10 +48,11 @@ import com.moziik.app.ui.composants.Icone
 import com.moziik.app.ui.composants.MessageErreur
 import com.moziik.app.ui.composants.apparition
 import com.moziik.app.ui.conteneur
+import com.moziik.app.ui.composants.LogoMoziik
 
 /** Mon compte (B8 de la spécification) : l'identité du compte, ses compteurs, la déconnexion. */
 @Composable
-fun EcranMonCompte() {
+fun EcranMonCompte(onOuvrir: (String) -> Unit) {
     val c = conteneur()
     val modele: CompteModele = viewModel { CompteModele(c.reseau.api, c.session) }
     val profil by modele.profil.collectAsStateWithLifecycle()
@@ -59,7 +60,7 @@ fun EcranMonCompte() {
 
     Crossfade(profil, animationSpec = tween(200), label = "profil") { etat ->
         when (etat) {
-            EtatProfil.Chargement -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { Egaliseur(hauteur = 20.dp) }
+            EtatProfil.Chargement -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { LogoMoziik(hauteur = 30.dp, boucle = true) }
             is EtatProfil.Echec -> Column(
                 Modifier.fillMaxSize().padding(32.dp),
                 verticalArrangement = Arrangement.Center,
@@ -69,13 +70,13 @@ fun EcranMonCompte() {
                 Spacer(Modifier.height(16.dp))
                 BoutonPrincipal("Réessayer", modele::charger)
             }
-            is EtatProfil.Pret -> FicheCompte(etat.profil, deconnexion, modele::seDeconnecter)
+            is EtatProfil.Pret -> FicheCompte(etat.profil, deconnexion, modele::seDeconnecter, onOuvrir)
         }
     }
 }
 
 @Composable
-private fun FicheCompte(profil: Profil, deconnexionEnCours: Boolean, onDeconnexion: () -> Unit) {
+private fun FicheCompte(profil: Profil, deconnexionEnCours: Boolean, onDeconnexion: () -> Unit, onOuvrir: (String) -> Unit) {
     val p = LocalPalette.current
     val u = profil.user
     Column(
@@ -111,8 +112,13 @@ private fun FicheCompte(profil: Profil, deconnexionEnCours: Boolean, onDeconnexi
             Compteur(R.drawable.lucide_disc_3, s.savedAlbumsCount, "Albums", Modifier.weight(1f).apparition(6))
         }
 
-        Spacer(Modifier.height(32.dp))
-        BoutonDeconnexion(deconnexionEnCours, onDeconnexion, Modifier.apparition(7))
+        Spacer(Modifier.height(24.dp))
+        Column(Modifier.fillMaxWidth().apparition(7)) {
+            RUBRIQUES.forEach { (route, icone, titre, detail) -> LigneRubrique(icone, titre, detail) { onOuvrir(route) } }
+        }
+
+        Spacer(Modifier.height(24.dp))
+        BoutonDeconnexion(deconnexionEnCours, onDeconnexion, Modifier.apparition(8))
     }
 }
 
@@ -128,6 +134,37 @@ private fun Avatar(nom: String, adresse: String?, modifier: Modifier = Modifier)
         if (adresse != null) {
             AsyncImage(model = adresse, contentDescription = "Photo de profil", contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize())
         }
+    }
+}
+
+private data class Rubrique(val route: String, val icone: Int, val titre: String, val detail: String)
+
+/** Les rubriques du compte, dans l'ordre où on les cherche. */
+private val RUBRIQUES = listOf(
+    Rubrique("compte/profil", R.drawable.lucide_user_round_pen, "Profil", "Nom affiché, nom d'utilisateur"),
+    Rubrique("compte/preferences", R.drawable.lucide_sliders_horizontal, "Préférences", "Univers musical, mode d'écoute"),
+    Rubrique("compte/lecture", R.drawable.lucide_headphones, "Lecture", "Qualité d'écoute, économie de données"),
+    Rubrique("compte/apparence", R.drawable.lucide_palette, "Apparence", "Clair, sombre, comme le téléphone"),
+    Rubrique("compte/abonnement", R.drawable.lucide_crown, "Abonnement", "Premium, échéance, avantages"),
+    Rubrique("compte/securite", R.drawable.lucide_shield, "Sécurité", "Mot de passe, appareils connectés"),
+)
+
+@Composable
+private fun LigneRubrique(icone: Int, titre: String, detail: String, onClick: () -> Unit) {
+    val p = LocalPalette.current
+    Row(
+        Modifier.fillMaxWidth().clip(RoundedCornerShape(10.dp)).clickable(role = Role.Button, onClick = onClick).padding(vertical = 12.dp, horizontal = 4.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Box(Modifier.size(38.dp).clip(RoundedCornerShape(10.dp)).background(p.accent.compose.copy(alpha = 0.1f)), contentAlignment = Alignment.Center) {
+            Icone(icone, description = null, teinte = p.accent.compose, taille = 18.dp)
+        }
+        Spacer(Modifier.width(12.dp))
+        Column(Modifier.weight(1f)) {
+            Text(titre, style = Texte.corps.copy(fontWeight = androidx.compose.ui.text.font.FontWeight.Medium), color = p.encre.compose)
+            Text(detail, style = Texte.secondaire, color = p.encreAttenuee.compose)
+        }
+        Icone(R.drawable.lucide_chevron_right, description = null, teinte = p.encreAttenuee.compose, taille = 18.dp)
     }
 }
 

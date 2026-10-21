@@ -94,6 +94,7 @@ import kotlinx.coroutines.delay
 import java.text.SimpleDateFormat
 import java.util.Locale
 import java.util.TimeZone
+import com.moziik.app.ui.composants.LogoMoziik
 
 /** Sous-titres des sections, repris de components/home/sectionMeta.ts. */
 private val SOUS_TITRES = mapOf(
@@ -167,7 +168,9 @@ fun EcranAccueil() {
                 item(key = "reprise") { MentionReprise() }
             }
             when {
-                etat.vide && etat.chargement -> item(key = "attente") { SqueletteAccueil() }
+                etat.vide && etat.chargement -> item(key = "attente") {
+                    Box(Modifier.fillMaxWidth().padding(top = 120.dp), contentAlignment = Alignment.Center) { LogoMoziik(hauteur = 30.dp, boucle = true) }
+                }
                 etat.vide && etat.erreur != null -> item(key = "erreur") { ErreurAccueil(etat.erreur.orEmpty(), modele::charger) }
             }
             if (etat.diapos.isNotEmpty()) {
@@ -263,26 +266,6 @@ private fun MentionReprise() {
         Box(Modifier.size(6.dp).alpha(opacite).clip(CircleShape).background(p.accent.compose))
         Spacer(Modifier.width(8.dp))
         Text("Affichage de votre dernière visite — mise à jour en cours…", style = Texte.secondaire, color = p.encreAttenuee.compose)
-    }
-}
-
-/** La place de la bannière et de deux rangées, pendant le tout premier chargement. */
-@Composable
-private fun SqueletteAccueil() {
-    val p = LocalPalette.current
-    val transition = rememberInfiniteTransition(label = "squelette")
-    val opacite by transition.animateFloat(0.5f, 1f, infiniteRepeatable(tween(900), RepeatMode.Reverse), label = "pulsation")
-    val forme = RoundedCornerShape(p.rayon.dp)
-    Column(Modifier.alpha(opacite)) {
-        Box(Modifier.fillMaxWidth().height(340.dp).clip(forme).background(p.surface.compose))
-        repeat(2) {
-            Spacer(Modifier.height(32.dp))
-            Box(Modifier.width(160.dp).height(18.dp).clip(RoundedCornerShape(4.dp)).background(p.surface.compose))
-            Spacer(Modifier.height(14.dp))
-            Row(horizontalArrangement = Arrangement.spacedBy(14.dp)) {
-                repeat(3) { Box(Modifier.size(140.dp).clip(forme).background(p.surface.compose)) }
-            }
-        }
     }
 }
 

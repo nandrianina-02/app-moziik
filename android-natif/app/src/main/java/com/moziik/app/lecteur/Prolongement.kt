@@ -20,11 +20,11 @@ const val TITRES_PAR_TOUR = 20
  * dernier titre d'un album ou d'une recherche. Des titres proches du
  * dernier, à défaut les recommandations du compte.
  */
-class Prolongement(private val api: MoziikApi, private val univers: suspend () -> String?) {
+class Prolongement(private val api: MoziikApi, private val univers: suspend () -> String?, private val mode: suspend () -> String? = { null }) {
     suspend fun suite(dernier: String, exclus: Set<String>): List<Titre> {
         val proches = appel { api.similaires(dernier, 30).songs }.getOrDefault(emptyList())
         retenirSuite(proches, exclus).takeIf { it.isNotEmpty() }?.let { return it }
-        val recommandes = appel { api.recommandations(univers(), heureLocale()).songs }.getOrDefault(emptyList())
+        val recommandes = appel { api.recommandations(univers(), heureLocale(), mode()).songs }.getOrDefault(emptyList())
         return retenirSuite(recommandes, exclus)
     }
 }

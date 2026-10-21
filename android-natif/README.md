@@ -22,6 +22,8 @@ Elle ne parle au serveur que par l'API HTTP du site, avec les jetons mobiles
 | Ma zone : playlists (créer, modifier, ajouter, retirer, supprimer), titres aimés, albums et podcasts, artistes suivis, écoutes récentes ; menu d'un titre à l'appui long | `ui/bibliotheque/`, `ui/menus/`, `donnees/catalogue/Bibliotheque.kt` |
 | Messages : conversations, non-lus, fil avec réponses citées, modification, suppression, cartes de partage, accusés de lecture, « Écrit… », envoi d'un titre dans un message | `ui/messages/`, `donnees/messagerie/` |
 | Fonctions IA du site, selon leur activation : composer une playlist, assistant d'écoute, recherche par description, traduction des paroles | `donnees/catalogue/IA.kt`, `ui/menus/ComposerIA.kt` |
+| Compte : profil, préférences (univers, mode d'écoute), lecture (qualité, économie de données), apparence, abonnement, sécurité (mot de passe, appareils) ; thème du site ; reprise de la lecture au lancement | `ui/compte/Reglages.kt`, `donnees/compte/` |
+| Logo animé du site (public/moziik-animated.svg), redessiné en natif : en-tête et chargements | `ui/composants/LogoMoziik.kt` |
 | Paroles synchronisées dans le lecteur, analysées comme sur le site (LRC, mot à mot) | `donnees/catalogue/Paroles.kt`, `ui/lecteur/PanneauParoles.kt` |
 | Lecteur : Media3 en arrière-plan (notification, écran verrouillé, casque), file prolongée, écoutes déclarées au temps réel, quota des visiteurs | `lecteur/`, `ui/lecteur/` |
 

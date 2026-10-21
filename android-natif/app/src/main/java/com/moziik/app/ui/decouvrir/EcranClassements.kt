@@ -68,6 +68,7 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.launch
 import java.text.NumberFormat
 import java.util.Locale
+import com.moziik.app.ui.composants.LogoMoziik
 
 /** Les onglets du site (app/classements/page.tsx), dans son ordre et avec ses libellés. */
 enum class TypeClassement(val cle: String, val libelle: String) {
@@ -181,7 +182,7 @@ fun EcranClassements(type: String?, periode: String?, onRetour: () -> Unit) {
         etat.erreur?.let { message -> item(key = "erreur") { MessageErreur(message, Modifier.padding(16.dp)) } }
         when {
             etat.chargement && classement == null -> item(key = "attente") {
-                Box(Modifier.fillMaxWidth().padding(top = 48.dp), contentAlignment = Alignment.Center) { Egaliseur(hauteur = 20.dp) }
+                Box(Modifier.fillMaxWidth().padding(top = 48.dp), contentAlignment = Alignment.Center) { LogoMoziik(hauteur = 30.dp, boucle = true) }
             }
             classement != null -> {
                 classement.viewer?.let { place -> item(key = "auditeur") { VotreClassement(place.rank, place.plays, place.evolution, place.toNextMilestone) } }

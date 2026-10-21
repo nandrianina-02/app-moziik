@@ -74,7 +74,7 @@ class ServiceLecture : MediaSessionService() {
         super.onCreate()
         val c = conteneur
         resolution = ResolutionFlux(c.reseau.client, BuildConfig.SITE, estVisiteur = { c.session.etat.value is EtatSession.Anonyme })
-        prolongement = Prolongement(c.reseau.api, c.catalogue::univers)
+        prolongement = Prolongement(c.reseau.api, c.catalogue::univers, c.catalogue::mode)
 
         val fichiers = ResolvingDataSource.Factory(OkHttpDataSource.Factory(c.reseau.clientPublic)) { spec ->
             resolution.resoudre(spec.uri.toString())?.let { spec.withUri(Uri.parse(it)) } ?: spec
@@ -153,7 +153,7 @@ class ServiceLecture : MediaSessionService() {
             controller: MediaSession.ControllerInfo,
             mediaItems: MutableList<MediaItem>,
         ): ListenableFuture<MutableList<MediaItem>> = Futures.immediateFuture(
-            mediaItems.map { it.buildUpon().setUri(adresseFlux(BuildConfig.SITE, it.mediaId)).build() }.toMutableList(),
+            mediaItems.map { it.buildUpon().setUri(adresseFlux(BuildConfig.SITE, it.mediaId, conteneur.reglages.qualiteEffective())).build() }.toMutableList(),
         )
     }
 
@@ -263,7 +263,7 @@ class ServiceLecture : MediaSessionService() {
                 val premier = joueur.mediaItemCount
                 val finie = joueur.playbackState == Player.STATE_ENDED
                 ajoutInterne = true
-                joueur.addMediaItems(suite.map { it.versElement(BuildConfig.SITE, dernier.versTitreLu().source) })
+                joueur.addMediaItems(suite.map { it.versElement(BuildConfig.SITE, dernier.versTitreLu().source, conteneur.reglages.qualiteEffective()) })
                 ajoutInterne = false
                 // La file s'était terminée avant l'arrivée de la suite : la lecture reprend dessus.
                 if (finie) joueur.seekToDefaultPosition(premier)

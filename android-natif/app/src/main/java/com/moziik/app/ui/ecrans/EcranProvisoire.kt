@@ -16,6 +16,7 @@ import com.moziik.app.theme.LocalPalette
 import com.moziik.app.theme.Texte
 import com.moziik.app.theme.compose
 import com.moziik.app.ui.composants.Egaliseur
+import com.moziik.app.ui.composants.LogoMoziik
 
 /**
  * Place d'un écran pas encore construit, dans les versions de test
@@ -29,7 +30,7 @@ fun EcranProvisoire(titre: String) {
         verticalArrangement = Arrangement.Center,
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
-        Egaliseur(hauteur = 20.dp, libelle = null)
+        LogoMoziik(hauteur = 24.dp)
         Spacer(Modifier.height(20.dp))
         Text(titre, style = Texte.titreFiche, color = p.encre.compose)
         Spacer(Modifier.height(8.dp))

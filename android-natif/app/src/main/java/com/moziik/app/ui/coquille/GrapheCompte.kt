@@ -14,7 +14,14 @@ import com.moziik.app.donnees.session.EtatSession
 import com.moziik.app.ui.compte.EcranConnexion
 import com.moziik.app.ui.compte.EcranInscription
 import com.moziik.app.ui.compte.EcranMotDePasseOublie
+import com.moziik.app.ui.compte.AvecProfil
+import com.moziik.app.ui.compte.EcranAbonnement
+import com.moziik.app.ui.compte.EcranApparence
+import com.moziik.app.ui.compte.EcranLecture
 import com.moziik.app.ui.compte.EcranMonCompte
+import com.moziik.app.ui.compte.EcranPreferences
+import com.moziik.app.ui.compte.EcranProfil
+import com.moziik.app.ui.compte.EcranSecurite
 import com.moziik.app.ui.conteneur
 
 private const val RACINE = "compte/racine"
@@ -33,7 +40,7 @@ fun NavGraphBuilder.grapheCompte(navigation: NavController) {
             val etat by conteneur().session.etat.collectAsStateWithLifecycle()
             Crossfade(etat is EtatSession.Connecte, animationSpec = tween(250), label = "compte") { connecte ->
                 if (connecte) {
-                    EcranMonCompte()
+                    EcranMonCompte(onOuvrir = { navigation.navigate(it) })
                 } else {
                     EcranConnexion(
                         onInscription = { navigation.navigate(INSCRIPTION) },
@@ -41,6 +48,18 @@ fun NavGraphBuilder.grapheCompte(navigation: NavController) {
                     )
                 }
             }
+        }
+        // Les rubriques de Mon compte, empilées sur l'onglet Compte.
+        val retour: () -> Unit = { navigation.popBackStack() }
+        composable("compte/profil") {
+            AvecProfil(retour) { profil -> EcranProfil(profil.user.name, profil.user.username, retour, onEnregistre = retour) }
+        }
+        composable("compte/preferences") { EcranPreferences(retour) }
+        composable("compte/lecture") { EcranLecture(retour) }
+        composable("compte/apparence") { EcranApparence(retour) }
+        composable("compte/abonnement") { EcranAbonnement(retour) }
+        composable("compte/securite") {
+            AvecProfil(retour) { profil -> EcranSecurite(profil.user.hasPassword, retour) }
         }
         composable(INSCRIPTION) {
             RetourSiConnecte(navigation)

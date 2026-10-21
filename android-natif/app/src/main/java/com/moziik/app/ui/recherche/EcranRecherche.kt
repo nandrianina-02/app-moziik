@@ -70,6 +70,7 @@ import com.moziik.app.ui.composants.Icone
 import com.moziik.app.ui.composants.LigneTitre
 import com.moziik.app.ui.composants.MessageErreur
 import com.moziik.app.ui.composants.Pochette
+import com.moziik.app.ui.composants.Puce
 import com.moziik.app.ui.composants.apparitionUneFois
 import com.moziik.app.ui.composants.pressable
 import com.moziik.app.ui.Navigation
@@ -131,7 +132,7 @@ fun EcranRecherche(termeDemande: String?, onTermeConsomme: () -> Unit) {
                 contentPadding = PaddingValues(horizontal = 16.dp, vertical = 12.dp),
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
             ) {
-                items(TypeRecherche.entries) { t -> Filtre(t.libelle, t == type) { modele.choisir(t) } }
+                items(TypeRecherche.entries) { t -> Puce(t.libelle, t == type) { modele.choisir(t) } }
             }
         } else {
             Spacer(Modifier.height(16.dp))
@@ -264,23 +265,6 @@ private fun ChampRecherche(valeur: String, onChange: (String) -> Unit, chargemen
 }
 
 @Composable
-private fun Filtre(libelle: String, actif: Boolean, onClick: () -> Unit) {
-    val p = LocalPalette.current
-    Text(
-        libelle,
-        style = Texte.secondaire.copy(fontWeight = FontWeight.Medium),
-        color = if (actif) p.base.compose else p.encreAttenuee.compose,
-        modifier = Modifier
-            .clip(CircleShape)
-            .background(if (actif) p.accent.compose else p.base.compose)
-            .border(BorderStroke(1.dp, if (actif) p.accent.compose else p.bordure.compose), CircleShape)
-            .clickable(role = Role.Tab, onClick = onClick)
-            .semantics { selected = actif }
-            .padding(horizontal = 14.dp, vertical = 7.dp),
-    )
-}
-
-@Composable
 private fun Attente() {
     Box(Modifier.fillMaxWidth().padding(top = 48.dp), contentAlignment = Alignment.Center) {
         Egaliseur(hauteur = 20.dp, libelle = "Recherche en cours")
@@ -385,12 +369,13 @@ private fun ecouter(resultat: Resultat, lancement: Lancement, liste: List<Titre>
     }
 }
 
-/** Ouvrir un résultat : la fiche s'il en a une ; un genre, qui n'en a pas encore, se joue. */
+/** Ouvrir un résultat : sa fiche, ou la page des titres du genre ; un titre se joue. */
 private fun ouvrir(resultat: Resultat, nav: Navigation, lancement: Lancement, liste: List<Titre>, source: String) {
     when (resultat) {
         is Resultat.DArtiste -> nav.artiste(resultat.artiste.id)
         is Resultat.DAlbum -> nav.album(resultat.album.id)
         is Resultat.DePlaylist -> nav.playlist(resultat.playlist.id)
+        is Resultat.DeGenre -> nav.titres(resultat.nom)
         else -> ecouter(resultat, lancement, liste, source)
     }
 }

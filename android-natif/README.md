@@ -18,6 +18,7 @@ Elle ne parle au serveur que par l'API HTTP du site, avec les jetons mobiles
 | Accueil : bannière, « Ma bande son », sections de l'administration, copie de la dernière visite | `donnees/catalogue/`, `ui/accueil/` |
 | Recherche : filtres par type, meilleur résultat, dernières recherches, titres populaires | `ui/recherche/` |
 | Fiches titre, album, artiste et playlist : écouter, suivre, enregistrer, partager | `ui/fiches/` |
+| Classements (podium, tendance, votre place), radio et stations, titres par genre, évènements ; raccourcis de l'accueil | `ui/decouvrir/`, `donnees/catalogue/Stations.kt` |
 | Paroles synchronisées dans le lecteur, analysées comme sur le site (LRC, mot à mot) | `donnees/catalogue/Paroles.kt`, `ui/lecteur/PanneauParoles.kt` |
 | Lecteur : Media3 en arrière-plan (notification, écran verrouillé, casque), file prolongée, écoutes déclarées au temps réel, quota des visiteurs | `lecteur/`, `ui/lecteur/` |
 

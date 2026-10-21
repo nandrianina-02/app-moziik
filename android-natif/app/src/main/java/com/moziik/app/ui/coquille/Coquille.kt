@@ -55,6 +55,8 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
+import androidx.navigation.NamedNavArgument
+import androidx.navigation.navArgument
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.moziik.app.donnees.session.EtatSession
 import com.moziik.app.lecteur.AlerteLecture
@@ -63,6 +65,10 @@ import com.moziik.app.ui.Fiches
 import com.moziik.app.ui.LocalNavigation
 import com.moziik.app.ui.Navigation
 import com.moziik.app.ui.conteneur
+import com.moziik.app.ui.decouvrir.EcranClassements
+import com.moziik.app.ui.decouvrir.EcranEvenements
+import com.moziik.app.ui.decouvrir.EcranRadio
+import com.moziik.app.ui.decouvrir.EcranTitres
 import com.moziik.app.ui.fiches.FicheAlbum
 import com.moziik.app.ui.fiches.FicheArtiste
 import com.moziik.app.ui.fiches.FichePlaylist
@@ -160,6 +166,14 @@ fun Coquille(sombre: Boolean, onBasculerMode: () -> Unit) {
                 composable(Fiches.ARTISTE) { e -> FicheArtiste(e.arguments?.getString("id").orEmpty(), retour) }
                 composable(Fiches.PLAYLIST) { e -> FichePlaylist(e.arguments?.getString("id").orEmpty(), retour) }
                 composable(Fiches.TITRE) { e -> FicheTitre(e.arguments?.getString("id").orEmpty(), retour) }
+                // Paramètres facultatifs : une chaîne vide vaut « non précisé ».
+                val facultatif: (String) -> NamedNavArgument = { nom -> navArgument(nom) { defaultValue = "" } }
+                composable(Fiches.CLASSEMENTS, listOf(facultatif("type"), facultatif("periode"))) { e ->
+                    EcranClassements(e.arguments?.getString("type")?.ifEmpty { null }, e.arguments?.getString("periode")?.ifEmpty { null }, retour)
+                }
+                composable(Fiches.RADIO, listOf(facultatif("station"))) { e -> EcranRadio(e.arguments?.getString("station")?.ifEmpty { null }, retour) }
+                composable(Fiches.TITRES, listOf(facultatif("genre"))) { e -> EcranTitres(e.arguments?.getString("genre")?.ifEmpty { null }, retour) }
+                composable(Fiches.EVENEMENTS) { EcranEvenements(retour) }
             }
             BandeauMessage((alerte as? AlerteLecture.Message)?.texte, onFini = c.alertes::oublier)
             AnimatedVisibility(

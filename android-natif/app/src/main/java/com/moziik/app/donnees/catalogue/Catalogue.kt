@@ -187,18 +187,41 @@ class Catalogue(
     }
 
     /** « Suggestions populaires » de la recherche vide : les titres du mois (D7). */
-    suspend fun populaires(): List<Titre> = appel { api.classement("month", "songs", univers()) }.getOrThrow()
-        .ranking.take(6).mapNotNull { e ->
-            val titre = e.title ?: return@mapNotNull null
-            Titre(
-                id = e.id,
-                title = titre,
-                artist = e.artistId?.let { ArtisteCourt(it, e.artistName, e.verified) },
-                coverUrl = e.coverUrl,
-                duration = e.duration,
-                genre = e.genre,
-            )
+    suspend fun populaires(): List<Titre> =
+        appel { api.classement("month", "songs", univers()) }.getOrThrow().ranking.take(6).mapNotNull { it.versTitre() }
+
+    // ------------------------------------------------------------ Découvrir
+
+    suspend fun classement(periode: String, type: String, genre: String?): Classement =
+        appel { api.classement(periode, type, univers(), genre) }.getOrThrow()
+
+    suspend fun radio(): ReponseRadio = appel { api.radio(univers()) }.getOrThrow()
+
+    suspend fun pageTitres(genre: String?, page: Int): PageTitres =
+        appel { api.pageTitres(genre, page, TAILLE_PAGE, univers()) }.getOrThrow().let { it.copy(songs = it.songs.filter { t -> t.publie }) }
+
+    @Volatile private var genresConnus: List<String>? = null
+
+    /** Les genres proposés par le site (SiteConfig.genres), lus une fois. */
+    suspend fun genres(): List<String> {
+        genresConnus?.let { return it }
+        return appel { api.configuration().genres }.getOrThrow().also { genresConnus = it }
+    }
+
+    suspend fun evenements(): ListeEvenements = appel { api.evenements() }.getOrThrow()
+
+    suspend fun basculerInteret(id: String): EtatInteret = appel { api.basculerInteret(id) }.getOrThrow()
+
+    /** Les titres d'une station de la page Radio, mélangés comme sur le site. */
+    suspend fun station(station: StationRadio): AEcouter {
+        val titres = when (val source = station.source) {
+            SourceStation.Tendances -> appel { api.titres(tri = "popular", limite = 50, univers = univers()).songs }.getOrThrow()
+            SourceStation.Nouveautes, SourceStation.Generale -> appel { api.titres(limite = 50, univers = univers()).songs }.getOrThrow()
+            SourceStation.Favoris -> appel { api.titresAimes().songs }.getOrThrow()
+            is SourceStation.DeGenre -> appel { api.titres(genre = source.genre, limite = 50, univers = univers()).songs }.getOrThrow()
         }
+        return AEcouter(titres.filter { it.publie }.shuffled(), station.libelle)
+    }
 
     // ------------------------------------------------------------ Fiches
 

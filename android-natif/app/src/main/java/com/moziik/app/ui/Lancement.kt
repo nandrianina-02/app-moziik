@@ -9,6 +9,9 @@ import androidx.compose.runtime.setValue
 import com.moziik.app.donnees.Conteneur
 import com.moziik.app.donnees.catalogue.AEcouter
 import com.moziik.app.donnees.catalogue.Cible
+import com.moziik.app.donnees.catalogue.SourceStation
+import com.moziik.app.donnees.catalogue.StationRadio
+import com.moziik.app.donnees.session.EtatSession
 import com.moziik.app.donnees.catalogue.Titre
 import com.moziik.app.donnees.reseau.messageErreur
 import com.moziik.app.lecteur.AlerteLecture
@@ -30,6 +33,15 @@ class Lancement(private val conteneur: Conteneur, private val portee: CoroutineS
     fun cible(cle: String, cible: Cible) = charger(cle) { conteneur.catalogue.aEcouter(cible) }
 
     fun station() = charger("station") { conteneur.catalogue.station() }
+
+    /** Une station de la page Radio ; « Mes favoris » demande un compte. */
+    fun stationRadio(station: StationRadio) {
+        if (station.source == SourceStation.Favoris && conteneur.session.etat.value !is EtatSession.Connecte) {
+            conteneur.alertes.signaler(AlerteLecture.Message("Connecte-toi pour écouter tes favoris."))
+            return
+        }
+        charger(station.cle) { conteneur.catalogue.station(station) }
+    }
 
     private fun charger(cle: String, chargement: suspend () -> AEcouter?) {
         if (enCours != null) return

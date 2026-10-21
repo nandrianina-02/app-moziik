@@ -184,22 +184,87 @@ data class SectionRecherche(
 @Serializable
 data class TermeRecherche(val q: String)
 
-/** GET /api/charts : seuls les titres et les artistes du classement servent ici. */
+/** GET /api/charts : le top 20 de la période, la place de l'auditeur connecté, la tendance. */
 @Serializable
-data class Classement(val ranking: List<EntreeClassement> = emptyList())
+data class Classement(
+    val ranking: List<EntreeClassement> = emptyList(),
+    val viewer: PlaceAuditeur? = null,
+    val totalPlays: Int = 0,
+    val trendPct: Double? = null,
+    val genres: List<String> = emptyList(),
+)
 
+/**
+ * Une place du classement. Les champs dépendent du type : titres (title,
+ * artistName, artistId, duration), artistes (stageName), albums (title,
+ * artistName), auditeurs (name, avatarUrl ; `_id` est alors le compte).
+ */
 @Serializable
 data class EntreeClassement(
     @SerialName("_id") val id: String,
     val title: String? = null,
     val stageName: String? = null,
+    val name: String? = null,
     val coverUrl: String? = null,
+    val avatarUrl: String? = null,
     val artistName: String? = null,
     val artistId: String? = null,
     val verified: Boolean = false,
     val duration: Double = 0.0,
     val genre: String? = null,
+    val plays: Int = 0,
+    val rank: Int = 0,
+    /** Places gagnées (positif) ou perdues ; null : nouvelle entrée. */
+    val evolution: Int? = null,
+) {
+    val libelle: String get() = title ?: stageName ?: name.orEmpty()
+    val image: String? get() = coverUrl ?: avatarUrl
+
+    /** Le titre d'une place du classement des titres, prêt à jouer. */
+    fun versTitre(): Titre? = title?.let {
+        Titre(id = id, title = it, artist = artistId?.let { a -> ArtisteCourt(a, artistName, verified) }, coverUrl = coverUrl, duration = duration, genre = genre)
+    }
+}
+
+@Serializable
+data class PlaceAuditeur(val rank: Int = 0, val plays: Int = 0, val evolution: Int? = null, val toNextMilestone: Int = 0)
+
+/** GET /api/radio. Les titres du jour et en progression n'ont ni audio ni artiste : ils ouvrent la fiche titre. */
+@Serializable
+data class ReponseRadio(
+    val topToday: List<EntreeClassement> = emptyList(),
+    val trending: List<EntreeClassement> = emptyList(),
+    val genres: List<Genre> = emptyList(),
+    val recommendedArtists: List<ArtisteCarte> = emptyList(),
 )
+
+/** GET /api/songs paginé. */
+@Serializable
+data class PageTitres(val songs: List<Titre> = emptyList(), val hasMore: Boolean = false, val total: Int = 0)
+
+@Serializable
+data class ConfigurationSite(val genres: List<String> = emptyList())
+
+@Serializable
+data class Evenement(
+    @SerialName("_id") val id: String,
+    val title: String,
+    val coverUrl: String? = null,
+    val description: String? = null,
+    val location: String? = null,
+    val city: String? = null,
+    val date: String,
+    val price: Double? = null,
+    val ticketUrl: String? = null,
+    val category: String? = null,
+    val interestedCount: Int = 0,
+)
+
+@Serializable
+data class ListeEvenements(val events: List<Evenement> = emptyList(), val interestedIds: List<String> = emptyList())
+
+@Serializable
+data class EtatInteret(val interested: Boolean = false, val interestedCount: Int = 0)
 
 // ---------------------------------------------------------------- Lecture
 

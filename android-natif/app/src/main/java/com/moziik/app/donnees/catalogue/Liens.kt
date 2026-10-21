@@ -12,8 +12,14 @@ sealed interface Cible {
     data class DAlbum(val id: String) : Cible
     data class DePlaylist(val id: String) : Cible
     data class DArtiste(val id: String) : Cible
+    /** Lancer la station d'un genre (vignettes de la page Radio). */
     data class DeGenre(val genre: String) : Cible
     data class DeRecherche(val terme: String) : Cible
+    /** Tous les titres, filtrés ou non par genre (`/titres?genre=`). */
+    data class Titres(val genre: String?) : Cible
+    data class Classements(val type: String?, val periode: String?) : Cible
+    data class Radio(val station: String?) : Cible
+    data object Evenements : Cible
     /** `#recommendations` : une section de l'accueil. */
     data class Ancre(val cle: String) : Cible
     data class Externe(val adresse: String) : Cible
@@ -45,8 +51,11 @@ fun cibleDe(lien: String, site: String): Cible {
         "playlist" -> id?.let { Cible.DePlaylist(it) }
         // /artiste/gestion et les autres pages de l'espace artiste ne sont pas des fiches : l'identifiant est vérifié.
         "artiste" -> id?.let { Cible.DArtiste(it) }
-        "titres" -> parametres["genre"]?.takeIf { it.isNotBlank() }?.let { Cible.DeGenre(it) }
+        "titres" -> Cible.Titres(parametres["genre"]?.takeIf { it.isNotBlank() })
         "recherche" -> parametres["q"]?.takeIf { it.isNotBlank() }?.let { Cible.DeRecherche(it) }
+        "classements" -> Cible.Classements(parametres["type"], parametres["period"])
+        "radio" -> Cible.Radio(parametres["station"]?.takeIf { it.isNotBlank() })
+        "evenements" -> if (segments.size == 1) Cible.Evenements else null
         else -> null
     } ?: Cible.Inconnue
 }

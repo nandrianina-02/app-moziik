@@ -3,6 +3,7 @@ package com.moziik.app.ui.composants
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -33,6 +34,8 @@ import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.selected
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -108,22 +111,51 @@ fun Modifier.pressable(role: Role = Role.Button, onLongClick: (() -> Unit)? = nu
         .combinedClickable(interactionSource = interactions, indication = null, role = role, onLongClick = onLongClick, onClick = onClick)
 }
 
-/** En-tête de section, unifié comme SectionHeader.tsx : titre en Sora, sous-titre discret. */
+/** En-tête de section, unifié comme SectionHeader.tsx : titre en Sora, sous-titre discret, « Voir tout » à droite. */
 @Composable
-fun EnTeteSection(titre: String, sousTitre: String? = null, modifier: Modifier = Modifier, icone: Int? = null) {
+fun EnTeteSection(titre: String, sousTitre: String? = null, modifier: Modifier = Modifier, icone: Int? = null, onVoirTout: (() -> Unit)? = null) {
     val p = LocalPalette.current
-    Column(modifier.fillMaxWidth().padding(bottom = 12.dp)) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            if (icone != null) {
-                Icone(icone, description = null, teinte = p.accent.compose, taille = 16.dp)
-                Spacer(Modifier.width(8.dp))
+    Row(modifier.fillMaxWidth().padding(bottom = 12.dp), verticalAlignment = Alignment.Bottom) {
+        Column(Modifier.weight(1f)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                if (icone != null) {
+                    Icone(icone, description = null, teinte = p.accent.compose, taille = 16.dp)
+                    Spacer(Modifier.width(8.dp))
+                }
+                Text(titre, style = Texte.titreSection, color = p.encre.compose, maxLines = 1, overflow = TextOverflow.Ellipsis)
             }
-            Text(titre, style = Texte.titreSection, color = p.encre.compose, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            if (sousTitre != null) {
+                Text(sousTitre, style = Texte.secondaire, color = p.encreAttenuee.compose, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            }
         }
-        if (sousTitre != null) {
-            Text(sousTitre, style = Texte.secondaire, color = p.encreAttenuee.compose, maxLines = 1, overflow = TextOverflow.Ellipsis)
+        if (onVoirTout != null) {
+            Row(
+                Modifier.clip(RoundedCornerShape(6.dp)).pressable(onClick = onVoirTout).padding(start = 8.dp, top = 4.dp, bottom = 4.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text("Voir tout", style = Texte.secondaire.copy(fontWeight = androidx.compose.ui.text.font.FontWeight.Medium), color = p.encreAttenuee.compose)
+                Icone(R.drawable.lucide_chevron_right, description = null, teinte = p.encreAttenuee.compose, taille = 14.dp)
+            }
         }
     }
+}
+
+/** Une pastille de filtre (type, période, genre) : pleine à l'accent quand elle est choisie. */
+@Composable
+fun Puce(libelle: String, actif: Boolean, onClick: () -> Unit) {
+    val p = LocalPalette.current
+    Text(
+        libelle,
+        style = Texte.secondaire.copy(fontWeight = androidx.compose.ui.text.font.FontWeight.Medium),
+        color = if (actif) p.base.compose else p.encreAttenuee.compose,
+        modifier = Modifier
+            .clip(CircleShape)
+            .background(if (actif) p.accent.compose else p.base.compose)
+            .border(androidx.compose.foundation.BorderStroke(1.dp, if (actif) p.accent.compose else p.bordure.compose), CircleShape)
+            .pressable(role = Role.Tab, onClick = onClick)
+            .semantics { selected = actif }
+            .padding(horizontal = 14.dp, vertical = 7.dp),
+    )
 }
 
 /**

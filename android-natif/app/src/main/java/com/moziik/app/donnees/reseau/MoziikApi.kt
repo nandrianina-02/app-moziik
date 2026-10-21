@@ -8,6 +8,11 @@ import com.moziik.app.donnees.catalogue.EtatSuivi
 import com.moziik.app.donnees.catalogue.ListeAlbums
 import com.moziik.app.donnees.catalogue.ReponseParoles
 import com.moziik.app.donnees.catalogue.Classement
+import com.moziik.app.donnees.catalogue.ConfigurationSite
+import com.moziik.app.donnees.catalogue.EtatInteret
+import com.moziik.app.donnees.catalogue.ListeEvenements
+import com.moziik.app.donnees.catalogue.PageTitres
+import com.moziik.app.donnees.catalogue.ReponseRadio
 import com.moziik.app.donnees.catalogue.Ecoute
 import com.moziik.app.donnees.catalogue.EtatAime
 import com.moziik.app.donnees.catalogue.ListeTitres
@@ -81,8 +86,38 @@ interface MoziikApi {
     @POST("api/search/journal")
     suspend fun journalRecherche(@Body corps: TermeRecherche)
 
+    /** Le site ne valide pas ces paramètres : n'envoyer que les valeurs connues (D8). */
     @GET("api/charts")
-    suspend fun classement(@Query("period") periode: String, @Query("type") type: String, @Query("univers") univers: String?): Classement
+    suspend fun classement(
+        @Query("period") periode: String,
+        @Query("type") type: String,
+        @Query("univers") univers: String?,
+        @Query("genre") genre: String? = null,
+    ): Classement
+
+    @GET("api/radio")
+    suspend fun radio(@Query("univers") univers: String?): ReponseRadio
+
+    @GET("api/songs")
+    suspend fun pageTitres(
+        @Query("genre") genre: String?,
+        @Query("page") page: Int,
+        @Query("limit") limite: Int,
+        @Query("univers") univers: String?,
+    ): PageTitres
+
+    @GET("api/me/liked-songs")
+    suspend fun titresAimes(): ListeTitres
+
+    @GET("api/site-config")
+    suspend fun configuration(): ConfigurationSite
+
+    @GET("api/events")
+    suspend fun evenements(): ListeEvenements
+
+    /** Bascule « Ça m'intéresse » : le site répond l'état obtenu et le nombre d'intéressés. */
+    @POST("api/events/{id}/interet")
+    suspend fun basculerInteret(@Path("id") id: String): EtatInteret
 
     @GET("api/songs")
     suspend fun titres(

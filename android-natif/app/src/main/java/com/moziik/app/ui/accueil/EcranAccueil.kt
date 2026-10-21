@@ -12,6 +12,7 @@ import androidx.compose.foundation.interaction.collectIsDraggedAsState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -179,6 +180,7 @@ fun EcranAccueil() {
                 }
             }
             if (!etat.vide) {
+                item(key = "raccourcis") { RaccourcisAccueil(Modifier.apparitionUneFois("raccourcis", 1, vus)) }
                 item(key = "bande-son") {
                     val prenom = (session as? EtatSession.Connecte)?.utilisateur?.name?.trim()?.split(Regex("\\s+"))?.firstOrNull()
                     CarteBandeSon(prenom, (session as? EtatSession.Connecte)?.utilisateur?.avatarUrl, lancement, Modifier.apparitionUneFois("bande-son", 1, vus))
@@ -200,10 +202,51 @@ fun EcranAccueil() {
 @Composable
 private fun EnTeteAccueil() {
     val p = LocalPalette.current
-    Column(Modifier.padding(top = 8.dp, bottom = 16.dp)) {
-        Text("Pour toi", style = Texte.titreFiche, color = p.accent.compose)
-        Spacer(Modifier.height(6.dp))
-        Box(Modifier.width(72.dp).height(3.dp).clip(CircleShape).background(p.accent.compose))
+    val nav = navigation()
+    Row(Modifier.padding(top = 8.dp, bottom = 16.dp), verticalAlignment = Alignment.Top) {
+        Column(Modifier.width(IntrinsicSize.Max)) {
+            Text("Pour toi", style = Texte.titreFiche, color = p.accent.compose)
+            Spacer(Modifier.height(6.dp))
+            Box(Modifier.fillMaxWidth().height(3.dp).clip(CircleShape).background(p.accent.compose))
+        }
+        Box(Modifier.padding(horizontal = 12.dp, vertical = 4.dp).width(1.dp).height(24.dp).background(p.bordure.compose))
+        Text(
+            "Chart",
+            style = Texte.titreFiche,
+            color = p.encreAttenuee.compose,
+            modifier = Modifier.clip(RoundedCornerShape(6.dp)).pressable(role = Role.Tab) { nav.classements() },
+        )
+    }
+}
+
+/**
+ * Quatre portes d'entrée sous la bannière (RaccourcisAccueil.tsx) : l'accès
+ * direct quand on sait déjà ce qu'on cherche. Chacune mène à un écran qui
+ * existe.
+ */
+@Composable
+private fun RaccourcisAccueil(modifier: Modifier = Modifier) {
+    val p = LocalPalette.current
+    val nav = navigation()
+    val raccourcis: List<Triple<String, Int, () -> Unit>> = listOf(
+        Triple("Artistes", R.drawable.lucide_mic_vocal) { nav.classements("artists") },
+        Triple("Genres", R.drawable.lucide_tags) { nav.titres() },
+        Triple("Ambiances", R.drawable.lucide_radio) { nav.radio() },
+        Triple("Évènements", R.drawable.lucide_calendar_days) { nav.evenements() },
+    )
+    Row(modifier.fillMaxWidth().padding(top = 24.dp), horizontalArrangement = Arrangement.SpaceBetween) {
+        raccourcis.forEach { (libelle, icone, action) ->
+            Column(
+                Modifier.weight(1f).clip(RoundedCornerShape(12.dp)).pressable(onClick = action).padding(vertical = 4.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+            ) {
+                Box(Modifier.size(56.dp).clip(CircleShape).background(p.accent.compose), contentAlignment = Alignment.Center) {
+                    Icone(icone, description = null, teinte = p.base.compose, taille = 24.dp)
+                }
+                Spacer(Modifier.height(8.dp))
+                Text(libelle, style = Texte.secondaire.copy(fontWeight = FontWeight.Medium), color = p.encre.compose, maxLines = 1)
+            }
+        }
     }
 }
 
@@ -401,7 +444,7 @@ private fun DiapoBanniere(diapo: Diapo, nouveautes: List<Titre>, lancement: Lanc
  * générique : on change le texte, pas le bouton.
  */
 @Composable
-private fun CarteBandeSon(prenom: String?, avatar: String?, lancement: Lancement, modifier: Modifier = Modifier) {
+internal fun CarteBandeSon(prenom: String?, avatar: String?, lancement: Lancement, modifier: Modifier = Modifier) {
     val p = LocalPalette.current
     val connecte = prenom != null
     val chargement = lancement.enCours == "station"
@@ -488,7 +531,7 @@ private fun BlocSection(section: Section, lecture: EtatLecteur, lancement: Lance
                     .background(p.surface.compose)
                     .padding(12.dp),
             ) {
-                EnTeteSection(section.titre, icone = R.drawable.lucide_trending_up)
+                EnTeteSection(section.titre, icone = R.drawable.lucide_trending_up, onVoirTout = { nav.classements() })
                 section.titres.forEachIndexed { i, titre ->
                     LigneTitre(
                         titre, i + 1, titre.id == enCours, lecture.enLecture,
@@ -498,7 +541,7 @@ private fun BlocSection(section: Section, lecture: EtatLecteur, lancement: Lance
                 }
             }
         } else {
-            EnTeteSection(section.titre, SOUS_TITRES[section.cle])
+            EnTeteSection(section.titre, SOUS_TITRES[section.cle], onVoirTout = if (section.cle == "recently_played") null else ({ nav.titres() }))
             LazyRow(horizontalArrangement = Arrangement.spacedBy(14.dp)) {
                 itemsIndexed(section.titres, key = { _, t -> t.id }) { i, titre ->
                     CarteTitre(
@@ -512,10 +555,10 @@ private fun BlocSection(section: Section, lecture: EtatLecteur, lancement: Lance
         }
         is Section.Genres -> {
             EnTeteSection(section.titre, SOUS_TITRES[section.cle])
-            TuilesGenres(section, lancement)
+            TuilesGenres(section)
         }
         is Section.Albums -> {
-            EnTeteSection(section.titre, SOUS_TITRES[section.cle])
+            EnTeteSection(section.titre, SOUS_TITRES[section.cle], onVoirTout = { nav.classements("albums") })
             LazyRow(horizontalArrangement = Arrangement.spacedBy(14.dp)) {
                 items(section.albums, key = { it.id }) { album ->
                     CarteCollection(
@@ -553,7 +596,7 @@ private fun BlocSection(section: Section, lecture: EtatLecteur, lancement: Lance
             }
         }
         is Section.Evenements -> {
-            EnTeteSection(section.titre, icone = R.drawable.lucide_calendar_days)
+            EnTeteSection(section.titre, icone = R.drawable.lucide_calendar_days, onVoirTout = { nav.evenements() })
             section.evenements.forEach { e ->
                 Row(
                     Modifier
@@ -639,23 +682,23 @@ private val DEGRADES_GENRE = listOf(
     Color(0xFF84CC16) to Color(0xFF059669),
 )
 
-/** Une tuile lance la station du genre : les plus écoutés, mélangés, comme sur la page Radio. */
+/** Une tuile ouvre les titres du genre, comme sur le site (GenreTiles.tsx). */
 @Composable
-private fun TuilesGenres(section: Section.Genres, lancement: Lancement) {
+private fun TuilesGenres(section: Section.Genres) {
     val p = LocalPalette.current
+    val nav = navigation()
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
         section.genres.chunked(2).forEachIndexed { ligne, paire ->
             Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 paire.forEachIndexed { colonne, g ->
                     val (debut, fin) = DEGRADES_GENRE[(ligne * 2 + colonne) % DEGRADES_GENRE.size]
-                    val cle = "genre-${g.genre}"
                     Box(
                         Modifier
                             .weight(1f)
                             .aspectRatio(16f / 10f)
                             .clip(RoundedCornerShape(p.rayon.dp))
                             .background(Brush.linearGradient(listOf(debut, fin)))
-                            .pressable(role = Role.Button) { lancement.cible(cle, Cible.DeGenre(g.genre)) }
+                            .pressable(role = Role.Button) { nav.titres(g.genre) }
                             .padding(14.dp),
                     ) {
                         Icone(
@@ -663,16 +706,12 @@ private fun TuilesGenres(section: Section.Genres, lancement: Lancement) {
                             modifier = Modifier.align(Alignment.BottomEnd).offset(x = 22.dp, y = 26.dp),
                         )
                         Text(g.genre, style = Texte.marque.copy(fontSize = 14.sp), color = Color.White, modifier = Modifier.align(Alignment.TopStart))
-                        if (lancement.enCours == cle) {
-                            Egaliseur(hauteur = 14.dp, libelle = "Chargement", couleur = Color.White, modifier = Modifier.align(Alignment.BottomStart))
-                        } else {
-                            Text(
-                                "${g.count} titre${if (g.count > 1) "s" else ""}",
-                                style = Texte.secondaire.copy(fontSize = 11.sp, fontWeight = FontWeight.Medium),
-                                color = Color.White.copy(alpha = 0.85f),
-                                modifier = Modifier.align(Alignment.BottomStart),
-                            )
-                        }
+                        Text(
+                            "${g.count} titre${if (g.count > 1) "s" else ""}",
+                            style = Texte.secondaire.copy(fontSize = 11.sp, fontWeight = FontWeight.Medium),
+                            color = Color.White.copy(alpha = 0.85f),
+                            modifier = Modifier.align(Alignment.BottomStart),
+                        )
                     }
                 }
                 if (paire.size == 1) Spacer(Modifier.weight(1f))

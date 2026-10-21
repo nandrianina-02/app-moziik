@@ -56,3 +56,16 @@ mic-vocal
 rotate-ccw
 user-plus
 user-check
+
+# Classements, radio, évènements, raccourcis de l'accueil
+flame
+guitar
+piano
+radio
+trending-down
+minus
+trophy
+map-pin
+ticket
+tags
+chevron-right

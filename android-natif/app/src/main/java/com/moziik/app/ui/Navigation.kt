@@ -2,6 +2,7 @@ package com.moziik.app.ui
 
 import android.content.Context
 import android.content.Intent
+import android.net.Uri
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.navigation.NavController
@@ -14,6 +15,10 @@ object Fiches {
     const val ARTISTE = "artiste/{id}"
     const val PLAYLIST = "playlist/{id}"
     const val TITRE = "titre/{id}"
+    const val CLASSEMENTS = "classements?type={type}&periode={periode}"
+    const val RADIO = "radio?station={station}"
+    const val TITRES = "titres?genre={genre}"
+    const val EVENEMENTS = "evenements"
 }
 
 /**
@@ -29,6 +34,11 @@ class Navigation(
     fun artiste(id: String) = aller("artiste/$id")
     fun playlist(id: String) = aller("playlist/$id")
     fun titre(id: String) = aller("titre/$id")
+    fun classements(type: String? = null, periode: String? = null) =
+        aller("classements?type=${Uri.encode(type.orEmpty())}&periode=${Uri.encode(periode.orEmpty())}")
+    fun radio(station: String? = null) = aller("radio?station=${Uri.encode(station.orEmpty())}")
+    fun titres(genre: String? = null) = aller("titres?genre=${Uri.encode(genre.orEmpty())}")
+    fun evenements() = aller("evenements")
     fun rechercher(terme: String) {
         onAvantNavigation()
         onRechercher(terme)
@@ -42,6 +52,10 @@ class Navigation(
             is Cible.DePlaylist -> playlist(cible.id)
             is Cible.DeTitre -> titre(cible.id)
             is Cible.DeRecherche -> rechercher(cible.terme)
+            is Cible.Titres -> titres(cible.genre)
+            is Cible.Classements -> classements(cible.type, cible.periode)
+            is Cible.Radio -> radio(cible.station)
+            Cible.Evenements -> evenements()
             else -> return false
         }
         return true

@@ -17,7 +17,11 @@ class CatalogueTest {
         assertEquals(Cible.DArtiste(id), cibleDe("/artiste/$id", site))
         // Les pages de l'espace artiste ne sont pas des fiches.
         assertEquals(Cible.Inconnue, cibleDe("/artiste/gestion", site))
-        assertEquals(Cible.DeGenre("Hip-Hop"), cibleDe("/titres?genre=Hip-Hop", site))
+        assertEquals(Cible.Titres("Hip-Hop"), cibleDe("/titres?genre=Hip-Hop", site))
+        assertEquals(Cible.Titres(null), cibleDe("/titres", site))
+        assertEquals(Cible.Classements("artists", null), cibleDe("/classements?type=artists", site))
+        assertEquals(Cible.Radio("genre:Jazz"), cibleDe("/radio?station=genre%3AJazz", site))
+        assertEquals(Cible.Evenements, cibleDe("/evenements", site))
         assertEquals(Cible.DeRecherche("chill vibes"), cibleDe("/recherche?q=chill%20vibes", site))
         assertEquals(Cible.Ancre("recommendations"), cibleDe("#recommendations", site))
         assertEquals(Cible.Externe("https://www.facebook.com/moziik"), cibleDe("https://www.facebook.com/moziik", site))
@@ -74,6 +78,14 @@ class CatalogueTest {
         // L'album sans titre est écarté, les deux autres restent.
         assertEquals(listOf("playlist", "song"), diapos.map { it.contentType })
         assertEquals("Douceur du soir", diapos[0].playlist?.title)
+    }
+
+    @Test
+    fun stations_de_la_radio() {
+        assertEquals("Jazz", resoudreStation("jazz")?.libelle)
+        assertEquals(SourceStation.DeGenre("Salegy"), resoudreStation("genre:Salegy")?.source)
+        assertEquals(null, resoudreStation("inconnue"))
+        assertEquals(null, resoudreStation("genre:"))
     }
 
     @Test

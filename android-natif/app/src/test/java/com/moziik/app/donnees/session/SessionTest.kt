@@ -92,6 +92,25 @@ class SessionTest {
     }
 
     @Test
+    fun connexion_google_integree() = runTest {
+        serveur.enqueue(MockResponse().setBody(jetons))
+        session.connexionJetonGoogle("jeton.google.signe")
+        val requete = serveur.takeRequest()
+        assertEquals("/api/mobile-auth/google", requete.path)
+        assertTrue(requete.body.readUtf8().contains("\"idToken\":\"jeton.google.signe\""))
+        assertEquals(EtatGoogle.Repos, session.google.value)
+        assertEquals("acces", stockage.lire()?.accessToken)
+    }
+
+    @Test
+    fun connexion_google_integree_refusee() = runTest {
+        serveur.enqueue(MockResponse().setResponseCode(403).setBody("""{"error":"Ce compte a été suspendu."}"""))
+        session.connexionJetonGoogle("jeton")
+        assertEquals(EtatGoogle.Echec("Ce compte a été suspendu."), session.google.value)
+        assertNull(stockage.lire())
+    }
+
+    @Test
     fun connexion_google_abandonnee() = runTest {
         session.terminerGoogle(null, "session")
         assertEquals(EtatGoogle.Echec("La connexion Google n'a pas abouti. Réessaie."), session.google.value)

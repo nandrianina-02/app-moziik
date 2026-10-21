@@ -14,6 +14,10 @@ interface MoziikApi {
     @POST("api/mobile-auth/login")
     suspend fun connexion(@Body corps: Identifiants): Jetons
 
+    /** Connexion Google intégrée : le jeton d'identité rendu par Android, vérifié par le site. */
+    @POST("api/mobile-auth/google")
+    suspend fun connexionGoogle(@Body corps: JetonGoogle): Jetons
+
     /** Fin du relais Google : le code reçu par le schéma de l'app contre des jetons. */
     @POST("api/mobile-auth/relais/jetons")
     suspend fun connexionRelais(@Body corps: CodeRelais): Jetons
@@ -39,6 +43,9 @@ data class Identifiants(val email: String, val password: String, val device: Str
 
 @Serializable
 data class CodeRelais(val code: String, val device: String)
+
+@Serializable
+data class JetonGoogle(val idToken: String, val device: String)
 
 @Serializable
 data class DemandeRenouvellement(val refreshToken: String)

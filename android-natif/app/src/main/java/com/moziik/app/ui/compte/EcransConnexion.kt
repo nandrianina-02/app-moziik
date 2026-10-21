@@ -18,6 +18,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -41,7 +42,7 @@ import com.moziik.app.ui.composants.LienTexte
 import com.moziik.app.ui.composants.MessageErreur
 import com.moziik.app.ui.composants.Saisie
 import com.moziik.app.ui.conteneur
-import com.moziik.app.ui.ouvrirConnexionGoogle
+import kotlinx.coroutines.launch
 
 /** Mise en page commune : colonne défilante, largeur bornée sur tablette, titre en Sora. */
 @Composable
@@ -71,15 +72,13 @@ private fun SeparateurOu() {
 @Composable
 private fun ConnexionGoogle() {
     val contexte = LocalContext.current
-    val session = conteneur().session
-    val google by session.google.collectAsStateWithLifecycle()
+    val c = conteneur()
+    val google by c.session.google.collectAsStateWithLifecycle()
     val barre = LocalPalette.current.base.enArgb().toInt()
+    val portee = rememberCoroutineScope()
     BoutonGoogle(
         enCours = google is EtatGoogle.EnCours,
-        onClick = {
-            session.oublierEchecGoogle()
-            ouvrirConnexionGoogle(contexte, barre)
-        },
+        onClick = { portee.launch { connexionGoogleIntegree(contexte, c, barre) } },
     )
     MessageErreur((google as? EtatGoogle.Echec)?.message, Modifier.padding(top = 12.dp))
 }

@@ -6,6 +6,7 @@ import com.moziik.app.donnees.reseau.DemandeRenouvellement
 import com.moziik.app.donnees.reseau.ErreurApi
 import com.moziik.app.donnees.reseau.Identifiants
 import com.moziik.app.donnees.reseau.Inscription
+import com.moziik.app.donnees.reseau.JetonGoogle
 import com.moziik.app.donnees.reseau.Jetons
 import com.moziik.app.donnees.reseau.MoziikApi
 import com.moziik.app.donnees.reseau.UtilisateurCourt
@@ -85,6 +86,21 @@ class Session(
                 _google.value = EtatGoogle.Repos
             }
             .onFailure { _google.value = EtatGoogle.Echec(messageErreur(it)) }
+    }
+
+    /** Connexion Google intégrée à Android : le jeton d'identité contre des jetons du site. */
+    suspend fun connexionJetonGoogle(idToken: String) {
+        _google.value = EtatGoogle.EnCours
+        appel { api.connexionGoogle(JetonGoogle(idToken, appareil)) }
+            .onSuccess {
+                retenir(it)
+                _google.value = EtatGoogle.Repos
+            }
+            .onFailure { _google.value = EtatGoogle.Echec(messageErreur(it)) }
+    }
+
+    fun signalerEchecGoogle(message: String) {
+        _google.value = EtatGoogle.Echec(message)
     }
 
     fun oublierEchecGoogle() {

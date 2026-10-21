@@ -27,6 +27,9 @@ android {
         vectorDrawables.useSupportLibrary = true
         // Le site en production : l'app ne parle qu'à son API HTTP.
         buildConfigField("String", "SITE", "\"https://app-moziik.vercel.app/\"")
+        // Identifiant client web du site (public) : la connexion Google intégrée à Android le
+        // déclare comme serveur, et le site vérifie que le jeton lui est bien destiné.
+        buildConfigField("String", "GOOGLE_CLIENT_WEB", "\"713014071124-c4l9ohq92q84idjl6v1t1o0arnba8d98.apps.googleusercontent.com\"")
     }
 
     signingConfigs {
@@ -104,6 +107,9 @@ dependencies {
     implementation(libs.retrofit.kotlinx.serialization)
     implementation(libs.okhttp)
     implementation(libs.coil.compose)
+    implementation(libs.androidx.credentials)
+    implementation(libs.androidx.credentials.play.services)
+    implementation(libs.googleid)
     debugImplementation(libs.androidx.compose.ui.tooling)
 
     testImplementation(libs.junit)

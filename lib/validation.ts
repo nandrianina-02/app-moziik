@@ -59,6 +59,12 @@ export const mobileRefreshSchema = z.object({
   refreshToken: z.string().min(1, "Refresh token requis."),
 });
 
+/** Jeton d'identité Google rendu par la connexion intégrée à Android (lib/jetonGoogle.ts). */
+export const mobileGoogleSchema = z.object({
+  idToken: z.string().min(20).max(4096),
+  device: z.string().trim().max(120).optional(),
+});
+
 /** Code du relais de connexion Google (64 hexadécimaux, lib/authRelay.ts), échangé par l'app native. */
 export const mobileRelaisSchema = z.object({
   code: z.string().regex(/^[0-9a-f]{64}$/, "Code de connexion invalide."),

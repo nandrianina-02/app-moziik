@@ -5,7 +5,7 @@ import bcrypt from "bcryptjs";
 import { connectDB } from "@/lib/db";
 import User from "@/models/User";
 import { checkRateLimit } from "@/lib/rateLimit";
-import { genererUsername } from "@/lib/username";
+import { compteGoogle } from "@/lib/compteGoogle";
 
 // Le rôle et le statut "suspendu" ne sont revalidés en base qu'au bout de
 // ce délai, pas à chaque requête (coût DB), pour rester réactif sans
@@ -87,33 +87,15 @@ export const authOptions: NextAuthOptions = {
   callbacks: {
     async signIn({ user, account }) {
       if (account?.provider === "google") {
-        await connectDB();
-        const existing = await User.findOne({ email: user.email });
-        if (existing?.suspended) {
-          // Bloque explicitement la connexion Google d'un compte suspendu
-          // (jusqu'ici seul le provider Credentials vérifiait ce statut).
-          return false;
-        }
-        if (!existing) {
-          await User.create({
-            name: user.name,
-            username: await genererUsername(user.name ?? user.email ?? "membre"),
-            email: user.email,
-            googleId: account.providerAccountId,
-            avatarUrl: user.image,
-            role: "member",
-            // Google a déjà confirmé la propriété de l'adresse email.
-            emailVerified: true,
-          });
-        } else if (!existing.emailVerified) {
-          // Un compte créé par email/mot de passe puis jamais confirmé :
-          // se connecter avec Google sur la même adresse suffit à la
-          // valider, Google en garantissant déjà la propriété.
-          existing.emailVerified = true;
-          await existing.save();
-        }
-        // Même trace que pour la connexion par mot de passe.
-        User.updateOne({ email: user.email }, { lastLoginAt: new Date() }).catch(() => undefined);
+        // Règles communes avec la connexion Google de l'app (lib/compteGoogle.ts).
+        // Un compte suspendu est refusé (null).
+        const compte = await compteGoogle({
+          email: user.email as string,
+          nom: user.name,
+          image: user.image,
+          googleId: account.providerAccountId,
+        });
+        if (!compte) return false;
       }
       return true;
     },

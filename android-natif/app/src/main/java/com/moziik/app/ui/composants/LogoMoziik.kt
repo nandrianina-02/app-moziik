@@ -37,8 +37,9 @@ import com.moziik.app.theme.LocalPalette
 import com.moziik.app.theme.compose
 
 /**
- * Le logo animé de Moziik (public/moziik-animated.svg du site), redessiné
- * trait pour trait : mêmes tracés, mêmes couleurs, même minutage de 5,4 s.
+ * Le logo animé de Moziik (public/moziik-*.svg du site), redessiné trait
+ * pour trait : mêmes tracés, mêmes déclinaisons de couleur, même minutage
+ * de 5,4 s.
  * Les lettres s'écrivent, les points des « i » apparaissent, une lueur
  * passe sur le « oz ». Les traits blancs du fichier prennent la couleur du
  * texte du thème, pour rester lisibles sur un fond clair.
@@ -66,9 +67,54 @@ private val POINTS = listOf(Triple(Offset(165f, 24f), 0.2963f, 0.3796f), Triple(
 
 private val ECRITURE = CubicBezierEasing(0.6f, 0.05f, 0.2f, 1f)
 private val ECLOSION = CubicBezierEasing(0.3f, 1.6f, 0.5f, 1f)
-private val BLEU_CLAIR = Color(0xFF38D0FF)
-private val BLEU = Color(0xFF2F7BFF)
-private val LUEUR = Color(0xFF38BDF8)
+
+/** Le dégradé du « oz » et la lueur qui passe dessus : une déclinaison du logo (public/moziik-<couleur>.svg). */
+private data class Coloris(val debut: Color, val fin: Color, val lueur: Color)
+
+private val BLEU = Coloris(Color(0xFF38D0FF), Color(0xFF2F7BFF), Color(0xFF38BDF8))
+/** moziik-clair.svg : le bleu pensé pour un fond blanc. */
+private val BLEU_CLAIR = Coloris(Color(0xFF0EA5E9), Color(0xFF2563EB), Color(0xFF38BDF8))
+private val ROSE = Coloris(Color(0xFFFF9AC6), Color(0xFFFF2F7E), Color(0xFFFF5FA2))
+private val SUNSET = Coloris(Color(0xFFFFC04D), Color(0xFFFF4E50), Color(0xFFFF7A59))
+private val VERT = Coloris(Color(0xFFB6F23C), Color(0xFF14B85A), Color(0xFF4ADE80))
+private val VIOLET = Coloris(Color(0xFFD19BFF), Color(0xFF6D5DFC), Color(0xFFA78BFA))
+
+/** La teinte d'une couleur, de 0 à 360 degrés. */
+private fun teinte(c: Color): Float {
+    val max = maxOf(c.red, c.green, c.blue)
+    val min = minOf(c.red, c.green, c.blue)
+    val d = max - min
+    if (d == 0f) return 0f
+    val h = when (max) {
+        c.red -> ((c.green - c.blue) / d) % 6f
+        c.green -> (c.blue - c.red) / d + 2f
+        else -> (c.red - c.green) / d + 4f
+    } * 60f
+    return if (h < 0f) h + 360f else h
+}
+
+private fun assombrir(c: Color, part: Float) = Color(c.red * (1 - part), c.green * (1 - part), c.blue * (1 - part), c.alpha)
+
+/**
+ * La déclinaison du logo qui s'accorde au thème, d'après la teinte de son
+ * accent : Moziik et Or en sunset, Océan et Ardoise en bleu, Émeraude en
+ * vert, Violet en violet, Rubis en rose, et une couleur libre vers la plus
+ * proche. Sur fond clair, le bleu prend sa déclinaison claire ; les autres
+ * sont assombries, sinon leurs teintes pâles disparaîtraient sur le blanc.
+ */
+private fun colorisDu(accent: Color, sombre: Boolean): Coloris {
+    val h = teinte(accent)
+    val coloris = when {
+        h < 60f || h >= 355f -> SUNSET
+        h < 170f -> VERT
+        h < 245f -> BLEU
+        h < 290f -> VIOLET
+        else -> ROSE
+    }
+    if (sombre) return coloris
+    if (coloris == BLEU) return BLEU_CLAIR
+    return Coloris(assombrir(coloris.debut, 0.25f), assombrir(coloris.fin, 0.15f), coloris.lueur)
+}
 
 /** Le cadre utile du dessin, dans les unités du fichier (lettres et épaisseur des traits). */
 private const val X0 = 4f
@@ -98,24 +144,26 @@ private fun animationsReduites(): Boolean {
  */
 @Composable
 fun LogoMoziik(modifier: Modifier = Modifier, hauteur: Dp = 24.dp, anime: Boolean = false, boucle: Boolean = false) {
-    val encre = LocalPalette.current.encre.compose
+    val palette = LocalPalette.current
+    val encre = palette.encre.compose
+    val coloris = remember(palette.accent, palette.sombre) { colorisDu(palette.accent.compose, palette.sombre) }
     val reduit = animationsReduites()
     val dessin = Modifier.height(hauteur).aspectRatio(LARGEUR / HAUTEUR).semantics { contentDescription = "Moziik" }
 
     if (boucle && !reduit) {
         val cycle = rememberInfiniteTransition(label = "logo")
         val t = cycle.animateFloat(0f, 1f, infiniteRepeatable(tween(CYCLE_MS, easing = LinearEasing), RepeatMode.Restart), label = "cycle")
-        Canvas(modifier.then(dessin)) { dessiner(t.value, encre, fondu = true) }
+        Canvas(modifier.then(dessin)) { dessiner(t.value, encre, coloris, fondu = true) }
         return
     }
     val t = remember { Animatable(if (anime && !reduit) 0f else ENTIER) }
     if (anime && !reduit) {
         LaunchedEffect(Unit) { t.animateTo(ENTIER, tween((CYCLE_MS * ENTIER).toInt(), easing = LinearEasing)) }
     }
-    Canvas(modifier.then(dessin)) { dessiner(t.value, encre, fondu = false) }
+    Canvas(modifier.then(dessin)) { dessiner(t.value, encre, coloris, fondu = false) }
 }
 
-private fun DrawScope.dessiner(t: Float, encre: Color, fondu: Boolean) {
+private fun DrawScope.dessiner(t: Float, encre: Color, coloris: Coloris, fondu: Boolean) {
     val echelle = size.width / LARGEUR
     // Le fondu de fin de cycle, pour que la boucle reparte d'une page blanche.
     val opacite = if (!fondu) 1f else when {
@@ -127,7 +175,7 @@ private fun DrawScope.dessiner(t: Float, encre: Color, fondu: Boolean) {
     scale(echelle, echelle, pivot = Offset.Zero) {
         translate(-X0, -Y0) {
             val epaisseur = Stroke(width = 10f, cap = StrokeCap.Round, join = StrokeJoin.Round)
-            val degrade = Brush.linearGradient(listOf(BLEU_CLAIR, BLEU), start = Offset(78f, 40f), end = Offset(152f, 80f))
+            val degrade = Brush.linearGradient(listOf(coloris.debut, coloris.fin), start = Offset(78f, 40f), end = Offset(152f, 80f))
             // La lueur qui passe sur le « oz » une fois écrit (sans flou : une trace large et transparente).
             if (fondu) {
                 val lueur = when {
@@ -138,8 +186,8 @@ private fun DrawScope.dessiner(t: Float, encre: Color, fondu: Boolean) {
                 }
                 if (lueur > 0f) {
                     val oz = TRAITS[1].chemin
-                    drawPath(oz, LUEUR, alpha = lueur * 0.18f * opacite, style = Stroke(width = 28f, cap = StrokeCap.Round, join = StrokeJoin.Round))
-                    drawPath(oz, LUEUR, alpha = lueur * 0.3f * opacite, style = Stroke(width = 18f, cap = StrokeCap.Round, join = StrokeJoin.Round))
+                    drawPath(oz, coloris.lueur, alpha = lueur * 0.18f * opacite, style = Stroke(width = 28f, cap = StrokeCap.Round, join = StrokeJoin.Round))
+                    drawPath(oz, coloris.lueur, alpha = lueur * 0.3f * opacite, style = Stroke(width = 18f, cap = StrokeCap.Round, join = StrokeJoin.Round))
                 }
             }
             TRAITS.forEach { trait ->

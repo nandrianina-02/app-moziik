@@ -110,7 +110,8 @@ class Reseau(site: String, stockage: StockageSession) {
      */
     val clientPublic: OkHttpClient = OkHttpClient.Builder()
         .connectTimeout(15, TimeUnit.SECONDS)
-        .readTimeout(30, TimeUnit.SECONDS)
+        // 60 s : une réponse de l'IA (playlist, assistant) prend parfois plusieurs dizaines de secondes.
+        .readTimeout(60, TimeUnit.SECONDS)
         .build()
     private val base = clientPublic
 

@@ -87,7 +87,8 @@ import com.moziik.app.ui.rememberLancement
 @Composable
 fun EcranRecherche(termeDemande: String?, onTermeConsomme: () -> Unit) {
     val c = conteneur()
-    val modele: ModeleRecherche = viewModel { ModeleRecherche(c.catalogue, c.historiqueRecherche) }
+    val modele: ModeleRecherche = viewModel { ModeleRecherche(c.catalogue, c.historiqueRecherche, c.ia) }
+    val rechercheIA by modele.rechercheIA.collectAsStateWithLifecycle()
     val terme by modele.terme.collectAsStateWithLifecycle()
     val type by modele.type.collectAsStateWithLifecycle()
     val etat by modele.etat.collectAsStateWithLifecycle()
@@ -149,6 +150,9 @@ fun EcranRecherche(termeDemande: String?, onTermeConsomme: () -> Unit) {
             if (resultats == null) {
                 if (etat.chargement) item(key = "attente") { Attente() }
                 return@LazyColumn
+            }
+            if (rechercheIA != EtatRechercheIA.Aucune) {
+                item(key = "recherche-ia") { BlocRechercheIA(rechercheIA, lecture, lancement, terme.trim(), modele::chercherParDescription) }
             }
             if (resultats.vide) {
                 item(key = "vide") { AucunResultat(terme.trim()) }
@@ -288,6 +292,67 @@ private fun AucunResultat(terme: String) {
         Text("Aucun résultat pour « $terme »", style = Texte.marque, color = p.encre.compose, textAlign = TextAlign.Center)
         Spacer(Modifier.height(4.dp))
         Text("Vérifie l'orthographe, ou essaie le nom d'un artiste ou d'un genre.", style = Texte.corps, color = p.encreAttenuee.compose, textAlign = TextAlign.Center)
+    }
+}
+
+/**
+ * La recherche par description (AiSearchFallback.tsx) : proposée quand la
+ * saisie décrit une ambiance plutôt qu'un nom, et que la recherche
+ * classique trouve peu. Les titres viennent tous du catalogue.
+ */
+@Composable
+private fun BlocRechercheIA(etat: EtatRechercheIA, lecture: EtatLecteur, lancement: Lancement, terme: String, onLancer: () -> Unit) {
+    val p = LocalPalette.current
+    val menus = com.moziik.app.ui.menus.LocalMenus.current
+    Column(
+        Modifier
+            .fillMaxWidth()
+            .padding(bottom = 20.dp)
+            .clip(RoundedCornerShape(p.rayon.dp))
+            .border(BorderStroke(1.dp, p.accent.compose.copy(alpha = 0.3f)), RoundedCornerShape(p.rayon.dp))
+            .background(p.accent.compose.copy(alpha = 0.06f))
+            .padding(14.dp),
+    ) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Icone(R.drawable.lucide_sparkles, description = null, teinte = p.accent.compose, taille = 16.dp)
+            Spacer(Modifier.width(8.dp))
+            Text("Recherche par description", style = Texte.corpsFort, color = p.encre.compose)
+        }
+        Spacer(Modifier.height(6.dp))
+        when (etat) {
+            EtatRechercheIA.Proposee -> {
+                Text("Peu de résultats exacts. L'IA peut chercher des titres qui correspondent à ce que tu décris.", style = Texte.corps, color = p.encreAttenuee.compose)
+                Spacer(Modifier.height(10.dp))
+                Text(
+                    "Chercher par description",
+                    style = Texte.corpsFort, color = p.base.compose,
+                    modifier = Modifier.clip(CircleShape).background(p.accent.compose).pressable(onClick = onLancer).padding(horizontal = 16.dp, vertical = 8.dp),
+                )
+            }
+            EtatRechercheIA.Chargement -> Row(verticalAlignment = Alignment.CenterVertically) {
+                Egaliseur(hauteur = 12.dp, libelle = "Recherche en cours")
+                Spacer(Modifier.width(8.dp))
+                Text("L'IA cherche dans le catalogue…", style = Texte.corps, color = p.encreAttenuee.compose)
+            }
+            is EtatRechercheIA.Erreur -> Text(etat.message, style = Texte.corps, color = p.danger.compose)
+            is EtatRechercheIA.Resultat -> {
+                if (etat.explication.isNotBlank()) Text(etat.explication, style = Texte.corps, color = p.encreAttenuee.compose)
+                if (etat.titres.isEmpty()) {
+                    Text("Rien trouvé pour cette description.", style = Texte.corps, color = p.encreAttenuee.compose)
+                } else {
+                    Spacer(Modifier.height(8.dp))
+                    val source = "Recherche IA : « $terme »"
+                    etat.titres.forEachIndexed { i, t ->
+                        LigneTitre(
+                            t, null, t.id == lecture.courant?.id, lecture.enLecture,
+                            onClick = { lancement.titres(etat.titres, i, source) },
+                            onAppuiLong = { menus.titre(t, source) },
+                        )
+                    }
+                }
+            }
+            EtatRechercheIA.Aucune -> Unit
+        }
     }
 }
 

@@ -65,6 +65,12 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
+/** L'identifiant de route du fil de l'assistant d'écoute (H12). */
+const val ASSISTANT = "assistant"
+
+/** Le nom affiché de l'assistant, celui du site. */
+const val NOM_ASSISTANT = "Assistant Moziik"
+
 /** La liste se relit toutes les 12 secondes tant qu'elle est à l'écran, comme sur le site (H4). */
 private const val RAFRAICHISSEMENT_LISTE_MS = 12_000L
 
@@ -91,6 +97,7 @@ fun EcranMessages(onConnexion: () -> Unit, onOuvrir: (String) -> Unit) {
     var erreur by remember { mutableStateOf<String?>(null) }
     var nouvelle by rememberSaveable { mutableStateOf(false) }
     val cycle = LocalLifecycleOwner.current
+    val avecAssistant = com.moziik.app.ui.menus.fonctionIA("assistant")
 
     LaunchedEffect(session) {
         cycle.repeatOnLifecycle(Lifecycle.State.STARTED) {
@@ -136,6 +143,7 @@ fun EcranMessages(onConnexion: () -> Unit, onOuvrir: (String) -> Unit) {
                 BoutonPrincipal("Écrire à quelqu'un", { nouvelle = true }, Modifier.width(220.dp))
             }
             liste != null -> LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = 24.dp)) {
+                if (avecAssistant) item(key = ASSISTANT) { LigneAssistant { onOuvrir(ASSISTANT) } }
                 items(liste, key = { it.id }) { conv -> LigneConversation(conv) { onOuvrir(conv.id) } }
             }
         }
@@ -150,6 +158,24 @@ fun EcranMessages(onConnexion: () -> Unit, onOuvrir: (String) -> Unit) {
                 onOuvrir(conv)
             },
         )
+    }
+}
+
+/** L'assistant d'écoute, épinglé en tête : on lui demande un titre, une ambiance, un artiste. */
+@Composable
+private fun LigneAssistant(onClick: () -> Unit) {
+    val p = LocalPalette.current
+    Row(
+        Modifier.fillMaxWidth().clickable(role = Role.Button, onClick = onClick).padding(horizontal = 16.dp, vertical = 10.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        AvatarAssistant(48.dp)
+        Spacer(Modifier.width(12.dp))
+        Column(Modifier.weight(1f)) {
+            Text(NOM_ASSISTANT, style = Texte.corps.copy(fontWeight = FontWeight.Medium), color = p.encre.compose)
+            Text("Demande-lui quoi écouter", style = Texte.secondaire, color = p.encreAttenuee.compose, maxLines = 1)
+        }
+        Icone(R.drawable.lucide_sparkles, description = null, teinte = p.info.compose, taille = 16.dp)
     }
 }
 

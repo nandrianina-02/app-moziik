@@ -3,6 +3,7 @@ package com.moziik.app.ui.recherche
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.moziik.app.donnees.catalogue.Catalogue
+import com.moziik.app.donnees.catalogue.FonctionsIA
 import com.moziik.app.donnees.catalogue.HistoriqueRecherche
 import com.moziik.app.donnees.catalogue.Resultats
 import com.moziik.app.donnees.catalogue.Titre
@@ -39,7 +40,26 @@ data class EtatRecherche(
 )
 
 @OptIn(FlowPreview::class)
-class ModeleRecherche(private val catalogue: Catalogue, private val historique: HistoriqueRecherche) : ViewModel() {
+/** La recherche par description (D6) : proposée seulement quand la recherche classique trouve peu. */
+sealed interface EtatRechercheIA {
+    data object Aucune : EtatRechercheIA
+    data object Proposee : EtatRechercheIA
+    data object Chargement : EtatRechercheIA
+    data class Resultat(val explication: String, val titres: List<Titre>) : EtatRechercheIA
+    data class Erreur(val message: String) : EtatRechercheIA
+}
+
+/** Au moins quatre mots de plus de deux lettres : une description, pas un nom de titre (D6). */
+fun estUneDescription(terme: String): Boolean = terme.split(Regex("\\s+")).count { it.length > 2 } >= 4
+
+class ModeleRecherche(
+    private val catalogue: Catalogue,
+    private val historique: HistoriqueRecherche,
+    private val ia: FonctionsIA,
+) : ViewModel() {
+    private val _rechercheIA = MutableStateFlow<EtatRechercheIA>(EtatRechercheIA.Aucune)
+    val rechercheIA: StateFlow<EtatRechercheIA> = _rechercheIA.asStateFlow()
+
     private val _terme = MutableStateFlow("")
     val terme: StateFlow<String> = _terme.asStateFlow()
     private val _type = MutableStateFlow(TypeRecherche.TOUT)
@@ -74,7 +94,24 @@ class ModeleRecherche(private val catalogue: Catalogue, private val historique: 
 
     fun retenir(terme: String) = historique.retenir(terme)
 
+    /** Demande à l'IA les titres qui correspondent à la description saisie. */
+    fun chercherParDescription() {
+        val terme = _terme.value.trim()
+        _rechercheIA.value = EtatRechercheIA.Chargement
+        viewModelScope.launch {
+            _rechercheIA.value = try {
+                val r = ia.chercherParDescription(terme)
+                EtatRechercheIA.Resultat(r.interpretation?.explication.orEmpty(), r.songs)
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                EtatRechercheIA.Erreur(messageErreur(e))
+            }
+        }
+    }
+
     private suspend fun chercher(terme: String, type: TypeRecherche) {
+        _rechercheIA.value = EtatRechercheIA.Aucune
         // Sous deux caractères, le site renvoie une réponse vide : l'écran montre l'état par défaut.
         if (terme.length < 2) {
             _etat.value = EtatRecherche()
@@ -84,6 +121,8 @@ class ModeleRecherche(private val catalogue: Catalogue, private val historique: 
         try {
             val resultats = catalogue.recherche(terme, type.cle, 1)
             _etat.value = EtatRecherche(resultats = resultats)
+            val trouves = resultats.sections.sumOf { it.total }
+            _rechercheIA.value = if (estUneDescription(terme) && trouves <= 3 && ia.active("recherche")) EtatRechercheIA.Proposee else EtatRechercheIA.Aucune
             if (!resultats.vide) {
                 // Recherche stable depuis 2,5 s et fructueuse : elle compte, une fois.
                 delay(2_500)

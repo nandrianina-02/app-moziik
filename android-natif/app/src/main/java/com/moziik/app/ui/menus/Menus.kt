@@ -102,6 +102,16 @@ class Menus {
         private set
     var envoi by mutableStateOf<PartageEnvoye?>(null)
         private set
+    var compositionIA by mutableStateOf(false)
+        private set
+
+    fun composerAvecIA() {
+        compositionIA = true
+    }
+
+    fun fermerCompositionIA() {
+        compositionIA = false
+    }
 
     /** « Envoyer dans un message » (H10). */
     fun envoyerDansUnMessage(partage: PartageEnvoye) {
@@ -150,6 +160,7 @@ val LocalMenus = staticCompositionLocalOf<Menus> { error("Menus absents : l'écr
 fun HoteMenus(menus: Menus) {
     menus.titre?.let { MenuTitre(it, menus) }
     menus.ajout?.let { AjoutPlaylist(it, menus) }
+    if (menus.compositionIA) ComposerAvecIA(menus::fermerCompositionIA)
     menus.envoi?.let { partage ->
         val c = conteneur()
         val nav = navigation()

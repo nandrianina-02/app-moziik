@@ -243,7 +243,7 @@ data class ReponseRadio(
 data class PageTitres(val songs: List<Titre> = emptyList(), val hasMore: Boolean = false, val total: Int = 0)
 
 @Serializable
-data class ConfigurationSite(val genres: List<String> = emptyList())
+data class ConfigurationSite(val genres: List<String> = emptyList(), val aiFeatures: List<String> = emptyList())
 
 @Serializable
 data class Evenement(

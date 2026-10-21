@@ -1,6 +1,13 @@
 package com.moziik.app.donnees.reseau
 
 import com.moziik.app.donnees.catalogue.Accueil
+import com.moziik.app.donnees.catalogue.DemandeIA
+import com.moziik.app.donnees.catalogue.EchangeAssistant
+import com.moziik.app.donnees.catalogue.FilAssistant
+import com.moziik.app.donnees.catalogue.ReponsePropositionPlaylist
+import com.moziik.app.donnees.catalogue.ResultatRechercheIA
+import com.moziik.app.donnees.catalogue.Traduction
+import com.moziik.app.donnees.catalogue.Traduite
 import com.moziik.app.donnees.catalogue.AlbumAEnregistrer
 import com.moziik.app.donnees.catalogue.ArtistesSuivis
 import com.moziik.app.donnees.catalogue.EtatEnregistre
@@ -217,6 +224,24 @@ interface MoziikApi {
     /** Les 12 derniers titres écoutés, distincts, de l'univers (F5). */
     @GET("api/me/recent")
     suspend fun recents(@Query("univers") univers: String?): ListeTitres
+
+    // Fonctions IA, chacune activable par l'administration (aiFeatures)
+
+    @POST("api/ai/playlist")
+    suspend fun composerPlaylist(@Body corps: DemandeIA, @Query("univers") univers: String?): ReponsePropositionPlaylist
+
+    @POST("api/ai/search")
+    suspend fun rechercheIA(@Body corps: DemandeIA): ResultatRechercheIA
+
+    @POST("api/lyrics/translate")
+    suspend fun traduire(@Body corps: Traduction): Traduite
+
+    /** Le fil de l'assistant, créé au premier usage (H12). */
+    @GET("api/messagerie/assistant")
+    suspend fun assistant(): FilAssistant
+
+    @POST("api/messagerie/assistant")
+    suspend fun demanderAssistant(@Body corps: DemandeIA, @Query("univers") univers: String?): EchangeAssistant
 
     // Messagerie (H4 à H8)
 

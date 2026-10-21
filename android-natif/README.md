@@ -21,6 +21,7 @@ Elle ne parle au serveur que par l'API HTTP du site, avec les jetons mobiles
 | Classements (podium, tendance, votre place), radio et stations, titres par genre, évènements ; raccourcis de l'accueil | `ui/decouvrir/`, `donnees/catalogue/Stations.kt` |
 | Ma zone : playlists (créer, modifier, ajouter, retirer, supprimer), titres aimés, albums et podcasts, artistes suivis, écoutes récentes ; menu d'un titre à l'appui long | `ui/bibliotheque/`, `ui/menus/`, `donnees/catalogue/Bibliotheque.kt` |
 | Messages : conversations, non-lus, fil avec réponses citées, modification, suppression, cartes de partage, accusés de lecture, « Écrit… », envoi d'un titre dans un message | `ui/messages/`, `donnees/messagerie/` |
+| Fonctions IA du site, selon leur activation : composer une playlist, assistant d'écoute, recherche par description, traduction des paroles | `donnees/catalogue/IA.kt`, `ui/menus/ComposerIA.kt` |
 | Paroles synchronisées dans le lecteur, analysées comme sur le site (LRC, mot à mot) | `donnees/catalogue/Paroles.kt`, `ui/lecteur/PanneauParoles.kt` |
 | Lecteur : Media3 en arrière-plan (notification, écran verrouillé, casque), file prolongée, écoutes déclarées au temps réel, quota des visiteurs | `lecteur/`, `ui/lecteur/` |
 

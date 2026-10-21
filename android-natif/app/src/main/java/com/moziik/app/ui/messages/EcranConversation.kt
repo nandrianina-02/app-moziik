@@ -59,7 +59,9 @@ import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardCapitalization
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.Lifecycle
@@ -147,16 +149,39 @@ fun EcranConversation(id: String, onRetour: () -> Unit) {
     var dernierSignal by remember { mutableLongStateOf(0L) }
     var menu by remember { mutableStateOf<MessageFil?>(null) }
 
+    // L'assistant d'écoute a son propre fil, créé au premier usage (H12) : on l'ouvre par l'identifiant « assistant ».
+    val assistant = id == ASSISTANT
+    var fil by remember { mutableStateOf(if (assistant) null else id) }
+    var disponible by remember { mutableStateOf(true) }
+    val nav = navigation()
+    val lancement = rememberLancement()
+    // La carte d'une réponse de l'assistant : un titre ou une radio se lancent, le reste s'ouvre.
+    val lancerPartage: (Partage) -> Unit = { partage ->
+        when (partage.type) {
+            "song" -> lancement.cible("partage-${partage.refId}", Cible.DeTitre(partage.refId))
+            "radio" -> nav.radio(partage.refId)
+            else -> nav.suivre(cibleDe(partage.chemin, BuildConfig.SITE))
+        }
+    }
+
     // Premier chargement, puis rafraîchissement tant que le fil est à l'écran.
     LaunchedEffect(id) {
         try {
-            conversation = c.messagerie.conversation(id)
-            val page = c.messagerie.messages(id)
+            if (assistant) {
+                val f = c.ia.filAssistant()
+                conversation = f.conversation
+                disponible = f.disponible
+                fil = f.conversation.id
+            } else {
+                conversation = c.messagerie.conversation(id)
+            }
+            val cible = fil ?: return@LaunchedEffect
+            val page = c.messagerie.messages(cible)
             messages = fusionner(emptyList(), page.messages)
             lecteurs = page.lecteurs
             encore = page.encore
             pret = true
-            c.messagerie.marquerLu(id)
+            c.messagerie.marquerLu(cible)
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
@@ -169,12 +194,12 @@ fun EcranConversation(id: String, onRetour: () -> Unit) {
             while (true) {
                 delay(RAFRAICHISSEMENT_FIL_MS)
                 try {
-                    val page = c.messagerie.messages(id, depuis = dernierInstant(messages))
+                    val page = c.messagerie.messages(fil ?: continue, depuis = dernierInstant(messages))
                     val recus = page.messages.any { m -> messages.none { it.id == m.id } && m.auteur?.id != moi }
                     messages = fusionner(messages, page.messages)
                     lecteurs = page.lecteurs
                     ecrivent = page.saisie.filter { it.id != moi }.map { it.name }
-                    if (recus) c.messagerie.marquerLu(id)
+                    if (recus) c.messagerie.marquerLu(fil ?: continue)
                 } catch (e: CancellationException) {
                     throw e
                 } catch (e: Exception) {
@@ -193,7 +218,8 @@ fun EcranConversation(id: String, onRetour: () -> Unit) {
             .collect {
                 if (!encore || chargementAnciens || messages.isEmpty()) return@collect
                 chargementAnciens = true
-                runCatching { c.messagerie.messages(id, avant = messages.first().createdAt) }.onSuccess { page ->
+                val cible = fil ?: return@collect
+                runCatching { c.messagerie.messages(cible, avant = messages.first().createdAt) }.onSuccess { page ->
                     messages = fusionner(messages, page.messages)
                     encore = page.encore
                 }
@@ -208,8 +234,15 @@ fun EcranConversation(id: String, onRetour: () -> Unit) {
             envoi = true
             portee.launch {
                 try {
-                    val message = if (modifie != null) c.messagerie.modifier(modifie.id, corps) else c.messagerie.envoyer(id, corps, repondA = reponseA?.id)
-                    messages = fusionner(messages, listOf(message))
+                    if (assistant && modifie == null) {
+                        texte = ""
+                        val echange = c.ia.demanderAssistant(corps)
+                        messages = fusionner(messages, listOf(echange.question, echange.reponse))
+                        if (echange.lancer) echange.reponse.partage?.let(lancerPartage)
+                    } else {
+                        val message = if (modifie != null) c.messagerie.modifier(modifie.id, corps) else c.messagerie.envoyer(fil ?: id, corps, repondA = reponseA?.id)
+                        messages = fusionner(messages, listOf(message))
+                    }
                     texte = ""
                     reponseA = null
                     enModification = null
@@ -226,15 +259,23 @@ fun EcranConversation(id: String, onRetour: () -> Unit) {
 
     // Plein écran : la coquille masque sa barre et le mini-lecteur ici ; le clavier pousse le composeur.
     Column(Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.statusBars).windowInsetsPadding(WindowInsets.ime.union(WindowInsets.navigationBars))) {
-        EnTeteConversation(conversation, ecrivent, onRetour)
+        EnTeteConversation(conversation, ecrivent, onRetour, assistant)
+        if (assistant && !disponible) {
+            Text(
+                "L'assistant est indisponible pour le moment. Réessaie plus tard.",
+                style = Texte.secondaire, color = p.alerte.compose,
+                modifier = Modifier.fillMaxWidth().background(p.alerte.compose.copy(alpha = 0.1f)).padding(horizontal = 16.dp, vertical = 8.dp),
+            )
+        }
         HorizontalDivider(color = p.bordure.compose)
         Box(Modifier.weight(1f)) {
             when {
                 erreur != null && !pret -> MessageErreur(erreur, Modifier.padding(16.dp))
                 !pret -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { Egaliseur(hauteur = 20.dp) }
-                messages.isEmpty() -> Text(
-                    "Aucun message. Écris le premier.", style = Texte.corps, color = p.encreAttenuee.compose,
-                    modifier = Modifier.align(Alignment.Center),
+                messages.isEmpty() && !envoi -> Text(
+                    if (assistant) "Demande-lui un titre, une ambiance, un artiste à découvrir : il cherche dans le catalogue de Moziik." else "Aucun message. Écris le premier.",
+                    style = Texte.corps, color = p.encreAttenuee.compose, textAlign = TextAlign.Center,
+                    modifier = Modifier.align(Alignment.Center).padding(32.dp),
                 )
                 else -> {
                     val groupe = conversation?.type == "group"
@@ -245,6 +286,15 @@ fun EcranConversation(id: String, onRetour: () -> Unit) {
                         l.user != moi && (instantIso(l.luJusqua)?.time ?: 0L) >= (instantIso(dernierMien.createdAt)?.time ?: Long.MAX_VALUE)
                     }
                     LazyColumn(Modifier.fillMaxSize(), state = liste, reverseLayout = true, contentPadding = PaddingValues(horizontal = 12.dp, vertical = 12.dp)) {
+                        if (assistant && envoi) {
+                            item(key = "reflexion") {
+                                Row(Modifier.padding(top = 10.dp, start = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+                                    Egaliseur(hauteur = 12.dp, libelle = "L'assistant réfléchit", couleur = p.info.compose)
+                                    Spacer(Modifier.width(8.dp))
+                                    Text("L'assistant réfléchit…", style = Texte.secondaire, color = p.encreAttenuee.compose)
+                                }
+                            }
+                        }
                         items(inverses, key = { it.id }) { m ->
                             val i = messages.indexOf(m)
                             val precedent = messages.getOrNull(i - 1)
@@ -252,7 +302,7 @@ fun EcranConversation(id: String, onRetour: () -> Unit) {
                             Bulle(
                                 message = m,
                                 aMoi = aMoi,
-                                afficherAuteur = groupe && !aMoi && precedent?.auteur?.id != m.auteur?.id,
+                                afficherAuteur = (groupe || m.role == "assistant") && !aMoi && precedent?.auteur?.id != m.auteur?.id,
                                 statut = if (m.id == dernierMien?.id) (if (lu) "Lu" else "Envoyé") else null,
                                 onAppuiLong = { if (!m.supprime) menu = m },
                             )
@@ -267,14 +317,16 @@ fun EcranConversation(id: String, onRetour: () -> Unit) {
             onTexte = { nouveau ->
                 texte = nouveau.take(4000)
                 val maintenant = System.currentTimeMillis()
-                if (nouveau.isNotBlank() && maintenant - dernierSignal > SIGNAL_SAISIE_MS) {
+                if (!assistant && nouveau.isNotBlank() && maintenant - dernierSignal > SIGNAL_SAISIE_MS) {
                     dernierSignal = maintenant
-                    portee.launch { c.messagerie.signalerSaisie(id) }
+                    portee.launch { c.messagerie.signalerSaisie(fil ?: id) }
                 }
             },
             reponseA = reponseA,
             enModification = enModification != null,
             envoi = envoi,
+            indication = if (assistant) "Demande à l'assistant…" else "Écrire un message…",
+            actif = !assistant || disponible,
             onAnnuler = {
                 if (enModification != null) texte = ""
                 reponseA = null
@@ -288,10 +340,12 @@ fun EcranConversation(id: String, onRetour: () -> Unit) {
         val presse = LocalClipboardManager.current
         val aMoi = m.auteur?.id == moi
         Feuille({ menu = null }) {
-            LigneAction(R.drawable.lucide_reply, "Répondre") {
-                reponseA = m
-                enModification = null
-                menu = null
+            if (!assistant) {
+                LigneAction(R.drawable.lucide_reply, "Répondre") {
+                    reponseA = m
+                    enModification = null
+                    menu = null
+                }
             }
             if (m.corps.isNotBlank()) {
                 LigneAction(R.drawable.lucide_copy, "Copier le texte") {
@@ -300,7 +354,7 @@ fun EcranConversation(id: String, onRetour: () -> Unit) {
                     menu = null
                 }
             }
-            if (aMoi && m.corps.isNotBlank()) {
+            if (aMoi && !assistant && m.corps.isNotBlank()) {
                 LigneAction(R.drawable.lucide_pencil, "Modifier") {
                     enModification = m
                     reponseA = null
@@ -308,7 +362,7 @@ fun EcranConversation(id: String, onRetour: () -> Unit) {
                     menu = null
                 }
             }
-            if (aMoi) {
+            if (aMoi && !assistant) {
                 LigneAction(R.drawable.lucide_trash_2, "Supprimer") {
                     menu = null
                     portee.launch {
@@ -333,8 +387,23 @@ private fun LigneAction(icone: Int, libelle: String, onClick: () -> Unit) {
 }
 
 @Composable
-private fun EnTeteConversation(conversation: Conversation?, ecrivent: List<String>, onRetour: () -> Unit) {
+private fun EnTeteConversation(conversation: Conversation?, ecrivent: List<String>, onRetour: () -> Unit, assistant: Boolean) {
     val p = LocalPalette.current
+    if (assistant) {
+        Row(Modifier.fillMaxWidth().padding(horizontal = 4.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+            Box(Modifier.size(44.dp).clip(CircleShape).clickable(role = Role.Button, onClick = onRetour), contentAlignment = Alignment.Center) {
+                Icone(R.drawable.lucide_arrow_left, description = "Retour", teinte = p.encreAttenuee.compose, taille = 20.dp)
+            }
+            AvatarAssistant(38.dp)
+            Spacer(Modifier.width(10.dp))
+            Column(Modifier.weight(1f)) {
+                Text(NOM_ASSISTANT, style = Texte.corpsFort, color = p.encre.compose)
+                // L'assistant est toujours présenté comme une machine (H12).
+                Text("Réponses générées par une IA", style = Texte.secondaire, color = p.encreAttenuee.compose)
+            }
+        }
+        return
+    }
     val titre = conversation?.let(::titreDe).orEmpty()
     val ligne = when {
         ecrivent.isNotEmpty() -> if (conversation?.type == "group") "${ecrivent.first()} écrit…" else "Écrit…"
@@ -361,6 +430,7 @@ private fun EnTeteConversation(conversation: Conversation?, ecrivent: List<Strin
 @Composable
 private fun Bulle(message: MessageFil, aMoi: Boolean, afficherAuteur: Boolean, statut: String?, onAppuiLong: () -> Unit) {
     val p = LocalPalette.current
+    val deLAssistant = message.role == "assistant"
     val encre = if (aMoi) Color.White else p.encre.compose
     val attenuee = if (aMoi) Color.White.copy(alpha = 0.7f) else p.encreAttenuee.compose
     val forme = if (aMoi) RoundedCornerShape(18.dp, 18.dp, 6.dp, 18.dp) else RoundedCornerShape(18.dp, 18.dp, 18.dp, 6.dp)
@@ -369,14 +439,20 @@ private fun Bulle(message: MessageFil, aMoi: Boolean, afficherAuteur: Boolean, s
         horizontalAlignment = if (aMoi) Alignment.End else Alignment.Start,
     ) {
         if (afficherAuteur) {
-            Text(message.auteur?.name.orEmpty(), style = Texte.secondaire.copy(fontWeight = FontWeight.Medium), color = p.encreAttenuee.compose, modifier = Modifier.padding(start = 6.dp, bottom = 2.dp))
+            Row(Modifier.padding(start = 6.dp, bottom = 2.dp), verticalAlignment = Alignment.CenterVertically) {
+                if (deLAssistant) {
+                    Icone(R.drawable.lucide_sparkles, description = null, teinte = p.info.compose, taille = 11.dp)
+                    Spacer(Modifier.width(4.dp))
+                }
+                Text(if (deLAssistant) NOM_ASSISTANT else message.auteur?.name.orEmpty(), style = Texte.secondaire.copy(fontWeight = FontWeight.Medium), color = p.encreAttenuee.compose)
+            }
         }
         Column(
             Modifier
                 .widthIn(max = 300.dp)
                 .clip(forme)
-                .background(if (aMoi) p.accent.compose else p.surface.compose)
-                .then(if (aMoi) Modifier else Modifier.border(BorderStroke(1.dp, p.bordure.compose), forme))
+                .background(if (aMoi) p.accent.compose else if (deLAssistant) p.info.compose.copy(alpha = 0.1f) else p.surface.compose)
+                .then(if (aMoi) Modifier else Modifier.border(BorderStroke(1.dp, if (deLAssistant) p.info.compose.copy(alpha = 0.3f) else p.bordure.compose), forme))
                 .combinedClickable(onLongClick = onAppuiLong, onLongClickLabel = "Options du message", onClick = {})
                 .padding(horizontal = 12.dp, vertical = 8.dp),
         ) {
@@ -503,6 +579,8 @@ private fun Composeur(
     reponseA: MessageFil?,
     enModification: Boolean,
     envoi: Boolean,
+    indication: String,
+    actif: Boolean,
     onAnnuler: () -> Unit,
     onEnvoyer: () -> Unit,
 ) {
@@ -534,10 +612,11 @@ private fun Composeur(
                     .border(BorderStroke(1.dp, p.bordure.compose), RoundedCornerShape(22.dp))
                     .padding(horizontal = 16.dp, vertical = 11.dp),
             ) {
-                if (texte.isEmpty()) Text("Écrire un message…", style = Texte.corps, color = p.encreAttenuee.compose)
+                if (texte.isEmpty()) Text(indication, style = Texte.corps, color = p.encreAttenuee.compose)
                 BasicTextField(
                     value = texte,
                     onValueChange = onTexte,
+                    enabled = actif,
                     textStyle = Texte.corps.copy(color = p.encre.compose),
                     cursorBrush = SolidColor(p.accent.compose),
                     maxLines = 5,
@@ -546,14 +625,23 @@ private fun Composeur(
                 )
             }
             Spacer(Modifier.width(8.dp))
-            val actif = texte.isNotBlank() && !envoi
+            val envoyable = actif && texte.isNotBlank() && !envoi
             Box(
-                Modifier.size(44.dp).clip(CircleShape).background(p.accent.compose.copy(alpha = if (actif) 1f else 0.4f)).clickable(enabled = actif, role = Role.Button, onClick = onEnvoyer),
+                Modifier.size(44.dp).clip(CircleShape).background(p.accent.compose.copy(alpha = if (envoyable) 1f else 0.4f)).clickable(enabled = envoyable, role = Role.Button, onClick = onEnvoyer),
                 contentAlignment = Alignment.Center,
             ) {
                 if (envoi) Egaliseur(hauteur = 14.dp, libelle = "Envoi", couleur = p.base.compose)
                 else Icone(if (enModification) R.drawable.lucide_check else R.drawable.lucide_send_horizontal, description = if (enModification) "Enregistrer" else "Envoyer", teinte = p.base.compose, taille = 18.dp)
             }
         }
+    }
+}
+
+/** L'avatar de l'assistant : un pictogramme, jamais un visage, pour qu'on ne le prenne pas pour un membre. */
+@Composable
+fun AvatarAssistant(taille: Dp) {
+    val p = LocalPalette.current
+    Box(Modifier.size(taille).clip(CircleShape).background(p.info.compose.copy(alpha = 0.15f)), contentAlignment = Alignment.Center) {
+        Icone(R.drawable.lucide_sparkles, description = null, teinte = p.info.compose, taille = taille * 0.45f)
     }
 }

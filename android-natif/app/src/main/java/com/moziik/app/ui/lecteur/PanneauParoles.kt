@@ -57,6 +57,12 @@ import com.moziik.app.ui.composants.Icone
 import com.moziik.app.ui.conteneur
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.runtime.rememberCoroutineScope
+import com.moziik.app.donnees.reseau.ErreurApi
+import com.moziik.app.ui.menus.fonctionIA
 
 /** Après un défilement à la main, le suivi de la ligne chantée reprend seul au bout de 4 secondes (spécification 5.8). */
 private const val REPRISE_SUIVI_MS = 4_000L
@@ -152,6 +158,37 @@ private fun ListeParoles(paroles: Paroles, avancement: Avancement, onDeplacer: (
     val seconde = avancement.positionMs / 1000.0
     val active = if (paroles.synchronisees) ligneActive(paroles.lignes, seconde) else -1
     val liste = rememberLazyListState()
+    val c = conteneur()
+    val portee = rememberCoroutineScope()
+    var langue by remember(paroles) { mutableStateOf("fr") }
+    var traduite by remember(paroles) { mutableStateOf<List<String>?>(null) }
+    var bloc by remember(paroles) { mutableStateOf<String?>(null) }
+    var enTraduction by remember(paroles) { mutableStateOf(false) }
+    var erreurTraduction by remember(paroles) { mutableStateOf<String?>(null) }
+    val traduire: () -> Unit = {
+        if (!enTraduction) {
+            enTraduction = true
+            erreurTraduction = null
+            portee.launch {
+                try {
+                    // Une ligne par ligne, vides comprises : l'alignement se vérifie au retour.
+                    val lignes = c.ia.traduire(paroles.lignes.joinToString("\n") { it.texte }, langue).split("\n")
+                    if (lignes.size == paroles.lignes.size) traduite = lignes else bloc = lignes.joinToString("\n")
+                } catch (e: CancellationException) {
+                    throw e
+                } catch (e: ErreurApi) {
+                    erreurTraduction = when (e.statut) {
+                        401 -> "Connecte-toi pour traduire les paroles."
+                        501 -> "La traduction n'est pas disponible pour le moment."
+                        else -> messageErreur(e)
+                    }
+                } catch (e: Exception) {
+                    erreurTraduction = messageErreur(e)
+                }
+                enTraduction = false
+            }
+        }
+    }
     val glisse by liste.interactionSource.collectIsDraggedAsState()
     var suivi by remember { mutableStateOf(true) }
     var derniereMain by remember { mutableIntStateOf(0) }
@@ -197,6 +234,27 @@ private fun ListeParoles(paroles: Paroles, avancement: Avancement, onDeplacer: (
                 }
             }
         }
+        if (fonctionIA("traduction")) Traduction(langue, traduite != null || bloc != null, enTraduction, erreurTraduction, onLangue = {
+            langue = it
+            traduite = null
+            bloc = null
+        }, onBasculer = {
+            if (traduite != null || bloc != null) {
+                traduite = null
+                bloc = null
+            } else {
+                traduire()
+            }
+        })
+        val texteBloc = bloc
+        if (texteBloc != null) {
+            // Traduction non alignée ligne à ligne : affichée d'un bloc, sans suivi (5.8).
+            Text(
+                texteBloc, style = Texte.corps.copy(fontSize = 15.sp, lineHeight = 22.sp), color = p.encre.compose,
+                modifier = Modifier.fillMaxWidth().weight(1f).verticalScroll(rememberScrollState()),
+            )
+            return@Column
+        }
         LazyColumn(
             Modifier.fillMaxWidth().weight(1f),
             state = liste,
@@ -206,7 +264,15 @@ private fun ListeParoles(paroles: Paroles, avancement: Avancement, onDeplacer: (
                 if (ligne.texte.isBlank()) {
                     Spacer(Modifier.height(14.dp))
                 } else {
-                    LigneChantee(ligne, i == active, if (i == active) motActif(ligne.mots, seconde) else -1, paroles.synchronisees, onDeplacer)
+                    // Une ligne traduite remplace l'originale, sans mot à mot : ses instants sont ceux des mots d'origine.
+                    val traduction = traduite?.getOrNull(i)
+                    LigneChantee(
+                        if (traduction != null) ligne.copy(texte = traduction, mots = null) else ligne,
+                        i == active,
+                        if (i == active && traduction == null) motActif(ligne.mots, seconde) else -1,
+                        paroles.synchronisees,
+                        onDeplacer,
+                    )
                 }
             }
             paroles.credits?.let { credits ->
@@ -214,6 +280,45 @@ private fun ListeParoles(paroles: Paroles, avancement: Avancement, onDeplacer: (
             }
         }
     }
+}
+
+/** Les langues de traduction du site (5.8), avec leur nom dans leur langue. */
+private val LANGUES = listOf("fr" to "Français", "en" to "English", "mg" to "Malagasy")
+
+@Composable
+private fun Traduction(langue: String, traduit: Boolean, enCours: Boolean, erreur: String?, onLangue: (String) -> Unit, onBasculer: () -> Unit) {
+    val p = LocalPalette.current
+    Row(Modifier.fillMaxWidth().padding(bottom = 6.dp), verticalAlignment = Alignment.CenterVertically) {
+        LANGUES.forEach { (code, nom) ->
+            Text(
+                nom,
+                style = Texte.secondaire.copy(fontSize = 11.sp, fontWeight = FontWeight.Medium),
+                color = if (code == langue) p.accent.compose else p.encreAttenuee.compose,
+                modifier = Modifier
+                    .clip(CircleShape)
+                    .clickable(role = Role.Tab) { onLangue(code) }
+                    .padding(horizontal = 8.dp, vertical = 4.dp),
+            )
+        }
+        Spacer(Modifier.weight(1f))
+        Row(
+            Modifier
+                .clip(CircleShape)
+                .border(BorderStroke(1.dp, p.bordure.compose), CircleShape)
+                .clickable(role = Role.Button, enabled = !enCours, onClick = onBasculer)
+                .padding(horizontal = 10.dp, vertical = 4.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            if (enCours) {
+                Egaliseur(hauteur = 10.dp, libelle = "Traduction en cours")
+            } else {
+                Icone(R.drawable.lucide_sparkles, description = null, teinte = p.accent.compose, taille = 11.dp)
+            }
+            Spacer(Modifier.width(4.dp))
+            Text(if (traduit) "Version originale" else "Traduire", style = Texte.secondaire.copy(fontSize = 11.sp, fontWeight = FontWeight.Medium), color = p.encre.compose)
+        }
+    }
+    erreur?.let { Text(it, style = Texte.secondaire, color = p.danger.compose, modifier = Modifier.padding(bottom = 6.dp)) }
 }
 
 @Composable

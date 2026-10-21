@@ -66,6 +66,8 @@ import com.moziik.app.ui.composants.apparitionUneFois
 import com.moziik.app.ui.composants.pressable
 import com.moziik.app.ui.conteneur
 import com.moziik.app.ui.menus.LocalMenus
+import com.moziik.app.ui.menus.TuileIA
+import com.moziik.app.ui.menus.fonctionIA
 import com.moziik.app.ui.navigation
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -144,6 +146,7 @@ fun EcranBibliotheque(onConnexion: () -> Unit) {
     val podcasts = albums.elements.orEmpty().filter { it.type == "podcast" }
     val disques = albums.elements.orEmpty().filter { it.type != "podcast" }
     val onglets = Onglet.entries.filter { it != Onglet.PODCASTS || podcasts.isNotEmpty() }
+    val avecIA = fonctionIA("playlist")
 
     LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 16.dp, bottom = 32.dp)) {
         item(key = "titre") { Text("Ma bibliothèque", style = Texte.titreFiche, color = p.encre.compose) }
@@ -187,6 +190,7 @@ fun EcranBibliotheque(onConnexion: () -> Unit) {
                     EnTeteSection("Playlists", onVoirTout = { onglet = Onglet.PLAYLISTS })
                     LazyRow(horizontalArrangement = Arrangement.spacedBy(14.dp)) {
                         item(key = "creer") { TuileCreer(Modifier.width(132.dp)) { menus.nouvellePlaylist() } }
+                        if (avecIA) item(key = "ia") { TuileIA(Modifier.width(132.dp)) { menus.composerAvecIA() } }
                         items(playlists.elements.orEmpty().take(8), key = { it.id }) { pl -> CartePlaylist(pl, Modifier.width(132.dp)) { nav.playlist(pl.id) } }
                     }
                 }
@@ -218,8 +222,12 @@ fun EcranBibliotheque(onConnexion: () -> Unit) {
             }
         }
         when (onglet) {
-            Onglet.PLAYLISTS -> grille("playlists", listOf<Any>(Unit) + playlists.elements.orEmpty(), playlists.erreur, playlists.elements == null) { element ->
-                if (element is PlaylistMienne) CartePlaylist(element, Modifier.fillMaxWidth()) { nav.playlist(element.id) } else TuileCreer(Modifier.fillMaxWidth()) { menus.nouvellePlaylist() }
+            Onglet.PLAYLISTS -> grille("playlists", listOfNotNull<Any>("creer", if (avecIA) "ia" else null) + playlists.elements.orEmpty(), playlists.erreur, playlists.elements == null) { element ->
+                when (element) {
+                    is PlaylistMienne -> CartePlaylist(element, Modifier.fillMaxWidth()) { nav.playlist(element.id) }
+                    "ia" -> TuileIA(Modifier.fillMaxWidth()) { menus.composerAvecIA() }
+                    else -> TuileCreer(Modifier.fillMaxWidth()) { menus.nouvellePlaylist() }
+                }
             }
             Onglet.TITRES -> titresAimes(aimes, lecture, apercu = false, onVoirTout = null)
             Onglet.ALBUMS -> grille("albums", disques, albums.erreur, albums.elements == null, vide = "Aucun album enregistré. Touche « Ajouter » sur la fiche d'un album.") { a ->

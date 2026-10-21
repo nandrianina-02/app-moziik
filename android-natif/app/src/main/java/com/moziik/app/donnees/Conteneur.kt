@@ -5,6 +5,7 @@ import android.os.Build
 import com.moziik.app.BuildConfig
 import com.moziik.app.donnees.catalogue.Bibliotheque
 import com.moziik.app.donnees.catalogue.Catalogue
+import com.moziik.app.donnees.catalogue.FonctionsIA
 import com.moziik.app.donnees.catalogue.HistoriqueRecherche
 import com.moziik.app.donnees.messagerie.Messagerie
 import com.moziik.app.donnees.reseau.Reseau
@@ -32,6 +33,7 @@ class Conteneur(contexte: Context) {
     val historiqueRecherche = HistoriqueRecherche(contexte)
     val bibliotheque = Bibliotheque(reseau.api, catalogue::univers)
     val messagerie = Messagerie(reseau.api)
+    val ia = FonctionsIA(reseau.api, catalogue::univers)
     /** Messages du service de lecture à l'écran (quota atteint, titre indisponible). */
     val alertes = AlertesLecture()
     val lecteur = Lecteur(contexte, BuildConfig.SITE)

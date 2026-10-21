@@ -45,6 +45,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -259,7 +260,7 @@ private fun Commande(icone: Int, libelle: String, teinte: androidx.compose.ui.gr
  * confirmé par le site. Un visiteur est invité à se connecter.
  */
 @Composable
-private fun BoutonAime(courant: TitreLu) {
+internal fun BoutonAime(courant: TitreLu, taille: Dp = 44.dp, icone: Dp = 22.dp) {
     val c = conteneur()
     val p = LocalPalette.current
     val session by c.session.etat.collectAsStateWithLifecycle()
@@ -272,7 +273,7 @@ private fun BoutonAime(courant: TitreLu) {
     }
     Box(
         Modifier
-            .size(44.dp)
+            .size(taille)
             .clip(CircleShape)
             .clickable(role = Role.Button) {
                 if (!connecte) {
@@ -300,7 +301,7 @@ private fun BoutonAime(courant: TitreLu) {
             if (aime) R.drawable.lucide_heart_plein else R.drawable.lucide_heart,
             description = null,
             teinte = if (aime) p.accent.compose else p.encreAttenuee.compose,
-            taille = 22.dp,
+            taille = icone,
         )
     }
 }

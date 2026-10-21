@@ -39,6 +39,8 @@ import com.moziik.app.ui.composants.Pochette
 import com.moziik.app.ui.composants.rememberTeintePochette
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.tween
+import com.moziik.app.ui.horsligne.PastilleTelechargement
+import com.moziik.app.lecteur.versTitre
 
 /**
  * Le mini-lecteur, au-dessus de la barre du bas, sur tous les écrans
@@ -75,7 +77,11 @@ fun MiniLecteur(etat: EtatLecteur, lecteur: Lecteur, onOuvrir: () -> Unit) {
                     NomArtiste(courant.artiste, courant.verifie, taille = 12.dp)
                 }
             }
-            Spacer(Modifier.width(8.dp))
+            Spacer(Modifier.width(4.dp))
+            // J'aime et téléchargement sans ouvrir le plein écran : les deux gestes les plus fréquents sur un titre qu'on découvre.
+            BoutonAime(courant, taille = 36.dp, icone = 20.dp)
+            PastilleTelechargement(courant.versTitre(), taille = 28.dp)
+            Spacer(Modifier.width(4.dp))
             Box(
                 Modifier.size(40.dp).clip(CircleShape).clickable(role = Role.Button, onClick = lecteur::suivant),
                 contentAlignment = Alignment.Center,

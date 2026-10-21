@@ -29,9 +29,20 @@ export async function compteGoogle(profil: { email: string; nom?: string | null;
       role: "member",
       emailVerified: true,
     });
-  } else if (!compte.emailVerified) {
-    compte.emailVerified = true;
-    await compte.save();
+  } else {
+    // Écriture ciblée et non `save()` : `save()` revalide tout le document,
+    // et d'anciens comptes (rôle « user » retiré, sans nom) seraient alors
+    // refusés à la connexion. Google confirme l'adresse, et complète au
+    // passage ce que ces comptes n'ont jamais eu.
+    const complements: Record<string, unknown> = {};
+    if (!compte.emailVerified) complements.emailVerified = true;
+    if (!compte.name?.trim()) complements.name = profil.nom?.trim() || profil.email.split("@")[0];
+    if (!["member", "artist", "admin"].includes(compte.role)) complements.role = "member";
+    if (Object.keys(complements).length > 0) {
+      await User.updateOne({ _id: compte._id }, { $set: complements });
+      compte = await User.findById(compte._id);
+      if (!compte) return null;
+    }
   }
   // Même trace que pour la connexion par mot de passe.
   User.updateOne({ email: profil.email }, { lastLoginAt: new Date() }).catch(() => undefined);

@@ -193,10 +193,10 @@ fun ComposerAvecIA(onFermer: () -> Unit) {
                     actif = retenus.isNotEmpty(),
                 )
                 Box(Modifier.fillMaxWidth().padding(top = 10.dp), contentAlignment = Alignment.Center) {
-                    LienTexte("Recommencer") {
+                    LienTexte("Recommencer", {
                         proposition = null
                         erreur = null
-                    }
+                    })
                 }
             }
         }

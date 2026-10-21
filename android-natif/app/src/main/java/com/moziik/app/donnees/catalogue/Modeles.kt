@@ -65,11 +65,17 @@ data class PlaylistCourte(
     val title: String,
     val coverUrl: String? = null,
     val songsCount: Int? = null,
-    val owner: Proprietaire? = null,
+    @Serializable(with = ProprietaireSouple::class) val owner: Proprietaire? = null,
 )
 
 @Serializable
 data class Proprietaire(val name: String? = null)
+
+/** Peuplé dans la recherche, simple identifiant dans la bannière de l'accueil : le nom n'est alors pas connu. */
+object ProprietaireSouple : JsonTransformingSerializer<Proprietaire>(Proprietaire.serializer()) {
+    override fun transformDeserialize(element: JsonElement): JsonElement =
+        if (element is JsonPrimitive) buildJsonObject {} else element
+}
 
 @Serializable
 data class ArtisteCarte(
@@ -94,9 +100,14 @@ data class Genre(val genre: String, val count: Int = 0)
 
 // ---------------------------------------------------------------- Accueil
 
-/** GET /api/homepage : la bannière et les sections, dans l'ordre fixé par l'administration. */
+/**
+ * GET /api/homepage : la bannière et les sections, dans l'ordre fixé par
+ * l'administration. Diapositives et sections sont lues une à une
+ * (Catalogue.diaposDe, sectionsDe) : un élément d'une forme inattendue est
+ * écarté sans empêcher l'affichage du reste de la page.
+ */
 @Serializable
-data class Accueil(val hero: List<Diapo> = emptyList(), val sections: List<SectionBrute> = emptyList())
+data class Accueil(val hero: List<JsonElement> = emptyList(), val sections: List<SectionBrute> = emptyList())
 
 /** `data` change de forme selon `key` : elle est lue section par section (Catalogue.sectionsDe). */
 @Serializable

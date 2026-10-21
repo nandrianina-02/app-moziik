@@ -5,6 +5,7 @@ import androidx.lifecycle.viewModelScope
 import com.moziik.app.donnees.catalogue.Catalogue
 import com.moziik.app.donnees.catalogue.Diapo
 import com.moziik.app.donnees.catalogue.Section
+import com.moziik.app.donnees.catalogue.diaposDe
 import com.moziik.app.donnees.catalogue.sectionsDe
 import com.moziik.app.donnees.reseau.messageErreur
 import com.moziik.app.donnees.session.Session
@@ -38,7 +39,7 @@ class ModeleAccueil(private val catalogue: Catalogue, session: Session) : ViewMo
         viewModelScope.launch {
             val garde = withContext(Dispatchers.IO) { catalogue.accueilGarde() }
             if (garde != null && _etat.value.vide) {
-                _etat.value = EtatAccueil(garde.hero, sectionsDe(garde), chargement = true, reprise = true)
+                _etat.value = EtatAccueil(diaposDe(garde), sectionsDe(garde), chargement = true, reprise = true)
             }
         }
         charger()
@@ -52,7 +53,9 @@ class ModeleAccueil(private val catalogue: Catalogue, session: Session) : ViewMo
         chargement = viewModelScope.launch {
             try {
                 val accueil = catalogue.accueil()
-                _etat.value = EtatAccueil(accueil.hero, withContext(Dispatchers.Default) { sectionsDe(accueil) }, chargement = false)
+                _etat.value = withContext(Dispatchers.Default) {
+                    EtatAccueil(diaposDe(accueil), sectionsDe(accueil), chargement = false)
+                }
             } catch (e: kotlinx.coroutines.CancellationException) {
                 throw e
             } catch (e: Exception) {

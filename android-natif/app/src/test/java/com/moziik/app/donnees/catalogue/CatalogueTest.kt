@@ -52,6 +52,30 @@ class CatalogueTest {
         assertEquals("Ljo", (sections[4] as Section.Albums).albums[0].artist?.stageName)
     }
 
+    /**
+     * Relevé en production : la diapositive d'une playlist donne son
+     * propriétaire par son seul identifiant. Elle faisait échouer tout
+     * l'accueil ; une diapositive illisible ne doit plus rien bloquer.
+     */
+    @Test
+    fun banniere_tolerante() {
+        val reponse = JsonMoziik.decodeFromString(
+            Accueil.serializer(),
+            """
+            {"hero":[
+              {"source":"playlist","contentType":"playlist","playlist":{"_id":"p1","title":"Douceur du soir","owner":"u1","songs":["s1"]}},
+              {"source":"pinned","contentType":"album","album":{"_id":"al1"}},
+              {"source":"popular","contentType":"song","song":{"_id":"s2","title":"HIALAO","duration":202}}
+             ],
+             "sections":[]}
+            """.trimIndent(),
+        )
+        val diapos = diaposDe(reponse)
+        // L'album sans titre est écarté, les deux autres restent.
+        assertEquals(listOf("playlist", "song"), diapos.map { it.contentType })
+        assertEquals("Douceur du soir", diapos[0].playlist?.title)
+    }
+
     @Test
     fun artiste_reduit_a_son_identifiant() {
         val titre = JsonMoziik.decodeFromString(Titre.serializer(), """{"_id":"s1","title":"Piste","artist":"a1","duration":200}""")

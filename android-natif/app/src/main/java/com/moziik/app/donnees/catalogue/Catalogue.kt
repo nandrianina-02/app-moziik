@@ -16,6 +16,9 @@ import kotlinx.serialization.json.jsonPrimitive
 import java.io.File
 import java.util.Calendar
 
+/** Les diapositives lisibles de la bannière ; une diapositive d'une forme inattendue est écartée. */
+fun diaposDe(accueil: Accueil): List<Diapo> = accueil.hero.mapNotNull { lire(Diapo.serializer(), it) }
+
 /** Une section de l'accueil, lue selon sa clé. */
 sealed interface Section {
     val cle: String

@@ -41,6 +41,24 @@ import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.tween
 import com.moziik.app.ui.horsligne.PastilleTelechargement
 import com.moziik.app.lecteur.versTitre
+import androidx.compose.animation.core.Animatable
+import androidx.compose.foundation.gestures.Orientation
+import androidx.compose.foundation.gestures.draggable
+import androidx.compose.foundation.gestures.rememberDraggableState
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.semantics.CustomAccessibilityAction
+import androidx.compose.ui.semantics.customActions
+import com.moziik.app.theme.Mouvement
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
+import kotlin.math.abs
 
 /**
  * Le mini-lecteur, au-dessus de la barre du bas, sur tous les écrans
@@ -67,6 +85,7 @@ fun MiniLecteur(etat: EtatLecteur, lecteur: Lecteur, onOuvrir: () -> Unit) {
                 Modifier
                     .weight(1f)
                     .clip(RoundedCornerShape(8.dp))
+                    .glissementDeTitre(courant.id, lecteur)
                     .clickable(role = Role.Button, onClickLabel = "Ouvrir le lecteur", onClick = onOuvrir),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
@@ -102,6 +121,75 @@ fun MiniLecteur(etat: EtatLecteur, lecteur: Lecteur, onOuvrir: () -> Unit) {
             )
         }
     }
+}
+
+/** Au-delà de cette part de la largeur, le glissement change de titre ; en deçà, le bloc revient en place. */
+private const val SEUIL = 0.3f
+/** Un geste vif suffit, même court (pixels par seconde). */
+private const val VITESSE = 1_200f
+
+/**
+ * Glisser la pochette et le titre vers la gauche passe au titre suivant,
+ * vers la droite revient au précédent, comme sur Spotify. Le bloc suit le
+ * doigt, sort du côté du geste, et le nouveau titre entre par l'autre
+ * côté. Sans titre dans cette direction, il revient simplement en place.
+ * Les deux gestes existent aussi en actions d'accessibilité.
+ */
+@Composable
+private fun Modifier.glissementDeTitre(id: String, lecteur: Lecteur): Modifier {
+    val decalage = remember { Animatable(0f) }
+    var largeur by remember { mutableFloatStateOf(1f) }
+    // -1 : on est parti vers la gauche (suivant), 1 : vers la droite (précédent) ; 0 : aucun changement attendu.
+    var sens by remember { mutableIntStateOf(0) }
+    val portee = rememberCoroutineScope()
+
+    // Le titre a changé après un glissement : le nouveau entre par le côté opposé.
+    LaunchedEffect(id) {
+        if (sens != 0) {
+            decalage.snapTo(-sens * largeur)
+            decalage.animateTo(0f, tween(240, easing = Mouvement.sortieDouce))
+            sens = 0
+        }
+    }
+
+    val etatGlisse = rememberDraggableState { delta -> portee.launch { decalage.snapTo(decalage.value + delta) } }
+    return this
+        .onSizeChanged { largeur = it.width.toFloat().coerceAtLeast(1f) }
+        .semantics {
+            customActions = listOf(
+                CustomAccessibilityAction("Titre suivant") { lecteur.suivant(); true },
+                CustomAccessibilityAction("Titre précédent") { lecteur.titrePrecedent(); true },
+            )
+        }
+        .draggable(
+            state = etatGlisse,
+            orientation = Orientation.Horizontal,
+            onDragStopped = { vitesse ->
+                val vers = when {
+                    decalage.value < -largeur * SEUIL || vitesse < -VITESSE -> -1
+                    decalage.value > largeur * SEUIL || vitesse > VITESSE -> 1
+                    else -> 0
+                }
+                val possible = (vers == -1 && lecteur.aUnSuivant()) || (vers == 1 && lecteur.aUnPrecedent())
+                if (vers != 0 && possible) {
+                    sens = vers
+                    decalage.animateTo(vers * largeur, tween(160, easing = Mouvement.standard))
+                    if (vers == -1) lecteur.suivant() else lecteur.titrePrecedent()
+                    // Le service n'a pas changé de titre (file modifiée entre-temps) : le bloc revient.
+                    delay(800)
+                    if (sens != 0) {
+                        sens = 0
+                        decalage.animateTo(0f, tween(200, easing = Mouvement.sortieDouce))
+                    }
+                } else {
+                    decalage.animateTo(0f, tween(200, easing = Mouvement.sortieDouce))
+                }
+            },
+        )
+        .graphicsLayer {
+            translationX = decalage.value
+            alpha = 1f - (abs(decalage.value) / largeur).coerceIn(0f, 1f) * 0.7f
+        }
 }
 
 /** Le bouton Lecture/Pause, rond, à l'accent ; l'égaliseur pendant que le son arrive. */

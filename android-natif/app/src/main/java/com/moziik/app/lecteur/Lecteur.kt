@@ -191,6 +191,14 @@ class Lecteur(private val contexte: Context, private val site: String) {
     /** Au-delà de 3 secondes, revient au début du titre ; sinon au titre précédent (comportement par défaut de Media3, et du site). */
     fun precedent() = avec { it.seekToPrevious() }
 
+    /** Le titre d'avant, quelle que soit la position : un glissement demande un autre titre, pas un retour au début. */
+    fun titrePrecedent() = avec { it.seekToPreviousMediaItem() }
+
+    /** Y a-t-il un titre avant celui-ci, dans l'ordre réel (aléatoire et répétition compris) ? */
+    fun aUnPrecedent(): Boolean = controleur?.hasPreviousMediaItem() == true
+
+    fun aUnSuivant(): Boolean = controleur?.hasNextMediaItem() == true
+
     fun deplacer(positionMs: Long) = avec { it.seekTo(positionMs) }
 
     fun allerA(index: Int) = avec { c ->

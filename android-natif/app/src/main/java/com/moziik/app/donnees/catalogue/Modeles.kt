@@ -250,7 +250,12 @@ data class ReponseRadio(
 data class PageTitres(val songs: List<Titre> = emptyList(), val hasMore: Boolean = false, val total: Int = 0)
 
 @Serializable
-data class ConfigurationSite(val genres: List<String> = emptyList(), val aiFeatures: List<String> = emptyList())
+data class ConfigurationSite(
+    val genres: List<String> = emptyList(),
+    val aiFeatures: List<String> = emptyList(),
+    /** Code ISO de la devise des prix affichés (billetterie). */
+    val currency: String = "EUR",
+)
 
 @Serializable
 data class Evenement(
@@ -266,6 +271,63 @@ data class Evenement(
     val category: String? = null,
     val interestedCount: Int = 0,
 )
+
+/** Un créneau du programme : l'heure est un texte libre de l'organisateur (« 18:00 », « 22 h 30 »). */
+@Serializable
+data class Creneau(val time: String = "", val title: String = "", val detail: String? = null)
+
+/** Une ligne de la billetterie, informative : l'achat se fait chez l'organisateur. */
+@Serializable
+data class Billet(
+    val name: String = "",
+    val price: Double = 0.0,
+    val description: String? = null,
+    val originalPrice: Double? = null,
+    val availableUntil: String? = null,
+    val soldOut: Boolean = false,
+)
+
+@Serializable
+data class Organisateur(val name: String? = null, val email: String? = null, val phone: String? = null, val website: String? = null)
+
+/** GET /api/events/{id} : tout ce qui suit le titre et la date est facultatif. */
+@Serializable
+data class EvenementDetail(
+    @SerialName("_id") val id: String,
+    val title: String,
+    val date: String,
+    val endDate: String? = null,
+    val description: String? = null,
+    val coverUrl: String? = null,
+    val location: String? = null,
+    val address: String? = null,
+    val postalCode: String? = null,
+    val city: String? = null,
+    val country: String? = null,
+    val mapsUrl: String? = null,
+    val latitude: Double? = null,
+    val longitude: Double? = null,
+    val price: Double? = null,
+    val ticketUrl: String? = null,
+    val category: String? = null,
+    val gallery: List<String> = emptyList(),
+    /** Un artiste supprimé depuis laisse un vide dans la liste peuplée. */
+    val lineup: List<ArtisteCarte?> = emptyList(),
+    val artist: ArtisteCarte? = null,
+    val highlights: List<String> = emptyList(),
+    val inclusions: List<String> = emptyList(),
+    val program: List<Creneau> = emptyList(),
+    val practicalInfo: List<String> = emptyList(),
+    val tickets: List<Billet> = emptyList(),
+    val tags: List<String> = emptyList(),
+    val minAge: Int? = null,
+    val organizer: Organisateur? = null,
+    val interestedCount: Int = 0,
+    val viewerInterested: Boolean = false,
+)
+
+@Serializable
+data class ReponseEvenement(val event: EvenementDetail)
 
 @Serializable
 data class ListeEvenements(val events: List<Evenement> = emptyList(), val interestedIds: List<String> = emptyList())

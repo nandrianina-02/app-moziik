@@ -27,6 +27,7 @@ Elle ne parle au serveur que par l'API HTTP du site, avec les jetons mobiles
 | Icône de l'app tirée de public/logo.png (adaptative, ronde, monochrome) | `outils/icone-app.py`, `app/src/main/res/mipmap-*` |
 | Hors connexion (Premium) : titre, album ou playlist téléchargés, lecture depuis le téléphone, onglet Téléchargements (place, nettoyage 90 jours, Wi-Fi seulement), file reprise au retour du réseau, écoutes gardées puis déclarées | `donnees/horsligne/`, `ui/horsligne/` |
 | Accueil enrichi : sections composées par l'app entre celles de l'administration (nouveautés, sélections par genre, artiste à l'honneur, artistes en herbe, pépites, coups de coeur, albums), pastille de téléchargement teintée d'après la pochette sur toutes les cartes et lignes | `donnees/catalogue/SectionsAuto.kt`, `ui/horsligne/PastilleTelechargement.kt`, `ui/composants/Teinte.kt` |
+| Notifications (cloche de l'en-tête, page groupée par jour, lues et supprimées) ; fiche évènement (billetterie, programme, artistes, lieu et itinéraire, organisateur) ; avis système de fin de téléchargement en arrière-plan | `donnees/notifications/`, `ui/notifications/`, `ui/decouvrir/FicheEvenement.kt`, `donnees/horsligne/AvisTelechargement.kt` |
 | Paroles synchronisées dans le lecteur, analysées comme sur le site (LRC, mot à mot) | `donnees/catalogue/Paroles.kt`, `ui/lecteur/PanneauParoles.kt` |
 | Lecteur : Media3 en arrière-plan (notification, écran verrouillé, casque), file prolongée, écoutes déclarées au temps réel, quota des visiteurs | `lecteur/`, `ui/lecteur/` |
 

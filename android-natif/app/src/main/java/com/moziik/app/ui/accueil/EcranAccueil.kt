@@ -375,7 +375,6 @@ private fun DiapoBanniere(diapo: Diapo, nouveautes: List<Titre>, lancement: Lanc
         diapo.playlist != null -> ({ nav.playlist(diapo.playlist.id) })
         else -> null
     }
-    // Les évènements attendent leur écran : leur diapositive informe, sans bouton qui ne mènerait nulle part.
     val action: (() -> Unit)? = when {
         diapo.song != null -> {
             val position = nouveautes.indexOfFirst { it.id == diapo.song.id }
@@ -385,6 +384,7 @@ private fun DiapoBanniere(diapo: Diapo, nouveautes: List<Titre>, lancement: Lanc
         diapo.artist != null -> ({ lancement.cible("diapo-${diapo.artist.id}", Cible.DArtiste(diapo.artist.id)) })
         diapo.playlist != null -> ({ lancement.cible("diapo-${diapo.playlist.id}", Cible.DePlaylist(diapo.playlist.id)) })
         diapo.custom != null -> cibleDe(diapo.custom.href, BuildConfig.SITE).takeIf { it != Cible.Inconnue }?.let { { suivre("diapo-${diapo.custom.href}", diapo.custom.href) } }
+        evenement != null -> ({ nav.evenement(evenement.id) })
         else -> null
     }
     Box(Modifier.fillMaxSize()) {
@@ -423,10 +423,17 @@ private fun DiapoBanniere(diapo: Diapo, nouveautes: List<Titre>, lancement: Lanc
                     if (chargement) {
                         Egaliseur(hauteur = 14.dp, libelle = "Chargement", couleur = p.base.compose)
                     } else {
-                        Icone(R.drawable.lucide_play_plein, description = null, teinte = p.base.compose, taille = 14.dp)
+                        Icone(if (evenement != null) R.drawable.lucide_calendar_days else R.drawable.lucide_play_plein, description = null, teinte = p.base.compose, taille = 14.dp)
                     }
                     Spacer(Modifier.width(8.dp))
-                    Text(if (diapo.custom != null) "Découvrir" else "Écouter maintenant", style = Texte.corpsFort, color = p.base.compose)
+                    Text(
+                        when {
+                            evenement != null -> "Voir l'évènement"
+                            diapo.custom != null -> "Découvrir"
+                            else -> "Écouter maintenant"
+                        },
+                        style = Texte.corpsFort, color = p.base.compose,
+                    )
                 }
                 if (fiche != null) {
                     Spacer(Modifier.height(10.dp))
@@ -630,6 +637,7 @@ private fun BlocSection(section: Section, lecture: EtatLecteur, lancement: Lance
                         .clip(RoundedCornerShape(p.rayon.dp))
                         .border(BorderStroke(1.dp, p.bordure.compose), RoundedCornerShape(p.rayon.dp))
                         .background(p.surface.compose)
+                        .pressable { nav.evenement(e.id) }
                         .padding(horizontal = 14.dp, vertical = 12.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {

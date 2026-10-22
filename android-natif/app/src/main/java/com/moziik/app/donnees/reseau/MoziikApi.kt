@@ -65,6 +65,8 @@ import retrofit2.http.GET
 import retrofit2.http.POST
 import retrofit2.http.Path
 import retrofit2.http.Query
+import com.moziik.app.donnees.notifications.PageAvis
+import com.moziik.app.donnees.catalogue.ReponseEvenement
 
 /**
  * Les routes du site utilisées par l'app, telles qu'elles existent
@@ -151,6 +153,28 @@ interface MoziikApi {
     suspend fun evenements(): ListeEvenements
 
     /** Bascule « Ça m'intéresse » : le site répond l'état obtenu et le nombre d'intéressés. */
+    /** Un évènement non publié répond 404, sauf à son auteur. */
+    @GET("api/events/{id}")
+    suspend fun evenement(@Path("id") id: String): ReponseEvenement
+
+    // ------------------------------------------------------------ Notifications
+
+    /** 20 par page ; `before` : la date de la plus ancienne déjà chargée. */
+    @GET("api/notifications")
+    suspend fun notifications(@Query("before") avant: String?): PageAvis
+
+    @POST("api/notifications/{id}/read")
+    suspend fun notificationLue(@Path("id") id: String)
+
+    @POST("api/notifications/read-all")
+    suspend fun notificationsToutesLues()
+
+    @DELETE("api/notifications/{id}")
+    suspend fun supprimerNotification(@Path("id") id: String)
+
+    @DELETE("api/notifications")
+    suspend fun supprimerNotifications()
+
     @POST("api/events/{id}/interet")
     suspend fun basculerInteret(@Path("id") id: String): EtatInteret
 

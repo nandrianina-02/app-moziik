@@ -62,6 +62,7 @@ class HorsLigne(
     private val reglages: ReglagesAppareil,
     private val alertes: AlertesLecture,
     private val portee: CoroutineScope,
+    val avis: AvisTelechargement,
 ) {
     private val fichierFile = File(racine, "telechargements-en-attente.json")
     private val preferences = contexte.getSharedPreferences("hors-ligne", Context.MODE_PRIVATE)
@@ -71,6 +72,19 @@ class HorsLigne(
     private val _attente = MutableStateFlow(file.map { it.titre.id }.toSet())
     /** Les titres demandés qui attendent leur tour, le réseau ou le Wi-Fi. */
     val attente: StateFlow<Set<String>> = _attente.asStateFlow()
+
+    private val _demandeAutorisation = MutableStateFlow(false)
+    /**
+     * Vrai une fois, au premier téléchargement accepté, si Android 13 n'a
+     * pas encore donné l'autorisation de notifier : l'écran la demande
+     * alors, jamais au lancement (6.5).
+     */
+    val demandeAutorisation: StateFlow<Boolean> = _demandeAutorisation.asStateFlow()
+
+    fun autorisationDemandee() {
+        preferences.edit().putBoolean("autorisationDemandee", true).apply()
+        _demandeAutorisation.value = false
+    }
 
     private val _horsReseau = MutableStateFlow(!reglages.reseauDisponible())
     val horsReseau: StateFlow<Boolean> = _horsReseau.asStateFlow()
@@ -153,6 +167,7 @@ class HorsLigne(
             return null
         }
         majFile { addAll(nouvelles) }
+        if (!avis.autorise() && !preferences.getBoolean("autorisationDemandee", false)) _demandeAutorisation.value = true
         when {
             !reglages.reseauDisponible() ->
                 alertes.signaler(AlerteLecture.Message("En attente — le téléchargement démarrera à la reconnexion."))
@@ -194,10 +209,14 @@ class HorsLigne(
                     val texte = if (echecs == 0) "« ${tache.lot} » est disponible hors connexion."
                     else "« ${tache.lot} » est disponible hors connexion, sauf $echecs titre${if (echecs > 1) "s" else ""} indisponible${if (echecs > 1) "s" else ""}."
                     alertes.signaler(AlerteLecture.Message(texte, succes = echecs == 0))
+                    avis.termine(texte)
                     echecs = 0
                 }
-                tache.lot == null && telechargements.estTelecharge(tache.titre.id) ->
-                    alertes.signaler(AlerteLecture.Message("« ${tache.titre.title} » est disponible hors connexion.", succes = true))
+                tache.lot == null && telechargements.estTelecharge(tache.titre.id) -> {
+                    val texte = "« ${tache.titre.title} » est disponible hors connexion."
+                    alertes.signaler(AlerteLecture.Message(texte, succes = true))
+                    avis.termine(texte)
+                }
                 tache.lot == null -> {
                     alertes.signaler(AlerteLecture.Message("« ${tache.titre.title} » n'a pas pu être téléchargé."))
                     echecs = 0

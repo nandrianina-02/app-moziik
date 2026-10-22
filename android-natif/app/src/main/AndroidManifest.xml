@@ -7,7 +7,8 @@
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK" />
     <uses-permission android:name="android.permission.WAKE_LOCK" />
-    <!-- Pas de POST_NOTIFICATIONS : la notification d'une session média en est dispensée depuis Android 13. -->
+    <!-- La lecture n'en a pas besoin (session média) ; la fin d'un téléchargement si, demandée au premier téléchargement. -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
 
     <!-- Android 11 et plus : sans cette déclaration, l'app ne voit pas le navigateur qui ouvre la connexion Google. -->
     <queries>

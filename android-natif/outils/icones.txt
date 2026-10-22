@@ -115,3 +115,9 @@ wifi-off
 
 # Accueil enrichi
 ellipsis-vertical
+
+# Notifications et fiche évènement
+clock
+info
+phone
+external-link

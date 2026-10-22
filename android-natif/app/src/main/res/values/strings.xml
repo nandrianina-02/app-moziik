@@ -2,4 +2,5 @@
 <resources>
     <!-- Mêmes textes que le canal de l'app Capacitor (moziik_lecture), qu'il remplace. -->
     <string name="canal_lecture">Lecture en cours</string>
+    <string name="canal_telechargements">Téléchargements</string>
 </resources>

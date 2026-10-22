@@ -22,6 +22,7 @@ class CatalogueTest {
         assertEquals(Cible.Classements("artists", null), cibleDe("/classements?type=artists", site))
         assertEquals(Cible.Radio("genre:Jazz"), cibleDe("/radio?station=genre%3AJazz", site))
         assertEquals(Cible.Evenements, cibleDe("/evenements", site))
+        assertEquals(Cible.DEvenement(id), cibleDe("/evenements/$id", site))
         assertEquals(Cible.DeRecherche("chill vibes"), cibleDe("/recherche?q=chill%20vibes", site))
         assertEquals(Cible.Ancre("recommendations"), cibleDe("#recommendations", site))
         assertEquals(Cible.Externe("https://www.facebook.com/moziik"), cibleDe("https://www.facebook.com/moziik", site))

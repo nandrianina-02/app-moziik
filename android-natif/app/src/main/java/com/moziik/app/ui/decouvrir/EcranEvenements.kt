@@ -63,9 +63,10 @@ import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 import java.util.TimeZone
+import com.moziik.app.ui.navigation
 
 /** Libellés des catégories (lib/evenements.ts) ; sans catégorie, « Évènement ». */
-private val CATEGORIES = mapOf(
+internal val CATEGORIES = mapOf(
     "musique" to "Musique",
     "concert" to "Concert",
     "festival" to "Festival",
@@ -75,15 +76,15 @@ private val CATEGORIES = mapOf(
 )
 
 /** Le site ne donne qu'une heure de début : un évènement est « en cours » pendant les 6 heures qui suivent (eventStatus.ts). */
-private const val FENETRE_EN_COURS_MS = 6 * 60 * 60 * 1000L
+internal const val FENETRE_EN_COURS_MS = 6 * 60 * 60 * 1000L
 
-private enum class Moment(val libelle: String) { A_VENIR("À venir"), EN_COURS("En cours"), PASSE("Passé") }
+internal enum class Moment(val libelle: String) { A_VENIR("À venir"), EN_COURS("En cours"), PASSE("Passé") }
 
-private fun instant(iso: String): Date? = runCatching {
+internal fun instant(iso: String): Date? = runCatching {
     SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", Locale.US).apply { timeZone = TimeZone.getTimeZone("UTC") }.parse(iso.take(19))
 }.getOrNull()
 
-private fun momentDe(date: Date?, maintenant: Long): Moment = when {
+internal fun momentDe(date: Date?, maintenant: Long): Moment = when {
     date == null -> Moment.A_VENIR
     maintenant < date.time -> Moment.A_VENIR
     maintenant <= date.time + FENETRE_EN_COURS_MS -> Moment.EN_COURS
@@ -161,6 +162,7 @@ private fun CorpsEvenements(liste: ListeEvenements, onRetour: () -> Unit) {
 private fun CarteEvenement(e: Evenement, moment: Moment, date: Date?, interesse: Boolean, interesses: Int, onInteret: () -> Unit) {
     val p = LocalPalette.current
     val contexte = LocalContext.current
+    val nav = navigation()
     val forme = RoundedCornerShape(p.rayon.dp)
     val quand = date?.let { SimpleDateFormat("EEEE d MMMM yyyy 'à' HH:mm", Locale.FRANCE).format(it).replaceFirstChar(Char::uppercase) }
     Column(
@@ -169,6 +171,7 @@ private fun CarteEvenement(e: Evenement, moment: Moment, date: Date?, interesse:
             .clip(forme)
             .border(BorderStroke(1.dp, p.bordure.compose), forme)
             .background(p.surface.compose)
+            .pressable(onClick = { nav.evenement(e.id) })
             .padding(12.dp),
     ) {
         Pochette(e.coverUrl, Modifier.fillMaxWidth().aspectRatio(16f / 10f), RoundedCornerShape(10.dp))
@@ -228,7 +231,7 @@ private fun CarteEvenement(e: Evenement, moment: Moment, date: Date?, interesse:
 }
 
 @Composable
-private fun Etiquette(texte: String, couleur: Color) {
+internal fun Etiquette(texte: String, couleur: Color) {
     Text(
         texte,
         style = Texte.secondaire.copy(fontSize = 11.sp, fontWeight = FontWeight.Medium),
@@ -238,7 +241,7 @@ private fun Etiquette(texte: String, couleur: Color) {
 }
 
 @Composable
-private fun Info(icone: Int, texte: String) {
+internal fun Info(icone: Int, texte: String) {
     val p = LocalPalette.current
     Row(Modifier.padding(vertical = 2.dp), verticalAlignment = Alignment.CenterVertically) {
         Icone(icone, description = null, teinte = p.encreAttenuee.compose, taille = 13.dp)

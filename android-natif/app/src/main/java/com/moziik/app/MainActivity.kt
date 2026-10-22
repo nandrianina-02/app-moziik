@@ -76,10 +76,12 @@ class MainActivity : ComponentActivity() {
     override fun onStart() {
         super.onStart()
         (application as MoziikApplication).conteneur.lecteur.connecter()
+        (application as MoziikApplication).conteneur.horsLigne.avis.premierPlan = true
     }
 
     override fun onStop() {
         (application as MoziikApplication).conteneur.lecteur.liberer()
+        (application as MoziikApplication).conteneur.horsLigne.avis.premierPlan = false
         super.onStop()
     }
 

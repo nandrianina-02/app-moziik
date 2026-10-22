@@ -20,6 +20,8 @@ object Fiches {
     const val TITRES = "titres?genre={genre}"
     const val EVENEMENTS = "evenements"
     const val CONVERSATION = "conversation/{id}"
+    const val EVENEMENT = "evenement/{id}"
+    const val NOTIFICATIONS = "notifications"
 }
 
 /**
@@ -41,6 +43,8 @@ class Navigation(
     fun titres(genre: String? = null) = aller("titres?genre=${Uri.encode(genre.orEmpty())}")
     fun evenements() = aller("evenements")
     fun conversation(id: String) = aller("conversation/$id")
+    fun evenement(id: String) = aller("evenement/$id")
+    fun notifications() = aller("notifications")
     /** L'écran Abonnement de l'onglet Compte : là où mène une fonction réservée à Premium. */
     fun abonnement() = aller("compte/abonnement")
     fun rechercher(terme: String) {
@@ -60,6 +64,7 @@ class Navigation(
             is Cible.Classements -> classements(cible.type, cible.periode)
             is Cible.Radio -> radio(cible.station)
             Cible.Evenements -> evenements()
+            is Cible.DEvenement -> evenement(cible.id)
             else -> return false
         }
         return true

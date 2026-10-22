@@ -283,6 +283,16 @@ class Catalogue(
 
     suspend fun evenements(): ListeEvenements = appel { api.evenements() }.getOrThrow()
 
+    suspend fun evenement(id: String): EvenementDetail = appel { api.evenement(id).event }.getOrThrow()
+
+    @Volatile private var deviseConnue: String? = null
+
+    /** La devise des prix du site, lue une fois ; l'euro si le site ne répond pas. */
+    suspend fun devise(): String {
+        deviseConnue?.let { return it }
+        return appel { api.configuration().currency }.getOrNull()?.also { deviseConnue = it } ?: "EUR"
+    }
+
     suspend fun basculerInteret(id: String): EtatInteret = appel { api.basculerInteret(id) }.getOrThrow()
 
     /** Les titres d'une station de la page Radio, mélangés comme sur le site. */

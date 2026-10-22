@@ -20,6 +20,7 @@ sealed interface Cible {
     data class Classements(val type: String?, val periode: String?) : Cible
     data class Radio(val station: String?) : Cible
     data object Evenements : Cible
+    data class DEvenement(val id: String) : Cible
     /** `#recommendations` : une section de l'accueil. */
     data class Ancre(val cle: String) : Cible
     data class Externe(val adresse: String) : Cible
@@ -55,7 +56,7 @@ fun cibleDe(lien: String, site: String): Cible {
         "recherche" -> parametres["q"]?.takeIf { it.isNotBlank() }?.let { Cible.DeRecherche(it) }
         "classements" -> Cible.Classements(parametres["type"], parametres["period"])
         "radio" -> Cible.Radio(parametres["station"]?.takeIf { it.isNotBlank() })
-        "evenements" -> if (segments.size == 1) Cible.Evenements else null
+        "evenements" -> if (segments.size == 1) Cible.Evenements else id?.let { Cible.DEvenement(it) }
         else -> null
     } ?: Cible.Inconnue
 }

@@ -96,6 +96,8 @@ import com.moziik.app.ui.composants.Egaliseur
 import com.moziik.app.ui.composants.Icone
 import com.moziik.app.ui.ecrans.EcranProvisoire
 import com.moziik.app.ui.composants.LogoMoziik
+import com.moziik.app.ui.decouvrir.FicheEvenement
+import com.moziik.app.ui.notifications.EcranNotifications
 
 /**
  * La coquille commune à tous les écrans, comme celle du site sur mobile :
@@ -116,16 +118,20 @@ fun Coquille(sombre: Boolean, onBasculerMode: () -> Unit) {
     // Une conversation occupe tout l'écran : sans en-tête, barre du bas ni mini-lecteur, le clavier a la place.
     val pleinePage = entree?.destination?.route == Fiches.CONVERSATION
     val nonLus by c.messagerie.nonLus.collectAsStateWithLifecycle()
+    val notificationsNonLues by c.notifications.nonLues.collectAsStateWithLifecycle()
     val cycle = androidx.lifecycle.compose.LocalLifecycleOwner.current
     // Le compteur de la barre du bas : relu chaque minute tant que l'app est à l'écran (H4).
     LaunchedEffect(session) {
         if (session !is EtatSession.Connecte) {
             c.messagerie.oublierNonLus()
+            c.notifications.oublier()
             return@LaunchedEffect
         }
+        // La cloche suit le même rythme : le site n'a pas de temps réel (NotificationsProvider.tsx).
         cycle.repeatOnLifecycle(androidx.lifecycle.Lifecycle.State.STARTED) {
             while (true) {
                 c.messagerie.actualiserNonLus()
+                c.notifications.actualiser()
                 kotlinx.coroutines.delay(60_000)
             }
         }
@@ -166,10 +172,30 @@ fun Coquille(sombre: Boolean, onBasculerMode: () -> Unit) {
 
     val menus = remember { Menus() }
 
+    // L'autorisation de notifier (Android 13), demandée au premier téléchargement seulement.
+    val demande = androidx.activity.compose.rememberLauncherForActivityResult(
+        androidx.activity.result.contract.ActivityResultContracts.RequestPermission(),
+    ) { c.horsLigne.autorisationDemandee() }
+    val aDemander by c.horsLigne.demandeAutorisation.collectAsStateWithLifecycle()
+    LaunchedEffect(aDemander) {
+        if (aDemander && android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
+            demande.launch(android.Manifest.permission.POST_NOTIFICATIONS)
+        } else if (aDemander) {
+            c.horsLigne.autorisationDemandee()
+        }
+    }
+
     CompositionLocalProvider(LocalNavigation provides navigationFiches, LocalMenus provides menus) {
     Box(Modifier.fillMaxSize().background(p.base.compose)) {
         Column(Modifier.fillMaxSize()) {
-            if (!pleinePage) EnTete(sombre = sombre, onBasculerMode = onBasculerMode)
+            if (!pleinePage) {
+                EnTete(
+                    sombre = sombre,
+                    onBasculerMode = onBasculerMode,
+                    notifications = if (session is EtatSession.Connecte) notificationsNonLues else null,
+                    onNotifications = navigationFiches::notifications,
+                )
+            }
             NavHost(
                 navController = navigation,
                 startDestination = Destination.ACCUEIL.route,
@@ -205,6 +231,8 @@ fun Coquille(sombre: Boolean, onBasculerMode: () -> Unit) {
                 composable(Fiches.TITRES, listOf(facultatif("genre"))) { e -> EcranTitres(e.arguments?.getString("genre")?.ifEmpty { null }, retour) }
                 composable(Fiches.EVENEMENTS) { EcranEvenements(retour) }
                 composable(Fiches.CONVERSATION) { e -> EcranConversation(e.arguments?.getString("id").orEmpty(), retour) }
+                composable(Fiches.EVENEMENT) { e -> FicheEvenement(e.arguments?.getString("id").orEmpty(), retour) }
+                composable(Fiches.NOTIFICATIONS) { EcranNotifications(retour) }
             }
             BandeauMessage((alerte as? AlerteLecture.Message)?.texte, onFini = c.alertes::oublier, succes = (alerte as? AlerteLecture.Message)?.succes == true)
             AnimatedVisibility(
@@ -251,8 +279,9 @@ fun Coquille(sombre: Boolean, onBasculerMode: () -> Unit) {
     }
 }
 
+/** `notifications` : le nombre de non lues, ou null pour un visiteur (pas de cloche). */
 @Composable
-private fun EnTete(sombre: Boolean, onBasculerMode: () -> Unit) {
+private fun EnTete(sombre: Boolean, onBasculerMode: () -> Unit, notifications: Int?, onNotifications: () -> Unit) {
     val p = LocalPalette.current
     Row(
         Modifier
@@ -267,6 +296,35 @@ private fun EnTete(sombre: Boolean, onBasculerMode: () -> Unit) {
         // Le logo s'écrit une fois à l'ouverture de l'app, puis reste en place.
         LogoMoziik(hauteur = 22.dp, anime = true)
         Spacer(Modifier.weight(1f))
+        if (notifications != null) {
+            Box(
+                Modifier
+                    .size(36.dp)
+                    .clip(CircleShape)
+                    .clickable(role = Role.Button, onClick = onNotifications)
+                    .semantics {
+                        contentDescription = if (notifications > 0) "Notifications, $notifications non lue${if (notifications > 1) "s" else ""}" else "Notifications"
+                    },
+                contentAlignment = Alignment.Center,
+            ) {
+                Icone(R.drawable.lucide_bell, description = null, teinte = p.encre.compose, taille = 19.dp)
+                if (notifications > 0) {
+                    // Un point, pas un nombre : la cloche dit « il y a du nouveau », la page dit combien.
+                    Box(
+                        Modifier
+                            .align(Alignment.TopEnd)
+                            .padding(top = 7.dp, end = 7.dp)
+                            .size(9.dp)
+                            .clip(CircleShape)
+                            .background(p.base.compose)
+                            .padding(1.5.dp)
+                            .clip(CircleShape)
+                            .background(p.accent.compose),
+                    )
+                }
+            }
+            Spacer(Modifier.width(8.dp))
+        }
         Box(
             Modifier
                 .size(36.dp)

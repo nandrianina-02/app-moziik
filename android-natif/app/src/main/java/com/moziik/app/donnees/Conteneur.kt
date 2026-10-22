@@ -22,6 +22,8 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import java.io.File
+import com.moziik.app.donnees.notifications.Notifications
+import com.moziik.app.donnees.horsligne.AvisTelechargement
 
 /**
  * Les objets partagés par toute l'app, créés une fois au démarrage du
@@ -40,6 +42,7 @@ class Conteneur(contexte: Context) {
     val messagerie = Messagerie(reseau.api)
     val ia = FonctionsIA(reseau.api, catalogue::univers)
     val compte = Compte(reseau.api)
+    val notifications = Notifications(reseau.api)
     val reglages = ReglagesAppareil(contexte)
     /** Messages du service de lecture à l'écran (quota atteint, titre indisponible). */
     val alertes = AlertesLecture()
@@ -55,6 +58,7 @@ class Conteneur(contexte: Context) {
         reglages,
         alertes,
         portee,
+        AvisTelechargement(contexte),
     )
 }
 

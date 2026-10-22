@@ -64,6 +64,8 @@ class HorsLigne(
     private val alertes: AlertesLecture,
     private val portee: CoroutineScope,
     val avis: AvisTelechargement,
+    /** Les réponses de l'API gardées pour le compte : effacées avec le reste à la déconnexion. */
+    private val oublierCache: () -> Unit = {},
 ) {
     private val fichierFile = File(racine, "telechargements-en-attente.json")
     private val preferences = contexte.getSharedPreferences("hors-ligne", Context.MODE_PRIVATE)
@@ -268,6 +270,7 @@ class HorsLigne(
         travail?.cancel()
         majFile { clear() }
         telechargements.toutSupprimer()
+        oublierCache()
         preferences.edit().clear().apply()
         portee.launch {
             ecoutes.oublier()

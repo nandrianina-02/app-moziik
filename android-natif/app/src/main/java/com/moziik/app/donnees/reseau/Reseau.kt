@@ -14,6 +14,8 @@ import retrofit2.Retrofit
 import retrofit2.converter.kotlinx.serialization.asConverterFactory
 import java.io.IOException
 import java.util.concurrent.TimeUnit
+import java.io.File
+import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
 
 /** Le lecteur JSON de l'app : le site ajoute des champs au fil du temps, l'app ignore ceux qu'elle ne connaît pas. */
 val JsonMoziik = Json {
@@ -102,7 +104,8 @@ fun renouvellementPar(client: OkHttpClient, site: String): (String) -> Renouvele
 }
 
 /** Le client HTTP et l'API, tels que l'app les utilise. */
-class Reseau(site: String, stockage: StockageSession) {
+/** `cache` : le dossier des réponses gardées pour le hors connexion ; sans lui (tests), pas de cache. */
+class Reseau(site: String, stockage: StockageSession, cache: File? = null) {
     /**
      * Sans jeton : pour les fichiers audio, servis par Cloudinary ou Karaks
      * Storage après la redirection de /api/stream. Le jeton du compte n'a
@@ -115,7 +118,10 @@ class Reseau(site: String, stockage: StockageSession) {
         .build()
     private val base = clientPublic
 
+    val cacheHorsLigne: CacheHorsLigne? = cache?.let { CacheHorsLigne(it, site.toHttpUrlOrNull(), stockage) }
+
     val client: OkHttpClient = base.newBuilder()
+        .apply { cacheHorsLigne?.let { addInterceptor(it) } }
         .addInterceptor(AjoutJeton(stockage))
         .authenticator(RenouvellementJeton(stockage, renouvellementPar(base, site)))
         .build()

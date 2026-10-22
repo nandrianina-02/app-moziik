@@ -74,6 +74,7 @@ import com.moziik.app.donnees.messagerie.NouveauGroupe
 import com.moziik.app.donnees.messagerie.ModificationConversation
 import com.moziik.app.donnees.envoi.AnnonceFichier
 import com.moziik.app.donnees.envoi.OuvertureEnvoi
+import com.moziik.app.donnees.messagerie.ReactionEnvoyee
 
 /**
  * Les routes du site utilisées par l'app, telles qu'elles existent
@@ -368,6 +369,9 @@ interface MoziikApi {
 
     @DELETE("api/messagerie/messages/{id}")
     suspend fun supprimerMessage(@Path("id") id: String): ReponseMessage
+
+    @POST("api/messagerie/messages/{id}/reaction")
+    suspend fun reagir(@Path("id") id: String, @Body corps: ReactionEnvoyee): ReponseMessage
 
     @POST("api/messagerie/conversations/{id}/lu")
     suspend fun marquerLu(@Path("id") id: String)

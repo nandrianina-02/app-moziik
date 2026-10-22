@@ -98,6 +98,7 @@ import com.moziik.app.ui.ecrans.EcranProvisoire
 import com.moziik.app.ui.composants.LogoMoziik
 import com.moziik.app.ui.decouvrir.FicheEvenement
 import com.moziik.app.ui.notifications.EcranNotifications
+import androidx.compose.ui.text.font.FontWeight
 
 /**
  * La coquille commune à tous les écrans, comme celle du site sur mobile :
@@ -119,6 +120,7 @@ fun Coquille(sombre: Boolean, onBasculerMode: () -> Unit) {
     val pleinePage = entree?.destination?.route == Fiches.CONVERSATION
     val nonLus by c.messagerie.nonLus.collectAsStateWithLifecycle()
     val notificationsNonLues by c.notifications.nonLues.collectAsStateWithLifecycle()
+    val horsReseau by c.horsLigne.horsReseau.collectAsStateWithLifecycle()
     val cycle = androidx.lifecycle.compose.LocalLifecycleOwner.current
     // Le compteur de la barre du bas : relu chaque minute tant que l'app est à l'écran (H4).
     LaunchedEffect(session) {
@@ -195,6 +197,14 @@ fun Coquille(sombre: Boolean, onBasculerMode: () -> Unit) {
                     notifications = if (session is EtatSession.Connecte) notificationsNonLues else null,
                     onNotifications = navigationFiches::notifications,
                 )
+            }
+            // Sans réseau, les pages déjà vues s'affichent depuis le téléphone : le dire, et mener à la musique gardée (6.4).
+            AnimatedVisibility(
+                visible = horsReseau && !pleinePage,
+                enter = fadeIn(tween(Mouvement.VOILE)) + expandVertically(tween(Mouvement.VOILE, easing = Mouvement.sortieDouce)),
+                exit = fadeOut(tween(Mouvement.VOILE)) + shrinkVertically(tween(Mouvement.VOILE)),
+            ) {
+                BandeauHorsLigne(onMesTitres = { aller(Destination.MA_ZONE) })
             }
             NavHost(
                 navController = navigation,
@@ -275,6 +285,28 @@ fun Coquille(sombre: Boolean, onBasculerMode: () -> Unit) {
                 aller(Destination.COMPTE)
             },
             onFermer = c.alertes::oublier,
+        )
+    }
+}
+
+@Composable
+private fun BandeauHorsLigne(onMesTitres: () -> Unit) {
+    val p = LocalPalette.current
+    Row(
+        Modifier.fillMaxWidth().background(p.surface.compose).padding(start = 16.dp, end = 8.dp, top = 6.dp, bottom = 6.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Icone(R.drawable.lucide_wifi_off, description = null, teinte = p.encreAttenuee.compose, taille = 15.dp)
+        Spacer(Modifier.width(10.dp))
+        Column(Modifier.weight(1f)) {
+            Text("Mode hors-ligne", style = Texte.secondaire.copy(fontWeight = FontWeight.SemiBold), color = p.encre.compose)
+            Text("Synchronisation au retour du réseau.", style = Texte.secondaire, color = p.encreAttenuee.compose)
+        }
+        Text(
+            "Mes titres",
+            style = Texte.secondaire.copy(fontWeight = FontWeight.SemiBold),
+            color = p.accent.compose,
+            modifier = Modifier.clip(CircleShape).clickable(role = Role.Button, onClick = onMesTitres).padding(horizontal = 10.dp, vertical = 6.dp),
         )
     }
 }

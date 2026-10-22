@@ -37,7 +37,7 @@ class Conteneur(contexte: Context) {
     /** Travaux qui doivent survivre à un écran (fin d'une connexion Google, déconnexion). */
     val portee = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
     val coffre = CoffreSession(contexte)
-    val reseau = Reseau(BuildConfig.SITE, coffre)
+    val reseau = Reseau(BuildConfig.SITE, coffre, File(contexte.filesDir, "cache-api"))
     val session = Session(reseau.api, coffre, libelleAppareil())
     val catalogue = Catalogue(reseau.api, session, File(contexte.filesDir, "catalogue"))
     val historiqueRecherche = HistoriqueRecherche(contexte)
@@ -65,6 +65,7 @@ class Conteneur(contexte: Context) {
         alertes,
         portee,
         AvisTelechargement(contexte),
+        oublierCache = { reseau.cacheHorsLigne?.oublierComptes() },
     )
 }
 

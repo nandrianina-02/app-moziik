@@ -125,3 +125,8 @@ external-link
 # Messagerie complète
 image-plus
 user-minus
+
+# Réactions
+laugh
+frown
+thumbs-up

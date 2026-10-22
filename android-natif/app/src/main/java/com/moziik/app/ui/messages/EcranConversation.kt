@@ -128,6 +128,25 @@ private fun fusionner(actuels: List<MessageFil>, nouveaux: List<MessageFil>): Li
 private fun dernierInstant(messages: List<MessageFil>): String? =
     messages.flatMap { listOfNotNull(it.createdAt, it.modifieLe) }.maxByOrNull { instantIso(it)?.time ?: 0L }
 
+/**
+ * Les six réactions rapides du site (REACTIONS_RAPIDES de lib/messagerie.ts).
+ * La donnée échangée reste l'emoji du site, pour que web et app se
+ * comprennent ; l'app la montre en pictogramme, avec un libellé.
+ */
+private data class ReactionRapide(val emoji: String, val icone: Int, val libelle: String)
+
+private val REACTIONS = listOf(
+    ReactionRapide("\u2764\uFE0F", R.drawable.lucide_heart_plein, "J'adore"),
+    ReactionRapide("\uD83D\uDD25", R.drawable.lucide_flame, "Ça chauffe"),
+    ReactionRapide("\uD83D\uDC4F", R.drawable.lucide_thumbs_up, "Bravo"),
+    ReactionRapide("\uD83D\uDE02", R.drawable.lucide_laugh, "Trop drôle"),
+    ReactionRapide("\uD83D\uDE2E", R.drawable.lucide_sparkles, "Waouh"),
+    ReactionRapide("\uD83D\uDE22", R.drawable.lucide_frown, "Triste"),
+)
+
+/** Le sélecteur de variation (U+FE0F) est parfois omis : « coeur » s'écrit avec ou sans. */
+private fun reactionDe(emoji: String): ReactionRapide? = REACTIONS.firstOrNull { it.emoji.replace("\uFE0F", "") == emoji.replace("\uFE0F", "") }
+
 /** Quatre pièces par message (H11). */
 private const val PIECES_MAX = 4
 /** Plus grand côté d'une photo envoyée : nette dans une bulle, légère à envoyer. */
@@ -394,6 +413,30 @@ fun EcranConversation(id: String, onRetour: () -> Unit) {
         val aMoi = m.auteur?.id == moi
         Feuille({ menu = null }) {
             if (!assistant) {
+                Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 6.dp), horizontalArrangement = Arrangement.SpaceBetween) {
+                    REACTIONS.forEach { r ->
+                        val mienne = m.reactions.any { reactionDe(it.emoji) == r && moi in it.users }
+                        Box(
+                            Modifier
+                                .size(48.dp)
+                                .clip(CircleShape)
+                                .background(if (mienne) p.accent.compose.copy(alpha = 0.15f) else p.base.compose)
+                                .clickable(role = Role.Button) {
+                                    menu = null
+                                    portee.launch {
+                                        runCatching { c.messagerie.reagir(m.id, r.emoji) }
+                                            .onSuccess { messages = fusionner(messages, listOf(it)) }
+                                            .onFailure { c.alertes.signaler(AlerteLecture.Message(messageErreur(it))) }
+                                    }
+                                }
+                                .semantics { contentDescription = if (mienne) "Retirer « ${r.libelle} »" else "Réagir : ${r.libelle}" },
+                            contentAlignment = Alignment.Center,
+                        ) {
+                            Icone(r.icone, description = null, teinte = if (mienne) p.accent.compose else p.encreAttenuee.compose, taille = 22.dp)
+                        }
+                    }
+                }
+                HorizontalDivider(color = p.bordure.compose)
                 LigneAction(R.drawable.lucide_reply, "Répondre") {
                     reponseA = m
                     enModification = null
@@ -543,16 +586,28 @@ private fun Bulle(message: MessageFil, aMoi: Boolean, afficherAuteur: Boolean, s
                 }
             }
         }
-        // Les réactions sont des données des membres, affichées telles quelles.
+        // Les réactions rapides en pictogrammes ; une autre, venue du web, est une donnée du membre, affichée telle quelle.
         if (message.reactions.isNotEmpty()) {
             Row(Modifier.padding(top = 2.dp, start = 6.dp, end = 6.dp), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                 message.reactions.forEach { r ->
-                    Text(
-                        "${r.emoji} ${r.users.size}",
-                        style = Texte.secondaire.copy(fontSize = 11.sp),
-                        color = p.encreAttenuee.compose,
-                        modifier = Modifier.clip(CircleShape).border(BorderStroke(1.dp, p.bordure.compose), CircleShape).background(p.surface.compose).padding(horizontal = 6.dp, vertical = 1.dp),
-                    )
+                    val connue = reactionDe(r.emoji)
+                    Row(
+                        Modifier
+                            .clip(CircleShape)
+                            .border(BorderStroke(1.dp, p.bordure.compose), CircleShape)
+                            .background(p.surface.compose)
+                            .semantics(mergeDescendants = true) { contentDescription = "${connue?.libelle ?: r.emoji} : ${r.users.size}" }
+                            .padding(horizontal = 7.dp, vertical = 2.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        if (connue != null) {
+                            Icone(connue.icone, description = null, teinte = p.accent.compose, taille = 12.dp)
+                        } else {
+                            Text(r.emoji, style = Texte.secondaire.copy(fontSize = 11.sp), color = p.encre.compose)
+                        }
+                        Spacer(Modifier.width(4.dp))
+                        Text("${r.users.size}", style = Texte.secondaire.copy(fontSize = 11.sp, fontFeatureSettings = "tnum"), color = p.encreAttenuee.compose)
+                    }
                 }
             }
         }

@@ -127,6 +127,9 @@ data class NouveauMessage(
 data class ReponseMessage(val message: MessageFil)
 
 @Serializable
+data class ReactionEnvoyee(val emoji: String)
+
+@Serializable
 data class ModificationMessage(val corps: String)
 
 @Serializable
@@ -208,6 +211,9 @@ class Messagerie(private val api: MoziikApi) {
     suspend fun modifier(message: String, corps: String): MessageFil = appel { api.modifierMessage(message, ModificationMessage(corps)).message }.getOrThrow()
 
     suspend fun supprimer(message: String): MessageFil = appel { api.supprimerMessage(message).message }.getOrThrow()
+
+    /** Bascule une réaction de ce compte sur un message (H7). */
+    suspend fun reagir(message: String, emoji: String): MessageFil = appel { api.reagir(message, ReactionEnvoyee(emoji)).message }.getOrThrow()
 
     /** Lu jusqu'au dernier message ; le compteur de la barre du bas suit. */
     suspend fun marquerLu(id: String) {

@@ -142,6 +142,7 @@ private fun CorpsAlbum(donnees: DonneesAlbum, onRetour: () -> Unit) {
                 onAppuiLong = { menus.titre(titre) },
             )
         }
+        item(key = "commentaires") { CommentairesAlbum(album.id, onTitre = { nav.titre(it) }) }
         if (donnees.autres.isNotEmpty()) {
             item(key = "autres") {
                 SectionFiche("Plus de ${album.artist?.stageName ?: "cet artiste"}") {

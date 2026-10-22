@@ -70,6 +70,8 @@ import com.moziik.app.ui.navigation
 import kotlinx.coroutines.launch
 import com.moziik.app.ui.horsligne.PastilleTelechargement
 import com.moziik.app.lecteur.versTitre
+import com.moziik.app.ui.fiches.BlocCommentaires
+import com.moziik.app.donnees.horsligne.ActionGardee
 
 /**
  * Le lecteur plein écran (FullPlayerPage.tsx, mise en page téléphone) :
@@ -159,6 +161,14 @@ fun LecteurPleinEcran(etat: EtatLecteur, onFermer: () -> Unit) {
                 OngletLecteur.PAROLES -> item(key = "paroles") {
                     PanneauParoles(courant, avancement, lecteur::deplacer, hauteur = 420.dp)
                 }
+                // Pas d'animation d'entrée ici : le lecteur est en lecture.
+                OngletLecteur.AVIS -> item(key = "avis-${courant.id}") {
+                    BlocCommentaires(
+                        courant.id,
+                        position = { lecteur.position() / 1000.0 },
+                        onAllerA = { s -> lecteur.deplacer((s * 1000).toLong()) },
+                    )
+                }
                 OngletLecteur.FILE -> if (aSuivre.isEmpty()) {
                     item(key = "file-vide") {
                         Text(
@@ -179,6 +189,7 @@ fun LecteurPleinEcran(etat: EtatLecteur, onFermer: () -> Unit) {
 private enum class OngletLecteur(val libelle: String, val icone: Int) {
     PAROLES("Paroles", R.drawable.lucide_mic_vocal),
     FILE("À suivre", R.drawable.lucide_list_music),
+    AVIS("Avis", R.drawable.lucide_message_circle),
 }
 
 /** Les onglets du lecteur, soulignés à l'accent comme ceux du site. */
@@ -289,8 +300,13 @@ internal fun BoutonAime(courant: TitreLu, taille: Dp = 44.dp, icone: Dp = 22.dp)
                             menus.bibliothequeChangee()
                         }
                         .onFailure {
-                            aime = avant
-                            c.alertes.signaler(AlerteLecture.Message(messageErreur(it)))
+                            if (it is java.io.IOException) {
+                                c.horsLigne.actions.garder(ActionGardee.Aime(courant.id, !avant))
+                                c.alertes.signaler(AlerteLecture.Message("Pas de réseau : ton j'aime sera envoyé au retour de la connexion."))
+                            } else {
+                                aime = avant
+                                c.alertes.signaler(AlerteLecture.Message(messageErreur(it)))
+                            }
                         }
                 }
             }

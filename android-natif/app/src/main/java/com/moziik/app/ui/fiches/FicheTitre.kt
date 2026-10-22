@@ -57,6 +57,7 @@ import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.launch
 import com.moziik.app.ui.horsligne.BoutonTelechargerTitre
+import com.moziik.app.donnees.horsligne.ActionGardee
 
 data class DonneesTitre(val titre: Titre, val similaires: List<Titre>, val paroles: Paroles?)
 
@@ -135,8 +136,14 @@ private fun CorpsTitre(donnees: DonneesTitre, onRetour: () -> Unit) {
                                     if (it.liked != avant) aimes += if (it.liked) 1 else -1
                                 }
                                 .onFailure {
-                                    aime = avant
-                                    c.alertes.signaler(AlerteLecture.Message(messageErreur(it)))
+                                    if (it is java.io.IOException) {
+                                        // Sans réseau, l'état voulu est gardé et envoyé à la reconnexion (6.4).
+                                        c.horsLigne.actions.garder(ActionGardee.Aime(titre.id, !avant))
+                                        c.alertes.signaler(AlerteLecture.Message("Pas de réseau : ton j'aime sera envoyé au retour de la connexion."))
+                                    } else {
+                                        aime = avant
+                                        c.alertes.signaler(AlerteLecture.Message(messageErreur(it)))
+                                    }
                                 }
                         }
                     },
@@ -194,6 +201,18 @@ private fun CorpsTitre(donnees: DonneesTitre, onRetour: () -> Unit) {
                         }
                     }
                 }
+            }
+        }
+        item(key = "commentaires") {
+            SectionFiche("Commentaires") {
+                // Le titre est celui qu'on écoute : un commentaire peut se rattacher à l'instant écouté.
+                val enEcoute = lecture.courant?.id == titre.id
+                BlocCommentaires(
+                    titre.id,
+                    Modifier.padding(horizontal = 16.dp),
+                    position = if (enEcoute) ({ c.lecteur.position() / 1000.0 }) else null,
+                    onAllerA = if (enEcoute) ({ s -> c.lecteur.deplacer((s * 1000).toLong()) }) else null,
+                )
             }
         }
         if (donnees.similaires.isNotEmpty()) {

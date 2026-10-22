@@ -78,6 +78,7 @@ import com.moziik.app.ui.navigation
 import com.moziik.app.ui.partager
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
+import com.moziik.app.donnees.horsligne.ActionGardee
 
 /** Une action propre à l'écran d'où le menu s'ouvre (« Retirer de la playlist »). */
 data class ActionMenu(val libelle: String, val icone: Int, val action: () -> Unit)
@@ -284,14 +285,23 @@ private fun MenuTitre(titre: Titre, menus: Menus) {
             }
             LigneMenu(if (aime == true) R.drawable.lucide_heart_plein else R.drawable.lucide_heart, if (aime == true) "Ne plus aimer" else "J'aime", actif = aime == true) {
                 exiger("Connecte-toi pour aimer un son.") {
+                    val voulu = aime != true
                     fermer()
-                    portee.launch {
+                    // La feuille se ferme aussitôt : la demande vit dans la portée de l'app, pas dans celle du menu.
+                    c.portee.launch {
                         appel { c.reseau.api.basculerAime(titre.id) }
                             .onSuccess {
                                 c.alertes.signaler(AlerteLecture.Message(if (it.liked) "Ajouté à tes favoris." else "Retiré de tes favoris.", succes = true))
                                 menus.bibliothequeChangee()
                             }
-                            .onFailure { c.alertes.signaler(AlerteLecture.Message(messageErreur(it))) }
+                            .onFailure {
+                                if (it is java.io.IOException) {
+                                    c.horsLigne.actions.garder(ActionGardee.Aime(titre.id, voulu))
+                                    c.alertes.signaler(AlerteLecture.Message("Pas de réseau : ton j'aime sera envoyé au retour de la connexion."))
+                                } else {
+                                    c.alertes.signaler(AlerteLecture.Message(messageErreur(it)))
+                                }
+                            }
                     }
                 }
             }

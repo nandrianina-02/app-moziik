@@ -56,6 +56,7 @@ class HorsLigne(
     racine: File,
     val telechargements: Telechargements,
     val ecoutes: EcoutesEnAttente,
+    val actions: ActionsEnAttente,
     private val api: MoziikApi,
     private val compte: Compte,
     private val session: Session,
@@ -99,7 +100,7 @@ class HorsLigne(
         }
         portee.launch { compte.premium.collect { if (it) preferences.edit().putBoolean("premium", true).apply() } }
         reprendre()
-        if (!_horsReseau.value) portee.launch { ecoutes.rejouer() }
+        if (!_horsReseau.value) portee.launch { rejouerEnAttente() }
     }
 
     private fun lireFile(): List<Tache> = runCatching {
@@ -225,6 +226,17 @@ class HorsLigne(
         }
     }
 
+    /** Écoutes, j'aime et commentaires faits sans réseau ; un mot quand des commentaires sont partis. */
+    private suspend fun rejouerEnAttente() {
+        ecoutes.rejouer()
+        val commentaires = actions.actions.value.count { it is ActionGardee.Commentaire }
+        actions.rejouer()
+        val partis = commentaires - actions.actions.value.count { it is ActionGardee.Commentaire }
+        if (partis > 0) {
+            alertes.signaler(AlerteLecture.Message(if (partis > 1) "$partis commentaires envoyés." else "Commentaire envoyé.", succes = true))
+        }
+    }
+
     private fun surveillerReseau(contexte: Context) {
         val connectivite = contexte.getSystemService(Context.CONNECTIVITY_SERVICE) as? ConnectivityManager ?: return
         val demande = NetworkRequest.Builder().addCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET).build()
@@ -249,7 +261,7 @@ class HorsLigne(
         _horsReseau.value = !reglages.reseauDisponible()
         if (_horsReseau.value) return
         reprendre()
-        if (etait) ecoutes.rejouer()
+        if (etait) rejouerEnAttente()
     }
 
     private fun oublierCompte() {
@@ -257,6 +269,9 @@ class HorsLigne(
         majFile { clear() }
         telechargements.toutSupprimer()
         preferences.edit().clear().apply()
-        portee.launch { ecoutes.oublier() }
+        portee.launch {
+            ecoutes.oublier()
+            actions.oublier()
+        }
     }
 }

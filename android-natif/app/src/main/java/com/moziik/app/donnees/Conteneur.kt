@@ -24,6 +24,8 @@ import kotlinx.coroutines.SupervisorJob
 import java.io.File
 import com.moziik.app.donnees.notifications.Notifications
 import com.moziik.app.donnees.horsligne.AvisTelechargement
+import com.moziik.app.donnees.horsligne.ActionsEnAttente
+import com.moziik.app.donnees.catalogue.Commentaires
 
 /**
  * Les objets partagés par toute l'app, créés une fois au démarrage du
@@ -43,6 +45,7 @@ class Conteneur(contexte: Context) {
     val ia = FonctionsIA(reseau.api, catalogue::univers)
     val compte = Compte(reseau.api)
     val notifications = Notifications(reseau.api)
+    val commentaires = Commentaires(reseau.api)
     val reglages = ReglagesAppareil(contexte)
     /** Messages du service de lecture à l'écran (quota atteint, titre indisponible). */
     val alertes = AlertesLecture()
@@ -52,6 +55,7 @@ class Conteneur(contexte: Context) {
         contexte.filesDir,
         Telechargements(contexte.filesDir, reseau.client, BuildConfig.SITE),
         EcoutesEnAttente(contexte.filesDir, reseau.api),
+        ActionsEnAttente(contexte.filesDir, reseau.api),
         reseau.api,
         compte,
         session,

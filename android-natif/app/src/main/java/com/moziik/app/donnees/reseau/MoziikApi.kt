@@ -67,6 +67,9 @@ import retrofit2.http.Path
 import retrofit2.http.Query
 import com.moziik.app.donnees.notifications.PageAvis
 import com.moziik.app.donnees.catalogue.ReponseEvenement
+import com.moziik.app.donnees.catalogue.ListeCommentaires
+import com.moziik.app.donnees.catalogue.NouveauCommentaire
+import com.moziik.app.donnees.catalogue.ReponseCommentaire
 
 /**
  * Les routes du site utilisées par l'app, telles qu'elles existent
@@ -222,6 +225,22 @@ interface MoziikApi {
     /** Compte le téléchargement complet d'un album (20 par minute et par adresse IP). */
     @POST("api/albums/{id}/download")
     suspend fun albumTelecharge(@Path("id") id: String)
+
+    /** Tous, récents d'abord, réponses à plat (ni pagination ni filtre). */
+    @GET("api/songs/{id}/comments")
+    suspend fun commentaires(@Path("id") id: String): ListeCommentaires
+
+    /** 10 par minute et par adresse IP (429 au-delà). */
+    @POST("api/songs/{id}/comments")
+    suspend fun commenter(@Path("id") id: String, @Body corps: NouveauCommentaire): ReponseCommentaire
+
+    /** 403 si ce n'est pas le sien. */
+    @DELETE("api/comments/{id}")
+    suspend fun supprimerCommentaire(@Path("id") id: String)
+
+    /** Les 100 plus récents des titres de l'album, avec le nom du titre. */
+    @GET("api/albums/{id}/comments")
+    suspend fun commentairesAlbum(@Path("id") id: String): ListeCommentaires
 
     @GET("api/songs/{id}/lyrics")
     suspend fun paroles(@Path("id") id: String): ReponseParoles

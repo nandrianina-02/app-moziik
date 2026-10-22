@@ -1,5 +1,6 @@
 import { connectDB } from "@/lib/db";
 import Notification, { NotificationType } from "@/models/Notification";
+import { envoyerPushBorne } from "@/lib/push";
 
 export async function notify({
   recipient,
@@ -17,7 +18,10 @@ export async function notify({
   imageUrl?: string;
 }) {
   await connectDB();
-  return Notification.create({ recipient, type, title, message, link, imageUrl });
+  const notification = await Notification.create({ recipient, type, title, message, link, imageUrl });
+  // Le téléphone sonne aussi (app native) ; sans configuration Firebase, rien ne part.
+  await envoyerPushBorne([recipient], { type, title, message, link });
+  return notification;
 }
 
 /**
@@ -33,7 +37,13 @@ export async function notifyEach(
 ) {
   if (notifications.length === 0) return [];
   await connectDB();
-  return Notification.insertMany(notifications);
+  const crees = await Notification.insertMany(notifications);
+  const parDestinataire = new Map(notifications.map((n) => [n.recipient, n]));
+  await envoyerPushBorne([...parDestinataire.keys()], (destinataire) => {
+    const n = parDestinataire.get(destinataire)!;
+    return { type: n.type, title: n.title, message: n.message, link: n.link };
+  });
+  return crees;
 }
 
 /** Envoie la même notification à plusieurs destinataires (ex: tous les abonnés d'un artiste). */
@@ -42,7 +52,9 @@ export async function notifyMany(
   data: Omit<Parameters<typeof notify>[0], "recipient">
 ) {
   await connectDB();
-  return Notification.insertMany(
+  const crees = await Notification.insertMany(
     recipients.map((recipient) => ({ recipient, ...data }))
   );
+  await envoyerPushBorne(recipients, { type: data.type, title: data.title, message: data.message, link: data.link });
+  return crees;
 }

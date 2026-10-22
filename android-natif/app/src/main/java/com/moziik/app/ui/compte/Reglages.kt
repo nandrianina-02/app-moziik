@@ -65,6 +65,12 @@ import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
 import java.util.Locale
 import com.moziik.app.ui.composants.LogoMoziik
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.PickVisualMediaRequest
+import androidx.activity.result.contract.ActivityResultContracts
+import com.moziik.app.donnees.envoi.preparerImage
+import com.moziik.app.donnees.session.EtatSession
+import com.moziik.app.ui.composants.Avatar
 
 /** Les écrans d'une rubrique du compte : retour, titre, contenu défilant. */
 @Composable
@@ -128,7 +134,45 @@ fun EcranProfil(nomInitial: String, nomUtilisateurInitial: String?, onRetour: ()
     var pseudo by rememberSaveable { mutableStateOf(nomUtilisateurInitial.orEmpty()) }
     var erreur by remember { mutableStateOf<String?>(null) }
     var enCours by remember { mutableStateOf(false) }
+    val session by c.session.etat.collectAsStateWithLifecycle()
+    val photo = (session as? EtatSession.Connecte)?.utilisateur?.avatarUrl
+    var envoiPhoto by remember { mutableStateOf(false) }
+    val contexte = LocalContext.current
+    // La photo de profil (K2, dossier avatars) : réduite à 512 px, envoyée, puis enregistrée sur le compte.
+    val choixPhoto = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri ->
+        if (uri != null && !envoiPhoto) {
+            envoiPhoto = true
+            portee.launch {
+                runCatching {
+                    val image = preparerImage(contexte, uri, 512)
+                    val adresse = c.envoi.envoyer(image.octets, "photo-de-profil.jpg", "image/jpeg", "avatars")
+                    c.compte.changerPhoto(adresse)
+                    c.session.majUtilisateur { it.copy(avatarUrl = adresse) }
+                }
+                    .onSuccess { c.alertes.signaler(AlerteLecture.Message("Photo de profil mise à jour.", succes = true)) }
+                    .onFailure { erreur = messageErreur(it) }
+                envoiPhoto = false
+            }
+        }
+    }
     PageReglage("Profil", onRetour) {
+        Row(Modifier.padding(bottom = 18.dp), verticalAlignment = Alignment.CenterVertically) {
+            Box(contentAlignment = Alignment.Center) {
+                Avatar(nom.ifBlank { "?" }, photo, taille = 72.dp)
+                if (envoiPhoto) {
+                    Box(Modifier.size(72.dp).clip(CircleShape).background(androidx.compose.ui.graphics.Color.Black.copy(alpha = 0.45f)), contentAlignment = Alignment.Center) {
+                        Egaliseur(hauteur = 16.dp, libelle = "Envoi", couleur = androidx.compose.ui.graphics.Color.White)
+                    }
+                }
+            }
+            Spacer(Modifier.width(16.dp))
+            Column {
+                LienTexte(if (photo == null) "Ajouter une photo" else "Changer la photo", {
+                    if (!envoiPhoto) choixPhoto.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
+                })
+                Text("Visible sur ton profil et dans les messages.", style = Texte.secondaire, color = LocalPalette.current.encreAttenuee.compose)
+            }
+        }
         ChampTexte(nom, { nom = it.take(80) }, "Nom affiché", R.drawable.lucide_user, saisie = Saisie.NOM)
         Spacer(Modifier.height(14.dp))
         ChampTexte(pseudo, { pseudo = it.lowercase().take(20) }, "Nom d'utilisateur", R.drawable.lucide_user_round_pen, indication = "lettres, chiffres, point, tiret bas")
@@ -149,6 +193,7 @@ fun EcranProfil(nomInitial: String, nomUtilisateurInitial: String?, onRetour: ()
                 portee.launch {
                     try {
                         c.compte.modifierProfil(nom, pseudo.ifBlank { null })
+                        c.session.majUtilisateur { it.copy(name = nom.trim()) }
                         c.alertes.signaler(AlerteLecture.Message("Profil enregistré.", succes = true))
                         onEnregistre()
                     } catch (e: CancellationException) {

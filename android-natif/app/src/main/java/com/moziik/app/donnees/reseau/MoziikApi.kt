@@ -70,6 +70,10 @@ import com.moziik.app.donnees.catalogue.ReponseEvenement
 import com.moziik.app.donnees.catalogue.ListeCommentaires
 import com.moziik.app.donnees.catalogue.NouveauCommentaire
 import com.moziik.app.donnees.catalogue.ReponseCommentaire
+import com.moziik.app.donnees.messagerie.NouveauGroupe
+import com.moziik.app.donnees.messagerie.ModificationConversation
+import com.moziik.app.donnees.envoi.AnnonceFichier
+import com.moziik.app.donnees.envoi.OuvertureEnvoi
 
 /**
  * Les routes du site utilisées par l'app, telles qu'elles existent
@@ -370,6 +374,21 @@ interface MoziikApi {
 
     @POST("api/messagerie/conversations/{id}/saisie")
     suspend fun signalerSaisie(@Path("id") id: String)
+
+    /** Même route que l'ouverture d'un tête-à-tête, avec un autre corps. */
+    @POST("api/messagerie/conversations")
+    suspend fun creerGroupe(@Body corps: NouveauGroupe): ReponseConversation
+
+    @PATCH("api/messagerie/conversations/{id}")
+    suspend fun reglerConversation(@Path("id") id: String, @Body corps: ModificationConversation): ReponseConversation
+
+    /** Groupes seulement. */
+    @DELETE("api/messagerie/conversations/{id}")
+    suspend fun quitterConversation(@Path("id") id: String)
+
+    /** Ouvre un envoi de fichier chez Karaks Storage (K2). */
+    @POST("api/fichiers/envoi")
+    suspend fun ouvrirEnvoi(@Body corps: AnnonceFichier): OuvertureEnvoi
 
     @GET("api/messagerie/destinataires")
     suspend fun destinataires(@Query("q") recherche: String?): Destinataires

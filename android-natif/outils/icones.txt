@@ -121,3 +121,7 @@ clock
 info
 phone
 external-link
+
+# Messagerie complète
+image-plus
+user-minus

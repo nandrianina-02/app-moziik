@@ -128,6 +128,16 @@ class Session(
         stockage.effacer()
     }
 
+    /**
+     * Le profil a changé sur le site (nom, photo) : la session garde la
+     * nouvelle version, pour que l'en-tête et les écrans la montrent sans
+     * attendre une nouvelle connexion.
+     */
+    fun majUtilisateur(transformation: (UtilisateurCourt) -> UtilisateurCourt) {
+        val session = stockage.lire() ?: return
+        stockage.ecrire(session.copy(utilisateur = transformation(session.utilisateur)))
+    }
+
     private fun retenir(jetons: Jetons) {
         stockage.ecrire(SessionMobile(jetons.accessToken, jetons.refreshToken, jetons.user))
     }

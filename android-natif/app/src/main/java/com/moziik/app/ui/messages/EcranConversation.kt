@@ -103,6 +103,14 @@ import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.launch
 import com.moziik.app.ui.composants.LogoMoziik
+import android.net.Uri
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.PickVisualMediaRequest
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.runtime.mutableStateListOf
+import androidx.compose.foundation.layout.aspectRatio
+import com.moziik.app.donnees.envoi.preparerImage
+import com.moziik.app.donnees.messagerie.Piece
 
 /** Le fil se relit toutes les 4 secondes, en ne demandant que ce qui a changé (H6). */
 private const val RAFRAICHISSEMENT_FIL_MS = 4_000L
@@ -119,6 +127,11 @@ private fun fusionner(actuels: List<MessageFil>, nouveaux: List<MessageFil>): Li
 /** Le plus récent instant connu du fil, création ou modification : point de départ du rafraîchissement. */
 private fun dernierInstant(messages: List<MessageFil>): String? =
     messages.flatMap { listOfNotNull(it.createdAt, it.modifieLe) }.maxByOrNull { instantIso(it)?.time ?: 0L }
+
+/** Quatre pièces par message (H11). */
+private const val PIECES_MAX = 4
+/** Plus grand côté d'une photo envoyée : nette dans une bulle, légère à envoyer. */
+private const val COTE_PHOTO = 1600
 
 /**
  * Un fil de discussion (FilDiscussion.tsx) : bulles, citations, cartes de
@@ -149,6 +162,14 @@ fun EcranConversation(id: String, onRetour: () -> Unit) {
     var envoi by remember { mutableStateOf(false) }
     var dernierSignal by remember { mutableLongStateOf(0L) }
     var menu by remember { mutableStateOf<MessageFil?>(null) }
+    var reglages by remember { mutableStateOf(false) }
+    // Les photos choisies, envoyées au stockage seulement au moment d'envoyer le message (H11).
+    val photos = remember { mutableStateListOf<Uri>() }
+    var etapeEnvoi by remember { mutableStateOf<String?>(null) }
+    val contexte = LocalContext.current
+    val choixPhotos = rememberLauncherForActivityResult(ActivityResultContracts.PickMultipleVisualMedia(PIECES_MAX)) { choisies ->
+        photos.addAll(choisies.filter { it !in photos }.take(PIECES_MAX - photos.size))
+    }
 
     // L'assistant d'écoute a son propre fil, créé au premier usage (H12) : on l'ouvre par l'identifiant « assistant ».
     val assistant = id == ASSISTANT
@@ -231,7 +252,8 @@ fun EcranConversation(id: String, onRetour: () -> Unit) {
     val envoyer: () -> Unit = {
         val corps = texte.trim()
         val modifie = enModification
-        if (corps.isNotEmpty() && !envoi) {
+        val aJoindre = if (modifie == null && !assistant) photos.toList() else emptyList()
+        if ((corps.isNotEmpty() || aJoindre.isNotEmpty()) && !envoi) {
             envoi = true
             portee.launch {
                 try {
@@ -241,8 +263,17 @@ fun EcranConversation(id: String, onRetour: () -> Unit) {
                         messages = fusionner(messages, listOf(echange.question, echange.reponse))
                         if (echange.lancer) echange.reponse.partage?.let(lancerPartage)
                     } else {
-                        val message = if (modifie != null) c.messagerie.modifier(modifie.id, corps) else c.messagerie.envoyer(fil ?: id, corps, repondA = reponseA?.id)
+                        // Les pièces partent d'abord au stockage, réduites ; le message les cite ensuite (K2).
+                        val pieces = aJoindre.mapIndexed { i, uri ->
+                            etapeEnvoi = if (aJoindre.size > 1) "Envoi des photos (${i + 1}/${aJoindre.size})…" else "Envoi de la photo…"
+                            val image = preparerImage(contexte, uri, COTE_PHOTO)
+                            val adresse = c.envoi.envoyer(image.octets, "photo-${i + 1}.jpg", "image/jpeg", "messages")
+                            Piece("image", adresse, "photo-${i + 1}.jpg", image.octets.size.toLong(), largeur = image.largeur, hauteur = image.hauteur)
+                        }
+                        etapeEnvoi = null
+                        val message = if (modifie != null) c.messagerie.modifier(modifie.id, corps) else c.messagerie.envoyer(fil ?: id, corps, repondA = reponseA?.id, pieces = pieces)
                         messages = fusionner(messages, listOf(message))
+                        photos.clear()
                     }
                     texte = ""
                     reponseA = null
@@ -251,6 +282,7 @@ fun EcranConversation(id: String, onRetour: () -> Unit) {
                 } catch (e: CancellationException) {
                     throw e
                 } catch (e: Exception) {
+                    etapeEnvoi = null
                     c.alertes.signaler(AlerteLecture.Message(messageErreur(e)))
                 }
                 envoi = false
@@ -260,7 +292,7 @@ fun EcranConversation(id: String, onRetour: () -> Unit) {
 
     // Plein écran : la coquille masque sa barre et le mini-lecteur ici ; le clavier pousse le composeur.
     Column(Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.statusBars).windowInsetsPadding(WindowInsets.ime.union(WindowInsets.navigationBars))) {
-        EnTeteConversation(conversation, ecrivent, onRetour, assistant)
+        EnTeteConversation(conversation, ecrivent, onRetour, assistant, onReglages = { reglages = true })
         if (assistant && !disponible) {
             Text(
                 "L'assistant est indisponible pour le moment. Réessaie plus tard.",
@@ -326,6 +358,12 @@ fun EcranConversation(id: String, onRetour: () -> Unit) {
             reponseA = reponseA,
             enModification = enModification != null,
             envoi = envoi,
+            photos = photos,
+            etapeEnvoi = etapeEnvoi,
+            onJoindre = if (assistant || enModification != null) null else ({
+                if (photos.size < PIECES_MAX) choixPhotos.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
+            }),
+            onRetirerPhoto = { photos.remove(it) },
             indication = if (assistant) "Demande à l'assistant…" else "Écrire un message…",
             actif = !assistant || disponible,
             onAnnuler = {
@@ -334,6 +372,20 @@ fun EcranConversation(id: String, onRetour: () -> Unit) {
                 enModification = null
             },
             onEnvoyer = envoyer,
+        )
+    }
+
+    val actuelle = conversation
+    if (reglages && actuelle != null && !assistant) {
+        ReglagesConversation(
+            actuelle,
+            moi,
+            onChange = { conversation = it },
+            onQuitte = {
+                reglages = false
+                onRetour()
+            },
+            onFermer = { reglages = false },
         )
     }
 
@@ -388,7 +440,7 @@ private fun LigneAction(icone: Int, libelle: String, onClick: () -> Unit) {
 }
 
 @Composable
-private fun EnTeteConversation(conversation: Conversation?, ecrivent: List<String>, onRetour: () -> Unit, assistant: Boolean) {
+private fun EnTeteConversation(conversation: Conversation?, ecrivent: List<String>, onRetour: () -> Unit, assistant: Boolean, onReglages: () -> Unit) {
     val p = LocalPalette.current
     if (assistant) {
         Row(Modifier.fillMaxWidth().padding(horizontal = 4.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -421,6 +473,12 @@ private fun EnTeteConversation(conversation: Conversation?, ecrivent: List<Strin
             Column(Modifier.weight(1f)) {
                 Text(titre, style = Texte.corpsFort, color = p.encre.compose, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 ligne?.let { Text(it, style = Texte.secondaire, color = if (ecrivent.isNotEmpty() || it == "En ligne") p.accent.compose else p.encreAttenuee.compose) }
+            }
+            if (conversation.silencieux) {
+                Icone(R.drawable.lucide_bell_off, description = "En sourdine", teinte = p.encreAttenuee.compose, taille = 15.dp)
+            }
+            Box(Modifier.size(44.dp).clip(CircleShape).clickable(role = Role.Button, onClick = onReglages), contentAlignment = Alignment.Center) {
+                Icone(R.drawable.lucide_ellipsis_vertical, description = if (conversation.type == "group") "Réglages du groupe" else "Réglages de la conversation", teinte = p.encreAttenuee.compose, taille = 20.dp)
             }
         }
     }
@@ -473,7 +531,7 @@ private fun Bulle(message: MessageFil, aMoi: Boolean, afficherAuteur: Boolean, s
                     }
                 }
                 message.partage?.let { CartePartage(it, aMoi) }
-                message.pieces.forEach { piece -> PieceJointe(piece.type, piece.url, piece.nom, aMoi) }
+                message.pieces.forEach { piece -> PieceJointe(piece.type, piece.url, piece.nom, aMoi, piece.largeur, piece.hauteur) }
                 if (message.corps.isNotBlank()) Text(message.corps, style = Texte.corps, color = encre)
             }
             Row(Modifier.align(Alignment.End).padding(top = 2.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -544,16 +602,21 @@ private fun CartePartage(partage: Partage, aMoi: Boolean) {
     }
 }
 
-/** Une image s'affiche dans la bulle ; un son s'ouvre à part, l'envoi de pièces viendra avec le composeur complet. */
+/** Une image s'affiche dans la bulle, à ses proportions quand on les connaît ; un son s'ouvre à part. */
 @Composable
-private fun PieceJointe(type: String, url: String, nom: String, aMoi: Boolean) {
+private fun PieceJointe(type: String, url: String, nom: String, aMoi: Boolean, largeur: Int? = null, hauteur: Int? = null) {
     val p = LocalPalette.current
     val contexte = LocalContext.current
     val adresse = adresseMedia(url, BuildConfig.SITE) ?: url
     if (type == "image") {
         AsyncImage(
             model = adresse, contentDescription = nom.ifBlank { "Image" }, contentScale = ContentScale.Crop,
-            modifier = Modifier.padding(bottom = 6.dp).widthIn(max = 260.dp).heightIn(max = 260.dp).clip(RoundedCornerShape(10.dp)),
+            modifier = Modifier
+                .padding(bottom = 6.dp)
+                .widthIn(max = 260.dp)
+                .heightIn(max = 320.dp)
+                .then(if (largeur != null && hauteur != null && hauteur > 0) Modifier.aspectRatio(largeur.toFloat() / hauteur) else Modifier)
+                .clip(RoundedCornerShape(10.dp)),
         )
     } else {
         Row(
@@ -584,10 +647,38 @@ private fun Composeur(
     actif: Boolean,
     onAnnuler: () -> Unit,
     onEnvoyer: () -> Unit,
+    photos: List<Uri> = emptyList(),
+    etapeEnvoi: String? = null,
+    onJoindre: (() -> Unit)? = null,
+    onRetirerPhoto: (Uri) -> Unit = {},
 ) {
     val p = LocalPalette.current
     Column(Modifier.fillMaxWidth().background(p.surface.compose)) {
         HorizontalDivider(color = p.bordure.compose)
+        if (photos.isNotEmpty()) {
+            Row(Modifier.fillMaxWidth().padding(start = 12.dp, end = 12.dp, top = 10.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                photos.forEach { uri ->
+                    Box(Modifier.size(64.dp)) {
+                        AsyncImage(model = uri, contentDescription = "Photo jointe", contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize().clip(RoundedCornerShape(10.dp)))
+                        if (!envoi) {
+                            Box(
+                                Modifier
+                                    .align(Alignment.TopEnd)
+                                    .padding(3.dp)
+                                    .size(22.dp)
+                                    .clip(CircleShape)
+                                    .background(Color.Black.copy(alpha = 0.6f))
+                                    .clickable(role = Role.Button) { onRetirerPhoto(uri) },
+                                contentAlignment = Alignment.Center,
+                            ) {
+                                Icone(R.drawable.lucide_x, description = "Retirer la photo", teinte = Color.White, taille = 12.dp)
+                            }
+                        }
+                    }
+                }
+            }
+            etapeEnvoi?.let { Text(it, style = Texte.secondaire, color = p.encreAttenuee.compose, modifier = Modifier.padding(start = 14.dp, top = 6.dp)) }
+        }
         if (reponseA != null || enModification) {
             Row(Modifier.fillMaxWidth().padding(start = 16.dp, end = 8.dp, top = 8.dp), verticalAlignment = Alignment.CenterVertically) {
                 Box(Modifier.width(3.dp).heightIn(min = 30.dp).background(p.accent.compose))
@@ -605,6 +696,15 @@ private fun Composeur(
             }
         }
         Row(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 8.dp), verticalAlignment = Alignment.Bottom) {
+            if (onJoindre != null) {
+                Box(
+                    Modifier.size(44.dp).clip(CircleShape).clickable(enabled = actif && !envoi && photos.size < PIECES_MAX, role = Role.Button, onClick = onJoindre),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Icone(R.drawable.lucide_image_plus, description = "Joindre une photo", teinte = p.encreAttenuee.compose, taille = 21.dp)
+                }
+                Spacer(Modifier.width(4.dp))
+            }
             Box(
                 Modifier
                     .weight(1f)
@@ -626,7 +726,7 @@ private fun Composeur(
                 )
             }
             Spacer(Modifier.width(8.dp))
-            val envoyable = actif && texte.isNotBlank() && !envoi
+            val envoyable = actif && (texte.isNotBlank() || photos.isNotEmpty()) && !envoi
             Box(
                 Modifier.size(44.dp).clip(CircleShape).background(p.accent.compose.copy(alpha = if (envoyable) 1f else 0.4f)).clickable(enabled = envoyable, role = Role.Button, onClick = onEnvoyer),
                 contentAlignment = Alignment.Center,

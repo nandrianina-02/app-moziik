@@ -97,6 +97,7 @@ fun EcranMessages(onConnexion: () -> Unit, onOuvrir: (String) -> Unit) {
     var conversations by remember { mutableStateOf<List<Conversation>?>(null) }
     var erreur by remember { mutableStateOf<String?>(null) }
     var nouvelle by rememberSaveable { mutableStateOf(false) }
+    var groupe by rememberSaveable { mutableStateOf(false) }
     val cycle = LocalLifecycleOwner.current
     val avecAssistant = com.moziik.app.ui.menus.fonctionIA("assistant")
 
@@ -157,6 +158,19 @@ fun EcranMessages(onConnexion: () -> Unit, onOuvrir: (String) -> Unit) {
             onConversation = { conv ->
                 nouvelle = false
                 onOuvrir(conv)
+            },
+            onGroupe = {
+                nouvelle = false
+                groupe = true
+            },
+        )
+    }
+    if (groupe) {
+        CreationGroupe(
+            onFermer = { groupe = false },
+            onCree = { id ->
+                groupe = false
+                onOuvrir(id)
             },
         )
     }
@@ -244,6 +258,8 @@ fun ChoixDestinataire(
     onConversation: (String) -> Unit,
     partage: PartageEnvoye? = null,
     conversations: List<Conversation>? = null,
+    /** « Créer un groupe », proposé en tête quand on ouvre une conversation (pas pour un envoi). */
+    onGroupe: (() -> Unit)? = null,
 ) {
     val c = conteneur()
     val p = LocalPalette.current
@@ -291,6 +307,20 @@ fun ChoixDestinataire(
         ChampTexte(terme, { terme = it }, "Rechercher un membre", R.drawable.lucide_search, Modifier.padding(horizontal = 20.dp, vertical = 12.dp), indication = "Nom ou @nom d'utilisateur")
         MessageErreur(erreur, Modifier.padding(horizontal = 20.dp))
         LazyColumn(Modifier.heightIn(max = 460.dp)) {
+            if (onGroupe != null && terme.isBlank()) {
+                item(key = "creer-groupe") {
+                    Row(
+                        Modifier.fillMaxWidth().clickable(role = Role.Button, onClick = onGroupe).padding(horizontal = 20.dp, vertical = 9.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Box(Modifier.size(40.dp).clip(CircleShape).background(p.accent.compose.copy(alpha = 0.12f)), contentAlignment = Alignment.Center) {
+                            Icone(R.drawable.lucide_users, description = null, teinte = p.accent.compose, taille = 19.dp)
+                        }
+                        Spacer(Modifier.width(12.dp))
+                        Text("Créer un groupe", style = Texte.corps.copy(fontWeight = FontWeight.Medium), color = p.encre.compose)
+                    }
+                }
+            }
             // Pour un envoi, les groupes et conversations existants sont proposés en tête.
             val existantes = conversations.orEmpty().filter { it.type == "group" && terme.isBlank() }
             if (existantes.isNotEmpty()) {

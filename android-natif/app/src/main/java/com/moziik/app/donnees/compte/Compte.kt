@@ -77,7 +77,7 @@ data class Appareils(val devices: List<Appareil> = emptyList())
 data class ChangementMotDePasse(val currentPassword: String? = null, val newPassword: String)
 
 @Serializable
-data class ModificationProfil(val name: String? = null, val username: String? = null)
+data class ModificationProfil(val name: String? = null, val username: String? = null, val avatarUrl: String? = null)
 
 @Serializable
 data class ChoixUnivers(val univers: String)
@@ -126,6 +126,11 @@ class Compte(private val api: MoziikApi) {
 
     suspend fun modifierProfil(nom: String?, nomUtilisateur: String?) {
         appel { api.modifierProfil(ModificationProfil(nom?.trim(), nomUtilisateur?.trim()?.lowercase())) }.getOrThrow()
+    }
+
+    /** `adresse` : `/media/<fichierId>` d'une photo déjà envoyée (dossier avatars). */
+    suspend fun changerPhoto(adresse: String) {
+        appel { api.modifierProfil(ModificationProfil(avatarUrl = adresse)) }.getOrThrow()
     }
 
     suspend fun changerUnivers(univers: String) {

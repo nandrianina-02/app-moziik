@@ -63,7 +63,15 @@ data class Partage(
 )
 
 @Serializable
-data class Piece(val type: String, val url: String, val nom: String = "", val taille: Long? = null, val duree: Double? = null)
+data class Piece(
+    val type: String,
+    val url: String,
+    val nom: String = "",
+    val taille: Long? = null,
+    val duree: Double? = null,
+    val largeur: Int? = null,
+    val hauteur: Int? = null,
+)
 
 @Serializable
 data class Citation(val messageId: String, val auteurNom: String = "", val extrait: String = "")
@@ -107,7 +115,13 @@ data class PageMessages(
 data class PartageEnvoye(val type: String, val refId: String)
 
 @Serializable
-data class NouveauMessage(val corps: String, val partage: PartageEnvoye? = null, val repondA: String? = null)
+data class NouveauMessage(
+    val corps: String,
+    val partage: PartageEnvoye? = null,
+    val repondA: String? = null,
+    /** Déjà envoyées au stockage (K2) : 4 au plus par message (H11). */
+    val pieces: List<Piece> = emptyList(),
+)
 
 @Serializable
 data class ReponseMessage(val message: MessageFil)
@@ -130,6 +144,23 @@ data class Destinataires(val personnes: List<Personne> = emptyList(), val recent
 
 @Serializable
 data class ConversationAOuvrir(val type: String = "direct", val destinataire: String)
+
+/** Un groupe : 50 personnes au plus, créateur compris ; le titre est obligatoire (H5). */
+@Serializable
+data class NouveauGroupe(val type: String = "group", val membres: List<String>, val titre: String)
+
+@Serializable
+data class ChangementGestionnaire(val user: String, val actif: Boolean)
+
+/** Les réglages d'une conversation (H9) : tout est réservé aux gestionnaires, sauf la sourdine. */
+@Serializable
+data class ModificationConversation(
+    val titre: String? = null,
+    val ajouter: List<String>? = null,
+    val exclure: String? = null,
+    val gestionnaire: ChangementGestionnaire? = null,
+    val silencieux: Boolean? = null,
+)
 
 /**
  * La messagerie du compte connecté (H4 à H8). Le compteur de non-lus est
@@ -160,8 +191,19 @@ class Messagerie(private val api: MoziikApi) {
     suspend fun messages(id: String, avant: String? = null, depuis: String? = null): PageMessages =
         appel { api.messages(id, avant, depuis) }.getOrThrow()
 
-    suspend fun envoyer(id: String, corps: String, partage: PartageEnvoye? = null, repondA: String? = null): MessageFil =
-        appel { api.envoyerMessage(id, NouveauMessage(corps, partage, repondA)).message }.getOrThrow()
+    suspend fun envoyer(id: String, corps: String, partage: PartageEnvoye? = null, repondA: String? = null, pieces: List<Piece> = emptyList()): MessageFil =
+        appel { api.envoyerMessage(id, NouveauMessage(corps, partage, repondA, pieces)).message }.getOrThrow()
+
+    suspend fun creerGroupe(titre: String, membres: List<String>): Conversation =
+        appel { api.creerGroupe(NouveauGroupe(membres = membres, titre = titre.trim().take(60))).conversation }.getOrThrow()
+
+    suspend fun regler(id: String, modification: ModificationConversation): Conversation =
+        appel { api.reglerConversation(id, modification).conversation }.getOrThrow()
+
+    /** Quitter un groupe ; s'il n'y reste plus de gestionnaire, le plus ancien membre le devient (H9). */
+    suspend fun quitter(id: String) {
+        appel { api.quitterConversation(id) }.getOrThrow()
+    }
 
     suspend fun modifier(message: String, corps: String): MessageFil = appel { api.modifierMessage(message, ModificationMessage(corps)).message }.getOrThrow()
 

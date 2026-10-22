@@ -26,6 +26,7 @@ import com.moziik.app.donnees.notifications.Notifications
 import com.moziik.app.donnees.horsligne.AvisTelechargement
 import com.moziik.app.donnees.horsligne.ActionsEnAttente
 import com.moziik.app.donnees.catalogue.Commentaires
+import com.moziik.app.donnees.envoi.EnvoiFichiers
 
 /**
  * Les objets partagés par toute l'app, créés une fois au démarrage du
@@ -46,6 +47,7 @@ class Conteneur(contexte: Context) {
     val compte = Compte(reseau.api)
     val notifications = Notifications(reseau.api)
     val commentaires = Commentaires(reseau.api)
+    val envoi = EnvoiFichiers(reseau.api, reseau.clientPublic)
     val reglages = ReglagesAppareil(contexte)
     /** Messages du service de lecture à l'écran (quota atteint, titre indisponible). */
     val alertes = AlertesLecture()

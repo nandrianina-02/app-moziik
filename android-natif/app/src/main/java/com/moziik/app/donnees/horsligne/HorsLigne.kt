@@ -106,6 +106,8 @@ class HorsLigne(
             }
         }
         portee.launch { compte.premium.collect { if (it) preferences.edit().putBoolean("premium", true).apply() } }
+        // La barre de la notification suit l'avancement du titre en cours.
+        portee.launch { telechargements.enCours.collect { avancements -> avancements.values.firstOrNull()?.let(avis::progression) } }
         reprendre()
         if (!_horsReseau.value) portee.launch { rejouerEnAttente() }
     }
@@ -199,6 +201,7 @@ class HorsLigne(
         while (true) {
             val tache = synchronized(this) { file.firstOrNull() } ?: break
             if (!reseauPermis()) break
+            avis.commence(tache.titre.title, synchronized(this) { file.size } - 1)
             try {
                 telechargements.telecharger(tache.titre, tache.qualite, tache.source)
             } catch (e: TitreIndisponible) {
@@ -231,6 +234,15 @@ class HorsLigne(
                 }
             }
         }
+        // La progression laisse la place : rien ne tourne plus, ou la file attend le réseau.
+        val enAttente = synchronized(this) { file.isNotEmpty() }
+        avis.arrete(
+            when {
+                !enAttente -> null
+                !reglages.reseauDisponible() -> "Ils reprendront au retour du réseau."
+                else -> "Ils reprendront en Wi-Fi (réglage Wi-Fi seulement)."
+            },
+        )
     }
 
     /** Écoutes, j'aime et commentaires faits sans réseau ; un mot quand des commentaires sont partis. */
@@ -273,6 +285,7 @@ class HorsLigne(
 
     private fun oublierCompte() {
         travail?.cancel()
+        avis.arrete()
         majFile { clear() }
         telechargements.toutSupprimer()
         oublierCache()

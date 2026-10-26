@@ -67,7 +67,8 @@ class MainActivity : ComponentActivity() {
                 enableEdgeToEdge(statusBarStyle = transparent, navigationBarStyle = transparent)
             }
 
-            MoziikTheme(preference = theme, mode = mode) {
+            val noir by conteneur.reglages.noirProfond.collectAsStateWithLifecycle()
+            MoziikTheme(preference = theme, mode = mode, noir = noir) {
                 Coquille(
                     sombre = sombre,
                     onBasculerMode = { conteneur.reglages.choisirApparence(if (sombre) "clair" else "sombre") },

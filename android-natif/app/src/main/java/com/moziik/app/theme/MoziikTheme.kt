@@ -24,8 +24,8 @@ val LocalPalette = staticCompositionLocalOf { palette(THEME_PAR_DEFAUT, Mode.SOM
  * de texte, retours tactiles) afin qu'ils parlent la même langue visuelle.
  */
 @Composable
-fun MoziikTheme(preference: PreferenceTheme, mode: Mode, contenu: @Composable () -> Unit) {
-    val p = remember(preference, mode) { palette(preference, mode) }
+fun MoziikTheme(preference: PreferenceTheme, mode: Mode, noir: Boolean = false, contenu: @Composable () -> Unit) {
+    val p = remember(preference, mode, noir) { palette(preference, mode).let { if (noir) it.noirProfond() else it } }
     val schema = if (p.sombre) {
         darkColorScheme(
             primary = p.accent.compose,

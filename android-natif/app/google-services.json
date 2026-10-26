@@ -1,0 +1,48 @@
+{
+  "project_info": {
+    "project_number": "270956677340",
+    "project_id": "moziik",
+    "storage_bucket": "moziik.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:270956677340:android:0f370122e08f80be320c19",
+        "android_client_info": {
+          "package_name": "com.moziik.app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDtTOnweqHFVxryuS1-SMTP5Q3ynxE0P9I"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:270956677340:android:3f32f0ece8ae4849320c19",
+        "android_client_info": {
+          "package_name": "com.moziik.app.test"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDtTOnweqHFVxryuS1-SMTP5Q3ynxE0P9I"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

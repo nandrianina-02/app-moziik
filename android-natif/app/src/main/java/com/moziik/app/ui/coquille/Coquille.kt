@@ -183,6 +183,25 @@ fun Coquille(sombre: Boolean, onBasculerMode: () -> Unit) {
     LaunchedEffect(session) {
         if (session is EtatSession.Connecte && c.push.actif) c.horsLigne.proposerAutorisation()
     }
+    // Une version plus récente publiée sur le site : proposée une fois, au lancement.
+    var nouvelle by remember { mutableStateOf<com.moziik.app.donnees.compte.VersionDisponible?>(null) }
+    LaunchedEffect(Unit) { nouvelle = c.miseAJour.disponible() }
+    val contexteCoquille = androidx.compose.ui.platform.LocalContext.current
+    nouvelle?.let { v ->
+        com.moziik.app.ui.menus.Confirmation(
+            titre = "Nouvelle version de Moziik",
+            texte = "La version ${v.version}${v.tailleMo?.let { t -> " (" + String.format(java.util.Locale.FRANCE, "%.1f", t) + " Mo)" }.orEmpty()} est disponible. Elle s'installe par-dessus celle-ci : tes titres téléchargés et ton compte sont gardés.",
+            action = "Télécharger",
+            onConfirmer = {
+                nouvelle = null
+                com.moziik.app.ui.ouvrirLien(contexteCoquille, v.adresse, p.base.enArgb().toInt())
+            },
+            onFermer = {
+                c.miseAJour.ignorer(v.version)
+                nouvelle = null
+            },
+        )
+    }
     // Une notification touchée : la page dont elle parle, ou la liste des notifications.
     val lienEntrant by c.lienEntrant.collectAsStateWithLifecycle()
     LaunchedEffect(lienEntrant) {

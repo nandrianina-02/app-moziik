@@ -318,6 +318,13 @@ fun EcranApparence(onRetour: () -> Unit) {
         Option("Sombre", null, apparence == "sombre", icone = R.drawable.lucide_moon) { c.reglages.choisirApparence("sombre") }
         Option("Clair", null, apparence == "clair", icone = R.drawable.lucide_sun) { c.reglages.choisirApparence("clair") }
         Option("Comme le téléphone", "Suit le réglage d'Android", apparence == "systeme", icone = R.drawable.lucide_smartphone) { c.reglages.choisirApparence("systeme") }
+        val noir by c.reglages.noirProfond.collectAsStateWithLifecycle()
+        Spacer(Modifier.height(12.dp))
+        com.moziik.app.ui.menus.Interrupteur(noir, "Noir profond en mode sombre") { c.reglages.choisirNoirProfond(it) }
+        Text(
+            "Fond noir pur : sur un écran OLED, les pixels noirs sont éteints et la batterie dure plus longtemps.",
+            style = Texte.secondaire, color = LocalPalette.current.encreAttenuee.compose,
+        )
         Text(
             "Les couleurs suivent le thème du site. Avec Premium, ton thème personnel, réglé sur le site, s'applique aussi ici.",
             style = Texte.secondaire, color = LocalPalette.current.encreAttenuee.compose, modifier = Modifier.padding(top = 8.dp),

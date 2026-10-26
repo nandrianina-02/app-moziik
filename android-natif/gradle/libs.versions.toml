@@ -17,6 +17,9 @@ googleid = "1.1.1"
 coroutines = "1.9.0"
 media3 = "1.5.1"
 firebaseMessaging = "24.1.0"
+firebaseCrashlytics = "19.2.1"
+googleServices = "4.4.2"
+crashlyticsPlugin = "3.0.2"
 junit = "4.13.2"
 
 [libraries]
@@ -49,6 +52,7 @@ androidx-media3-session = { group = "androidx.media3", name = "media3-session", 
 androidx-media3-okhttp = { group = "androidx.media3", name = "media3-datasource-okhttp", version.ref = "media3" }
 junit = { group = "junit", name = "junit", version.ref = "junit" }
 firebase-messaging = { group = "com.google.firebase", name = "firebase-messaging", version.ref = "firebaseMessaging" }
+firebase-crashlytics = { group = "com.google.firebase", name = "firebase-crashlytics", version.ref = "firebaseCrashlytics" }
 kotlinx-coroutines-play-services = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-play-services", version.ref = "coroutines" }
 
 [plugins]
@@ -56,3 +60,5 @@ android-application = { id = "com.android.application", version.ref = "agp" }
 kotlin-android = { id = "org.jetbrains.kotlin.android", version.ref = "kotlin" }
 kotlin-compose = { id = "org.jetbrains.kotlin.plugin.compose", version.ref = "kotlin" }
 kotlin-serialization = { id = "org.jetbrains.kotlin.plugin.serialization", version.ref = "kotlin" }
+google-services = { id = "com.google.gms.google-services", version.ref = "googleServices" }
+firebase-crashlytics = { id = "com.google.firebase.crashlytics", version.ref = "crashlyticsPlugin" }

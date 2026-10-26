@@ -178,6 +178,15 @@ class ReglagesAppareil(private val contexte: Context) {
     fun choisirEconomie(e: String) = ecrire("economie", e).also { _economie.value = e }
     fun choisirApparence(a: String?) = ecrire("apparence", a).also { _apparence.value = a }
 
+    private val _noirProfond = MutableStateFlow(preferences.getBoolean("noirProfond", false))
+    /** Fond noir pur en mode sombre (écrans OLED). */
+    val noirProfond: StateFlow<Boolean> = _noirProfond.asStateFlow()
+
+    fun choisirNoirProfond(oui: Boolean) {
+        preferences.edit().putBoolean("noirProfond", oui).apply()
+        _noirProfond.value = oui
+    }
+
     private val _wifiSeulement = MutableStateFlow(preferences.getBoolean("wifiSeulement", false))
     /** Les téléchargements attendent un réseau non facturé (spécification 6.2). */
     val wifiSeulement: StateFlow<Boolean> = _wifiSeulement.asStateFlow()

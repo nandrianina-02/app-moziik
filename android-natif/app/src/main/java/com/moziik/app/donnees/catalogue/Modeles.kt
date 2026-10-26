@@ -255,6 +255,10 @@ data class ConfigurationSite(
     val aiFeatures: List<String> = emptyList(),
     /** Code ISO de la devise des prix affichés (billetterie). */
     val currency: String = "EUR",
+    /** La dernière version de l'app Android publiée sur le site, et son fichier. */
+    val androidVersion: String? = null,
+    val androidApkUrl: String? = null,
+    val androidSizeMB: Double? = null,
 )
 
 @Serializable

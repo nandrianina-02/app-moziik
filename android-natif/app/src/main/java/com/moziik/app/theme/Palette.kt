@@ -77,6 +77,22 @@ data class Palette(
 private val ENCRE_CLAIRE = Rgb(242.0, 240.0, 233.0) // #F2F0E9
 private val ENCRE_SOMBRE = Rgb(23.0, 26.0, 36.0) // #171A24
 
+/**
+ * Noir profond pour les écrans OLED : le fond passe au noir pur (pixels
+ * éteints, batterie épargnée), surface et filets s'y ajustent ; l'accent
+ * et les encres restent ceux du thème. Sans effet en mode clair.
+ */
+fun Palette.noirProfond(): Palette {
+    if (!sombre) return this
+    val noir = Rgb(0.0, 0.0, 0.0)
+    return copy(
+        base = noir,
+        surface = Rgb(14.0, 14.0, 16.0),
+        bordure = Rgb(34.0, 34.0, 38.0),
+        encreAttenuee = assurerContraste(melange(encre, noir, 0.45), noir, 4.5),
+    )
+}
+
 fun modeApplique(choix: ChoixMode, systemeSombre: Boolean): Mode = when (choix) {
     ChoixMode.SOMBRE -> Mode.SOMBRE
     ChoixMode.CLAIR -> Mode.CLAIR

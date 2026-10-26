@@ -27,6 +27,7 @@ import com.moziik.app.theme.MoziikTheme
 import com.moziik.app.theme.THEME_PAR_DEFAUT
 import com.moziik.app.theme.modeApplique
 import com.moziik.app.ui.coquille.Coquille
+import com.moziik.app.donnees.push.EXTRA_LIEN
 
 /** Une seule activité : tout l'écran est dessiné par Compose, le mini-lecteur reste d'une page à l'autre. */
 class MainActivity : ComponentActivity() {
@@ -34,7 +35,10 @@ class MainActivity : ComponentActivity() {
         installSplashScreen()
         super.onCreate(savedInstanceState)
         // Retour de la connexion Google alors que l'app avait été fermée entre-temps.
-        if (savedInstanceState == null) recevoirRelais(intent)
+        if (savedInstanceState == null) {
+            recevoirRelais(intent)
+            recevoirLien(intent)
+        }
         setContent {
             val conteneur = (application as MoziikApplication).conteneur
             // Le thème du site (ou le thème personnel d'un abonné), gardé pour s'afficher dès le lancement (A5).
@@ -88,6 +92,14 @@ class MainActivity : ComponentActivity() {
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         recevoirRelais(intent)
+        recevoirLien(intent)
+    }
+
+    /** Une notification touchée : la coquille ouvre la page dont elle parle. */
+    private fun recevoirLien(intent: Intent?) {
+        val lien = intent?.getStringExtra(EXTRA_LIEN) ?: return
+        (application as MoziikApplication).conteneur.lienEntrant.value = lien.ifBlank { "/notifications" }
+        intent.removeExtra(EXTRA_LIEN)
     }
 
     /** <schéma>://auth?code=… : le site rend la main après la connexion Google (app/api/mobile-auth/relais). */

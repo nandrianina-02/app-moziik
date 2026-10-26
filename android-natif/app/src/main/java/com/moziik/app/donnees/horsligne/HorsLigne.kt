@@ -84,6 +84,11 @@ class HorsLigne(
      */
     val demandeAutorisation: StateFlow<Boolean> = _demandeAutorisation.asStateFlow()
 
+    /** Demander l'autorisation de notifier si elle n'a jamais été demandée (notifications push). */
+    fun proposerAutorisation() {
+        if (!avis.autorise() && !preferences.getBoolean("autorisationDemandee", false)) _demandeAutorisation.value = true
+    }
+
     fun autorisationDemandee() {
         preferences.edit().putBoolean("autorisationDemandee", true).apply()
         _demandeAutorisation.value = false

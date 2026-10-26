@@ -31,6 +31,7 @@ Elle ne parle au serveur que par l'API HTTP du site, avec les jetons mobiles
 | Commentaires : fiche titre et onglet Avis du lecteur (instant d'écoute, réponses, mentions, suppression des siens), avis des titres sur la fiche album ; j'aime et commentaires faits hors connexion envoyés au retour du réseau | `donnees/catalogue/Commentaires.kt`, `donnees/horsligne/ActionsEnAttente.kt`, `ui/fiches/Commentaires.kt` |
 | Messagerie complète : groupes (création, nom, membres, gestionnaires, quitter), sourdine, photos jointes (réduites puis envoyées par morceaux à Karaks Storage) ; photo de profil | `ui/messages/Groupes.kt`, `donnees/envoi/` |
 | Hors connexion complet : réponses de l'API gardées par compte (réseau d'abord, copie si pas de réseau ou panne du site, 30 jours), bandeau « Mode hors-ligne » ; réactions aux messages en pictogrammes | `donnees/reseau/CacheHorsLigne.kt`, `ui/coquille/Coquille.kt` |
+| Notifications push (Firebase Cloud Messaging, côté site : lib/push.ts) : téléphone inscrit à la connexion et retiré à la déconnexion, notification qui ouvre la page concernée. Inactives tant que `firebase.properties` (projectId, apiKey, senderId, appIdTest, appIdRelease) n'existe pas | `donnees/push/` |
 | Paroles synchronisées dans le lecteur, analysées comme sur le site (LRC, mot à mot) | `donnees/catalogue/Paroles.kt`, `ui/lecteur/PanneauParoles.kt` |
 | Lecteur : Media3 en arrière-plan (notification, écran verrouillé, casque), file prolongée, écoutes déclarées au temps réel, quota des visiteurs | `lecteur/`, `ui/lecteur/` |
 

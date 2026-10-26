@@ -123,7 +123,11 @@ class Session(
      * réseau, la session est oubliée quand même : on ne retient pas
      * quelqu'un qui veut se déconnecter.
      */
+    /** Ce qui doit partir tant que le jeton d'accès vaut encore (retrait du téléphone des notifications push). */
+    var avantDeconnexion: suspend () -> Unit = {}
+
     suspend fun deconnexion() {
+        runCatching { avantDeconnexion() }
         stockage.lire()?.let { session -> appel { api.deconnexion(DemandeRenouvellement(session.refreshToken)) } }
         stockage.effacer()
     }

@@ -179,6 +179,18 @@ fun Coquille(sombre: Boolean, onBasculerMode: () -> Unit) {
         androidx.activity.result.contract.ActivityResultContracts.RequestPermission(),
     ) { c.horsLigne.autorisationDemandee() }
     val aDemander by c.horsLigne.demandeAutorisation.collectAsStateWithLifecycle()
+    // Connecté avec les push actifs : l'autorisation de notifier est proposée une fois (H14).
+    LaunchedEffect(session) {
+        if (session is EtatSession.Connecte && c.push.actif) c.horsLigne.proposerAutorisation()
+    }
+    // Une notification touchée : la page dont elle parle, ou la liste des notifications.
+    val lienEntrant by c.lienEntrant.collectAsStateWithLifecycle()
+    LaunchedEffect(lienEntrant) {
+        val lien = lienEntrant ?: return@LaunchedEffect
+        c.lienEntrant.value = null
+        val cible = com.moziik.app.donnees.catalogue.cibleDe(lien, com.moziik.app.BuildConfig.SITE)
+        if (!navigationFiches.suivre(cible)) navigationFiches.notifications()
+    }
     LaunchedEffect(aDemander) {
         if (aDemander && android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
             demande.launch(android.Manifest.permission.POST_NOTIFICATIONS)

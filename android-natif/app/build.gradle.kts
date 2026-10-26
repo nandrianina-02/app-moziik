@@ -11,6 +11,13 @@ plugins {
 // secrets GitHub, que seul le propriétaire du dépôt renseigne.
 val clePublication: String? = System.getenv("MOZIIK_KEYSTORE_FILE")
 
+// Identifiants du projet Firebase (notifications push), publics par nature : ils
+// sont dans chaque APK. Absents, les notifications push restent inactives.
+val proprietesFirebase = java.util.Properties().apply {
+    rootProject.file("firebase.properties").takeIf { it.exists() }?.inputStream()?.use { load(it) }
+}
+fun firebase(cle: String) = "\"" + proprietesFirebase.getProperty(cle, "") + "\""
+
 android {
     namespace = "com.moziik.app"
     compileSdk = 35
@@ -22,14 +29,17 @@ android {
         minSdk = 22
         targetSdk = 35
         // Supérieur à celui de l'app Capacitor (1) : sinon Android refuse la mise à jour.
-        versionCode = 17
-        versionName = "2.13.0"
+        versionCode = 18
+        versionName = "2.14.0"
         vectorDrawables.useSupportLibrary = true
         // Le site en production : l'app ne parle qu'à son API HTTP.
         buildConfigField("String", "SITE", "\"https://app-moziik.vercel.app/\"")
         // Identifiant client web du site (public) : la connexion Google intégrée à Android le
         // déclare comme serveur, et le site vérifie que le jeton lui est bien destiné.
         buildConfigField("String", "GOOGLE_CLIENT_WEB", "\"713014071124-c4l9ohq92q84idjl6v1t1o0arnba8d98.apps.googleusercontent.com\"")
+        buildConfigField("String", "FIREBASE_PROJET", firebase("projectId"))
+        buildConfigField("String", "FIREBASE_CLE", firebase("apiKey"))
+        buildConfigField("String", "FIREBASE_EXPEDITEUR", firebase("senderId"))
     }
 
     signingConfigs {
@@ -63,6 +73,8 @@ android {
             resValue("string", "app_name", "Moziik test")
             manifestPlaceholders["schemaRelais"] = "moziik-test"
             buildConfigField("String", "RELAIS", "\"android-test\"")
+            // Une appli Firebase par identifiant : la version de test a la sienne.
+            buildConfigField("String", "FIREBASE_APP", firebase("appIdTest"))
             // Non débogable : sinon Android n'optimise pas le code et l'interface défile
             // plusieurs fois plus lentement qu'elle ne le fera chez les auditeurs. La
             // version de test doit donner une idée juste de la fluidité. Personne ne la
@@ -76,6 +88,7 @@ android {
             resValue("string", "app_name", "Moziik")
             manifestPlaceholders["schemaRelais"] = "moziik"
             buildConfigField("String", "RELAIS", "\"android\"")
+            buildConfigField("String", "FIREBASE_APP", firebase("appIdRelease"))
             if (clePublication != null) signingConfig = signingConfigs.getByName("release")
         }
     }
@@ -118,6 +131,8 @@ dependencies {
     implementation(libs.androidx.media3.exoplayer)
     implementation(libs.androidx.media3.session)
     implementation(libs.androidx.media3.okhttp)
+    implementation(libs.firebase.messaging)
+    implementation(libs.kotlinx.coroutines.play.services)
 
     testImplementation(libs.junit)
     testImplementation(libs.okhttp.mockwebserver)

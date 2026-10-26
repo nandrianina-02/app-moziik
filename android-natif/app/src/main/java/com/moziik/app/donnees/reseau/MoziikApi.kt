@@ -75,6 +75,8 @@ import com.moziik.app.donnees.messagerie.ModificationConversation
 import com.moziik.app.donnees.envoi.AnnonceFichier
 import com.moziik.app.donnees.envoi.OuvertureEnvoi
 import com.moziik.app.donnees.messagerie.ReactionEnvoyee
+import com.moziik.app.donnees.push.AppareilPush
+import com.moziik.app.donnees.push.JetonPush
 
 /**
  * Les routes du site utilisées par l'app, telles qu'elles existent
@@ -389,6 +391,13 @@ interface MoziikApi {
     /** Groupes seulement. */
     @DELETE("api/messagerie/conversations/{id}")
     suspend fun quitterConversation(@Path("id") id: String)
+
+    /** Ce téléphone reçoit les notifications push du compte (H14). */
+    @POST("api/me/appareils-push")
+    suspend fun inscrireAppareil(@Body corps: AppareilPush)
+
+    @HTTP(method = "DELETE", path = "api/me/appareils-push", hasBody = true)
+    suspend fun retirerAppareil(@Body corps: JetonPush)
 
     /** Ouvre un envoi de fichier chez Karaks Storage (K2). */
     @POST("api/fichiers/envoi")

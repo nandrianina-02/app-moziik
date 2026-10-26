@@ -48,8 +48,11 @@
             android:name=".lecteur.ServiceLecture"
             android:exported="true"
             android:foregroundServiceType="mediaPlayback">
+            <!-- MediaLibraryService : la lecture, et les listes que parcourt Android Auto. -->
             <intent-filter>
+                <action android:name="androidx.media3.session.MediaLibraryService" />
                 <action android:name="androidx.media3.session.MediaSessionService" />
+                <action android:name="android.media.browse.MediaBrowserService" />
             </intent-filter>
         </service>
         <!-- Notifications push du site (Firebase Cloud Messaging). -->
@@ -60,6 +63,22 @@
                 <action android:name="com.google.firebase.MESSAGING_EVENT" />
             </intent-filter>
         </service>
+        <!-- Le gadget de l'écran d'accueil : titre en cours et commandes. -->
+        <receiver
+            android:name=".lecteur.GadgetLecture"
+            android:exported="false"
+            android:label="Lecture Moziik">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/gadget_lecture" />
+        </receiver>
+        <!-- Android Auto : déclare Moziik comme application multimédia. -->
+        <meta-data
+            android:name="com.google.android.gms.car.application"
+            android:resource="@xml/automotive_app_desc" />
         <!-- Partage d'un titre en image : la carte est écrite dans le cache, puis prêtée à l'application choisie. -->
         <provider
             android:name="androidx.core.content.FileProvider"

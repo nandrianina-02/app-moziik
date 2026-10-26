@@ -54,6 +54,7 @@ import com.moziik.app.donnees.compte.ChoixUnivers
 import com.moziik.app.donnees.compte.ConfigurationTheme
 import com.moziik.app.donnees.compte.EtatAbonnement
 import com.moziik.app.donnees.compte.StatistiquesArtiste
+import com.moziik.app.donnees.compte.Bilan
 import com.moziik.app.donnees.compte.ModeCourant
 import com.moziik.app.donnees.compte.ModificationProfil
 import com.moziik.app.donnees.compte.ThemesCompte
@@ -299,6 +300,9 @@ interface MoziikApi {
 
     @GET("api/me/subscription")
     suspend fun abonnement(): EtatAbonnement
+
+    @GET("api/me/bilan")
+    suspend fun bilan(@Query("annee") annee: Int): Bilan
 
     /** Réservé au compte artiste : 404 sans profil artiste. */
     @GET("api/artist/stats")

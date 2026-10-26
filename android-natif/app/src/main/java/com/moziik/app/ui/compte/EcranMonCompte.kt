@@ -145,6 +145,7 @@ private val ESPACE_ARTISTE = Rubrique("compte/artiste", R.drawable.lucide_chart_
 
 /** Les rubriques du compte, dans l'ordre où on les cherche. */
 private val RUBRIQUES = listOf(
+    Rubrique("compte/bilan", R.drawable.lucide_calendar_days, "Ton année", "Tes titres, artistes et genres de l'année"),
     Rubrique("compte/profil", R.drawable.lucide_user_round_pen, "Profil", "Nom affiché, nom d'utilisateur"),
     Rubrique("compte/preferences", R.drawable.lucide_sliders_horizontal, "Préférences", "Univers musical, mode d'écoute"),
     Rubrique("compte/lecture", R.drawable.lucide_headphones, "Lecture", "Qualité d'écoute, économie de données"),

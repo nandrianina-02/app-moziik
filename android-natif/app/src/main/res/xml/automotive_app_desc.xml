@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Android Auto : Moziik est une application multimédia (lecture et navigation dans les listes). -->
+<automotiveApp>
+    <uses name="media" />
+</automotiveApp>

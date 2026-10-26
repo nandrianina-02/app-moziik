@@ -1,0 +1,83 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Le gadget de lecture : pochette, titre et artiste, puis les commandes. Fond sombre uni, une seule pastille claire pour l'action principale. -->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/gadget_racine"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@drawable/gadget_fond"
+    android:gravity="center_vertical"
+    android:orientation="horizontal"
+    android:padding="10dp">
+
+    <ImageView
+        android:id="@+id/gadget_pochette"
+        android:layout_width="52dp"
+        android:layout_height="52dp"
+        android:contentDescription="@null"
+        android:scaleType="centerCrop"
+        android:src="@drawable/gadget_pochette_vide" />
+
+    <LinearLayout
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="12dp"
+        android:layout_weight="1"
+        android:orientation="vertical">
+
+        <TextView
+            android:id="@+id/gadget_titre"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:ellipsize="end"
+            android:maxLines="1"
+            android:text="Moziik"
+            android:textColor="#FFFFFFFF"
+            android:textSize="14sp"
+            android:textStyle="bold" />
+
+        <TextView
+            android:id="@+id/gadget_artiste"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="2dp"
+            android:ellipsize="end"
+            android:maxLines="1"
+            android:text="Touchez pour écouter"
+            android:textColor="#B3FFFFFF"
+            android:textSize="12sp" />
+    </LinearLayout>
+
+    <ImageView
+        android:id="@+id/gadget_precedent"
+        android:layout_width="40dp"
+        android:layout_height="40dp"
+        android:background="@drawable/gadget_touche"
+        android:contentDescription="Titre précédent"
+        android:padding="10dp"
+        android:src="@drawable/lucide_skip_back_plein"
+        android:tint="#FFFFFFFF"
+        android:visibility="gone" />
+
+    <ImageView
+        android:id="@+id/gadget_lecture"
+        android:layout_width="40dp"
+        android:layout_height="40dp"
+        android:layout_marginStart="4dp"
+        android:layout_marginEnd="4dp"
+        android:background="@drawable/gadget_bouton_principal"
+        android:contentDescription="Lecture"
+        android:padding="11dp"
+        android:src="@drawable/lucide_play_plein"
+        android:tint="#FF141416" />
+
+    <ImageView
+        android:id="@+id/gadget_suivant"
+        android:layout_width="40dp"
+        android:layout_height="40dp"
+        android:background="@drawable/gadget_touche"
+        android:contentDescription="Titre suivant"
+        android:padding="10dp"
+        android:src="@drawable/lucide_skip_forward_plein"
+        android:tint="#FFFFFFFF"
+        android:visibility="gone" />
+</LinearLayout>

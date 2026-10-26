@@ -8,6 +8,7 @@ import androidx.core.content.ContextCompat
 import androidx.media3.common.C
 import androidx.media3.common.Player
 import androidx.media3.session.MediaController
+import androidx.media3.session.MediaSession
 import androidx.media3.session.SessionToken
 import com.google.common.util.concurrent.ListenableFuture
 import com.moziik.app.donnees.catalogue.Titre
@@ -59,10 +60,7 @@ class Lecteur(private val contexte: Context, private val site: String) {
 
     // ------------------------------------------------------------ Reprise (E10)
 
-    @Serializable
-    private data class Reprise(val file: List<TitreLu>, val index: Int, val positionMs: Long)
-
-    private val fichierReprise = File(contexte.filesDir, "reprise-lecture.json")
+    private val fichierReprise = fichierDeReprise(contexte)
     private var repriseFaite = false
     private val minuterie = Handler(Looper.getMainLooper())
     /** La position, toutes les 5 secondes pendant la lecture : une coupure brutale ne la perd pas. */
@@ -89,12 +87,8 @@ class Lecteur(private val contexte: Context, private val site: String) {
         if (repriseFaite) return
         repriseFaite = true
         if (c.mediaItemCount > 0) return
-        val reprise = runCatching { JsonMoziik.decodeFromString(Reprise.serializer(), fichierReprise.readText()) }.getOrNull() ?: return
-        if (reprise.file.isEmpty()) return
-        val index = reprise.index.coerceIn(0, reprise.file.lastIndex)
-        val dureeMs = (reprise.file[index].dureeSecondes * 1000).toLong()
-        val position = reprise.positionMs.takeIf { it > 1_000 && (dureeMs <= 0 || it < dureeMs - 5_000) } ?: 0L
-        c.setMediaItems(reprise.file.map { it.versElement(site) }, index, position)
+        val reprise = repriseSauvegardee(contexte, site) ?: return
+        c.setMediaItems(reprise.mediaItems, reprise.startIndex, reprise.startPositionMs)
     }
 
     fun connecter() {
@@ -264,4 +258,25 @@ class Lecteur(private val contexte: Context, private val site: String) {
         const val SUIVANTS_MAX = 30
         const val SAUVEGARDE_MS = 5_000L
     }
+}
+
+@Serializable
+internal data class Reprise(val file: List<TitreLu>, val index: Int, val positionMs: Long)
+
+internal fun fichierDeReprise(contexte: Context) = File(contexte.filesDir, "reprise-lecture.json")
+
+/**
+ * La dernière file sauvegardée, prête à rejouer : par l'app au lancement,
+ * et par le service quand la lecture reprend sans elle (casque Bluetooth,
+ * Android Auto, gadget de l'écran d'accueil). Pas de reprise de position
+ * sous une seconde d'écoute ni dans les cinq dernières secondes d'un titre (E10).
+ */
+@androidx.annotation.OptIn(androidx.media3.common.util.UnstableApi::class)
+internal fun repriseSauvegardee(contexte: Context, site: String): MediaSession.MediaItemsWithStartPosition? {
+    val reprise = runCatching { JsonMoziik.decodeFromString(Reprise.serializer(), fichierDeReprise(contexte).readText()) }.getOrNull() ?: return null
+    if (reprise.file.isEmpty()) return null
+    val index = reprise.index.coerceIn(0, reprise.file.lastIndex)
+    val dureeMs = (reprise.file[index].dureeSecondes * 1000).toLong()
+    val position = reprise.positionMs.takeIf { it > 1_000 && (dureeMs <= 0 || it < dureeMs - 5_000) } ?: 0L
+    return MediaSession.MediaItemsWithStartPosition(reprise.file.map { it.versElement(site) }, index, position)
 }

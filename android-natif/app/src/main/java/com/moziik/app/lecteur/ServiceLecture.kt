@@ -22,7 +22,13 @@ import androidx.media3.exoplayer.upstream.DefaultLoadErrorHandlingPolicy
 import androidx.media3.exoplayer.upstream.LoadErrorHandlingPolicy
 import androidx.media3.session.DefaultMediaNotificationProvider
 import androidx.media3.session.MediaSession
-import androidx.media3.session.MediaSessionService
+import androidx.media3.session.LibraryResult
+import androidx.media3.session.MediaLibraryService
+import androidx.media3.session.MediaLibraryService.LibraryParams
+import androidx.media3.session.MediaLibraryService.MediaLibrarySession
+import androidx.media3.session.SessionError
+import com.google.common.collect.ImmutableList
+import com.google.common.util.concurrent.SettableFuture
 import com.google.common.util.concurrent.Futures
 import com.google.common.util.concurrent.ListenableFuture
 import com.moziik.app.BuildConfig
@@ -61,8 +67,9 @@ private fun Throwable.chaine(): List<Throwable> = generateSequence(this) { it.ca
  * arrière-plan.
  */
 @OptIn(UnstableApi::class)
-class ServiceLecture : MediaSessionService() {
-    private var session: MediaSession? = null
+class ServiceLecture : MediaLibraryService() {
+    private var session: MediaLibrarySession? = null
+    private lateinit var arborescence: ArborescenceAuto
     private val portee = MainScope()
     private val compteur = CompteurEcoute()
     private val historique = ArrayDeque<String>()
@@ -81,6 +88,7 @@ class ServiceLecture : MediaSessionService() {
         val c = conteneur
         resolution = ResolutionFlux(c.reseau.client, BuildConfig.SITE, estVisiteur = { c.session.etat.value is EtatSession.Anonyme })
         prolongement = Prolongement(c.reseau.api, c.catalogue::univers, c.catalogue::mode)
+        arborescence = ArborescenceAuto(c, BuildConfig.SITE)
 
         // Un titre téléchargé se lit depuis le téléphone, sans passer par le site (spécification 6.2) :
         // DefaultDataSource lit les fichiers locaux et confie le reste à OkHttp.
@@ -107,8 +115,7 @@ class ServiceLecture : MediaSessionService() {
             Intent(this, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP),
             PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
         )
-        session = MediaSession.Builder(this, joueur)
-            .setCallback(Rappels())
+        session = MediaLibrarySession.Builder(this, joueur, Rappels())
             .setSessionActivity(ouvrirApp)
             .build()
 
@@ -145,7 +152,7 @@ class ServiceLecture : MediaSessionService() {
         }
     }
 
-    override fun onGetSession(controllerInfo: MediaSession.ControllerInfo): MediaSession? = session
+    override fun onGetSession(controllerInfo: MediaSession.ControllerInfo): MediaLibrarySession? = session
 
     /**
      * L'app retirée des applications récentes : la musique en cours
@@ -160,6 +167,7 @@ class ServiceLecture : MediaSessionService() {
     }
 
     override fun onDestroy() {
+        GadgetLecture.auRepos(this)
         declarer(compteur.terminer(SystemClock.elapsedRealtime()))
         session?.run {
             player.release()
@@ -183,18 +191,92 @@ class ServiceLecture : MediaSessionService() {
         }
     }
 
-    /** Les éléments envoyés par l'écran arrivent sans adresse : on la repose ici, toujours /api/stream. */
-    private inner class Rappels : MediaSession.Callback {
+    /**
+     * Les éléments envoyés par l'écran, Android Auto ou un casque arrivent
+     * sans adresse : on la repose ici, toujours /api/stream. Android Auto
+     * n'envoie parfois que l'identifiant : les métadonnées viennent alors
+     * de la liste qu'on lui a servie.
+     */
+    private fun complet(element: MediaItem): MediaItem {
+        val base = if (element.mediaMetadata.title == null) arborescence.element(element.mediaId) ?: element else element
+        return base.buildUpon().setUri(adresseFlux(BuildConfig.SITE, base.mediaId, conteneur.reglages.qualiteEffective())).build()
+    }
+
+    private inner class Rappels : MediaLibrarySession.Callback {
         override fun onAddMediaItems(
             mediaSession: MediaSession,
             controller: MediaSession.ControllerInfo,
             mediaItems: MutableList<MediaItem>,
-        ): ListenableFuture<MutableList<MediaItem>> = Futures.immediateFuture(
-            mediaItems.map { it.buildUpon().setUri(adresseFlux(BuildConfig.SITE, it.mediaId, conteneur.reglages.qualiteEffective())).build() }.toMutableList(),
+        ): ListenableFuture<MutableList<MediaItem>> = Futures.immediateFuture(mediaItems.map(::complet).toMutableList())
+
+        override fun onSetMediaItems(
+            mediaSession: MediaSession,
+            controller: MediaSession.ControllerInfo,
+            mediaItems: MutableList<MediaItem>,
+            startIndex: Int,
+            startPositionMs: Long,
+        ): ListenableFuture<MediaSession.MediaItemsWithStartPosition> {
+            // Android Auto envoie le seul titre touché : on joue toute sa liste à partir de lui, comme dans l'app.
+            val seul = mediaItems.singleOrNull()
+            val liste = if (seul != null && controller.packageName != packageName) arborescence.listeDe(seul.mediaId) else null
+            val resultat = if (liste != null) {
+                MediaSession.MediaItemsWithStartPosition(liste.first.map(::complet), liste.second, C.TIME_UNSET)
+            } else {
+                MediaSession.MediaItemsWithStartPosition(mediaItems.map(::complet), startIndex, startPositionMs)
+            }
+            return Futures.immediateFuture(resultat)
+        }
+
+        /** Lecture demandée sans file (casque Bluetooth, voiture, gadget) : la dernière file reprend. */
+        override fun onPlaybackResumption(
+            mediaSession: MediaSession,
+            controller: MediaSession.ControllerInfo,
+        ): ListenableFuture<MediaSession.MediaItemsWithStartPosition> =
+            repriseSauvegardee(this@ServiceLecture, BuildConfig.SITE)?.let { Futures.immediateFuture(it) }
+                ?: Futures.immediateFailedFuture(UnsupportedOperationException("Aucune file à reprendre"))
+
+        override fun onGetLibraryRoot(
+            session: MediaLibrarySession,
+            browser: MediaSession.ControllerInfo,
+            params: LibraryParams?,
+        ): ListenableFuture<LibraryResult<MediaItem>> = Futures.immediateFuture(LibraryResult.ofItem(arborescence.racine, params))
+
+        override fun onGetItem(
+            session: MediaLibrarySession,
+            browser: MediaSession.ControllerInfo,
+            mediaId: String,
+        ): ListenableFuture<LibraryResult<MediaItem>> = Futures.immediateFuture(
+            arborescence.element(mediaId)?.let { LibraryResult.ofItem(it, null) } ?: LibraryResult.ofError(SessionError.ERROR_BAD_VALUE),
         )
+
+        override fun onGetChildren(
+            session: MediaLibrarySession,
+            browser: MediaSession.ControllerInfo,
+            parentId: String,
+            page: Int,
+            pageSize: Int,
+            params: LibraryParams?,
+        ): ListenableFuture<LibraryResult<ImmutableList<MediaItem>>> {
+            val futur = SettableFuture.create<LibraryResult<ImmutableList<MediaItem>>>()
+            portee.launch {
+                val resultat = runCatching { arborescence.enfants(parentId) }.fold(
+                    { LibraryResult.ofItemList(paginer(it, page, pageSize), params) },
+                    // Sans réseau, une liste du site ne vient pas : Android Auto l'annonce, les téléchargements restent.
+                    { LibraryResult.ofError(SessionError.ERROR_IO) },
+                )
+                futur.set(resultat)
+            }
+            return futur
+        }
     }
 
     private inner class Ecouteur(private val joueur: ExoPlayer) : Player.Listener {
+        override fun onEvents(player: Player, events: Player.Events) {
+            if (events.containsAny(Player.EVENT_MEDIA_ITEM_TRANSITION, Player.EVENT_IS_PLAYING_CHANGED, Player.EVENT_MEDIA_METADATA_CHANGED, Player.EVENT_TIMELINE_CHANGED)) {
+                GadgetLecture.actualiser(this@ServiceLecture, joueur, portee)
+            }
+        }
+
         override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
             // « Fin du titre » : le titre suivant ne démarre pas.
             if (reason == Player.MEDIA_ITEM_TRANSITION_REASON_AUTO && conteneur.veille.veille.value == Veille.FinDuTitre) {

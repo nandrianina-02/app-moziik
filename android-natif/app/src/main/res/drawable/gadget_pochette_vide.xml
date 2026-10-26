@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Sans pochette (repos, chargement) : un carré neutre et la note de Lucide « music-2 ». -->
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+    <item>
+        <shape android:shape="rectangle">
+            <solid android:color="#FF26262A" />
+            <corners android:radius="9dp" />
+        </shape>
+    </item>
+    <item android:drawable="@drawable/gadget_note" android:top="14dp" android:bottom="14dp" android:left="14dp" android:right="14dp" />
+</layer-list>

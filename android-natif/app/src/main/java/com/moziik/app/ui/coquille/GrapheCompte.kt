@@ -17,6 +17,7 @@ import com.moziik.app.ui.compte.EcranMotDePasseOublie
 import com.moziik.app.ui.compte.AvecProfil
 import com.moziik.app.ui.compte.EcranAbonnement
 import com.moziik.app.ui.compte.EcranEspaceArtiste
+import com.moziik.app.ui.compte.EcranBilan
 import com.moziik.app.ui.compte.EcranApparence
 import com.moziik.app.ui.compte.EcranLecture
 import com.moziik.app.ui.compte.EcranMonCompte
@@ -60,6 +61,7 @@ fun NavGraphBuilder.grapheCompte(navigation: NavController) {
         composable("compte/apparence") { EcranApparence(retour) }
         composable("compte/abonnement") { EcranAbonnement(retour) }
         composable("compte/artiste") { EcranEspaceArtiste(retour) }
+        composable("compte/bilan") { EcranBilan(retour) }
         composable("compte/securite") {
             AvecProfil(retour) { profil -> EcranSecurite(profil.user.hasPassword, retour) }
         }

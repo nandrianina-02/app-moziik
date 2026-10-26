@@ -263,6 +263,10 @@ class Catalogue(
     suspend fun populaires(): List<Titre> =
         appel { api.classement("month", "songs", univers()) }.getOrThrow().ranking.take(6).mapNotNull { it.versTitre() }
 
+    /** Les titres les plus écoutés de la semaine : la liste « Tendances » d'Android Auto. */
+    suspend fun tendances(): List<Titre> =
+        appel { api.classement("week", "songs", univers()) }.getOrThrow().ranking.mapNotNull { it.versTitre() }.filter { it.publie }
+
     // ------------------------------------------------------------ Découvrir
 
     suspend fun classement(periode: String, type: String, genre: String?): Classement =

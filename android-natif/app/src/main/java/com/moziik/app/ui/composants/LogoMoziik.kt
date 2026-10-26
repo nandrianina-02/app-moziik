@@ -203,3 +203,12 @@ private fun DrawScope.dessiner(t: Float, encre: Color, coloris: Coloris, fondu: 
         }
     }
 }
+
+/** Proportions du logo entier, pour lui réserver sa place hors de Compose. */
+internal const val RAPPORT_LOGO = LARGEUR / HAUTEUR
+
+/**
+ * Le logo entier, immobile, pour une image dessinée hors écran (la carte de
+ * partage) : la déclinaison pour fond sombre de l'accent donné.
+ */
+internal fun DrawScope.logoEntier(encre: Color, accent: Color) = dessiner(ENTIER, encre, colorisDu(accent, sombre = true), fondu = false)

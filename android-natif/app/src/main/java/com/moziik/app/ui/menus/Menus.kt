@@ -76,6 +76,7 @@ import com.moziik.app.ui.conteneur
 import com.moziik.app.ui.horsligne.reagirAuRefus
 import com.moziik.app.ui.navigation
 import com.moziik.app.ui.partager
+import com.moziik.app.ui.partagerEnImage
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
 import com.moziik.app.donnees.horsligne.ActionGardee
@@ -329,6 +330,15 @@ private fun MenuTitre(titre: Titre, menus: Menus) {
                 partager(contexte, "son/${titre.id}", titre.title)
                 c.portee.launch { appel { c.reseau.api.partage(titre.id) } }
                 fermer()
+            }
+            if (titre.publie) {
+                LigneMenu(R.drawable.lucide_image, "Partager en image") {
+                    fermer()
+                    c.portee.launch {
+                        partagerEnImage(contexte, titre, p.accent.compose)
+                        appel { c.reseau.api.partage(titre.id) }
+                    }
+                }
             }
             LigneMenu(R.drawable.lucide_music_2, "Voir le titre") {
                 fermer()

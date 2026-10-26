@@ -74,7 +74,7 @@ import com.moziik.app.ui.composants.Avatar
 
 /** Les écrans d'une rubrique du compte : retour, titre, contenu défilant. */
 @Composable
-private fun PageReglage(titre: String, onRetour: () -> Unit, contenu: @Composable () -> Unit) {
+internal fun PageReglage(titre: String, onRetour: () -> Unit, contenu: @Composable () -> Unit) {
     val p = LocalPalette.current
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
         BarreRetour(onRetour)

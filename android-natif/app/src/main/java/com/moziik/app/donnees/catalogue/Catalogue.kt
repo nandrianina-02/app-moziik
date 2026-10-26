@@ -334,6 +334,22 @@ class Catalogue(
 
     suspend fun artiste(id: String): ReponseArtiste = appel { api.artiste(id) }.getOrThrow()
 
+    /**
+     * La radio d'un artiste : ses titres mélangés, et des titres proches de
+     * ses trois plus écoutés. Une recherche de titres proches qui échoue
+     * n'empêche pas la radio : elle se contente alors de l'artiste.
+     */
+    suspend fun radioArtiste(r: ReponseArtiste): List<Titre> = coroutineScope {
+        val siens = titresDeLArtiste(r)
+        val proches = siens.take(3)
+            .map { graine -> async { runCatching { similaires(graine.id) }.getOrDefault(emptyList()) } }
+            .awaitAll()
+            .flatten()
+            .shuffled()
+        // Le titre le plus écouté ouvre la radio ; la suite est mélangée pour qu'elle change à chaque lancement.
+        entrelacerRadio(siens.take(1) + siens.drop(1).shuffled(), proches)
+    }
+
     /** Faux pour un visiteur : il n'a ni albums enregistrés ni artistes suivis. */
     suspend fun albumEnregistre(id: String): Boolean =
         compte() != null && appel { api.albumsEnregistres().albums }.getOrDefault(emptyList()).any { it.id == id }

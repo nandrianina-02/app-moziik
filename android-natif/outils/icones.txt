@@ -137,3 +137,8 @@ megaphone
 # Lecteur plein écran
 timer
 gauge
+
+# Espace artiste, radio, partage
+chart-column
+image
+circle-check

@@ -53,6 +53,7 @@ import com.moziik.app.donnees.compte.ChoixMode
 import com.moziik.app.donnees.compte.ChoixUnivers
 import com.moziik.app.donnees.compte.ConfigurationTheme
 import com.moziik.app.donnees.compte.EtatAbonnement
+import com.moziik.app.donnees.compte.StatistiquesArtiste
 import com.moziik.app.donnees.compte.ModeCourant
 import com.moziik.app.donnees.compte.ModificationProfil
 import com.moziik.app.donnees.compte.ThemesCompte
@@ -298,6 +299,10 @@ interface MoziikApi {
 
     @GET("api/me/subscription")
     suspend fun abonnement(): EtatAbonnement
+
+    /** Réservé au compte artiste : 404 sans profil artiste. */
+    @GET("api/artist/stats")
+    suspend fun statistiquesArtiste(@Query("jours") jours: Int): StatistiquesArtiste
 
     @GET("api/me/sessions")
     suspend fun appareils(): Appareils

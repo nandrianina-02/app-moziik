@@ -114,7 +114,9 @@ private fun FicheCompte(profil: Profil, deconnexionEnCours: Boolean, onDeconnexi
 
         Spacer(Modifier.height(24.dp))
         Column(Modifier.fillMaxWidth().apparition(7)) {
-            RUBRIQUES.forEach { (route, icone, titre, detail) -> LigneRubrique(icone, titre, detail) { onOuvrir(route) } }
+            // L'espace artiste en tête pour un compte artiste : c'est la rubrique qu'il ouvre le plus.
+            val rubriques = if (u.role == "artist") listOf(ESPACE_ARTISTE) + RUBRIQUES else RUBRIQUES
+            rubriques.forEach { (route, icone, titre, detail) -> LigneRubrique(icone, titre, detail) { onOuvrir(route) } }
         }
 
         Spacer(Modifier.height(24.dp))
@@ -138,6 +140,8 @@ private fun Avatar(nom: String, adresse: String?, modifier: Modifier = Modifier)
 }
 
 private data class Rubrique(val route: String, val icone: Int, val titre: String, val detail: String)
+
+private val ESPACE_ARTISTE = Rubrique("compte/artiste", R.drawable.lucide_chart_column, "Espace artiste", "Écoutes, auditeurs, titres les plus écoutés")
 
 /** Les rubriques du compte, dans l'ordre où on les cherche. */
 private val RUBRIQUES = listOf(

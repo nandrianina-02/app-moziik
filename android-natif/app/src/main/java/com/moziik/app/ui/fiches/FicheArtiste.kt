@@ -97,6 +97,7 @@ private fun CorpsArtiste(donnees: DonneesArtiste, onRetour: () -> Unit) {
     var suivi by remember(donnees) { mutableStateOf(donnees.suivi) }
     var abonnes by remember(donnees) { mutableIntStateOf(artiste.followersCount) }
     var bascule by remember { mutableStateOf(false) }
+    var radio by remember { mutableStateOf(false) }
 
     LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = 32.dp)) {
         item(key = "retour") { BarreRetour(onRetour) }
@@ -135,6 +136,25 @@ private fun CorpsArtiste(donnees: DonneesArtiste, onRetour: () -> Unit) {
                         }
                     },
                 )
+                if (tous.isNotEmpty()) {
+                    BoutonFiche(
+                        // Sans libellé : quatre boutons titrés ne tiennent pas sur un téléphone étroit.
+                        R.drawable.lucide_radio, null,
+                        chargement = radio,
+                        description = "Radio de ${artiste.stageName}",
+                        onClick = {
+                            if (!radio) {
+                                radio = true
+                                portee.launch {
+                                    runCatching { c.catalogue.radioArtiste(r) }
+                                        .onSuccess { c.lecteur.lire(it, 0, "Radio ${artiste.stageName}") }
+                                        .onFailure { c.alertes.signaler(AlerteLecture.Message(messageErreur(it))) }
+                                    radio = false
+                                }
+                            }
+                        },
+                    )
+                }
                 BoutonFiche(R.drawable.lucide_share_2, null, onClick = { partager(contexte, "artiste/${artiste.id}", artiste.stageName) }, description = "Partager")
             }
         }

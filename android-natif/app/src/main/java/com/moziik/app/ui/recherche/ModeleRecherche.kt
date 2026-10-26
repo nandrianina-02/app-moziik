@@ -20,6 +20,8 @@ import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import com.moziik.app.donnees.catalogue.Resultat
+import com.moziik.app.donnees.horsligne.rechercheLocale
 
 /** Les filtres de la recherche du site, sans Évènements tant que l'app n'a pas leur écran. */
 enum class TypeRecherche(val cle: String, val libelle: String) {
@@ -37,7 +39,24 @@ data class EtatRecherche(
     val erreur: String? = null,
     val page: Int = 1,
     val chargementSuite: Boolean = false,
+    /** Sans réseau : les titres téléchargés qui correspondent (6.4). */
+    val locaux: List<Titre>? = null,
 )
+
+/** Au plus cinq raccourcis vers les meilleurs résultats, pour ouvrir directement ce qu'on cherchait. */
+fun suggestionsDe(resultats: Resultats?): List<Resultat> {
+    if (resultats == null) return emptyList()
+    val tous = listOfNotNull(resultats.meilleur) + resultats.sections.flatMap { it.resultats.take(2) }
+    return tous.distinctBy {
+        when (it) {
+            is Resultat.DeTitre -> "t" + it.titre.id
+            is Resultat.DArtiste -> "a" + it.artiste.id
+            is Resultat.DAlbum -> "l" + it.album.id
+            is Resultat.DePlaylist -> "p" + it.playlist.id
+            is Resultat.DeGenre -> "g" + it.nom
+        }
+    }.take(5)
+}
 
 @OptIn(FlowPreview::class)
 /** La recherche par description (D6) : proposée seulement quand la recherche classique trouve peu. */
@@ -56,7 +75,14 @@ class ModeleRecherche(
     private val catalogue: Catalogue,
     private val historique: HistoriqueRecherche,
     private val ia: FonctionsIA,
+    /** Les titres téléchargés et l'état du réseau : sans réseau, la recherche se fait sur le téléphone. */
+    private val telecharges: () -> List<Titre> = { emptyList() },
+    private val horsReseau: () -> Boolean = { false },
 ) : ViewModel() {
+    /** Les recherches récentes : revenir sur un terme (effacer une lettre) est instantané. */
+    private val cache = object : LinkedHashMap<String, Pair<Resultats, Long>>(32, 0.75f, true) {
+        override fun removeEldestEntry(eldest: MutableMap.MutableEntry<String, Pair<Resultats, Long>>?) = size > 40
+    }
     private val _rechercheIA = MutableStateFlow<EtatRechercheIA>(EtatRechercheIA.Aucune)
     val rechercheIA: StateFlow<EtatRechercheIA> = _rechercheIA.asStateFlow()
 
@@ -74,8 +100,9 @@ class ModeleRecherche(
 
     init {
         viewModelScope.launch {
-            // 420 ms après la dernière frappe, comme le site ; un changement de filtre relance aussitôt.
-            combine(_terme.debounce { if (it.isBlank()) 0L else 420L }, _type) { t, ty -> t.trim() to ty }
+            // 250 ms après la dernière frappe (le site attend 420 ms) : les résultats suivent la saisie,
+            // et un terme déjà cherché revient aussitôt du cache. Un changement de filtre relance sans attendre.
+            combine(_terme.debounce { if (it.isBlank()) 0L else 250L }, _type) { t, ty -> t.trim() to ty }
                 .distinctUntilChanged()
                 .collectLatest { (t, ty) -> chercher(t, ty) }
         }
@@ -117,9 +144,20 @@ class ModeleRecherche(
             _etat.value = EtatRecherche()
             return
         }
-        _etat.update { it.copy(chargement = true, erreur = null) }
+        if (horsReseau()) {
+            _etat.value = EtatRecherche(locaux = rechercheLocale(telecharges(), terme))
+            return
+        }
+        val cle = "${type.cle}|${terme.lowercase()}"
+        val enCache = cache[cle]?.takeIf { System.currentTimeMillis() - it.second < 120_000 }?.first
+        if (enCache != null) {
+            _etat.value = EtatRecherche(resultats = enCache)
+            return
+        }
+        _etat.update { it.copy(chargement = true, erreur = null, locaux = null) }
         try {
             val resultats = catalogue.recherche(terme, type.cle, 1)
+            cache[cle] = resultats to System.currentTimeMillis()
             _etat.value = EtatRecherche(resultats = resultats)
             val trouves = resultats.sections.sumOf { it.total }
             _rechercheIA.value = if (estUneDescription(terme) && trouves <= 3 && ia.active("recherche")) EtatRechercheIA.Proposee else EtatRechercheIA.Aucune

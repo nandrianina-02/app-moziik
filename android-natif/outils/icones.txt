@@ -133,3 +133,7 @@ thumbs-up
 
 # Annonces
 megaphone
+
+# Lecteur plein écran
+timer
+gauge

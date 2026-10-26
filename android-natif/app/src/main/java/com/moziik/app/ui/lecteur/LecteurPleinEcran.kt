@@ -72,6 +72,14 @@ import com.moziik.app.ui.horsligne.PastilleTelechargement
 import com.moziik.app.lecteur.versTitre
 import com.moziik.app.ui.fiches.BlocCommentaires
 import com.moziik.app.donnees.horsligne.ActionGardee
+import com.moziik.app.lecteur.Veille
+import com.moziik.app.ui.composants.rememberTeintePochette
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.tween
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.border
+import com.moziik.app.ui.menus.Feuille
 
 /**
  * Le lecteur plein écran (FullPlayerPage.tsx, mise en page téléphone) :
@@ -91,11 +99,17 @@ fun LecteurPleinEcran(etat: EtatLecteur, onFermer: () -> Unit) {
         etat.suivants.mapNotNull { i -> etat.file.getOrNull(i)?.let { IndexedValue(i, it) } }
     }
     var onglet by rememberSaveable { mutableStateOf(OngletLecteur.PAROLES) }
+    // Le fond prend la teinte de la pochette, en haut, et rejoint le fond du thème : chaque titre a son ambiance.
+    val teinte = rememberTeintePochette(courant.pochette)
+    val haut by animateColorAsState(teinte?.copy(alpha = if (p.sombre) 0.75f else 0.22f) ?: p.base.compose, tween(400), label = "teinte")
+    var veilleOuverte by remember { mutableStateOf(false) }
+    var vitesseOuverte by remember { mutableStateOf(false) }
 
     Column(
         Modifier
             .fillMaxSize()
             .background(p.base.compose)
+            .background(Brush.verticalGradient(0f to haut, 0.55f to p.base.compose))
             .windowInsetsPadding(WindowInsets.statusBars)
             .windowInsetsPadding(WindowInsets.navigationBars),
     ) {
@@ -117,8 +131,9 @@ fun LecteurPleinEcran(etat: EtatLecteur, onFermer: () -> Unit) {
 
         LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(start = 24.dp, end = 24.dp, top = 12.dp, bottom = 32.dp)) {
             item(key = "pochette") {
-                Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
-                    Pochette(courant.pochette, Modifier.widthIn(max = 320.dp).fillMaxWidth().aspectRatio(1f), description = "Pochette de ${courant.titre}")
+                // Grande pochette ; la glisser change de titre, comme le mini-lecteur.
+                Box(Modifier.fillMaxWidth().glissementDeTitre(courant.id, lecteur), contentAlignment = Alignment.Center) {
+                    Pochette(courant.pochette, Modifier.widthIn(max = 420.dp).fillMaxWidth().aspectRatio(1f), description = "Pochette de ${courant.titre}")
                 }
             }
             item(key = "titre") {
@@ -156,6 +171,7 @@ fun LecteurPleinEcran(etat: EtatLecteur, onFermer: () -> Unit) {
                 }
             }
             item(key = "transport") { Transport(etat) }
+            item(key = "options") { OptionsLecture(onVeille = { veilleOuverte = true }, onVitesse = { vitesseOuverte = true }) }
             item(key = "onglets") { Onglets(onglet) { onglet = it } }
             when (onglet) {
                 OngletLecteur.PAROLES -> item(key = "paroles") {
@@ -183,6 +199,108 @@ fun LecteurPleinEcran(etat: EtatLecteur, onFermer: () -> Unit) {
                 }
             }
         }
+    }
+    if (veilleOuverte) ChoixVeille { veilleOuverte = false }
+    if (vitesseOuverte) ChoixVitesse { vitesseOuverte = false }
+}
+
+/** Minuterie de veille et vitesse, sous les commandes : deux pastilles qui disent l'état en cours. */
+@Composable
+private fun OptionsLecture(onVeille: () -> Unit, onVitesse: () -> Unit) {
+    val c = conteneur()
+    val p = LocalPalette.current
+    val veille by c.veille.veille.collectAsStateWithLifecycle()
+    val vitesse by c.lecteur.vitesse.collectAsStateWithLifecycle()
+    // Les minutes restantes se relisent chaque minute.
+    var minute by remember { mutableStateOf(0) }
+    LaunchedEffect(veille) {
+        while (veille is Veille.A) {
+            kotlinx.coroutines.delay(15_000)
+            minute++
+        }
+    }
+    val libelleVeille = when (veille) {
+        Veille.Aucune -> "Minuterie"
+        Veille.FinDuTitre -> "Fin du titre"
+        is Veille.A -> "Arrêt dans ${c.veille.minutesRestantes() ?: 0} min".also { minute }
+    }
+    Row(Modifier.fillMaxWidth().padding(top = 14.dp), horizontalArrangement = Arrangement.spacedBy(10.dp, Alignment.CenterHorizontally)) {
+        PastilleOption(R.drawable.lucide_timer, libelleVeille, veille != Veille.Aucune, onVeille)
+        PastilleOption(R.drawable.lucide_gauge, "Vitesse ${libelleVitesse(vitesse)}", vitesse != 1f, onVitesse)
+    }
+}
+
+private fun libelleVitesse(v: Float): String = (if (v % 1f == 0f) "${v.toInt()}" else "$v".replace('.', ',')) + "x"
+
+@Composable
+private fun PastilleOption(icone: Int, libelle: String, actif: Boolean, onClick: () -> Unit) {
+    val p = LocalPalette.current
+    Row(
+        Modifier
+            .clip(CircleShape)
+            .border(BorderStroke(1.dp, if (actif) p.accent.compose else p.bordure.compose), CircleShape)
+            .background(if (actif) p.accent.compose.copy(alpha = 0.12f) else androidx.compose.ui.graphics.Color.Transparent)
+            .clickable(role = Role.Button, onClick = onClick)
+            .padding(horizontal = 14.dp, vertical = 8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Icone(icone, description = null, teinte = if (actif) p.accent.compose else p.encreAttenuee.compose, taille = 15.dp)
+        Spacer(Modifier.width(6.dp))
+        Text(libelle, style = Texte.secondaire.copy(fontWeight = FontWeight.Medium), color = if (actif) p.accent.compose else p.encre.compose)
+    }
+}
+
+/** Le choix de la minuterie : durées courantes, ou la fin du titre en cours. */
+@Composable
+private fun ChoixVeille(onFermer: () -> Unit) {
+    val c = conteneur()
+    val veille by c.veille.veille.collectAsStateWithLifecycle()
+    Feuille(onFermer) {
+        Text("Arrêter la lecture", style = Texte.titreSection, color = LocalPalette.current.encre.compose, modifier = Modifier.padding(start = 20.dp, bottom = 8.dp))
+        listOf(15, 30, 45, 60, 90).forEach { m ->
+            LigneChoix("Dans $m minutes", false) {
+                c.veille.dans(m)
+                onFermer()
+            }
+        }
+        LigneChoix("À la fin du titre", veille == Veille.FinDuTitre) {
+            c.veille.finDuTitre()
+            onFermer()
+        }
+        if (veille != Veille.Aucune) {
+            LigneChoix("Désactiver la minuterie", false) {
+                c.veille.annuler()
+                onFermer()
+            }
+        }
+    }
+}
+
+/** La vitesse de lecture : utile surtout pour les podcasts et les émissions parlées. */
+@Composable
+private fun ChoixVitesse(onFermer: () -> Unit) {
+    val c = conteneur()
+    val vitesse by c.lecteur.vitesse.collectAsStateWithLifecycle()
+    Feuille(onFermer) {
+        Text("Vitesse de lecture", style = Texte.titreSection, color = LocalPalette.current.encre.compose, modifier = Modifier.padding(start = 20.dp, bottom = 8.dp))
+        listOf(0.75f, 1f, 1.25f, 1.5f, 2f).forEach { v ->
+            LigneChoix(if (v == 1f) "Normale (1x)" else libelleVitesse(v), vitesse == v) {
+                c.lecteur.choisirVitesse(v)
+                onFermer()
+            }
+        }
+    }
+}
+
+@Composable
+private fun LigneChoix(libelle: String, actif: Boolean, onClick: () -> Unit) {
+    val p = LocalPalette.current
+    Row(
+        Modifier.fillMaxWidth().clickable(role = Role.Button, onClick = onClick).padding(horizontal = 20.dp, vertical = 13.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(libelle, style = Texte.corps.copy(fontWeight = FontWeight.Medium), color = if (actif) p.accent.compose else p.encre.compose, modifier = Modifier.weight(1f))
+        if (actif) Icone(R.drawable.lucide_check, description = "Choisi", teinte = p.accent.compose, taille = 18.dp)
     }
 }
 

@@ -38,9 +38,13 @@ import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.drop
 import kotlinx.coroutines.launch
 import java.io.IOException
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.collectLatest
 
 /** Canal de la notification de lecture, repris de l'app Capacitor : les réglages de l'utilisateur sur ce canal sont gardés. */
 private const val CANAL = "moziik_lecture"
+/** Durée du fondu de fin de la minuterie de veille. */
+private const val FONDU_MS = 8_000L
 /** Plafond du site pour le temps déclaré d'une écoute (6 heures). */
 private const val ECOUTE_MAX_SECONDES = 21_600
 private const val HISTORIQUE_MAX = 60
@@ -118,6 +122,27 @@ class ServiceLecture : MediaSessionService() {
 
         // Connexion ou déconnexion : le quota et le plafond de qualité changent, les adresses déjà résolues ne valent plus.
         portee.launch { c.session.etat.drop(1).collect { resolution.oublier() } }
+
+        // Minuterie de veille à heure fixe : le son baisse sur les 8 dernières secondes, puis la lecture s'arrête.
+        portee.launch {
+            c.veille.veille.collectLatest { v ->
+                if (v !is Veille.A) return@collectLatest
+                val j = session?.player ?: return@collectLatest
+                try {
+                    delay((v.finMs - System.currentTimeMillis() - FONDU_MS).coerceAtLeast(0))
+                    val pas = 16
+                    repeat(pas) { i ->
+                        j.volume = 1f - (i + 1).toFloat() / pas
+                        delay(FONDU_MS / pas)
+                    }
+                    j.pause()
+                    c.veille.annuler()
+                } finally {
+                    // Annulée en plein fondu, ou terminée : le volume revient pour la prochaine écoute.
+                    j.volume = 1f
+                }
+            }
+        }
     }
 
     override fun onGetSession(controllerInfo: MediaSession.ControllerInfo): MediaSession? = session
@@ -171,6 +196,11 @@ class ServiceLecture : MediaSessionService() {
 
     private inner class Ecouteur(private val joueur: ExoPlayer) : Player.Listener {
         override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
+            // « Fin du titre » : le titre suivant ne démarre pas.
+            if (reason == Player.MEDIA_ITEM_TRANSITION_REASON_AUTO && conteneur.veille.veille.value == Veille.FinDuTitre) {
+                joueur.pause()
+                conteneur.veille.annuler()
+            }
             val maintenant = SystemClock.elapsedRealtime()
             declarer(compteur.terminer(maintenant))
             if (mediaItem != null) {

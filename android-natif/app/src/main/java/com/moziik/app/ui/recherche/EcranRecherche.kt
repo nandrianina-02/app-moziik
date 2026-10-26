@@ -90,7 +90,13 @@ import com.moziik.app.ui.horsligne.PastilleTelechargement
 @Composable
 fun EcranRecherche(termeDemande: String?, onTermeConsomme: () -> Unit) {
     val c = conteneur()
-    val modele: ModeleRecherche = viewModel { ModeleRecherche(c.catalogue, c.historiqueRecherche, c.ia) }
+    val modele: ModeleRecherche = viewModel {
+        ModeleRecherche(
+            c.catalogue, c.historiqueRecherche, c.ia,
+            telecharges = { c.horsLigne.telechargements.titres.value.map(c.horsLigne.telechargements::versTitre) },
+            horsReseau = { c.horsLigne.horsReseau.value },
+        )
+    }
     val rechercheIA by modele.rechercheIA.collectAsStateWithLifecycle()
     val terme by modele.terme.collectAsStateWithLifecycle()
     val type by modele.type.collectAsStateWithLifecycle()
@@ -99,6 +105,7 @@ fun EcranRecherche(termeDemande: String?, onTermeConsomme: () -> Unit) {
     val recentes by c.historiqueRecherche.termes.collectAsStateWithLifecycle()
     val lecture by c.lecteur.etat.collectAsStateWithLifecycle()
     val lancement = rememberLancement()
+    val nav = navigation()
     val clavier = LocalSoftwareKeyboardController.current
     val p = LocalPalette.current
 
@@ -149,6 +156,18 @@ fun EcranRecherche(termeDemande: String?, onTermeConsomme: () -> Unit) {
                 return@LazyColumn
             }
             etat.erreur?.let { message -> item(key = "erreur") { MessageErreur(message, Modifier.padding(bottom = 16.dp)) } }
+            etat.locaux?.let { locaux ->
+                item(key = "locaux-titre") {
+                    EnTeteSection("Dans tes téléchargements", "Sans réseau, la recherche se fait sur ce téléphone.")
+                }
+                if (locaux.isEmpty()) {
+                    item(key = "locaux-vide") { Text("Aucun titre téléchargé ne correspond.", style = Texte.corps, color = p.encreAttenuee.compose) }
+                }
+                itemsIndexed(locaux, key = { _, t -> "local-${t.id}" }) { i, t ->
+                    LigneTitre(t, null, t.id == lecture.courant?.id, lecture.enLecture, onClick = { c.lecteur.lire(locaux, i, "Téléchargements") })
+                }
+                return@LazyColumn
+            }
             val resultats = etat.resultats
             if (resultats == null) {
                 if (etat.chargement) item(key = "attente") { Attente() }
@@ -179,6 +198,15 @@ fun EcranRecherche(termeDemande: String?, onTermeConsomme: () -> Unit) {
                 }
             }
             val source = "« ${terme.trim()} »"
+            // Des raccourcis vers ce qu'on cherchait, avant le détail : on ouvre d'un geste.
+            val suggestions = suggestionsDe(resultats)
+            if (suggestions.size > 1) {
+                item(key = "suggestions") {
+                    Column(Modifier.padding(bottom = 20.dp)) {
+                        suggestions.forEach { s -> LigneSuggestion(s) { ouvrir(s, nav, lancement, emptyList(), source) } }
+                    }
+                }
+            }
             resultats.meilleur?.let { meilleur ->
                 item(key = "meilleur") {
                     Column(Modifier.padding(bottom = 28.dp).apparitionUneFois("meilleur-${terme.trim()}", 0, vus)) {
@@ -217,6 +245,31 @@ fun EcranRecherche(termeDemande: String?, onTermeConsomme: () -> Unit) {
                 }
             }
         }
+    }
+}
+
+/** Un raccourci : le nom, sa nature, et l'icône qui va avec. */
+@Composable
+private fun LigneSuggestion(resultat: Resultat, onClick: () -> Unit) {
+    val p = LocalPalette.current
+    val (icone, nom, nature) = when (resultat) {
+        is Resultat.DeTitre -> Triple(R.drawable.lucide_music_2, resultat.titre.title, "Titre · ${resultat.titre.artist?.stageName ?: "Artiste supprimé"}")
+        is Resultat.DArtiste -> Triple(R.drawable.lucide_mic_vocal, resultat.artiste.stageName, "Artiste")
+        is Resultat.DAlbum -> Triple(R.drawable.lucide_disc_3, resultat.album.title, "Album · ${resultat.album.artist?.stageName ?: "Artiste supprimé"}")
+        is Resultat.DePlaylist -> Triple(R.drawable.lucide_list_music, resultat.playlist.title, "Playlist")
+        is Resultat.DeGenre -> Triple(R.drawable.lucide_tags, resultat.nom, "Genre")
+    }
+    Row(
+        Modifier.fillMaxWidth().clip(RoundedCornerShape(8.dp)).clickable(role = Role.Button, onClick = onClick).padding(vertical = 8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Icone(R.drawable.lucide_search, description = null, teinte = p.encreAttenuee.compose, taille = 15.dp)
+        Spacer(Modifier.width(12.dp))
+        Column(Modifier.weight(1f)) {
+            Text(nom, style = Texte.corps.copy(fontWeight = FontWeight.Medium), color = p.encre.compose, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Text(nature, style = Texte.secondaire, color = p.encreAttenuee.compose, maxLines = 1, overflow = TextOverflow.Ellipsis)
+        }
+        Icone(icone, description = null, teinte = p.encreAttenuee.compose, taille = 16.dp)
     }
 }
 

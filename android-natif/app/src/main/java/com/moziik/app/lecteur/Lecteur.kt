@@ -209,6 +209,15 @@ class Lecteur(private val contexte: Context, private val site: String) {
 
     fun basculerAleatoire() = avec { it.shuffleModeEnabled = !it.shuffleModeEnabled }
 
+    private val _vitesse = kotlinx.coroutines.flow.MutableStateFlow(1f)
+    /** La vitesse de lecture : elle reste réglée d'un titre à l'autre, comme dans tout lecteur de podcasts. */
+    val vitesse: kotlinx.coroutines.flow.StateFlow<Float> = _vitesse
+
+    fun choisirVitesse(v: Float) {
+        _vitesse.value = v
+        avec { it.setPlaybackSpeed(v) }
+    }
+
     /** Désactivée, puis toute la file, puis le titre seul : l'ordre du site. */
     fun basculerRepetition() = avec { c ->
         c.repeatMode = when (c.repeatMode) {

@@ -57,6 +57,8 @@ class Conteneur(contexte: Context) {
     val reglages = ReglagesAppareil(contexte)
     /** Messages du service de lecture à l'écran (quota atteint, titre indisponible). */
     val alertes = AlertesLecture()
+    /** La minuterie de veille, réglée par le lecteur plein écran et appliquée par le service. */
+    val veille = com.moziik.app.lecteur.MinuterieVeille()
     val lecteur = Lecteur(contexte, BuildConfig.SITE)
     val horsLigne = HorsLigne(
         contexte,

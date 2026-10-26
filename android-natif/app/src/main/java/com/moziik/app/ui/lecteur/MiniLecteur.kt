@@ -136,7 +136,7 @@ private const val VITESSE = 1_200f
  * Les deux gestes existent aussi en actions d'accessibilité.
  */
 @Composable
-private fun Modifier.glissementDeTitre(id: String, lecteur: Lecteur): Modifier {
+internal fun Modifier.glissementDeTitre(id: String, lecteur: Lecteur): Modifier {
     val decalage = remember { Animatable(0f) }
     var largeur by remember { mutableFloatStateOf(1f) }
     // -1 : on est parti vers la gauche (suivant), 1 : vers la droite (précédent) ; 0 : aucun changement attendu.

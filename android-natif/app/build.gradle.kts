@@ -1,3 +1,5 @@
+import java.util.Properties
+
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
@@ -13,7 +15,7 @@ val clePublication: String? = System.getenv("MOZIIK_KEYSTORE_FILE")
 
 // Identifiants du projet Firebase (notifications push), publics par nature : ils
 // sont dans chaque APK. Absents, les notifications push restent inactives.
-val proprietesFirebase = java.util.Properties().apply {
+val proprietesFirebase = Properties().apply {
     rootProject.file("firebase.properties").takeIf { it.exists() }?.inputStream()?.use { load(it) }
 }
 fun firebase(cle: String) = "\"" + proprietesFirebase.getProperty(cle, "") + "\""

@@ -64,6 +64,11 @@ import com.moziik.app.ui.menus.Confirmation
 import com.moziik.app.ui.navigation
 import kotlinx.coroutines.launch
 import java.util.Calendar
+import com.moziik.app.donnees.notifications.AnnonceTexte
+import com.moziik.app.ui.menus.Feuille
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 
 /** Le pictogramme d'une notification sans image, par type (NotificationItem.tsx). */
 private fun iconeDe(type: String): Int = when (type) {
@@ -74,6 +79,7 @@ private fun iconeDe(type: String): Int = when (type) {
     "event" -> R.drawable.lucide_calendar_days
     "payment" -> R.drawable.lucide_crown
     "message" -> R.drawable.lucide_messages_square
+    "system" -> R.drawable.lucide_megaphone
     else -> R.drawable.lucide_bell
 }
 
@@ -133,9 +139,19 @@ fun EcranNotifications(onRetour: () -> Unit) {
         }
     }
 
+    var annonce by remember { mutableStateOf<Avis?>(null) }
+    val contexte = androidx.compose.ui.platform.LocalContext.current
+    // Un lien d'annonce : une page du site s'ouvre dans l'app, une adresse externe dans le navigateur.
+    val suivreLien: (String) -> Unit = { lien ->
+        val cible = cibleDe(lien, BuildConfig.SITE)
+        if (!nav.suivre(cible) && cible is com.moziik.app.donnees.catalogue.Cible.Externe) {
+            com.moziik.app.ui.ouvrirLien(contexte, cible.adresse, p.base.enArgb().toInt())
+        }
+    }
     val ouvrir: (Avis) -> Unit = { avis ->
         if (!avis.read) portee.launch { c.notifications.marquerLue(avis.id) }
-        avis.link?.let { lien -> nav.suivre(cibleDe(lien, BuildConfig.SITE)) }
+        // Une annonce se lit en entier, mise en forme ; son lien s'ouvre de là.
+        if (avis.riche) annonce = avis else avis.link?.let(suivreLien)
     }
 
     PullToRefreshBox(
@@ -203,6 +219,36 @@ fun EcranNotifications(onRetour: () -> Unit) {
                         }
                     }
                 }
+            }
+        }
+    }
+
+    annonce?.let { a ->
+        Feuille({ annonce = null }) {
+            Column(Modifier.heightIn(max = 560.dp).verticalScroll(rememberScrollState()).padding(horizontal = 20.dp)) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Box(Modifier.size(36.dp).clip(CircleShape).background(p.accent.compose.copy(alpha = 0.12f)), contentAlignment = Alignment.Center) {
+                        Icone(R.drawable.lucide_megaphone, description = null, teinte = p.accent.compose, taille = 18.dp)
+                    }
+                    Spacer(Modifier.width(12.dp))
+                    Column(Modifier.weight(1f)) {
+                        Text("Annonce de Moziik", style = Texte.secondaire, color = p.encreAttenuee.compose)
+                        Text(a.title, style = Texte.corpsFort, color = p.encre.compose)
+                    }
+                }
+                Spacer(Modifier.height(14.dp))
+                TexteAnnonce(a.message, onLien = { lien ->
+                    annonce = null
+                    suivreLien(lien)
+                })
+                a.link?.takeIf { it.isNotBlank() }?.let { lien ->
+                    Spacer(Modifier.height(18.dp))
+                    com.moziik.app.ui.composants.BoutonPrincipal("Ouvrir", {
+                        annonce = null
+                        suivreLien(lien)
+                    }, Modifier.fillMaxWidth())
+                }
+                Spacer(Modifier.height(8.dp))
             }
         }
     }
@@ -281,7 +327,10 @@ private fun LigneAvis(a: Avis, modifier: Modifier, onClick: () -> Unit, onAppuiL
             }
             if (a.message.isNotBlank()) {
                 Spacer(Modifier.height(2.dp))
-                Text(a.message, style = Texte.secondaire, color = p.encreAttenuee.compose, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                Text(
+                    if (a.riche) AnnonceTexte.texteBrut(a.message) else a.message,
+                    style = Texte.secondaire, color = p.encreAttenuee.compose, maxLines = 2, overflow = TextOverflow.Ellipsis,
+                )
             }
         }
         if (!a.read) {

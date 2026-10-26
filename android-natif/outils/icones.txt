@@ -130,3 +130,6 @@ user-minus
 laugh
 frown
 thumbs-up
+
+# Annonces
+megaphone

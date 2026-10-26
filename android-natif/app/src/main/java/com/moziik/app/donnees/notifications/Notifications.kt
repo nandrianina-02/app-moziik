@@ -22,7 +22,11 @@ data class Avis(
     val imageUrl: String? = null,
     val read: Boolean = false,
     val createdAt: String? = null,
-)
+    /** « riche » : annonce de la plateforme, mise en forme (AnnonceTexte). */
+    val format: String? = null,
+) {
+    val riche: Boolean get() = format == "riche"
+}
 
 @Serializable
 data class PageAvis(val notifications: List<Avis> = emptyList(), val hasMore: Boolean = false)

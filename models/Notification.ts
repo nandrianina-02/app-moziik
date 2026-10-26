@@ -17,6 +17,8 @@ export interface INotification {
   message: string;
   link?: string; // ex: /son/:id, /evenements/:id
   imageUrl?: string; // pochette de son/album ou avatar de l'utilisateur à l'origine de l'action
+  /** « riche » : message mis en forme (annonces, lib/annonceTexte.ts) ; absent : texte brut. */
+  format?: "texte" | "riche";
   read: boolean;
   createdAt: Date;
 }
@@ -32,6 +34,7 @@ const NotificationSchema = new Schema<INotification>({
   message: { type: String, required: true },
   link: { type: String },
   imageUrl: { type: String },
+  format: { type: String, enum: ["texte", "riche"] },
   read: { type: Boolean, default: false },
   createdAt: { type: Date, default: Date.now },
 });

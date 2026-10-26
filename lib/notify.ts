@@ -1,6 +1,7 @@
 import { connectDB } from "@/lib/db";
 import Notification, { NotificationType } from "@/models/Notification";
 import { envoyerPushBorne } from "@/lib/push";
+import { texteBrut } from "@/lib/annonceTexte";
 
 export async function notify({
   recipient,
@@ -9,6 +10,7 @@ export async function notify({
   message,
   link,
   imageUrl,
+  format,
 }: {
   recipient: string;
   type: NotificationType;
@@ -16,11 +18,13 @@ export async function notify({
   message: string;
   link?: string;
   imageUrl?: string;
+  /** « riche » : message mis en forme (annonces). */
+  format?: "texte" | "riche";
 }) {
   await connectDB();
-  const notification = await Notification.create({ recipient, type, title, message, link, imageUrl });
+  const notification = await Notification.create({ recipient, type, title, message, link, imageUrl, format });
   // Le téléphone sonne aussi (app native) ; sans configuration Firebase, rien ne part.
-  await envoyerPushBorne([recipient], { type, title, message, link });
+  await envoyerPushBorne([recipient], { type, title, message: format === "riche" ? texteBrut(message) : message, link });
   return notification;
 }
 
@@ -41,7 +45,7 @@ export async function notifyEach(
   const parDestinataire = new Map(notifications.map((n) => [n.recipient, n]));
   await envoyerPushBorne([...parDestinataire.keys()], (destinataire) => {
     const n = parDestinataire.get(destinataire)!;
-    return { type: n.type, title: n.title, message: n.message, link: n.link };
+    return { type: n.type, title: n.title, message: n.format === "riche" ? texteBrut(n.message) : n.message, link: n.link };
   });
   return crees;
 }
@@ -55,6 +59,12 @@ export async function notifyMany(
   const crees = await Notification.insertMany(
     recipients.map((recipient) => ({ recipient, ...data }))
   );
-  await envoyerPushBorne(recipients, { type: data.type, title: data.title, message: data.message, link: data.link });
+  await envoyerPushBorne(recipients, {
+    type: data.type,
+    title: data.title,
+    // La notification push n'affiche que du texte : la mise en forme d'une annonce en est retirée.
+    message: data.format === "riche" ? texteBrut(data.message) : data.message,
+    link: data.link,
+  });
   return crees;
 }

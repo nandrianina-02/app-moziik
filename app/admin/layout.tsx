@@ -24,6 +24,7 @@ import {
   UserCog,
   Timer,
   Gauge,
+  Megaphone,
 } from "lucide-react";
 import { AdminHeaderSlot } from "@/components/admin/AdminChrome";
 
@@ -117,6 +118,13 @@ const links = [
     icon: Inbox,
     titre: "Messages",
     description: "Les discussions ouvertes depuis la page de contact.",
+  },
+  {
+    href: "/admin/annonces",
+    label: "Annonces",
+    icon: Megaphone,
+    titre: "Annonces",
+    description: "Un message de la plateforme, envoyé à tous les membres, aux artistes ou aux abonnés.",
   },
   {
     href: "/admin/evenements",

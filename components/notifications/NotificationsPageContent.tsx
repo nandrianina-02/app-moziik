@@ -21,6 +21,7 @@ import { ContextMenuShell, MenuItem } from "@/components/ui/ContextMenuShell";
 import { NotificationVisual } from "@/components/notifications/NotificationVisual";
 import { useNotifications, type NotificationItem } from "@/context/NotificationsProvider";
 import type { NotificationType } from "@/models/Notification";
+import { TexteAnnonce } from "@/components/notifications/TexteAnnonce";
 
 // Sept filtres par type tenaient sur un écran de bureau, jamais sur un
 // téléphone : au-delà de trois ou quatre, la rangée devient un ruban qu'on
@@ -459,7 +460,12 @@ function NotificationRow({
           <div className="flex items-start gap-2">
             <Link href={notification.link ?? "#"} onClick={handleOpen} className="min-w-0 flex-1">
               <p className="text-sm font-semibold text-ink">{notification.title}</p>
-              <p className="mt-0.5 line-clamp-2 text-xs text-ink-muted">{notification.message}</p>
+              {notification.format === "riche" ? (
+                // Une annonce de la plateforme : affichée en entier, avec sa mise en forme.
+                <TexteAnnonce texte={notification.message} className="mt-1 text-xs text-ink-muted" />
+              ) : (
+                <p className="mt-0.5 line-clamp-2 text-xs text-ink-muted">{notification.message}</p>
+              )}
             </Link>
 
             <div className="flex shrink-0 items-center gap-0.5">

@@ -5,6 +5,7 @@ import Link from "next/link";
 import { X, Trash2 } from "lucide-react";
 import { NotificationVisual } from "@/components/notifications/NotificationVisual";
 import { useNotifications } from "@/context/NotificationsProvider";
+import { texteBrut } from "@/lib/annonceTexte";
 
 /**
  * Toujours monté dans l'arbre (une seule instance, au niveau du layout,
@@ -106,7 +107,7 @@ export function NotificationsDrawer() {
                   <NotificationVisual type={n.type} imageUrl={n.imageUrl} alt={n.title} size={36} />
                   <span className="min-w-0 pt-0.5">
                     <span className="block font-medium">{n.title}</span>
-                    <span className="block truncate text-xs text-ink-muted">{n.message}</span>
+                    <span className="block truncate text-xs text-ink-muted">{n.format === "riche" ? texteBrut(n.message) : n.message}</span>
                   </span>
                 </Link>
                 <button

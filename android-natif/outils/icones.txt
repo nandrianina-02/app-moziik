@@ -146,3 +146,4 @@ infinity
 settings
 activity
 file-text
+mic

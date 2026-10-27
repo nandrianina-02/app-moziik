@@ -370,10 +370,22 @@ class Catalogue(
         override fun removeEldestEntry(eldest: MutableMap.MutableEntry<String, Paroles>?) = size > 20
     }
 
+    /**
+     * Les paroles gardées avec les titres téléchargés : lues sans réseau, et
+     * mises à jour quand le site en sert une autre version. Posées par le
+     * conteneur, une fois les téléchargements créés.
+     */
+    var parolesGardees: (String) -> String? = { null }
+    var garderParoles: (String, String) -> Unit = { _, _ -> }
+
     /** Les paroles d'un titre, gardées pour les vingt derniers : rouvrir l'onglet ne les redemande pas. */
     suspend fun paroles(id: String): Paroles {
         synchronized(paroles) { paroles[id] }?.let { return it }
-        val brut = appel { api.paroles(id).raw }.getOrThrow()
+        val enLigne = appel { api.paroles(id).raw }
+        // Sans réseau, un titre téléchargé garde ses paroles (spécification 6.4).
+        val brut = enLigne.getOrNull()?.also { withContext(Dispatchers.IO) { runCatching { garderParoles(id, it) } } }
+            ?: withContext(Dispatchers.IO) { parolesGardees(id) }
+            ?: enLigne.getOrThrow()
         val analysees = withContext(Dispatchers.Default) { analyserParoles(brut) }
         synchronized(paroles) { paroles[id] = analysees }
         return analysees

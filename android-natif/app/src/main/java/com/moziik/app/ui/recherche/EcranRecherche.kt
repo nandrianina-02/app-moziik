@@ -81,6 +81,11 @@ import com.moziik.app.ui.rememberLancement
 import com.moziik.app.ui.horsligne.PastilleAlbum
 import com.moziik.app.ui.horsligne.PastillePlaylist
 import com.moziik.app.ui.horsligne.PastilleTelechargement
+import android.content.Intent
+import android.speech.RecognizerIntent
+import java.util.Locale
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 
 /**
  * La recherche (app/recherche/page.tsx) : un champ, les filtres par type,
@@ -273,6 +278,38 @@ private fun LigneSuggestion(resultat: Resultat, onClick: () -> Unit) {
     }
 }
 
+/**
+ * La recherche à la voix : la reconnaissance vocale du téléphone, sans
+ * permission micro pour l'app, puisque c'est elle qui écoute. Pratique en
+ * voiture, ou pour un titre malgache difficile à écrire. Absente si le
+ * téléphone n'en propose pas.
+ */
+@Composable
+private fun BoutonDictee(onDit: (String) -> Unit) {
+    val p = LocalPalette.current
+    val contexte = LocalContext.current
+    val intention = remember {
+        Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH)
+            .putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
+            .putExtra(RecognizerIntent.EXTRA_LANGUAGE, Locale.FRANCE.toLanguageTag())
+            .putExtra(RecognizerIntent.EXTRA_PROMPT, "Un titre, un artiste, un album")
+            .putExtra(RecognizerIntent.EXTRA_MAX_RESULTS, 1)
+    }
+    val disponible = remember { intention.resolveActivity(contexte.packageManager) != null }
+    if (!disponible) return
+    val lanceur = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) { r ->
+        r.data?.getStringArrayListExtra(RecognizerIntent.EXTRA_RESULTS)?.firstOrNull()?.trim()?.takeIf { it.isNotEmpty() }?.let(onDit)
+    }
+    Box(
+        Modifier.size(32.dp).clip(CircleShape).clickable(role = Role.Button, onClickLabel = "Rechercher à la voix") {
+            runCatching { lanceur.launch(intention) }
+        },
+        contentAlignment = Alignment.Center,
+    ) {
+        Icone(R.drawable.lucide_mic, description = "Rechercher à la voix", teinte = p.encreAttenuee.compose, taille = 18.dp)
+    }
+}
+
 @Composable
 private fun ChampRecherche(valeur: String, onChange: (String) -> Unit, chargement: Boolean, onValider: () -> Unit) {
     val p = LocalPalette.current
@@ -315,6 +352,8 @@ private fun ChampRecherche(valeur: String, onChange: (String) -> Unit, chargemen
         }
         when {
             chargement -> Egaliseur(hauteur = 12.dp, libelle = "Recherche en cours")
+            // La phrase dictée devient la saisie : la recherche part comme pour une frappe.
+            valeur.isEmpty() -> BoutonDictee(onChange)
             valeur.isNotEmpty() -> Box(
                 Modifier.size(32.dp).clip(CircleShape).clickable(role = Role.Button) { onChange("") },
                 contentAlignment = Alignment.Center,

@@ -17,6 +17,7 @@ import okhttp3.OkHttpClient
 import okhttp3.Request
 import java.io.File
 import java.io.IOException
+import com.moziik.app.donnees.catalogue.ReponseParoles
 
 /** Un titre gardé sur le téléphone (spécification 6.2) : de quoi l'afficher et le jouer sans réseau. */
 @Serializable
@@ -74,6 +75,23 @@ class Telechargements(
 
     private fun audio(id: String) = File(dossier, "$id.mp3")
     private fun pochette(id: String) = File(dossier, "$id.jpg")
+    private fun paroles(id: String) = File(dossier, "$id.lrc")
+
+    /** Les paroles gardées avec un titre téléchargé, pour les lire sans réseau ; null s'il n'en a pas. */
+    fun parolesGardees(id: String): String? = paroles(id).takeIf { it.exists() && estTelecharge(id) }?.readText()
+
+    /** Les paroles lues en ligne d'un titre téléchargé : la copie du téléphone suit la version publiée. */
+    fun garderParoles(id: String, brut: String) {
+        if (!estTelecharge(id)) return
+        val f = paroles(id)
+        if (brut.isBlank()) f.delete() else if (!f.exists() || f.readText() != brut) f.writeText(brut)
+    }
+
+    private fun effacer(id: String) {
+        audio(id).delete()
+        pochette(id).delete()
+        paroles(id).delete()
+    }
 
     fun estTelecharge(id: String): Boolean = _titres.value.any { it.id == id }
 
@@ -131,6 +149,13 @@ class Telechargements(
                     }
                 }
             }
+            // Les paroles aussi, pour les suivre sans réseau ; un titre sans paroles n'en a pas besoin.
+            runCatching {
+                client.newCall(Request.Builder().url("${site}api/songs/${titre.id}/lyrics").build()).execute().use { r ->
+                    val brut = r.body?.string()?.takeIf { r.isSuccessful }?.let { JsonMoziik.decodeFromString(ReponseParoles.serializer(), it).raw }
+                    if (!brut.isNullOrBlank()) paroles(titre.id).writeText(brut)
+                }
+            }
             ecrireIndex { liste ->
                 listOf(
                     TitreTelecharge(
@@ -146,13 +171,12 @@ class Telechargements(
     }
 
     fun supprimer(id: String) {
-        audio(id).delete()
-        pochette(id).delete()
+        effacer(id)
         ecrireIndex { liste -> liste.filter { it.id != id } }
     }
 
     fun toutSupprimer() {
-        _titres.value.forEach { audio(it.id).delete(); pochette(it.id).delete() }
+        _titres.value.forEach { effacer(it.id) }
         ecrireIndex { emptyList() }
     }
 
@@ -160,7 +184,7 @@ class Telechargements(
     fun nettoyer(jours: Int = 90): Int {
         val limite = System.currentTimeMillis() - jours * 86_400_000L
         val anciens = _titres.value.filter { (it.ecouteLe ?: it.telechargeLe) < limite }
-        anciens.forEach { audio(it.id).delete(); pochette(it.id).delete() }
+        anciens.forEach { effacer(it.id) }
         ecrireIndex { liste -> liste.filter { t -> anciens.none { it.id == t.id } } }
         return anciens.size
     }

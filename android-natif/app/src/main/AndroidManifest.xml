@@ -17,6 +17,13 @@
         </intent>
     </queries>
 
+    <!-- Android 11+ : sans cette déclaration, l'app ne voit pas la reconnaissance vocale du téléphone (recherche vocale). -->
+    <queries>
+        <intent>
+            <action android:name="android.speech.action.RECOGNIZE_SPEECH" />
+        </intent>
+    </queries>
+
     <application
         android:name=".MoziikApplication"
         android:allowBackup="false"

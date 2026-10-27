@@ -76,7 +76,10 @@ class Conteneur(contexte: Context) {
         portee,
         AvisTelechargement(contexte),
         oublierCache = { reseau.cacheHorsLigne?.oublierComptes() },
-    )
+    ).also { h ->
+        catalogue.parolesGardees = h.telechargements::parolesGardees
+        catalogue.garderParoles = h.telechargements::garderParoles
+    }
 }
 
 /**

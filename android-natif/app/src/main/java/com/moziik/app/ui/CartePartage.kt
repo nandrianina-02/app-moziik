@@ -37,6 +37,7 @@ import com.moziik.app.ui.composants.teinteDePochette
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.io.File
+import androidx.compose.ui.graphics.toArgb
 
 /** Format portrait 4:5 : celui que les stories et les fils d'actualité affichent sans recadrer. */
 private const val LARGEUR = 1080
@@ -92,6 +93,57 @@ suspend fun partagerBilanEnImage(contexte: Context, bilan: Bilan, resume: String
     val pochette = chargerImage(contexte, bilan.topTitres.firstOrNull()?.coverUrl)
     val image = withContext(Dispatchers.Default) { dessinerBilan(contexte, bilan, pochette, accent) }
     envoyer(contexte, image, "moziik-bilan-${bilan.annee}.png", "$resume\n${BuildConfig.SITE}")
+}
+
+/**
+ * Un extrait de paroles en image : quelques lignes en grand, sous la
+ * pochette et le nom du titre. Ce qu'on partage d'une chanson, c'est
+ * souvent une phrase.
+ */
+suspend fun partagerParolesEnImage(contexte: Context, id: String, titre: String, artiste: String?, pochette: String?, lignes: List<String>, accent: Color) {
+    val image = chargerImage(contexte, pochette)
+    val carte = withContext(Dispatchers.Default) { dessinerExtrait(contexte, titre, artiste, image, lignes, accent) }
+    envoyer(contexte, carte, "moziik-paroles-$id.png", "« ${lignes.joinToString(" / ")} »\n$titre${artiste?.let { " · $it" } ?: ""}\n${BuildConfig.SITE}son/$id")
+}
+
+private fun dessinerExtrait(contexte: Context, titre: String, artiste: String?, pochette: Bitmap?, lignes: List<String>, accent: Color): Bitmap {
+    val image = Bitmap.createBitmap(LARGEUR, HAUTEUR, Bitmap.Config.ARGB_8888)
+    val toile = Canvas(image)
+    toile.drawColor(fondDe(pochette))
+
+    // En tête : la pochette en petit, le titre et l'artiste.
+    val cote = 132f
+    dessinerPochette(toile, pochette, RectF(MARGE, MARGE, MARGE + cote, MARGE + cote), 16f)
+    val x = MARGE + cote + 32f
+    val nom = texte(contexte, 40f, R.font.sora, 600)
+    couperEnLignes(titre, 1, LARGEUR - MARGE - x) { nom.measureText(it) }.firstOrNull()?.let { toile.drawText(it, x, MARGE + 58f, nom) }
+    val second = texte(contexte, 32f, R.font.plus_jakarta_sans, 500, BLANC_ATTENUE)
+    artiste?.let { a -> couperEnLignes(a, 1, LARGEUR - MARGE - x) { second.measureText(it) }.firstOrNull()?.let { toile.drawText(it, x, MARGE + 106f, second) } }
+
+    // Les paroles, au plus grand qui tienne : la taille baisse avec le nombre de lignes.
+    val zoneHaut = MARGE + cote + 90f
+    val zoneBas = HAUTEUR - MARGE - 130f
+    val largeur = LARGEUR - 2 * MARGE - 36f
+    var taille = 72f
+    var rendu: List<String>
+    while (true) {
+        val paroles = texte(contexte, taille, R.font.sora, 600)
+        rendu = lignes.flatMap { couperEnLignes(it, 3, largeur) { l -> paroles.measureText(l) } }
+        if (rendu.size * taille * 1.3f <= zoneBas - zoneHaut || taille <= 40f) break
+        taille -= 4f
+    }
+    val paroles = texte(contexte, taille, R.font.sora, 600)
+    val hauteurBloc = rendu.size * taille * 1.3f
+    var y = zoneHaut + ((zoneBas - zoneHaut) - hauteurBloc) / 2f + taille
+    // Un filet à l'accent le long de l'extrait : la citation se repère sans guillemets décoratifs.
+    toile.drawRoundRect(RectF(MARGE, y - taille, MARGE + 8f, y - taille + hauteurBloc), 4f, 4f, Paint(Paint.ANTI_ALIAS_FLAG).apply { color = accent.toArgb() })
+    rendu.forEach {
+        toile.drawText(it, MARGE + 36f, y, paroles)
+        y += taille * 1.3f
+    }
+
+    dessinerPied(contexte, toile, accent)
+    return image
 }
 
 private suspend fun chargerImage(contexte: Context, adresse: String?): Bitmap? {

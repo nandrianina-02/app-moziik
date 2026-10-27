@@ -7,6 +7,7 @@ import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -202,7 +203,7 @@ private fun BoutonDeconnexion(enCours: Boolean, onClick: () -> Unit, modifier: M
     Row(
         modifier
             .fillMaxWidth()
-            .height(46.dp)
+            .heightIn(min = 46.dp)
             .clip(forme)
             .border(BorderStroke(1.dp, p.bordure.compose), forme)
             .clickable(enabled = !enCours, role = Role.Button, onClick = onClick),

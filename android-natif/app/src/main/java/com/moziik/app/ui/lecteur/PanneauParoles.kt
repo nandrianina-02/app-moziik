@@ -63,6 +63,9 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.rememberCoroutineScope
 import com.moziik.app.donnees.reseau.ErreurApi
 import com.moziik.app.ui.menus.fonctionIA
+import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.combinedClickable
+import androidx.compose.ui.platform.LocalContext
 
 /** Après un défilement à la main, le suivi de la ligne chantée reprend seul au bout de 4 secondes (spécification 5.8). */
 private const val REPRISE_SUIVI_MS = 4_000L
@@ -124,7 +127,7 @@ fun PanneauParoles(courant: TitreLu, avancement: Avancement, onDeplacer: (Long) 
             is EtatParoles.Pretes -> if (e.paroles.vides) {
                 Indisponibles("Aucune parole n'a encore été ajoutée à « ${courant.titre} »${courant.artiste?.let { " par $it" }.orEmpty()}.")
             } else {
-                ListeParoles(e.paroles, avancement, onDeplacer)
+                ListeParoles(e.paroles, avancement, onDeplacer, courant)
             }
         }
     }
@@ -153,7 +156,10 @@ private fun Indisponibles(texte: String) {
 }
 
 @Composable
-private fun ListeParoles(paroles: Paroles, avancement: Avancement, onDeplacer: (Long) -> Unit) {
+private fun ListeParoles(paroles: Paroles, avancement: Avancement, onDeplacer: (Long) -> Unit, courant: TitreLu) {
+    // Les lignes choisies pour un partage en image : un appui long ouvre le choix, au plus quatre lignes.
+    var choix by remember(paroles) { mutableStateOf<Set<Int>>(emptySet()) }
+    val contexte = LocalContext.current
     val p = LocalPalette.current
     val seconde = avancement.positionMs / 1000.0
     val active = if (paroles.synchronisees) ligneActive(paroles.lignes, seconde) else -1
@@ -212,7 +218,39 @@ private fun ListeParoles(paroles: Paroles, avancement: Avancement, onDeplacer: (
     }
 
     Column(Modifier.fillMaxSize()) {
-        Row(Modifier.fillMaxWidth().padding(bottom = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+        if (choix.isNotEmpty()) {
+            Row(Modifier.fillMaxWidth().padding(bottom = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    "${choix.size} ligne${if (choix.size > 1) "s" else ""} sur $LIGNES_PARTAGE_MAX",
+                    style = Texte.secondaire.copy(fontWeight = FontWeight.Medium), color = p.encreAttenuee.compose, modifier = Modifier.weight(1f),
+                )
+                Text(
+                    "Annuler",
+                    style = Texte.secondaire.copy(fontWeight = FontWeight.Medium), color = p.encreAttenuee.compose,
+                    modifier = Modifier.clip(CircleShape).clickable(role = Role.Button) { choix = emptySet() }.padding(horizontal = 10.dp, vertical = 6.dp),
+                )
+                Spacer(Modifier.width(6.dp))
+                Row(
+                    Modifier
+                        .clip(CircleShape)
+                        .background(p.accent.compose)
+                        .clickable(role = Role.Button) {
+                            val lignes = choix.sorted().map { i -> traduite?.getOrNull(i) ?: paroles.lignes[i].texte }
+                            choix = emptySet()
+                            c.portee.launch {
+                                com.moziik.app.ui.partagerParolesEnImage(contexte, courant.id, courant.titre, courant.artiste, courant.pochette, lignes, p.accent.compose)
+                            }
+                        }
+                        .padding(horizontal = 12.dp, vertical = 6.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Icone(R.drawable.lucide_share_2, description = null, teinte = p.base.compose, taille = 13.dp)
+                    Spacer(Modifier.width(6.dp))
+                    Text("Partager en image", style = Texte.secondaire.copy(fontWeight = FontWeight.SemiBold), color = p.base.compose)
+                }
+            }
+        }
+        if (choix.isEmpty()) Row(Modifier.fillMaxWidth().padding(bottom = 8.dp), verticalAlignment = Alignment.CenterVertically) {
             Icone(R.drawable.lucide_mic_vocal, description = null, teinte = p.accent.compose, taille = 14.dp)
             Spacer(Modifier.width(6.dp))
             Text("PAROLES", style = Texte.surtitre, color = p.encreAttenuee.compose)
@@ -270,8 +308,18 @@ private fun ListeParoles(paroles: Paroles, avancement: Avancement, onDeplacer: (
                         if (traduction != null) ligne.copy(texte = traduction, mots = null) else ligne,
                         i == active,
                         if (i == active && traduction == null) motActif(ligne.mots, seconde) else -1,
-                        paroles.synchronisees,
+                        paroles.synchronisees && choix.isEmpty(),
                         onDeplacer,
+                        choisie = i in choix,
+                        enChoix = choix.isNotEmpty(),
+                        onChoisir = {
+                            suivi = false
+                            choix = when {
+                                i in choix -> choix - i
+                                choix.size >= LIGNES_PARTAGE_MAX -> choix
+                                else -> choix + i
+                            }
+                        },
                     )
                 }
             }
@@ -281,6 +329,9 @@ private fun ListeParoles(paroles: Paroles, avancement: Avancement, onDeplacer: (
         }
     }
 }
+
+/** Au-delà de quatre lignes, l'extrait devient un pavé illisible sur une story. */
+private const val LIGNES_PARTAGE_MAX = 4
 
 /** Les langues de traduction du site (5.8), avec leur nom dans leur langue. */
 private val LANGUES = listOf("fr" to "Français", "en" to "English", "mg" to "Malagasy")
@@ -322,7 +373,17 @@ private fun Traduction(langue: String, traduit: Boolean, enCours: Boolean, erreu
 }
 
 @Composable
-private fun LigneChantee(ligne: LigneParoles, active: Boolean, indexMot: Int, cliquable: Boolean, onDeplacer: (Long) -> Unit) {
+@OptIn(ExperimentalFoundationApi::class)
+private fun LigneChantee(
+    ligne: LigneParoles,
+    active: Boolean,
+    indexMot: Int,
+    cliquable: Boolean,
+    onDeplacer: (Long) -> Unit,
+    choisie: Boolean = false,
+    enChoix: Boolean = false,
+    onChoisir: () -> Unit = {},
+) {
     val p = LocalPalette.current
     val style = if (active) Texte.titreSection.copy(fontWeight = FontWeight.SemiBold) else Texte.corps.copy(fontSize = 15.sp, lineHeight = 22.sp)
     val couleur = if (active) p.accent.compose else p.encreAttenuee.compose
@@ -346,7 +407,20 @@ private fun LigneChantee(ligne: LigneParoles, active: Boolean, indexMot: Int, cl
         modifier = Modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(8.dp))
-            .then(if (cliquable && temps != null) Modifier.clickable(role = Role.Button, onClickLabel = "Reprendre la lecture à cette ligne") { onDeplacer((temps * 1000).toLong()) } else Modifier)
+            .background(if (choisie) p.accent.compose.copy(alpha = 0.14f) else androidx.compose.ui.graphics.Color.Transparent)
+            // Appui long : choisir des lignes à partager ; pendant le choix, un toucher ajoute ou retire.
+            .combinedClickable(
+                role = Role.Button,
+                onClickLabel = if (enChoix) "Choisir cette ligne" else if (cliquable && temps != null) "Reprendre la lecture à cette ligne" else null,
+                onLongClickLabel = "Partager des lignes en image",
+                onLongClick = onChoisir,
+                onClick = {
+                    when {
+                        enChoix -> onChoisir()
+                        cliquable && temps != null -> onDeplacer((temps * 1000).toLong())
+                    }
+                },
+            )
             .padding(horizontal = 4.dp, vertical = 5.dp),
     )
 }

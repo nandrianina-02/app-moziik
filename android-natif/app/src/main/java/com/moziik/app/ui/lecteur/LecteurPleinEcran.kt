@@ -85,6 +85,19 @@ import androidx.compose.foundation.border
 import com.moziik.app.ui.menus.Feuille
 import com.moziik.app.lecteur.NiveauBass
 import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.SwipeToDismissBox
+import androidx.compose.material3.SwipeToDismissBoxValue
+import androidx.compose.material3.rememberSwipeToDismissBoxState
+import androidx.compose.ui.zIndex
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.semantics.CustomAccessibilityAction
+import androidx.compose.ui.semantics.customActions
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.foundation.gestures.detectDragGestures
+import androidx.compose.ui.platform.LocalDensity
 
 /**
  * Le lecteur plein écran (FullPlayerPage.tsx, mise en page téléphone) :
@@ -111,6 +124,9 @@ fun LecteurPleinEcran(etat: EtatLecteur, onFermer: () -> Unit, poignee: Modifier
     var vitesseOuverte by remember { mutableStateOf(false) }
     var suiteOuverte by remember { mutableStateOf(false) }
     var bassesOuvert by remember { mutableStateOf(false) }
+    // Le titre de la file qu'on déplace (son rang dans « À suivre ») et le chemin parcouru par le doigt.
+    var glisse by remember { mutableStateOf<Int?>(null) }
+    var decalage by remember { mutableFloatStateOf(0f) }
 
     Column(
         Modifier
@@ -200,8 +216,42 @@ fun LecteurPleinEcran(etat: EtatLecteur, onFermer: () -> Unit, poignee: Modifier
                         )
                     }
                 } else {
-                    itemsIndexed(aSuivre, key = { _, e -> "suivant-${e.index}-${e.value.id}" }) { _, element ->
-                        LigneFile(element.value) { lecteur.allerA(element.index) }
+                    item(key = "file-entete") {
+                        Row(Modifier.fillMaxWidth().padding(top = 4.dp, bottom = 6.dp), verticalAlignment = Alignment.CenterVertically) {
+                            Text(
+                                if (etat.aleatoire) "À suivre, en aléatoire" else "À suivre",
+                                style = Texte.secondaire.copy(fontWeight = FontWeight.Medium), color = p.encreAttenuee.compose, modifier = Modifier.weight(1f),
+                            )
+                            Text(
+                                "Vider",
+                                style = Texte.secondaire.copy(fontWeight = FontWeight.Medium),
+                                color = p.accent.compose,
+                                modifier = Modifier.clip(CircleShape).clickable(role = Role.Button) { lecteur.viderLaSuite() }.padding(horizontal = 10.dp, vertical = 6.dp),
+                            )
+                        }
+                    }
+                    // En aléatoire, l'ordre affiché n'est pas celui de la file : on retire, on ne déplace pas.
+                    val reordonnable = !etat.aleatoire
+                    itemsIndexed(aSuivre, key = { _, e -> "suivant-${e.index}-${e.value.id}" }) { rang, element ->
+                        LigneFileModifiable(
+                            titre = element.value,
+                            rang = rang,
+                            total = aSuivre.size,
+                            glisse = glisse,
+                            decalage = decalage,
+                            reordonnable = reordonnable,
+                            onClick = { lecteur.allerA(element.index) },
+                            onRetirer = { lecteur.retirerDeLaFile(element.index) },
+                            onDebut = { glisse = rang; decalage = 0f },
+                            onGlisser = { decalage += it },
+                            onFin = { cible ->
+                                if (cible != rang) lecteur.deplacerDansLaFile(element.index, aSuivre[cible].index)
+                                glisse = null
+                                decalage = 0f
+                            },
+                            onMonter = { if (rang > 0) lecteur.deplacerDansLaFile(element.index, aSuivre[rang - 1].index) },
+                            onDescendre = { if (rang < aSuivre.lastIndex) lecteur.deplacerDansLaFile(element.index, aSuivre[rang + 1].index) },
+                        )
                     }
                 }
             }
@@ -524,29 +574,119 @@ internal fun BoutonAime(courant: TitreLu, taille: Dp = 44.dp, icone: Dp = 22.dp)
     }
 }
 
+/** Hauteur fixe d'une ligne de la file : le déplacement au doigt se compte en lignes. */
+private val HAUTEUR_LIGNE = 56.dp
+
+/**
+ * Une ligne de la file qu'on peut réordonner et retirer : la poignée à
+ * droite se glisse (les autres lignes s'écartent pour faire place), un
+ * balayage vers la gauche retire le titre. Les deux gestes existent aussi
+ * en actions d'accessibilité.
+ */
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun LigneFile(titre: TitreLu, onClick: () -> Unit) {
+private fun LigneFileModifiable(
+    titre: TitreLu,
+    rang: Int,
+    total: Int,
+    glisse: Int?,
+    decalage: Float,
+    reordonnable: Boolean,
+    onClick: () -> Unit,
+    onRetirer: () -> Unit,
+    onDebut: () -> Unit,
+    onGlisser: (Float) -> Unit,
+    onFin: (Int) -> Unit,
+    onMonter: () -> Unit,
+    onDescendre: () -> Unit,
+) {
     val p = LocalPalette.current
-    Row(
-        Modifier
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(10.dp))
-            .clickable(role = Role.Button, onClick = onClick)
-            .padding(vertical = 6.dp),
-        verticalAlignment = Alignment.CenterVertically,
+    val hauteur = with(LocalDensity.current) { HAUTEUR_LIGNE.toPx() }
+    val cible = glisse?.let { (it + kotlin.math.round(decalage / hauteur).toInt()).coerceIn(0, total - 1) }
+    // Les lignes entre la place d'origine et la place visée s'écartent d'une ligne.
+    val ecart = when {
+        glisse == null || cible == null || rang == glisse -> 0f
+        rang in (glisse + 1)..cible -> -hauteur
+        rang in cible until glisse -> hauteur
+        else -> 0f
+    }
+    val ecartAnime by animateFloatAsState(ecart, tween(150), label = "ecart")
+    val enGlisse = glisse == rang
+    val retrait = rememberSwipeToDismissBoxState(
+        confirmValueChange = { v ->
+            if (v == SwipeToDismissBoxValue.EndToStart) onRetirer()
+            v == SwipeToDismissBoxValue.EndToStart
+        },
+    )
+    SwipeToDismissBox(
+        state = retrait,
+        enableDismissFromStartToEnd = false,
+        enableDismissFromEndToStart = !enGlisse,
+        modifier = Modifier
+            .zIndex(if (enGlisse) 1f else 0f)
+            .graphicsLayer { translationY = if (enGlisse) decalage else ecartAnime }
+            .semantics {
+                customActions = buildList {
+                    add(CustomAccessibilityAction("Retirer de la file") { onRetirer(); true })
+                    if (reordonnable && rang > 0) add(CustomAccessibilityAction("Monter") { onMonter(); true })
+                    if (reordonnable && rang < total - 1) add(CustomAccessibilityAction("Descendre") { onDescendre(); true })
+                }
+            },
+        backgroundContent = {
+            Row(
+                Modifier.fillMaxSize().clip(RoundedCornerShape(10.dp)).background(p.danger.compose.copy(alpha = 0.14f)).padding(horizontal = 16.dp),
+                horizontalArrangement = Arrangement.End,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text("Retirer", style = Texte.secondaire.copy(fontWeight = FontWeight.Medium), color = p.danger.compose)
+                Spacer(Modifier.width(8.dp))
+                Icone(R.drawable.lucide_trash_2, description = null, teinte = p.danger.compose, taille = 16.dp)
+            }
+        },
     ) {
-        Pochette(titre.pochette, Modifier.size(40.dp), RoundedCornerShape(8.dp))
-        Spacer(Modifier.width(12.dp))
-        Column(Modifier.weight(1f)) {
-            Text(titre.titre, style = Texte.corps.copy(fontWeight = FontWeight.Medium), color = p.encre.compose, maxLines = 1, overflow = TextOverflow.Ellipsis)
-            NomArtiste(titre.artiste, titre.verifie)
+        Row(
+            Modifier
+                .fillMaxWidth()
+                .height(HAUTEUR_LIGNE)
+                .clip(RoundedCornerShape(10.dp))
+                .background(if (enGlisse) p.surface.compose else p.base.compose)
+                .clickable(role = Role.Button, onClick = onClick),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Pochette(titre.pochette, Modifier.size(40.dp), RoundedCornerShape(8.dp))
+            Spacer(Modifier.width(12.dp))
+            Column(Modifier.weight(1f)) {
+                Text(titre.titre, style = Texte.corps.copy(fontWeight = FontWeight.Medium), color = p.encre.compose, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                NomArtiste(titre.artiste, titre.verifie)
+            }
+            Text(
+                duree(titre.dureeSecondes),
+                style = Texte.secondaire.copy(fontFeatureSettings = "tnum"),
+                color = p.encreAttenuee.compose,
+                textAlign = TextAlign.End,
+                modifier = Modifier.width(44.dp),
+            )
+            if (reordonnable) {
+                Box(
+                    Modifier
+                        .size(40.dp)
+                        .pointerInput(rang) {
+                            detectDragGestures(
+                                onDragStart = { onDebut() },
+                                onDragEnd = { onFin(cible ?: rang) },
+                                onDragCancel = { onFin(rang) },
+                                onDrag = { change, ecartDoigt ->
+                                    change.consume()
+                                    onGlisser(ecartDoigt.y)
+                                },
+                            )
+                        },
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Icone(R.drawable.lucide_grip_vertical, description = null, teinte = p.encreAttenuee.compose, taille = 18.dp)
+                }
+            }
         }
-        Text(
-            duree(titre.dureeSecondes),
-            style = Texte.secondaire.copy(fontFeatureSettings = "tnum"),
-            color = p.encreAttenuee.compose,
-            textAlign = TextAlign.End,
-            modifier = Modifier.width(44.dp),
-        )
     }
 }
+

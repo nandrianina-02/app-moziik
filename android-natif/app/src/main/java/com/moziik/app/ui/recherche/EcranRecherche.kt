@@ -6,6 +6,7 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsFocusedAsState
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -319,7 +320,7 @@ private fun ChampRecherche(valeur: String, onChange: (String) -> Unit, chargemen
     Row(
         Modifier
             .fillMaxWidth()
-            .height(48.dp)
+            .heightIn(min = 48.dp)
             .clip(forme)
             .background(p.surface.compose)
             .border(BorderStroke(1.dp, if (actif) p.accent.compose else p.bordure.compose), forme)

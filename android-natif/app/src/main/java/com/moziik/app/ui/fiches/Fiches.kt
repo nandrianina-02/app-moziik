@@ -5,6 +5,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -270,7 +271,7 @@ fun BoutonFiche(
     }
     Row(
         Modifier
-            .height(42.dp)
+            .heightIn(min = 42.dp)
             .clip(forme)
             .background(fond)
             .then(if (principal) Modifier else Modifier.border(BorderStroke(1.dp, if (actif) p.accent.compose else p.bordure.compose), forme))

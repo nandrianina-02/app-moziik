@@ -203,6 +203,20 @@ class Lecteur(private val contexte: Context, private val site: String) {
 
     fun basculerAleatoire() = avec { it.shuffleModeEnabled = !it.shuffleModeEnabled }
 
+    /** Retire un titre de la file (index de la file, pas du titre en cours). */
+    fun retirerDeLaFile(index: Int) = avec { c -> if (index != c.currentMediaItemIndex && index in 0 until c.mediaItemCount) c.removeMediaItem(index) }
+
+    /** Déplace un titre de la file d'un index à un autre. */
+    fun deplacerDansLaFile(de: Int, vers: Int) = avec { c ->
+        if (de != vers && de in 0 until c.mediaItemCount && vers in 0 until c.mediaItemCount) c.moveMediaItem(de, vers)
+    }
+
+    /** Retire tout ce qui suit le titre en cours ; la suite automatique reprendra à la fin. */
+    fun viderLaSuite() = avec { c ->
+        val i = c.currentMediaItemIndex
+        if (i + 1 < c.mediaItemCount) c.removeMediaItems(i + 1, c.mediaItemCount)
+    }
+
     private val _vitesse = kotlinx.coroutines.flow.MutableStateFlow(1f)
     /** La vitesse de lecture : elle reste réglée d'un titre à l'autre, comme dans tout lecteur de podcasts. */
     val vitesse: kotlinx.coroutines.flow.StateFlow<Float> = _vitesse

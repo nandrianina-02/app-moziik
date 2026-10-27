@@ -15,6 +15,7 @@ import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -488,7 +489,7 @@ private fun BarreDuBas(onglet: Destination, nonLus: Int, onChoisir: (Destination
             .fillMaxWidth()
             .windowInsetsPadding(WindowInsets.navigationBars)
             .padding(top = 4.dp)
-            .height(64.dp),
+            .heightIn(min = 64.dp),
     ) {
         val largeur = maxWidth / onglets.size
         val position by animateDpAsState(largeur * rang, tween(Mouvement.VOILE, easing = Mouvement.sortieDouce), label = "onglet")
@@ -550,6 +551,9 @@ private fun BarreDuBas(onglet: Destination, nonLus: Int, onChoisir: (Destination
                         d.libelle,
                         style = Texte.navigation.copy(fontWeight = if (active) FontWeight.SemiBold else FontWeight.Medium),
                         color = couleur,
+                        // Police agrandie : le libellé reste sur une ligne plutôt que de pousser la barre.
+                        maxLines = 1,
+                        overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
                     )
                 }
             }

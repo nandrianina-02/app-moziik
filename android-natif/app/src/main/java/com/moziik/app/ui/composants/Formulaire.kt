@@ -16,6 +16,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsFocusedAsState
 import androidx.compose.foundation.interaction.collectIsPressedAsState
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -91,7 +92,7 @@ fun ChampTexte(
         Row(
             Modifier
                 .fillMaxWidth()
-                .height(46.dp)
+                .heightIn(min = 46.dp)
                 .clip(forme)
                 .background(p.base.compose)
                 .border(BorderStroke(1.dp, if (actif) p.accent.compose else p.bordure.compose), forme)
@@ -153,7 +154,7 @@ fun BoutonPrincipal(texte: String, onClick: () -> Unit, modifier: Modifier = Mod
     Box(
         modifier
             .fillMaxWidth()
-            .height(46.dp)
+            .heightIn(min = 46.dp)
             .graphicsLayer { scaleX = echelle; scaleY = echelle }
             .clip(RoundedCornerShape(p.rayon.dp))
             .background(p.accent.compose.copy(alpha = if (actif) 1f else 0.5f))
@@ -173,7 +174,7 @@ fun BoutonGoogle(onClick: () -> Unit, modifier: Modifier = Modifier, enCours: Bo
     Row(
         modifier
             .fillMaxWidth()
-            .height(46.dp)
+            .heightIn(min = 46.dp)
             .clip(forme)
             .background(p.surface.compose)
             .border(BorderStroke(1.dp, p.bordure.compose), forme)

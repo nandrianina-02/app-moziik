@@ -154,6 +154,9 @@ fun EcranParametres(onRetour: () -> Unit, onOuvrir: (String) -> Unit) {
                     }
                 }
             }
+            Ligne(R.drawable.lucide_shield, "Confidentialité", "Vos données, ce qu'on en fait, vos droits") {
+                ouvrirLien(contexte, "${BuildConfig.SITE}confidentialite", p.base.compose.toArgb())
+            }
             Ligne(R.drawable.lucide_file_text, "Mentions légales", "Sur le site de Moziik") {
                 ouvrirLien(contexte, "${BuildConfig.SITE}mentions-legales", p.base.compose.toArgb())
             }

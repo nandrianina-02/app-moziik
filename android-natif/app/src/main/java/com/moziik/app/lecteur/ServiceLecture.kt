@@ -54,6 +54,8 @@ import kotlinx.coroutines.flow.collectLatest
 
 /** Canal de la notification de lecture, repris de l'app Capacitor : les réglages de l'utilisateur sur ce canal sont gardés. */
 private const val CANAL = "moziik_lecture"
+/** L'écoute qui fait changer d'univers : assez pour être voulue, assez peu pour suivre l'auditeur. */
+private const val DELAI_UNIVERS_MS = 30_000L
 /** Durée du fondu de fin de la minuterie de veille. */
 private const val FONDU_MS = 8_000L
 /** Plafond du site pour le temps déclaré d'une écoute (6 heures). */
@@ -304,6 +306,8 @@ class ServiceLecture : MediaLibraryService() {
     }
 
     private inner class Ecouteur(private val joueur: ExoPlayer) : Player.Listener {
+        private var bascule: kotlinx.coroutines.Job? = null
+
         override fun onEvents(player: Player, events: Player.Events) {
             if (events.containsAny(Player.EVENT_MEDIA_ITEM_TRANSITION, Player.EVENT_IS_PLAYING_CHANGED, Player.EVENT_MEDIA_METADATA_CHANGED, Player.EVENT_TIMELINE_CHANGED)) {
                 GadgetLecture.actualiser(this@ServiceLecture, joueur, portee)
@@ -311,6 +315,7 @@ class ServiceLecture : MediaLibraryService() {
         }
 
         override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
+            suivreUnivers(mediaItem)
             // « Fin du titre » : le titre suivant ne démarre pas.
             if (reason == Player.MEDIA_ITEM_TRANSITION_REASON_AUTO && conteneur.veille.veille.value == Veille.FinDuTitre) {
                 joueur.pause()
@@ -371,6 +376,33 @@ class ServiceLecture : MediaLibraryService() {
                     joueur.pause()
                     conteneur.alertes.signaler(AlerteLecture.Message("La lecture de ce titre a échoué."))
                 }
+            }
+        }
+
+        /**
+         * L'univers suit l'écoute : un titre évangélique écouté pour de bon
+         * (30 s, toujours en cours) fait passer l'accueil, la radio et les
+         * suites en évangélique, et inversement. Un titre lancé puis passé
+         * aussitôt ne change rien.
+         */
+        private fun suivreUnivers(element: MediaItem?) {
+            bascule?.cancel()
+            val cible = element?.univers() ?: return
+            val c = conteneur
+            if (!c.reglages.universSuitEcoute.value) return
+            bascule = portee.launch {
+                delay(DELAI_UNIVERS_MS)
+                if (joueur.currentMediaItem?.mediaId != element.mediaId || joueur.currentPosition < DELAI_UNIVERS_MS * 2 / 3) return@launch
+                val actuel = c.catalogue.univers() ?: return@launch
+                if (actuel == cible) return@launch
+                c.catalogue.changerUnivers(cible)
+                c.alertes.signaler(
+                    AlerteLecture.Message(
+                        if (cible == "christian") "Univers évangélique : l'accueil et la radio suivent votre écoute."
+                        else "Univers général : l'accueil et la radio suivent votre écoute.",
+                        succes = true,
+                    ),
+                )
             }
         }
 

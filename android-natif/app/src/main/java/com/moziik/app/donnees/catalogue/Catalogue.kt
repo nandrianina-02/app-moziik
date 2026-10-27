@@ -379,6 +379,12 @@ class Catalogue(
      */
     var parolesGardees: (String) -> String? = { null }
 
+    /**
+     * Change d'univers : gardé sur l'appareil, enregistré sur le compte s'il
+     * y en a un, et l'accueil se recompose. Posé par le conteneur.
+     */
+    var changerUnivers: suspend (String) -> Unit = {}
+
     /** Réglages de l'appareil lus par le catalogue : univers d'un visiteur, genres préférés. Posés par le conteneur. */
     var universVisiteur: () -> String? = { null }
     var genresPreferes: () -> Set<String> = { emptySet() }

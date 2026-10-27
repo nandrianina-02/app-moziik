@@ -69,6 +69,7 @@ fun EcranParametres(onRetour: () -> Unit, onOuvrir: (String) -> Unit) {
     val wifi by c.reglages.wifiSeulement.collectAsStateWithLifecycle()
     val noir by c.reglages.noirProfond.collectAsStateWithLifecycle()
     val autoAimes by c.reglages.autoAimes.collectAsStateWithLifecycle()
+    val universSuit by c.reglages.universSuitEcoute.collectAsStateWithLifecycle()
     var choixSuite by remember { mutableStateOf(false) }
     var choixGenres by remember { mutableStateOf(false) }
     val genres by c.reglages.genresPreferes.collectAsStateWithLifecycle()
@@ -82,6 +83,9 @@ fun EcranParametres(onRetour: () -> Unit, onOuvrir: (String) -> Unit) {
                 when (qualite) { "low" -> "Économe, 64 kb/s"; "medium" -> "Standard, 128 kb/s"; else -> "Haute, 320 kb/s" } + " · écoutes récentes",
             ) { onOuvrir(PARAMETRES_LECTURE) }
             Ligne(R.drawable.lucide_infinity, "Après la file", ModeSuite.de(suite).libelle) { choixSuite = true }
+            Box(Modifier.padding(vertical = 4.dp)) {
+                Interrupteur(universSuit, "L'univers suit ce que j'écoute") { c.reglages.choisirUniversSuitEcoute(it) }
+            }
             Ligne(
                 R.drawable.lucide_tags, "Genres préférés",
                 genres.takeIf { it.isNotEmpty() }?.sorted()?.joinToString(", ") ?: "Aucun : l'accueil fait tourner tous les genres",

@@ -77,7 +77,8 @@ fun EcranBienvenue(onFini: () -> Unit) {
     val c = conteneur()
     val p = LocalPalette.current
     var etape by rememberSaveable { mutableIntStateOf(0) }
-    var univers by rememberSaveable { mutableStateOf<String?>(null) }
+    // Général par défaut ; l'écoute fera basculer ensuite si l'auditeur écoute surtout de l'évangélique.
+    var univers by rememberSaveable { mutableStateOf<String?>("general") }
     val genres by c.reglages.genresPreferes.collectAsStateWithLifecycle()
     val session by c.session.etat.collectAsStateWithLifecycle()
 
@@ -163,7 +164,7 @@ private fun EtapeUnivers(choisi: String?, onChoisir: (String) -> Unit) {
     Column(Modifier.fillMaxSize().padding(top = 32.dp)) {
         Text("Quelle musique écoutez-vous ?", style = Texte.titreFiche, color = p.encre.compose, modifier = Modifier.apparition(0))
         Spacer(Modifier.height(6.dp))
-        Text("L'accueil, la recherche et la radio suivent ce choix.", style = Texte.corps, color = p.encreAttenuee.compose, modifier = Modifier.apparition(1))
+        Text("L'accueil, la recherche et la radio suivent ce choix. Il change aussi de lui-même selon ce que vous écoutez.", style = Texte.corps, color = p.encreAttenuee.compose, modifier = Modifier.apparition(1))
         Spacer(Modifier.height(24.dp))
         CarteUnivers(R.drawable.lucide_music_2, "Général", "Tout le catalogue de Moziik", choisi == "general", Modifier.apparition(2)) { onChoisir("general") }
         Spacer(Modifier.height(12.dp))

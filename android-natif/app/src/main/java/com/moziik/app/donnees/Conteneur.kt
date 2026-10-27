@@ -80,6 +80,11 @@ class Conteneur(contexte: Context) {
         catalogue.parolesGardees = h.telechargements::parolesGardees
         catalogue.universVisiteur = { reglages.universVisiteur }
         catalogue.genresPreferes = { reglages.genresPreferes.value }
+        catalogue.changerUnivers = { u ->
+            reglages.universVisiteur = u
+            if (session.etat.value is com.moziik.app.donnees.session.EtatSession.Connecte) runCatching { compte.changerUnivers(u) }
+            catalogue.preferencesChangees()
+        }
         catalogue.garderParoles = h.telechargements::garderParoles
     }
 }

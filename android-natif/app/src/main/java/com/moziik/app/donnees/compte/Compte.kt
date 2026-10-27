@@ -217,6 +217,15 @@ class ReglagesAppareil(private val contexte: Context) {
         get() = preferences.getString("universVisiteur", null)
         set(v) = ecrire("universVisiteur", v)
 
+    private val _universSuitEcoute = MutableStateFlow(preferences.getBoolean("universSuitEcoute", true))
+    /** L'univers bascule de lui-même vers celui des titres qu'on écoute vraiment. */
+    val universSuitEcoute: StateFlow<Boolean> = _universSuitEcoute.asStateFlow()
+
+    fun choisirUniversSuitEcoute(oui: Boolean) {
+        preferences.edit().putBoolean("universSuitEcoute", oui).apply()
+        _universSuitEcoute.value = oui
+    }
+
     private val _autoAimes = MutableStateFlow(preferences.getBoolean("autoAimes", false))
     /** Garder d'office hors connexion les titres aimés, en Wi-Fi seulement (Premium). */
     val autoAimes: StateFlow<Boolean> = _autoAimes.asStateFlow()

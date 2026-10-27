@@ -26,6 +26,7 @@ private const val DUREE = "duree"
 private const val ARTISTE_ID = "artisteId"
 private const val VERIFIE = "verifie"
 private const val SOURCE = "source"
+private const val UNIVERS = "univers"
 
 /** Ce que le lecteur montre d'un titre en cours ou en file. */
 @kotlinx.serialization.Serializable
@@ -52,6 +53,7 @@ fun Titre.versElement(site: String, source: String?, qualite: String = "high"): 
         putString(ARTISTE_ID, artist?.id)
         putBoolean(VERIFIE, artist?.verified == true)
         putString(SOURCE, source)
+        putString(UNIVERS, univers)
     }
     val metadonnees = MediaMetadata.Builder()
         .setTitle(title)
@@ -113,3 +115,6 @@ fun TitreLu.versTitre() = Titre(
     coverUrl = pochette,
     duration = dureeSecondes,
 )
+
+/** L'univers du titre (general ou christian), s'il était connu quand il a été mis en file. */
+fun MediaItem.univers(): String? = mediaMetadata.extras?.getString(UNIVERS)

@@ -113,9 +113,7 @@ fun LecteurPleinEcran(etat: EtatLecteur, onFermer: () -> Unit, poignee: Modifier
         Modifier
             .fillMaxSize()
             .background(p.base.compose)
-            .background(Brush.verticalGradient(0f to haut, 0.55f to p.base.compose))
-            .windowInsetsPadding(WindowInsets.statusBars)
-            .windowInsetsPadding(WindowInsets.navigationBars),
+            .background(Brush.verticalGradient(0f to haut, 0.55f to p.base.compose)),
     ) {
         // L'en-tête sert de poignée : le glisser vers le bas ramène le lecteur au mini-lecteur.
         Row(Modifier.fillMaxWidth().then(poignee).padding(horizontal = 12.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {

@@ -310,7 +310,7 @@ fun EcranConversation(id: String, onRetour: () -> Unit) {
     }
 
     // Plein écran : la coquille masque sa barre et le mini-lecteur ici ; le clavier pousse le composeur.
-    Column(Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.statusBars).windowInsetsPadding(WindowInsets.ime.union(WindowInsets.navigationBars))) {
+    Column(Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.ime)) {
         EnTeteConversation(conversation, ecrivent, onRetour, assistant, onReglages = { reglages = true })
         if (assistant && !disponible) {
             Text(

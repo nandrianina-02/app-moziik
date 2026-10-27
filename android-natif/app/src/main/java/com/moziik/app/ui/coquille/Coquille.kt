@@ -1,3 +1,5 @@
+@file:OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
+
 package com.moziik.app.ui.coquille
 
 import androidx.activity.compose.BackHandler
@@ -108,6 +110,15 @@ import com.moziik.app.ui.compte.PARAMETRES_LECTURE
 import com.moziik.app.ui.compte.PARAMETRES_APPARENCE
 import com.moziik.app.ui.compte.EcranLecture
 import com.moziik.app.ui.compte.EcranApparence
+import androidx.compose.foundation.layout.isImeVisible
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.ui.draw.clipToBounds
+import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.shape.RoundedCornerShape
 
 /**
  * La coquille commune à tous les écrans, comme celle du site sur mobile :
@@ -128,6 +139,7 @@ fun Coquille(sombre: Boolean, onBasculerMode: () -> Unit) {
     val tiroir = rememberEtatTiroir()
     // Une conversation occupe tout l'écran : sans en-tête, barre du bas ni mini-lecteur, le clavier a la place.
     val pleinePage = entree?.destination?.route == Fiches.CONVERSATION
+    val clavier = WindowInsets.isImeVisible
     val nonLus by c.messagerie.nonLus.collectAsStateWithLifecycle()
     val notificationsNonLues by c.notifications.nonLues.collectAsStateWithLifecycle()
     val horsReseau by c.horsLigne.horsReseau.collectAsStateWithLifecycle()
@@ -158,6 +170,7 @@ fun Coquille(sombre: Boolean, onBasculerMode: () -> Unit) {
     var termeDemande by rememberSaveable { mutableStateOf<String?>(null) }
 
     val aller: (Destination) -> Unit = { d ->
+        tiroir.fermer()
         navigation.navigate(d.route) {
             // Comme une barre d'onglets : une seule pile, l'état de chaque onglet est gardé.
             popUpTo(navigation.graph.findStartDestination().id) { saveState = true }
@@ -231,23 +244,24 @@ fun Coquille(sombre: Boolean, onBasculerMode: () -> Unit) {
     CompositionLocalProvider(LocalNavigation provides navigationFiches, LocalMenus provides menus) {
     Box(Modifier.fillMaxSize().background(p.base.compose)) {
         Column(Modifier.fillMaxSize()) {
-            if (!pleinePage) {
-                EnTete(
-                    sombre = sombre,
-                    onBasculerMode = onBasculerMode,
-                    notifications = if (session is EtatSession.Connecte) notificationsNonLues else null,
-                    onNotifications = navigationFiches::notifications,
-                    onParametres = navigationFiches::parametres,
-                )
-            }
+            // L'en-tête et la barre du bas restent sur toutes les pages : le contenu, lecteur compris, vit entre les deux.
+            EnTete(
+                sombre = sombre,
+                onBasculerMode = onBasculerMode,
+                notifications = if (session is EtatSession.Connecte) notificationsNonLues else null,
+                onNotifications = navigationFiches::notifications,
+                onParametres = navigationFiches::parametres,
+            )
             // Sans réseau, les pages déjà vues s'affichent depuis le téléphone : le dire, et mener à la musique gardée (6.4).
             AnimatedVisibility(
-                visible = horsReseau && !pleinePage,
+                visible = horsReseau,
                 enter = fadeIn(tween(Mouvement.VOILE)) + expandVertically(tween(Mouvement.VOILE, easing = Mouvement.sortieDouce)),
                 exit = fadeOut(tween(Mouvement.VOILE)) + shrinkVertically(tween(Mouvement.VOILE)),
             ) {
                 BandeauHorsLigne(onMesTitres = { aller(Destination.MA_ZONE) })
             }
+            Box(Modifier.weight(1f)) {
+            Column(Modifier.fillMaxSize()) {
             NavHost(
                 navController = navigation,
                 startDestination = Destination.ACCUEIL.route,
@@ -291,7 +305,7 @@ fun Coquille(sombre: Boolean, onBasculerMode: () -> Unit) {
             }
             BandeauMessage((alerte as? AlerteLecture.Message)?.texte, onFini = c.alertes::oublier, succes = (alerte as? AlerteLecture.Message)?.succes == true)
             AnimatedVisibility(
-                visible = lecture.courant != null && !pleinePage,
+                visible = lecture.courant != null && !pleinePage && !clavier,
                 enter = fadeIn(tween(Mouvement.VOILE)) + expandVertically(tween(Mouvement.VOILE, easing = Mouvement.sortieDouce)),
                 exit = fadeOut(tween(Mouvement.VOILE)) + shrinkVertically(tween(Mouvement.VOILE)),
             ) {
@@ -303,23 +317,27 @@ fun Coquille(sombre: Boolean, onBasculerMode: () -> Unit) {
                         .glissementDuTiroir(tiroir),
                 )
             }
-            if (!pleinePage) BarreDuBas(onglet = onglet, nonLus = nonLus, onChoisir = aller)
-        }
-
-        // Le plein écran suit le doigt : il monte du mini-lecteur et y redescend, par-dessus la coquille.
-        if (tiroir.ouvert && lecture.courant != null) {
-            Box(
-                Modifier
-                    .fillMaxSize()
-                    .graphicsLayer {
-                        translationY = (1f - tiroir.ouverture) * size.height
-                        // Le contenu apparaît dans le premier tiers de la course, pendant que le mini-lecteur s'efface.
-                        alpha = (tiroir.ouverture * 3f).coerceIn(0f, 1f)
-                    }
-                    .nestedScroll(tiroir.defilement),
-            ) {
-                LecteurPleinEcran(lecture, onFermer = tiroir::fermer, poignee = Modifier.glissementDuTiroir(tiroir))
             }
+            // Le plein écran suit le doigt : il monte de la place du mini-lecteur et y redescend,
+            // dans la zone de contenu, sous l'en-tête et au-dessus de la barre du bas.
+            if (tiroir.ouvert && lecture.courant != null) {
+                Box(
+                    Modifier
+                        .fillMaxSize()
+                        .clipToBounds()
+                        .graphicsLayer {
+                            translationY = (1f - tiroir.ouverture) * size.height
+                            // Le contenu apparaît dans le premier tiers de la course, pendant que le mini-lecteur s'efface.
+                            alpha = (tiroir.ouverture * 3f).coerceIn(0f, 1f)
+                        }
+                        .nestedScroll(tiroir.defilement),
+                ) {
+                    LecteurPleinEcran(lecture, onFermer = tiroir::fermer, poignee = Modifier.glissementDuTiroir(tiroir))
+                }
+            }
+            }
+            // Clavier ouvert (message, recherche) : la barre du bas s'efface pour laisser la place à la saisie.
+            if (!clavier) BarreDuBas(onglet = onglet, nonLus = nonLus, onChoisir = aller)
         }
     }
 
@@ -444,50 +462,86 @@ private fun EnTete(sombre: Boolean, onBasculerMode: () -> Unit, notifications: I
     }
 }
 
+/**
+ * La barre du bas : un repère à l'accent glisse sous l'onglet actif, l'icône
+ * de l'onglet monte d'un cran et son libellé s'affirme. Un seul mouvement,
+ * court, qui accompagne le changement d'onglet sans le retarder.
+ */
 @Composable
 private fun BarreDuBas(onglet: Destination, nonLus: Int, onChoisir: (Destination) -> Unit) {
     val p = LocalPalette.current
-    Row(
+    val onglets = Destination.entries
+    val rang = onglets.indexOf(onglet).coerceAtLeast(0)
+    BoxWithConstraints(
         Modifier
             .fillMaxWidth()
-            .background(p.surface.compose.copy(alpha = 0.95f))
+            .background(p.surface.compose)
             .filetSuperieur(p.bordure.compose)
             .windowInsetsPadding(WindowInsets.navigationBars)
-            .height(64.dp),
-        horizontalArrangement = Arrangement.SpaceAround,
-        verticalAlignment = Alignment.CenterVertically,
+            .height(66.dp),
     ) {
-        Destination.entries.forEach { d ->
-            val active = d == onglet
-            val couleur = if (active) p.accent.compose else p.encreAttenuee.compose
-            Column(
+        val largeur = maxWidth / onglets.size
+        val position by animateDpAsState(largeur * rang, tween(Mouvement.VOILE, easing = Mouvement.sortieDouce), label = "onglet")
+        // Le repère : une pastille douce derrière l'icône, et un trait net au ras du filet.
+        Box(Modifier.offset(x = position).width(largeur).fillMaxHeight()) {
+            Box(
                 Modifier
-                    .weight(1f)
+                    .align(Alignment.TopCenter)
+                    .padding(top = 8.dp)
+                    .size(width = 56.dp, height = 30.dp)
                     .clip(CircleShape)
-                    .clickable(role = Role.Tab) { onChoisir(d) }
-                    .semantics { selected = active }
-                    .padding(vertical = 6.dp),
-                horizontalAlignment = Alignment.CenterHorizontally,
-            ) {
-                Box {
-                    Icone(dessin = d.icone, description = null, teinte = couleur)
-                    if (d == Destination.MESSAGES && nonLus > 0) {
-                        Text(
-                            if (nonLus > 99) "99+" else "$nonLus",
-                            style = Texte.pastille,
-                            color = p.base.compose,
-                            modifier = Modifier
-                                .align(Alignment.TopEnd)
-                                .offset(x = 10.dp, y = (-4).dp)
-                                .clip(CircleShape)
-                                .background(p.accent.compose)
-                                .padding(horizontal = 5.dp, vertical = 1.dp)
-                                .semantics { contentDescription = "$nonLus message${if (nonLus > 1) "s" else ""} non lu${if (nonLus > 1) "s" else ""}" },
-                        )
+                    .background(p.accent.compose.copy(alpha = 0.14f)),
+            )
+            Box(
+                Modifier
+                    .align(Alignment.TopCenter)
+                    .size(width = 24.dp, height = 2.dp)
+                    .clip(RoundedCornerShape(bottomStart = 2.dp, bottomEnd = 2.dp))
+                    .background(p.accent.compose),
+            )
+        }
+        Row(Modifier.fillMaxSize(), verticalAlignment = Alignment.CenterVertically) {
+            onglets.forEach { d ->
+                val active = d == onglet
+                val couleur by animateColorAsState(if (active) p.accent.compose else p.encreAttenuee.compose, tween(Mouvement.VOILE), label = "couleur")
+                val montee by animateDpAsState(if (active) (-1).dp else 1.dp, tween(Mouvement.VOILE, easing = Mouvement.sortieDouce), label = "montee")
+                Column(
+                    Modifier
+                        .weight(1f)
+                        .fillMaxHeight()
+                        .clickable(
+                            interactionSource = remember { MutableInteractionSource() },
+                            indication = null,
+                            role = Role.Tab,
+                        ) { onChoisir(d) }
+                        .semantics { selected = active },
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.Center,
+                ) {
+                    Box(Modifier.offset(y = montee)) {
+                        Icone(dessin = d.icone, description = null, teinte = couleur, taille = 22.dp)
+                        if (d == Destination.MESSAGES && nonLus > 0) {
+                            Text(
+                                if (nonLus > 99) "99+" else "$nonLus",
+                                style = Texte.pastille,
+                                color = p.base.compose,
+                                modifier = Modifier
+                                    .align(Alignment.TopEnd)
+                                    .offset(x = 10.dp, y = (-4).dp)
+                                    .clip(CircleShape)
+                                    .background(p.accent.compose)
+                                    .padding(horizontal = 5.dp, vertical = 1.dp)
+                                    .semantics { contentDescription = "$nonLus message${if (nonLus > 1) "s" else ""} non lu${if (nonLus > 1) "s" else ""}" },
+                            )
+                        }
                     }
+                    Spacer(Modifier.height(6.dp))
+                    Text(
+                        d.libelle,
+                        style = Texte.navigation.copy(fontWeight = if (active) FontWeight.SemiBold else FontWeight.Medium),
+                        color = couleur,
+                    )
                 }
-                Spacer(Modifier.height(3.dp))
-                Text(d.libelle, style = Texte.navigation, color = couleur)
             }
         }
     }

@@ -60,6 +60,8 @@ class Conteneur(contexte: Context) {
     /** La minuterie de veille, réglée par le lecteur plein écran et appliquée par le service. */
     val veille = com.moziik.app.lecteur.MinuterieVeille()
     val lecteur = Lecteur(contexte, BuildConfig.SITE)
+    /** Créé au premier titre lu, par le service de lecture. */
+    val cacheLecture by lazy { com.moziik.app.lecteur.CacheLecture(contexte) }
     val horsLigne = HorsLigne(
         contexte,
         contexte.filesDir,

@@ -62,6 +62,8 @@ import com.moziik.app.ui.menus.Confirmation
 import com.moziik.app.ui.ouvrirLien
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import kotlinx.coroutines.Dispatchers
 import java.text.SimpleDateFormat
 import java.util.Locale
 import com.moziik.app.ui.composants.LogoMoziik
@@ -302,6 +304,30 @@ fun EcranLecture(onRetour: () -> Unit) {
                 "Économie de données active : la lecture est en 64 kb/s pour le moment.",
                 style = Texte.secondaire, color = LocalPalette.current.alerte.compose, modifier = Modifier.padding(top = 8.dp),
             )
+        }
+        CacheDEcoute()
+    }
+}
+
+/** La place prise par les titres écoutés récemment, et de quoi la libérer. */
+@Composable
+private fun CacheDEcoute() {
+    val c = conteneur()
+    val portee = rememberCoroutineScope()
+    var octets by remember { mutableStateOf<Long?>(null) }
+    LaunchedEffect(Unit) { octets = withContext(Dispatchers.IO) { c.cacheLecture.cache.cacheSpace } }
+    Rubrique("Écoutes récentes", "Les titres écoutés récemment restent sur le téléphone : les réécouter ne consomme pas de données. Les plus anciens s'effacent d'eux-mêmes au-delà de 400 Mo.")
+    val mo = octets?.let { (it / (1024 * 1024)).toInt() }
+    Option(
+        if (mo == null) "Calcul de la place…" else "Vider ($mo Mo)",
+        "Les téléchargements ne sont pas touchés",
+        choisie = false,
+        icone = R.drawable.lucide_trash_2,
+    ) {
+        portee.launch {
+            withContext(Dispatchers.IO) { c.cacheLecture.vider() }
+            octets = withContext(Dispatchers.IO) { c.cacheLecture.cache.cacheSpace }
+            c.alertes.signaler(com.moziik.app.lecteur.AlerteLecture.Message("Écoutes récentes effacées."))
         }
     }
 }

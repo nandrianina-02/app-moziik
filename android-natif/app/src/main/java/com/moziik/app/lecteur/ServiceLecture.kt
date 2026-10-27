@@ -13,6 +13,11 @@ import androidx.media3.common.Player
 import androidx.media3.common.Timeline
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.datasource.DefaultDataSource
+import kotlinx.coroutines.withContext
+import kotlinx.coroutines.Dispatchers
+import androidx.media3.exoplayer.DefaultLoadControl
+import androidx.media3.datasource.cache.CacheDataSource
+import androidx.media3.datasource.DataSource
 import androidx.media3.datasource.HttpDataSource
 import androidx.media3.datasource.ResolvingDataSource
 import androidx.media3.datasource.okhttp.OkHttpDataSource
@@ -90,17 +95,40 @@ class ServiceLecture : MediaLibraryService() {
         prolongement = Prolongement(c.reseau.api, c.catalogue::univers, c.catalogue::mode)
         arborescence = ArborescenceAuto(c, BuildConfig.SITE)
 
-        // Un titre téléchargé se lit depuis le téléphone, sans passer par le site (spécification 6.2) :
-        // DefaultDataSource lit les fichiers locaux et confie le reste à OkHttp.
-        val sources = DefaultDataSource.Factory(this, OkHttpDataSource.Factory(c.reseau.clientPublic))
+        // Le réseau : /api/stream résolu en adresse du fichier, puis lu par OkHttp.
+        val reseau = ResolvingDataSource.Factory(OkHttpDataSource.Factory(c.reseau.clientPublic)) { spec ->
+            resolution.resoudre(spec.uri.toString())?.let { spec.withUri(Uri.parse(it)) } ?: spec
+        }
+        // Devant le réseau, le cache d'écoute : sa clé est l'adresse /api/stream (titre et qualité),
+        // pas l'adresse signée qui change à chaque résolution. Un réécoute ne retélécharge rien.
+        val avecCache = CacheDataSource.Factory()
+            .setCache(c.cacheLecture.cache)
+            .setUpstreamDataSourceFactory(reseau)
+            .setFlags(CacheDataSource.FLAG_IGNORE_CACHE_ON_ERROR)
+        // Un visiteur passe toujours par le site : son quota d'écoutes se compte à la résolution (5.2).
+        val distant = DataSource.Factory {
+            if (c.session.etat.value is EtatSession.Anonyme) reseau.createDataSource() else avecCache.createDataSource()
+        }
+        // Un titre téléchargé se lit depuis le téléphone, sans passer par le site ni par le cache (spécification 6.2) :
+        // DefaultDataSource lit les fichiers locaux et confie le reste au réseau.
+        val sources = DefaultDataSource.Factory(this, distant)
         val fichiers = ResolvingDataSource.Factory(sources) { spec ->
-            val adresse = spec.uri.toString()
-            val local = idDuFlux(adresse, BuildConfig.SITE)?.let { c.horsLigne.telechargements.fichier(it) }
-            if (local != null) spec.withUri(Uri.fromFile(local))
-            else resolution.resoudre(adresse)?.let { spec.withUri(Uri.parse(it)) } ?: spec
+            val local = idDuFlux(spec.uri.toString(), BuildConfig.SITE)?.let { c.horsLigne.telechargements.fichier(it) }
+            if (local != null) spec.withUri(Uri.fromFile(local)) else spec
         }
         val joueur = ExoPlayer.Builder(this)
             .setMediaSourceFactory(DefaultMediaSourceFactory(fichiers).setLoadErrorHandlingPolicy(PolitiqueErreurs()))
+            // Démarrage rapide : la lecture part dès une seconde en mémoire (deux après une coupure),
+            // et le tampon monte jusqu'à une minute, ce qui couvre aussi le début du titre suivant.
+            .setLoadControl(
+                DefaultLoadControl.Builder()
+                    .setBufferDurationsMs(20_000, 60_000, 1_000, 2_000)
+                    .setPrioritizeTimeOverSizeThresholds(true)
+                    .build(),
+            )
+            // Les déplacements de la notification et du casque : 10 s en arrière, 15 s en avant.
+            .setSeekBackIncrementMs(10_000)
+            .setSeekForwardIncrementMs(15_000)
             // `true` : pause quand un appel ou une autre app prend le son, reprise ensuite.
             .setAudioAttributes(AudioAttributes.Builder().setUsage(C.USAGE_MEDIA).setContentType(C.AUDIO_CONTENT_TYPE_MUSIC).build(), true)
             // Casque débranché : pause, plutôt que de continuer sur le haut-parleur.
@@ -128,7 +156,12 @@ class ServiceLecture : MediaLibraryService() {
         )
 
         // Connexion ou déconnexion : le quota et le plafond de qualité changent, les adresses déjà résolues ne valent plus.
-        portee.launch { c.session.etat.drop(1).collect { resolution.oublier() } }
+        portee.launch {
+            c.session.etat.drop(1).collect {
+                resolution.oublier()
+                if (it is EtatSession.Anonyme) withContext(Dispatchers.IO) { c.cacheLecture.vider() }
+            }
+        }
 
         // Minuterie de veille à heure fixe : le son baisse sur les 8 dernières secondes, puis la lecture s'arrête.
         portee.launch {

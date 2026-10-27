@@ -193,6 +193,30 @@ class ReglagesAppareil(private val contexte: Context) {
 
     fun choisirSuite(cle: String) = ecrire("suite", cle).also { _suite.value = cle }
 
+    // Une app déjà utilisée (thème du site déjà gardé) ne repasse pas par l'accueil guidé après une mise à jour.
+    private val _accueilFait = MutableStateFlow(preferences.getBoolean("accueilFait", false) || preferences.contains("theme"))
+    /** Le premier lancement guidé est passé (univers et genres choisis, ou passé). */
+    val accueilFait: StateFlow<Boolean> = _accueilFait.asStateFlow()
+
+    fun terminerAccueil() {
+        preferences.edit().putBoolean("accueilFait", true).apply()
+        _accueilFait.value = true
+    }
+
+    private val _genresPreferes = MutableStateFlow(preferences.getStringSet("genresPreferes", emptySet())?.toSet() ?: emptySet())
+    /** Les genres choisis par l'auditeur : leurs sélections passent en tête de l'accueil. */
+    val genresPreferes: StateFlow<Set<String>> = _genresPreferes.asStateFlow()
+
+    fun choisirGenres(genres: Set<String>) {
+        preferences.edit().putStringSet("genresPreferes", genres).apply()
+        _genresPreferes.value = genres
+    }
+
+    /** L'univers choisi sans compte : le site le garde dans un cookie, que l'app n'a pas. */
+    var universVisiteur: String?
+        get() = preferences.getString("universVisiteur", null)
+        set(v) = ecrire("universVisiteur", v)
+
     private val _autoAimes = MutableStateFlow(preferences.getBoolean("autoAimes", false))
     /** Garder d'office hors connexion les titres aimés, en Wi-Fi seulement (Premium). */
     val autoAimes: StateFlow<Boolean> = _autoAimes.asStateFlow()

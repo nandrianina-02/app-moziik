@@ -16,6 +16,8 @@ data class MatiereAuto(
     val honneur: Pair<ArtisteCourt, List<Titre>>? = null,
     /** Les artistes en herbe, avec leur photo. */
     val herbe: List<ArtisteCarte> = emptyList(),
+    /** Les genres choisis par l'auditeur, en minuscules : leurs sélections passent en tête. */
+    val genresPreferes: Set<String> = emptySet(),
 )
 
 /**
@@ -81,7 +83,11 @@ object SectionsAuto {
             .groupBy { it.genre!! }
             .filterValues { it.size >= 4 }
             .entries.sortedByDescending { it.value.size }
-        val genres = if (parGenre.isEmpty()) emptyList() else List(parGenre.size) { parGenre[Math.floorMod(jour + it, parGenre.size)] }.take(3)
+        // Les genres choisis d'abord, puis les autres à tour de rôle d'un jour à l'autre.
+        val preferes = parGenre.filter { it.key.lowercase() in m.genresPreferes }
+        val autres = parGenre.filter { it.key.lowercase() !in m.genresPreferes }
+        val tournants = if (autres.isEmpty()) emptyList() else List(autres.size) { autres[Math.floorMod(jour + it, autres.size)] }
+        val genres = (preferes + tournants).take(3)
         val selections = genres.map { (genre, titres) ->
             Section.Titres("auto-genre-$genre", "Sélection $genre", titres.take(PAR_SECTION), voirTout = Cible.Titres(genre))
         }

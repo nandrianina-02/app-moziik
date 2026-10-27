@@ -105,4 +105,12 @@ class SectionsAutoTest {
         assertEquals(candidates.take(2), SectionsAuto.tournantes(candidates.take(2), 5, 3))
         assertEquals(emptyList<String>(), SectionsAuto.tournantes(candidates, 0, 1))
     }
+
+    @Test
+    fun les_genres_choisis_passent_en_tete() {
+        val pop = (1..4).map { titre(it, genre = "Pop") } + (5..8).map { titre(it, genre = "Rap") } + (9..14).map { titre(it, genre = "Salegy") }
+        val sections = SectionsAuto.composer(MatiereAuto(emptyList(), pop, genresPreferes = setOf("rap")), jour = 0, maintenant = 0L)
+        val genres = sections.filter { it.cle.startsWith("auto-genre-") }.map { it.titre }
+        assertEquals("Sélection Rap", genres.first())
+    }
 }

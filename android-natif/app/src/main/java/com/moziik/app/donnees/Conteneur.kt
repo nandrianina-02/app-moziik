@@ -78,6 +78,8 @@ class Conteneur(contexte: Context) {
         oublierCache = { reseau.cacheHorsLigne?.oublierComptes() },
     ).also { h ->
         catalogue.parolesGardees = h.telechargements::parolesGardees
+        catalogue.universVisiteur = { reglages.universVisiteur }
+        catalogue.genresPreferes = { reglages.genresPreferes.value }
         catalogue.garderParoles = h.telechargements::garderParoles
     }
 }

@@ -186,6 +186,8 @@ class Catalogue(
      */
     suspend fun univers(): String? {
         val compte = compte()
+        // Un visiteur : l'univers choisi au premier lancement, gardé sur l'appareil.
+        if (compte == null) universVisiteur()?.let { return it }
         universConnu?.let { (c, u) -> if (c == compte) return u }
         val univers = appel { api.univers().univers }.getOrNull() ?: return null
         universConnu = compte to univers
@@ -233,7 +235,7 @@ class Catalogue(
             }
         }
         SectionsAuto.composer(
-            MatiereAuto(r, pop, albums.await(), honneur?.await(), herbe.awaitAll().filterNotNull()),
+            MatiereAuto(r, pop, albums.await(), honneur?.await(), herbe.awaitAll().filterNotNull(), genresPreferes().map { it.lowercase() }.toSet()),
             jour,
             maintenant,
         )
@@ -376,6 +378,10 @@ class Catalogue(
      * conteneur, une fois les téléchargements créés.
      */
     var parolesGardees: (String) -> String? = { null }
+
+    /** Réglages de l'appareil lus par le catalogue : univers d'un visiteur, genres préférés. Posés par le conteneur. */
+    var universVisiteur: () -> String? = { null }
+    var genresPreferes: () -> Set<String> = { emptySet() }
     var garderParoles: (String, String) -> Unit = { _, _ -> }
 
     /** Les paroles d'un titre, gardées pour les vingt derniers : rouvrir l'onglet ne les redemande pas. */

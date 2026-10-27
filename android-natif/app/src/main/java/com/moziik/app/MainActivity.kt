@@ -28,6 +28,9 @@ import com.moziik.app.theme.THEME_PAR_DEFAUT
 import com.moziik.app.theme.modeApplique
 import com.moziik.app.ui.coquille.Coquille
 import com.moziik.app.donnees.push.EXTRA_LIEN
+import androidx.compose.animation.Crossfade
+import androidx.compose.animation.core.tween
+import com.moziik.app.ui.bienvenue.EcranBienvenue
 
 /** Une seule activité : tout l'écran est dessiné par Compose, le mini-lecteur reste d'une page à l'autre. */
 class MainActivity : ComponentActivity() {
@@ -68,11 +71,19 @@ class MainActivity : ComponentActivity() {
             }
 
             val noir by conteneur.reglages.noirProfond.collectAsStateWithLifecycle()
+            val accueilFait by conteneur.reglages.accueilFait.collectAsStateWithLifecycle()
             MoziikTheme(preference = theme, mode = mode, noir = noir) {
-                Coquille(
-                    sombre = sombre,
-                    onBasculerMode = { conteneur.reglages.choisirApparence(if (sombre) "clair" else "sombre") },
-                )
+                // Au tout premier lancement, l'accueil guidé ; ensuite, directement l'app.
+                Crossfade(accueilFait, animationSpec = tween(300), label = "bienvenue") { fait ->
+                    if (fait) {
+                        Coquille(
+                            sombre = sombre,
+                            onBasculerMode = { conteneur.reglages.choisirApparence(if (sombre) "clair" else "sombre") },
+                        )
+                    } else {
+                        EcranBienvenue(onFini = {})
+                    }
+                }
             }
         }
     }

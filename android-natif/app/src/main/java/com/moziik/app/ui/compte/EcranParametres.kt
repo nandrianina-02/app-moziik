@@ -46,6 +46,9 @@ import com.moziik.app.ui.lecteur.ChoixSuite
 import com.moziik.app.ui.menus.Interrupteur
 import com.moziik.app.ui.ouvrirLien
 import kotlinx.coroutines.launch
+import com.moziik.app.ui.bienvenue.ChoixGenres
+import com.moziik.app.ui.menus.Feuille
+import androidx.compose.foundation.layout.heightIn
 
 /**
  * Tous les réglages de l'app au même endroit, ouverts par la roue de
@@ -67,6 +70,8 @@ fun EcranParametres(onRetour: () -> Unit, onOuvrir: (String) -> Unit) {
     val noir by c.reglages.noirProfond.collectAsStateWithLifecycle()
     val autoAimes by c.reglages.autoAimes.collectAsStateWithLifecycle()
     var choixSuite by remember { mutableStateOf(false) }
+    var choixGenres by remember { mutableStateOf(false) }
+    val genres by c.reglages.genresPreferes.collectAsStateWithLifecycle()
     var verification by remember { mutableStateOf(false) }
     val connecte = session is EtatSession.Connecte
 
@@ -77,6 +82,10 @@ fun EcranParametres(onRetour: () -> Unit, onOuvrir: (String) -> Unit) {
                 when (qualite) { "low" -> "Économe, 64 kb/s"; "medium" -> "Standard, 128 kb/s"; else -> "Haute, 320 kb/s" } + " · écoutes récentes",
             ) { onOuvrir(PARAMETRES_LECTURE) }
             Ligne(R.drawable.lucide_infinity, "Après la file", ModeSuite.de(suite).libelle) { choixSuite = true }
+            Ligne(
+                R.drawable.lucide_tags, "Genres préférés",
+                genres.takeIf { it.isNotEmpty() }?.sorted()?.joinToString(", ") ?: "Aucun : l'accueil fait tourner tous les genres",
+            ) { choixGenres = true }
         }
         Section("Téléchargements", 1) {
             Box(Modifier.padding(vertical = 4.dp)) {
@@ -142,6 +151,19 @@ fun EcranParametres(onRetour: () -> Unit, onOuvrir: (String) -> Unit) {
         }
     }
     if (choixSuite) ChoixSuite { choixSuite = false }
+    if (choixGenres) {
+        Feuille({
+            choixGenres = false
+            // L'accueil se recompose avec les genres retenus.
+            c.catalogue.preferencesChangees()
+        }) {
+            Column(Modifier.padding(horizontal = 20.dp).padding(bottom = 8.dp)) {
+                Text("Genres préférés", style = Texte.titreSection, color = p.encre.compose)
+                Text("Jusqu'à cinq. Leurs sélections passent en tête de l'accueil.", style = Texte.secondaire, color = p.encreAttenuee.compose, modifier = Modifier.padding(top = 2.dp, bottom = 14.dp))
+                ChoixGenres(genres, { c.reglages.choisirGenres(it) }, Modifier.heightIn(max = 360.dp))
+            }
+        }
+    }
 }
 
 /** Routes des réglages ouverts depuis Paramètres, hors de l'onglet Compte. */

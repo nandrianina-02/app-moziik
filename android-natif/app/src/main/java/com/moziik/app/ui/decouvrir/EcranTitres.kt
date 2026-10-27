@@ -50,6 +50,12 @@ import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import androidx.compose.foundation.background
+import androidx.compose.runtime.derivedStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.foundation.layout.Row
 
 data class EtatTitres(
     val genre: String? = null,
@@ -124,30 +130,34 @@ fun EcranTitres(genre: String?, onRetour: () -> Unit) {
             .collect { modele.suite() }
     }
 
+    // La grille n'a pas d'en-tête collant : la barre et les genres sont posés au-dessus, et restent en place.
+    val defile by remember(grille) { derivedStateOf { grille.firstVisibleItemIndex > 0 || grille.firstVisibleItemScrollOffset > 0 } }
+    val filet = p.bordure.compose
+    Column(Modifier.fillMaxSize()) {
+    Column(Modifier.fillMaxWidth().background(p.base.compose).drawBehind { if (defile) drawLine(filet, Offset(0f, size.height), Offset(size.width, size.height), 1.dp.toPx()) }) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            BarreRetour(onRetour)
+            Text("Découvrir", style = Texte.titreSection, color = p.encre.compose, modifier = Modifier.padding(start = 4.dp, top = 4.dp))
+        }
+        if (genres.isNotEmpty()) {
+            val choix = listOf("Tous") + genres
+            LazyRow(contentPadding = PaddingValues(horizontal = 16.dp, vertical = 10.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                itemsIndexed(choix) { i, g ->
+                    Puce(g, if (i == 0) etat.genre == null else etat.genre == g) { modele.choisir(if (i == 0) null else g) }
+                }
+            }
+        }
+    }
     LazyVerticalGrid(
         columns = GridCells.Fixed(2),
         state = grille,
         modifier = Modifier.fillMaxSize(),
-        contentPadding = PaddingValues(start = 16.dp, end = 16.dp, bottom = 32.dp),
+        contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 32.dp),
         horizontalArrangement = Arrangement.spacedBy(14.dp),
         verticalArrangement = Arrangement.spacedBy(18.dp),
     ) {
-        item(key = "retour", span = { GridItemSpan(maxLineSpan) }) { Box(Modifier.padding(start = 0.dp)) { BarreRetour(onRetour) } }
         item(key = "titre", span = { GridItemSpan(maxLineSpan) }) {
-            Column {
-                Text("Découvrir", style = Texte.titreFiche, color = p.encre.compose)
-                Text("Tous les titres publiés sur Moziik.", style = Texte.corps, color = p.encreAttenuee.compose)
-            }
-        }
-        if (genres.isNotEmpty()) {
-            item(key = "genres", span = { GridItemSpan(maxLineSpan) }) {
-                val choix = listOf("Tous") + genres
-                LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    itemsIndexed(choix) { i, g ->
-                        Puce(g, if (i == 0) etat.genre == null else etat.genre == g) { modele.choisir(if (i == 0) null else g) }
-                    }
-                }
-            }
+            Text("Tous les titres publiés sur Moziik.", style = Texte.corps, color = p.encreAttenuee.compose)
         }
         itemsIndexed(etat.titres, key = { _, t -> t.id }) { i, titre ->
             CarteTitre(
@@ -166,5 +176,6 @@ fun EcranTitres(genre: String?, onRetour: () -> Unit) {
                 }
             }
         }
+    }
     }
 }

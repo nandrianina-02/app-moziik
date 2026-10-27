@@ -1,3 +1,5 @@
+@file:OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
+
 package com.moziik.app.ui.decouvrir
 
 import androidx.compose.foundation.BorderStroke
@@ -64,6 +66,8 @@ import java.util.Date
 import java.util.Locale
 import java.util.TimeZone
 import com.moziik.app.ui.navigation
+import androidx.compose.foundation.lazy.rememberLazyListState
+import com.moziik.app.ui.fiches.BarreCollante
 
 /** Libellés des catégories (lib/evenements.ts) ; sans catégorie, « Évènement ». */
 internal val CATEGORIES = mapOf(
@@ -137,8 +141,9 @@ private fun CorpsEvenements(liste: ListeEvenements, onRetour: () -> Unit) {
         }
     }
 
-    LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(start = 16.dp, end = 16.dp, bottom = 32.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
-        item(key = "retour") { BarreRetour(onRetour) }
+    val liste = rememberLazyListState()
+    LazyColumn(Modifier.fillMaxSize(), state = liste, contentPadding = PaddingValues(start = 16.dp, end = 16.dp, bottom = 32.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
+        stickyHeader(key = "retour") { BarreCollante(onRetour, "Évènements", liste) }
         item(key = "titre") { Text("Évènements", style = Texte.titreFiche, color = p.encre.compose) }
         if (liste.events.isEmpty()) {
             item(key = "vide") { Text("Aucun évènement annoncé pour le moment.", style = Texte.corps, color = p.encreAttenuee.compose) }

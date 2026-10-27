@@ -62,7 +62,8 @@ import com.moziik.app.ui.composants.Pochette
 import com.moziik.app.ui.composants.apparition
 import com.moziik.app.ui.conteneur
 import com.moziik.app.ui.navigation
-import com.moziik.app.ui.partager
+import com.moziik.app.ui.partagerBilanEnImage
+import kotlinx.coroutines.launch
 import java.text.NumberFormat
 import java.util.Calendar
 import java.util.Locale
@@ -246,7 +247,7 @@ private fun ContenuBilan(b: Bilan) {
     }
     Row(
         Modifier.padding(top = 28.dp).clip(CircleShape).border(BorderStroke(1.dp, p.bordure.compose), CircleShape)
-            .clickable(role = Role.Button) { partager(contexte, "", resume) }
+            .clickable(role = Role.Button) { c.portee.launch { partagerBilanEnImage(contexte, b, resume, p.accent.compose) } }
             .padding(horizontal = 16.dp, vertical = 10.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {

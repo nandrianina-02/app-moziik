@@ -51,6 +51,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import com.moziik.app.ui.composants.LogoMoziik
+import com.moziik.app.ui.composants.SqueletteFiche
 
 sealed interface EtatFiche<out T> {
     data object Chargement : EtatFiche<Nothing>
@@ -104,9 +105,7 @@ fun BarreRetour(onRetour: () -> Unit) {
 fun <T> ContenuFiche(etat: EtatFiche<T>, onReessayer: () -> Unit, contenu: @Composable (T) -> Unit) {
     val p = LocalPalette.current
     when (etat) {
-        EtatFiche.Chargement -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-            LogoMoziik(hauteur = 30.dp, boucle = true)
-        }
+        EtatFiche.Chargement -> SqueletteFiche()
         is EtatFiche.Erreur -> Column(
             Modifier.fillMaxSize().padding(32.dp),
             verticalArrangement = Arrangement.Center,

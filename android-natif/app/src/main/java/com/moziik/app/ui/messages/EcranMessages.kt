@@ -65,6 +65,7 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import com.moziik.app.ui.composants.LogoMoziik
+import com.moziik.app.ui.composants.SqueletteListe
 
 /** L'identifiant de route du fil de l'assistant d'écoute (H12). */
 const val ASSISTANT = "assistant"
@@ -132,7 +133,7 @@ fun EcranMessages(onConnexion: () -> Unit, onOuvrir: (String) -> Unit) {
         MessageErreur(erreur.takeIf { conversations == null }, Modifier.padding(16.dp))
         val liste = conversations
         when {
-            liste == null && erreur == null -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { LogoMoziik(hauteur = 30.dp, boucle = true) }
+            liste == null && erreur == null -> SqueletteListe(7, Modifier.padding(top = 8.dp), cote = 48.dp, rond = true)
             liste != null && liste.isEmpty() -> Column(
                 Modifier.fillMaxSize().padding(32.dp),
                 verticalArrangement = Arrangement.Center,

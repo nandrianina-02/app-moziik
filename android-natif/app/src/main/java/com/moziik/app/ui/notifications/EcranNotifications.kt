@@ -69,6 +69,7 @@ import com.moziik.app.ui.menus.Feuille
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import com.moziik.app.ui.composants.SqueletteListe
 
 /** Le pictogramme d'une notification sans image, par type (NotificationItem.tsx). */
 private fun iconeDe(type: String): Int = when (type) {
@@ -187,7 +188,7 @@ fun EcranNotifications(onRetour: () -> Unit) {
             when {
                 elements == null && erreur != null -> item(key = "erreur") { Vide(R.drawable.lucide_circle_alert, erreur.orEmpty()) }
                 elements == null -> item(key = "attente") {
-                    Box(Modifier.fillMaxWidth().padding(top = 96.dp), contentAlignment = Alignment.Center) { LogoMoziik(hauteur = 30.dp, boucle = true) }
+                    SqueletteListe(6, Modifier.padding(top = 8.dp), cote = 40.dp, rond = true)
                 }
                 elements.isEmpty() -> item(key = "vide") {
                     Vide(R.drawable.lucide_bell, "Aucune notification pour le moment. Les nouveautés de tes artistes et les réactions à tes sons arriveront ici.")

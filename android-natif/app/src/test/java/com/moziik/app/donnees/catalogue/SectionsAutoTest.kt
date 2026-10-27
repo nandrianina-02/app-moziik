@@ -95,4 +95,14 @@ class SectionsAutoTest {
         assertEquals(listOf("admin1", "admin2", "auto1", "admin3", "auto2", "admin4", "auto3", "auto4", "auto5"), cles)
         assertEquals(admin, SectionsAuto.entrelacer(admin, emptyList()))
     }
+
+    @Test
+    fun au_plus_six_sections_qui_tournent_chaque_jour() {
+        val candidates = listOf("a", "b", "c", "d", "e", "f", "g", "h")
+        assertEquals(listOf("a", "b", "c"), SectionsAuto.tournantes(candidates, 3, 0))
+        // Le départ avance d'un rang par jour ; l'ordre d'origine est gardé.
+        assertEquals(listOf("a", "g", "h"), SectionsAuto.tournantes(candidates, 3, 6))
+        assertEquals(candidates.take(2), SectionsAuto.tournantes(candidates.take(2), 5, 3))
+        assertEquals(emptyList<String>(), SectionsAuto.tournantes(candidates, 0, 1))
+    }
 }

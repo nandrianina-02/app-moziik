@@ -65,6 +65,7 @@ import com.moziik.app.ui.navigation
 import java.text.NumberFormat
 import java.text.SimpleDateFormat
 import java.util.Locale
+import com.moziik.app.ui.composants.SqueletteListe
 
 private val entiers: NumberFormat = NumberFormat.getIntegerInstance(Locale.FRANCE)
 private fun chiffre(n: Int): String = entiers.format(n)
@@ -97,7 +98,7 @@ fun EcranEspaceArtiste(onRetour: () -> Unit) {
         MessageErreur(erreur, Modifier.padding(top = 12.dp))
         val s = stats
         if (s == null) {
-            if (erreur == null) Box(Modifier.fillMaxWidth().padding(32.dp), contentAlignment = Alignment.Center) { Egaliseur(hauteur = 18.dp) }
+            if (erreur == null) SqueletteListe(5, Modifier.padding(top = 16.dp))
             return@PageReglage
         }
         Tableau(s)

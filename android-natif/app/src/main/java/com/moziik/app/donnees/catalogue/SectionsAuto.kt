@@ -31,6 +31,12 @@ data class MatiereAuto(
 object SectionsAuto {
     private const val JOUR_MS = 86_400_000L
     private const val PAR_SECTION = 10
+    /**
+     * Au plus six sections automatiques par jour, nouveautés comprises :
+     * au-delà, l'accueil devient une liste qu'on ne finit jamais. Les
+     * autres reviennent les jours suivants, à tour de rôle.
+     */
+    const val MAX_AUTO = 6
     /** Genres trop génériques pour faire une sélection qui ait du sens. */
     private val GENRES_ECARTES = setOf("autre", "divers")
 
@@ -110,8 +116,21 @@ object SectionsAuto {
             ?.let { Section.Albums("auto-podcasts", "Podcasts", it) }
 
         // L'ordre alterne les formes : liste, cartes, ronds, pour que l'accueil se parcoure sans monotonie.
-        sections += listOfNotNull(selections.getOrNull(0), honneur, herbe, pepites, selections.getOrNull(1), albums, coeur, selections.getOrNull(2), podcasts)
+        val candidates = listOfNotNull(selections.getOrNull(0), honneur, herbe, pepites, selections.getOrNull(1), albums, coeur, selections.getOrNull(2), podcasts)
+        sections += tournantes(candidates, MAX_AUTO - sections.size, jour)
         return sections
+    }
+
+    /**
+     * `nombre` sections parmi `candidates`, en partant d'un rang qui avance
+     * chaque jour ; l'ordre d'alternance des formes est conservé.
+     */
+    fun <T> tournantes(candidates: List<T>, nombre: Int, jour: Int): List<T> {
+        if (nombre <= 0 || candidates.isEmpty()) return emptyList()
+        if (candidates.size <= nombre) return candidates
+        val depart = Math.floorMod(jour, candidates.size)
+        val rangs = List(nombre) { (depart + it) % candidates.size }.sorted()
+        return rangs.map { candidates[it] }
     }
 
     /**

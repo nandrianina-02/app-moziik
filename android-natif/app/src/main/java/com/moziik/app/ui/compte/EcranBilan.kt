@@ -66,6 +66,7 @@ import com.moziik.app.ui.partager
 import java.text.NumberFormat
 import java.util.Calendar
 import java.util.Locale
+import com.moziik.app.ui.composants.SqueletteListe
 
 private val nombres: NumberFormat = NumberFormat.getIntegerInstance(Locale.FRANCE)
 private fun n(v: Int): String = nombres.format(v)
@@ -99,7 +100,7 @@ fun EcranBilan(onRetour: () -> Unit) {
         MessageErreur(erreur, Modifier.padding(top = 12.dp))
         val b = bilan
         when {
-            b == null && erreur == null -> Box(Modifier.fillMaxWidth().padding(32.dp), contentAlignment = Alignment.Center) { Egaliseur(hauteur = 18.dp) }
+            b == null && erreur == null -> SqueletteListe(5, Modifier.padding(top = 16.dp))
             b != null && b.ecoutes == 0 -> Text(
                 "Aucune écoute enregistrée en ${b.annee}. Les écoutes comptent une fois connecté.",
                 style = Texte.corps, color = LocalPalette.current.encreAttenuee.compose, modifier = Modifier.padding(top = 24.dp),

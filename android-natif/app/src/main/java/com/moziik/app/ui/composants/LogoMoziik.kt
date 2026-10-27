@@ -132,7 +132,7 @@ private fun progression(t: Float, debut: Float, fin: Float, courbe: CubicBezierE
 
 /** La réduction des animations demandée par le système : le logo s'affiche alors entier, immobile. */
 @Composable
-private fun animationsReduites(): Boolean {
+internal fun animationsReduites(): Boolean {
     val contexte = LocalContext.current
     return remember { Settings.Global.getFloat(contexte.contentResolver, Settings.Global.ANIMATOR_DURATION_SCALE, 1f) == 0f }
 }

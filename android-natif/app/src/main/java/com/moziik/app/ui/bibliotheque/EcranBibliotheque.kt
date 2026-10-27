@@ -77,6 +77,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import com.moziik.app.ui.horsligne.PastilleAlbum
 import com.moziik.app.ui.horsligne.PastillePlaylist
+import com.moziik.app.ui.composants.SqueletteListe
 
 /** Une liste de la bibliothèque, chargée à part : chacune s'affiche à son arrivée (F1). */
 data class Liste<T>(val elements: List<T>? = null, val erreur: String? = null)
@@ -304,7 +305,7 @@ private fun LazyListScope.grille(
     vignette: @Composable (Any) -> Unit,
 ) {
     when {
-        chargement -> item(key = "$cle-attente") { Box(Modifier.fillMaxWidth().padding(24.dp), contentAlignment = Alignment.Center) { Egaliseur(hauteur = 18.dp) } }
+        chargement -> item(key = "$cle-attente") { SqueletteListe(4) }
         elements.isEmpty() -> item(key = "$cle-vide") {
             Text(erreur ?: vide, style = Texte.corps, color = LocalPalette.current.encreAttenuee.compose, modifier = Modifier.padding(vertical = 16.dp))
         }

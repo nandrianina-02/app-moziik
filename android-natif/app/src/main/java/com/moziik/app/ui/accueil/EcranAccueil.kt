@@ -101,6 +101,7 @@ import com.moziik.app.ui.composants.LogoMoziik
 import com.moziik.app.ui.composants.LienTexte
 import com.moziik.app.ui.horsligne.PastilleAlbum
 import com.moziik.app.ui.horsligne.PastillePlaylist
+import com.moziik.app.ui.composants.SqueletteAccueil
 
 /** Sous-titres des sections, repris de components/home/sectionMeta.ts. */
 private val SOUS_TITRES = mapOf(
@@ -175,7 +176,7 @@ fun EcranAccueil() {
             }
             when {
                 etat.vide && etat.chargement -> item(key = "attente") {
-                    Box(Modifier.fillMaxWidth().padding(top = 120.dp), contentAlignment = Alignment.Center) { LogoMoziik(hauteur = 30.dp, boucle = true) }
+                    SqueletteAccueil(Modifier.padding(top = 8.dp))
                 }
                 etat.vide && etat.erreur != null -> item(key = "erreur") { ErreurAccueil(etat.erreur.orEmpty(), modele::charger) }
             }

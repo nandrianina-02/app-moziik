@@ -83,6 +83,8 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.border
 import com.moziik.app.ui.menus.Feuille
+import com.moziik.app.lecteur.NiveauBass
+import androidx.compose.foundation.layout.fillMaxHeight
 
 /**
  * Le lecteur plein écran (FullPlayerPage.tsx, mise en page téléphone) :
@@ -108,6 +110,7 @@ fun LecteurPleinEcran(etat: EtatLecteur, onFermer: () -> Unit, poignee: Modifier
     var veilleOuverte by remember { mutableStateOf(false) }
     var vitesseOuverte by remember { mutableStateOf(false) }
     var suiteOuverte by remember { mutableStateOf(false) }
+    var bassesOuvert by remember { mutableStateOf(false) }
 
     Column(
         Modifier
@@ -174,7 +177,7 @@ fun LecteurPleinEcran(etat: EtatLecteur, onFermer: () -> Unit, poignee: Modifier
                 }
             }
             item(key = "transport") { Transport(etat) }
-            item(key = "options") { Column { OptionsLecture(onVeille = { veilleOuverte = true }, onVitesse = { vitesseOuverte = true }, onSuite = { suiteOuverte = true }) } }
+            item(key = "options") { Column { OptionsLecture(onVeille = { veilleOuverte = true }, onVitesse = { vitesseOuverte = true }, onSuite = { suiteOuverte = true }, onBasses = { bassesOuvert = true }) } }
             // Les onglets restent visibles en parcourant la file ou les paroles.
             stickyHeader(key = "onglets") { Box(Modifier.fillMaxWidth().background(p.base.compose)) { Onglets(onglet) { onglet = it } } }
             when (onglet) {
@@ -207,11 +210,12 @@ fun LecteurPleinEcran(etat: EtatLecteur, onFermer: () -> Unit, poignee: Modifier
     if (veilleOuverte) ChoixVeille { veilleOuverte = false }
     if (vitesseOuverte) ChoixVitesse { vitesseOuverte = false }
     if (suiteOuverte) ChoixSuite { suiteOuverte = false }
+    if (bassesOuvert) ChoixBasses { bassesOuvert = false }
 }
 
 /** Minuterie de veille et vitesse, sous les commandes : deux pastilles qui disent l'état en cours. */
 @Composable
-private fun OptionsLecture(onVeille: () -> Unit, onVitesse: () -> Unit, onSuite: () -> Unit) {
+private fun OptionsLecture(onVeille: () -> Unit, onVitesse: () -> Unit, onSuite: () -> Unit, onBasses: () -> Unit) {
     val c = conteneur()
     val p = LocalPalette.current
     val veille by c.veille.veille.collectAsStateWithLifecycle()
@@ -235,8 +239,51 @@ private fun OptionsLecture(onVeille: () -> Unit, onVitesse: () -> Unit, onSuite:
     }
     val suite by c.reglages.suite.collectAsStateWithLifecycle()
     val mode = ModeSuite.de(suite)
-    Row(Modifier.fillMaxWidth().padding(top = 10.dp), horizontalArrangement = Arrangement.Center) {
+    val basses by c.reglages.basses.collectAsStateWithLifecycle()
+    val niveau = NiveauBass.de(basses)
+    Row(Modifier.fillMaxWidth().padding(top = 10.dp), horizontalArrangement = Arrangement.spacedBy(10.dp, Alignment.CenterHorizontally)) {
+        PastilleOption(R.drawable.lucide_audio_waveform, "Basses : ${niveau.libelle}", niveau != NiveauBass.OFF, onBasses)
         PastilleOption(R.drawable.lucide_infinity, "Ensuite : ${mode.libelle}", mode != ModeSuite.AMBIANCE, onSuite)
+    }
+}
+
+/**
+ * Le Bass Boost, les cinq niveaux du site. Le changement s'entend aussitôt,
+ * sans couper le morceau : on compare en écoutant.
+ */
+@Composable
+internal fun ChoixBasses(onFermer: () -> Unit) {
+    val c = conteneur()
+    val p = LocalPalette.current
+    val basses by c.reglages.basses.collectAsStateWithLifecycle()
+    Feuille(onFermer) {
+        Text("Bass Boost", style = Texte.titreSection, color = p.encre.compose, modifier = Modifier.padding(start = 20.dp, bottom = 2.dp))
+        Text(
+            "Un grave profond qui garde la voix nette. Le son est limité juste sous le maximum : il ne sature jamais, même au plus fort.",
+            style = Texte.secondaire, color = p.encreAttenuee.compose, modifier = Modifier.padding(start = 20.dp, end = 20.dp, bottom = 8.dp),
+        )
+        NiveauBass.entries.forEach { n ->
+            Row(
+                Modifier.fillMaxWidth().clickable(role = Role.RadioButton) { c.reglages.choisirBasses(n.cle) }.padding(horizontal = 20.dp, vertical = 11.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                // Cinq barres de hauteur croissante : le niveau se lit d'un coup d'oeil.
+                Row(Modifier.width(30.dp).height(18.dp), horizontalArrangement = Arrangement.spacedBy(2.dp), verticalAlignment = Alignment.Bottom) {
+                    repeat(4) { i ->
+                        Box(
+                            Modifier.width(4.dp).fillMaxHeight((i + 1) / 4f).clip(RoundedCornerShape(1.dp))
+                                .background(if (i < n.ordinal) p.accent.compose else p.bordure.compose),
+                        )
+                    }
+                }
+                Spacer(Modifier.width(12.dp))
+                Column(Modifier.weight(1f)) {
+                    Text(n.libelle, style = Texte.corps.copy(fontWeight = FontWeight.Medium), color = if (n.cle == basses) p.accent.compose else p.encre.compose)
+                    Text(n.description, style = Texte.secondaire, color = p.encreAttenuee.compose)
+                }
+                if (n.cle == basses) Icone(R.drawable.lucide_check, description = "Choisi", teinte = p.accent.compose, taille = 18.dp)
+            }
+        }
     }
 }
 

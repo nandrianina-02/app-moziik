@@ -49,6 +49,8 @@ import kotlinx.coroutines.launch
 import com.moziik.app.ui.bienvenue.ChoixGenres
 import com.moziik.app.ui.menus.Feuille
 import androidx.compose.foundation.layout.heightIn
+import com.moziik.app.lecteur.NiveauBass
+import com.moziik.app.ui.lecteur.ChoixBasses
 
 /**
  * Tous les réglages de l'app au même endroit, ouverts par la roue de
@@ -72,6 +74,8 @@ fun EcranParametres(onRetour: () -> Unit, onOuvrir: (String) -> Unit) {
     val universSuit by c.reglages.universSuitEcoute.collectAsStateWithLifecycle()
     var choixSuite by remember { mutableStateOf(false) }
     var choixGenres by remember { mutableStateOf(false) }
+    var choixBasses by remember { mutableStateOf(false) }
+    val basses by c.reglages.basses.collectAsStateWithLifecycle()
     val genres by c.reglages.genresPreferes.collectAsStateWithLifecycle()
     var verification by remember { mutableStateOf(false) }
     val connecte = session is EtatSession.Connecte
@@ -82,6 +86,7 @@ fun EcranParametres(onRetour: () -> Unit, onOuvrir: (String) -> Unit) {
                 R.drawable.lucide_headphones, "Qualité et données",
                 when (qualite) { "low" -> "Économe, 64 kb/s"; "medium" -> "Standard, 128 kb/s"; else -> "Haute, 320 kb/s" } + " · écoutes récentes",
             ) { onOuvrir(PARAMETRES_LECTURE) }
+            Ligne(R.drawable.lucide_audio_waveform, "Bass Boost", NiveauBass.de(basses).libelle) { choixBasses = true }
             Ligne(R.drawable.lucide_infinity, "Après la file", ModeSuite.de(suite).libelle) { choixSuite = true }
             Box(Modifier.padding(vertical = 4.dp)) {
                 Interrupteur(universSuit, "L'univers suit ce que j'écoute") { c.reglages.choisirUniversSuitEcoute(it) }
@@ -155,6 +160,7 @@ fun EcranParametres(onRetour: () -> Unit, onOuvrir: (String) -> Unit) {
         }
     }
     if (choixSuite) ChoixSuite { choixSuite = false }
+    if (choixBasses) ChoixBasses { choixBasses = false }
     if (choixGenres) {
         Feuille({
             choixGenres = false

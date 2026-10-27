@@ -226,6 +226,12 @@ class ReglagesAppareil(private val contexte: Context) {
         _universSuitEcoute.value = oui
     }
 
+    private val _basses = MutableStateFlow(preferences.getString("basses", "off") ?: "off")
+    /** Le niveau du Bass Boost (lecteur/BassBoost.kt), propre à l'appareil comme sur le site. */
+    val basses: StateFlow<String> = _basses.asStateFlow()
+
+    fun choisirBasses(cle: String) = ecrire("basses", cle).also { _basses.value = cle }
+
     private val _autoAimes = MutableStateFlow(preferences.getBoolean("autoAimes", false))
     /** Garder d'office hors connexion les titres aimés, en Wi-Fi seulement (Premium). */
     val autoAimes: StateFlow<Boolean> = _autoAimes.asStateFlow()

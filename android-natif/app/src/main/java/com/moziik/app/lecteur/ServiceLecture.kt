@@ -51,6 +51,10 @@ import kotlinx.coroutines.launch
 import java.io.IOException
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.collectLatest
+import android.content.Context
+import androidx.media3.exoplayer.DefaultRenderersFactory
+import androidx.media3.exoplayer.audio.AudioSink
+import androidx.media3.exoplayer.audio.DefaultAudioSink
 
 /** Canal de la notification de lecture, repris de l'app Capacitor : les réglages de l'utilisateur sur ce canal sont gardés. */
 private const val CANAL = "moziik_lecture"
@@ -118,7 +122,18 @@ class ServiceLecture : MediaLibraryService() {
             val local = idDuFlux(spec.uri.toString(), BuildConfig.SITE)?.let { c.horsLigne.telechargements.fichier(it) }
             if (local != null) spec.withUri(Uri.fromFile(local)) else spec
         }
-        val joueur = ExoPlayer.Builder(this)
+        // Le Bass Boost se branche dans la sortie audio du lecteur, avant le changement de vitesse.
+        val basses = TraitementBasses()
+        portee.launch { c.reglages.basses.collect { basses.chaine.niveau = NiveauBass.de(it) } }
+        val rendus = object : DefaultRenderersFactory(this) {
+            override fun buildAudioSink(context: Context, enableFloatOutput: Boolean, enableAudioTrackPlaybackParams: Boolean): AudioSink =
+                DefaultAudioSink.Builder(context)
+                    .setEnableFloatOutput(enableFloatOutput)
+                    .setEnableAudioTrackPlaybackParams(enableAudioTrackPlaybackParams)
+                    .setAudioProcessors(arrayOf(basses))
+                    .build()
+        }
+        val joueur = ExoPlayer.Builder(this, rendus)
             .setMediaSourceFactory(DefaultMediaSourceFactory(fichiers).setLoadErrorHandlingPolicy(PolitiqueErreurs()))
             // Démarrage rapide : la lecture part dès une seconde en mémoire (deux après une coupure),
             // et le tampon monte jusqu'à une minute, ce qui couvre aussi le début du titre suivant.

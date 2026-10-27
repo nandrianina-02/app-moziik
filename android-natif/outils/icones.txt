@@ -147,3 +147,4 @@ settings
 activity
 file-text
 mic
+audio-waveform

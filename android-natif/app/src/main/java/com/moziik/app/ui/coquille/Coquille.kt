@@ -99,6 +99,10 @@ import com.moziik.app.ui.composants.LogoMoziik
 import com.moziik.app.ui.decouvrir.FicheEvenement
 import com.moziik.app.ui.notifications.EcranNotifications
 import androidx.compose.ui.text.font.FontWeight
+import com.moziik.app.ui.lecteur.rememberEtatTiroir
+import com.moziik.app.ui.lecteur.glissementDuTiroir
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.input.nestedscroll.nestedScroll
 
 /**
  * La coquille commune à tous les écrans, comme celle du site sur mobile :
@@ -115,7 +119,8 @@ fun Coquille(sombre: Boolean, onBasculerMode: () -> Unit) {
     val lecture by c.lecteur.etat.collectAsStateWithLifecycle()
     val alerte by c.alertes.alerte.collectAsStateWithLifecycle()
     val session by c.session.etat.collectAsStateWithLifecycle()
-    var pleinEcran by rememberSaveable { mutableStateOf(false) }
+    // Le lecteur, du mini-lecteur au plein écran : un seul tiroir que le doigt ouvre et referme.
+    val tiroir = rememberEtatTiroir()
     // Une conversation occupe tout l'écran : sans en-tête, barre du bas ni mini-lecteur, le clavier a la place.
     val pleinePage = entree?.destination?.route == Fiches.CONVERSATION
     val nonLus by c.messagerie.nonLus.collectAsStateWithLifecycle()
@@ -168,7 +173,7 @@ fun Coquille(sombre: Boolean, onBasculerMode: () -> Unit) {
                 termeDemande = terme
                 aller(Destination.RECHERCHE)
             },
-            onAvantNavigation = { pleinEcran = false },
+            onAvantNavigation = tiroir::fermer,
         )
     }
 
@@ -281,18 +286,31 @@ fun Coquille(sombre: Boolean, onBasculerMode: () -> Unit) {
                 enter = fadeIn(tween(Mouvement.VOILE)) + expandVertically(tween(Mouvement.VOILE, easing = Mouvement.sortieDouce)),
                 exit = fadeOut(tween(Mouvement.VOILE)) + shrinkVertically(tween(Mouvement.VOILE)),
             ) {
-                MiniLecteur(lecture, c.lecteur, onOuvrir = { pleinEcran = true })
+                // Le mini-lecteur s'efface à mesure que le plein écran monte : on croit voir le même bloc grandir.
+                MiniLecteur(
+                    lecture, c.lecteur, onOuvrir = tiroir::ouvrir,
+                    modifier = Modifier
+                        .graphicsLayer { alpha = (1f - tiroir.ouverture * 2.5f).coerceIn(0f, 1f) }
+                        .glissementDuTiroir(tiroir),
+                )
             }
             if (!pleinePage) BarreDuBas(onglet = onglet, nonLus = nonLus, onChoisir = aller)
         }
 
-        // Le plein écran monte du bas et y redescend, par-dessus la coquille.
-        AnimatedVisibility(
-            visible = pleinEcran && lecture.courant != null,
-            enter = slideInVertically(tween(Mouvement.TIROIR, easing = Mouvement.sortieDouce)) { it },
-            exit = slideOutVertically(tween(Mouvement.VOILE)) { it },
-        ) {
-            LecteurPleinEcran(lecture, onFermer = { pleinEcran = false })
+        // Le plein écran suit le doigt : il monte du mini-lecteur et y redescend, par-dessus la coquille.
+        if (tiroir.ouvert && lecture.courant != null) {
+            Box(
+                Modifier
+                    .fillMaxSize()
+                    .graphicsLayer {
+                        translationY = (1f - tiroir.ouverture) * size.height
+                        // Le contenu apparaît dans le premier tiers de la course, pendant que le mini-lecteur s'efface.
+                        alpha = (tiroir.ouverture * 3f).coerceIn(0f, 1f)
+                    }
+                    .nestedScroll(tiroir.defilement),
+            ) {
+                LecteurPleinEcran(lecture, onFermer = tiroir::fermer, poignee = Modifier.glissementDuTiroir(tiroir))
+            }
         }
     }
 
@@ -300,19 +318,19 @@ fun Coquille(sombre: Boolean, onBasculerMode: () -> Unit) {
     }
 
     // Retour : le lecteur plein écran se ferme avant toute navigation.
-    BackHandler(enabled = pleinEcran) { pleinEcran = false }
+    BackHandler(enabled = tiroir.ouvert) { tiroir.fermer() }
 
     if (alerte == AlerteLecture.Quota) {
         MurQuota(
             onInscription = {
                 c.alertes.oublier()
-                pleinEcran = false
+                tiroir.fermer()
                 aller(Destination.COMPTE)
                 navigation.navigate(INSCRIPTION)
             },
             onConnexion = {
                 c.alertes.oublier()
-                pleinEcran = false
+                tiroir.fermer()
                 aller(Destination.COMPTE)
             },
             onFermer = c.alertes::oublier,

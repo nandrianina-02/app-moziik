@@ -66,7 +66,7 @@ import kotlin.math.abs
  * plein écran, Suivant, Lecture, et la progression sur sa propre ligne.
  */
 @Composable
-fun MiniLecteur(etat: EtatLecteur, lecteur: Lecteur, onOuvrir: () -> Unit) {
+fun MiniLecteur(etat: EtatLecteur, lecteur: Lecteur, onOuvrir: () -> Unit, modifier: Modifier = Modifier) {
     val p = LocalPalette.current
     val courant = etat.courant ?: return
     val avancement by rememberAvancement(lecteur, courant.id)
@@ -75,7 +75,7 @@ fun MiniLecteur(etat: EtatLecteur, lecteur: Lecteur, onOuvrir: () -> Unit) {
     val teinte = rememberTeintePochette(courant.pochette).takeIf { p.sombre }
     val fond by animateColorAsState(teinte ?: p.surface.compose, tween(300), label = "fond")
     Column(
-        Modifier
+        modifier
             .fillMaxWidth()
             .background(fond)
             .drawBehind { drawLine(filet, Offset.Zero, Offset(size.width, 0f), 1.dp.toPx()) },

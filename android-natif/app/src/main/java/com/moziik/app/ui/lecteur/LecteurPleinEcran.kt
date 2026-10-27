@@ -88,7 +88,7 @@ import com.moziik.app.ui.menus.Feuille
  * fiche.
  */
 @Composable
-fun LecteurPleinEcran(etat: EtatLecteur, onFermer: () -> Unit) {
+fun LecteurPleinEcran(etat: EtatLecteur, onFermer: () -> Unit, poignee: Modifier = Modifier) {
     val c = conteneur()
     val lecteur = c.lecteur
     val p = LocalPalette.current
@@ -113,7 +113,8 @@ fun LecteurPleinEcran(etat: EtatLecteur, onFermer: () -> Unit) {
             .windowInsetsPadding(WindowInsets.statusBars)
             .windowInsetsPadding(WindowInsets.navigationBars),
     ) {
-        Row(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+        // L'en-tête sert de poignée : le glisser vers le bas ramène le lecteur au mini-lecteur.
+        Row(Modifier.fillMaxWidth().then(poignee).padding(horizontal = 12.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
             Box(
                 Modifier.size(40.dp).clip(CircleShape).clickable(role = Role.Button, onClick = onFermer),
                 contentAlignment = Alignment.Center,

@@ -8,6 +8,7 @@ import { parseOrThrow, patchSongSchema } from "@/lib/validation";
 import { requireAuthUser } from "@/lib/mobileAuth";
 import { gereArtiste, requireGestionTitre } from "@/lib/songAccess";
 import { identifiantFichier } from "@/lib/fichiers";
+import { annoncerSortie } from "@/lib/annonceSortie";
 import { retirerFichier } from "@/lib/karaksStorage";
 
 export const GET = withApiErrors(async (req: Request, { params }: { params: { id: string } }) => {
@@ -36,6 +37,7 @@ export const PATCH = withApiErrors(
     // une règle d'accès recopiée finit par diverger, et cela se remarque
     // le jour où elle laisse passer quelqu'un.
     const song = await requireGestionTitre(req, params.id);
+    const statutAvant = song.status;
 
     const parsedUpdates = parseOrThrow(patchSongSchema, await req.json());
     const updates = parsedUpdates as Record<string, unknown>;
@@ -179,6 +181,16 @@ export const PATCH = withApiErrors(
     // Les erreurs de validation/cast Mongoose sont traduites en 400 avec
     // leur message réel par withApiErrors (voir lib/apiError.ts).
     await song.save();
+
+    // Validé ou daté par l'administration : le titre devient public, ses abonnés l'apprennent.
+    // Une modification d'un titre déjà publié n'annonce rien.
+    if (statutAvant !== "published" && song.status === "published") {
+      try {
+        await annoncerSortie(song._id.toString());
+      } catch (err) {
+        console.error("Annonce de sortie non envoyée :", err);
+      }
+    }
 
     // Après l'enregistrement seulement : un échec plus haut laisse le titre
     // intact, fichiers compris. Un fichier qui résiste reste dans la

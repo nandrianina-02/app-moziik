@@ -9,6 +9,7 @@ import { ApiError, withApiErrors } from "@/lib/apiError";
 import { parseOrThrow, createSongSchema } from "@/lib/validation";
 import { requireAuthUser } from "@/lib/mobileAuth";
 import { universDeLaRequete } from "@/lib/universServer";
+import { annoncerSortie } from "@/lib/annonceSortie";
 import { universALaPublication } from "@/lib/universClassify";
 
 export const GET = withApiErrors(async (req: Request) => {
@@ -191,6 +192,15 @@ export const POST = withApiErrors(async (req: Request) => {
   // oubli, l'artiste qui vient de publier ne verrait pas son titre
   // dans « Nouveautés » avant cinq minutes.
   oublierSectionsPubliees();
+
+  // Publié tout de suite par l'administration : les abonnés de l'artiste sont prévenus.
+  if (status === "published") {
+    try {
+      await annoncerSortie(song._id.toString());
+    } catch (err) {
+      console.error("Annonce de sortie non envoyée :", err);
+    }
+  }
 
   // Le son est créé : plus rien ici ne doit faire échouer la requête. Une
   // notification qui plante renverrait un 500 alors que la publication a

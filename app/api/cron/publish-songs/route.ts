@@ -1,8 +1,7 @@
 import { NextResponse } from "next/server";
 import { connectDB } from "@/lib/db";
 import Song from "@/models/Song";
-import Artist from "@/models/Artist";
-import { notifyMany } from "@/lib/notify";
+import { annoncerSortie } from "@/lib/annonceSortie";
 import { withApiErrors, ApiError } from "@/lib/apiError";
 
 export const dynamic = "force-dynamic";
@@ -32,20 +31,7 @@ export const POST = withApiErrors(async (req: Request) => {
   for (const song of due) {
     song.status = "published";
     await song.save();
-
-    const artist = await Artist.findById(song.artist);
-    if (artist && artist.followers.length > 0) {
-      await notifyMany(
-        artist.followers.map((f) => f.toString()),
-        {
-          type: "new_song",
-          title: "Nouveau son disponible",
-          message: `${artist.stageName} vient de publier "${song.title}".`,
-          link: `/son/${song._id}`,
-          imageUrl: song.coverUrl,
-        }
-      );
-    }
+    await annoncerSortie(song._id.toString());
   }
 
   return NextResponse.json({ published: due.length });

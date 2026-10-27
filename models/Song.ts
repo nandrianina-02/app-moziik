@@ -75,6 +75,8 @@ export interface ISong {
    * recalcule sans dommage.
    */
   bpmSource?: "manuel" | "balise" | "analyse";
+  /** Date à laquelle les abonnés ont été prévenus de la sortie (lib/annonceSortie.ts). */
+  sortieAnnoncee?: Date;
   musicalKey?: string; // tonalité (ex. "C#m")
   isrc?: string;
   copyright?: string;
@@ -123,6 +125,7 @@ const SongSchema = new Schema<ISong>({
   producer: { type: String },
   bpm: { type: Number },
   bpmSource: { type: String, enum: ["manuel", "balise", "analyse"] },
+  sortieAnnoncee: { type: Date },
   musicalKey: { type: String },
   isrc: { type: String },
   copyright: { type: String },

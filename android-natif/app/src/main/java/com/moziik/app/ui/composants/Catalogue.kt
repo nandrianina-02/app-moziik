@@ -50,6 +50,8 @@ import com.moziik.app.theme.Mouvement
 import com.moziik.app.theme.Texte
 import com.moziik.app.theme.compose
 import com.moziik.app.ui.horsligne.PastilleTelechargement
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.compose.foundation.layout.fillMaxHeight
 
 /** « 48 », « 1,93 k », « 64,3 k », « 1,2 M » : un compteur lisible sous une carte. */
 fun nombreCourt(n: Int): String {
@@ -291,6 +293,13 @@ fun LigneTitre(
                 overflow = TextOverflow.Ellipsis,
             )
             NomArtiste(titre.artist?.stageName, titre.artist?.verified == true)
+            // Une longue écoute laissée en cours : où l'on s'est arrêté.
+            val positions by com.moziik.app.ui.conteneur().positionsLongues.positions.collectAsStateWithLifecycle()
+            positions.firstOrNull { it.id == titre.id }?.let { pos ->
+                Box(Modifier.padding(top = 4.dp).fillMaxWidth(0.6f).height(2.dp).clip(RoundedCornerShape(1.dp)).background(p.bordure.compose)) {
+                    Box(Modifier.fillMaxWidth((pos.positionMs.toFloat() / pos.dureeMs).coerceIn(0.02f, 1f)).fillMaxHeight().background(p.accent.compose))
+                }
+            }
         }
         Spacer(Modifier.width(8.dp))
         if (enCours && enLecture) {

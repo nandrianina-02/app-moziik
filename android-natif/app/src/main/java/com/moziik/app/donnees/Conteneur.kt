@@ -60,6 +60,8 @@ class Conteneur(contexte: Context) {
     /** La minuterie de veille, réglée par le lecteur plein écran et appliquée par le service. */
     val veille = com.moziik.app.lecteur.MinuterieVeille()
     val lecteur = Lecteur(contexte, BuildConfig.SITE)
+    /** Où l'on s'est arrêté dans les longues écoutes (podcasts, prédications, lives). */
+    val positionsLongues = com.moziik.app.lecteur.PositionsLongues(contexte)
     /** Créé au premier titre lu, par le service de lecture. */
     val cacheLecture by lazy { com.moziik.app.lecteur.CacheLecture(contexte) }
     val horsLigne = HorsLigne(
@@ -76,6 +78,7 @@ class Conteneur(contexte: Context) {
         portee,
         AvisTelechargement(contexte),
         oublierCache = { reseau.cacheHorsLigne?.oublierComptes() },
+        pourToi = { catalogue.station().titres },
     ).also { h ->
         catalogue.parolesGardees = h.telechargements::parolesGardees
         catalogue.universVisiteur = { reglages.universVisiteur }

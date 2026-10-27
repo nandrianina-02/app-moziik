@@ -66,6 +66,8 @@ class HorsLigne(
     val avis: AvisTelechargement,
     /** Les réponses de l'API gardées pour le compte : effacées avec le reste à la déconnexion. */
     private val oublierCache: () -> Unit = {},
+    /** La sélection « Pour toi » du moment, pour le mix de la semaine. */
+    private val pourToi: suspend () -> List<Titre> = { emptyList() },
 ) {
     private val fichierFile = File(racine, "telechargements-en-attente.json")
     private val preferences = contexte.getSharedPreferences("hors-ligne", Context.MODE_PRIVATE)
@@ -112,7 +114,11 @@ class HorsLigne(
         if (!_horsReseau.value) portee.launch { rejouerEnAttente() }
         // Le réglage activé : la synchronisation part aussitôt, sans attendre le prochain Wi-Fi.
         portee.launch { reglages.autoAimes.drop(1).collect { if (it) synchroniserAimes(forcer = true) else retirerAuto() } }
-        portee.launch { synchroniserAimes() }
+        portee.launch { reglages.mixHebdo.drop(1).collect { if (it) synchroniserMix(forcer = true) else retirerSource(SOURCE_MIX) } }
+        portee.launch {
+            synchroniserAimes()
+            synchroniserMix()
+        }
     }
 
     /**
@@ -138,6 +144,33 @@ class HorsLigne(
             .filter { it.source == SOURCE_AUTO && it.id !in ids }
             .forEach { telechargements.supprimer(it.id) }
         demander(gardes, SOURCE_AUTO, lot = null, albumId = null, silencieux = true)
+    }
+
+    /**
+     * Le mix de la semaine : une trentaine de titres « Pour toi » gardés hors
+     * connexion, renouvelés tous les sept jours, aux mêmes conditions que les
+     * titres aimés (Wi-Fi ou réseau non facturé, Premium, place suffisante).
+     * Un titre du mix précédent qui n'est pas repris repart.
+     */
+    suspend fun synchroniserMix(forcer: Boolean = false) {
+        if (!reglages.mixHebdo.value || !reglages.reseauDisponible() || reglages.reseauFacture()) return
+        if (session.etat.value !is EtatSession.Connecte) return
+        val maintenant = System.currentTimeMillis()
+        if (!forcer && maintenant - preferences.getLong("mixLe", 0L) < SEMAINE_MS) return
+        if (telechargements.espaceLibre() < ESPACE_MINIMUM) return
+        if (refus() != null) return
+        val mix = runCatching { pourToi() }.getOrNull()?.filter { it.publie }?.take(MIX_TAILLE)?.takeIf { it.isNotEmpty() } ?: return
+        preferences.edit().putLong("mixLe", maintenant).apply()
+        val ids = mix.map { it.id }.toSet()
+        telechargements.titres.value
+            .filter { it.source == SOURCE_MIX && it.id !in ids }
+            .forEach { telechargements.supprimer(it.id) }
+        demander(mix, SOURCE_MIX, lot = null, albumId = null, silencieux = true)
+    }
+
+    private fun retirerSource(source: String) {
+        majFile { removeAll { it.source == source } }
+        telechargements.titres.value.filter { it.source == source }.forEach { telechargements.supprimer(it.id) }
     }
 
     /** Le réglage coupé : ce qui avait été gardé d'office repart, les choix manuels restent. */
@@ -320,6 +353,7 @@ class HorsLigne(
         reprendre()
         if (etait) rejouerEnAttente()
         synchroniserAimes()
+        synchroniserMix()
     }
 
     private fun oublierCompte() {
@@ -343,3 +377,8 @@ private const val AUTO_MAXIMUM = 200
 private const val SYNCHRO_MS = 30 * 60_000L
 /** En dessous de 500 Mo libres, rien n'est gardé d'office. */
 private const val ESPACE_MINIMUM = 500L * 1024 * 1024
+
+/** La source des titres du mix de la semaine. */
+const val SOURCE_MIX = "auto-mix"
+private const val MIX_TAILLE = 30
+private const val SEMAINE_MS = 7 * 86_400_000L

@@ -124,6 +124,8 @@ import androidx.compose.ui.graphics.lerp
 import com.moziik.app.ui.LIEN_RECHERCHE
 import com.moziik.app.ui.LIEN_TELECHARGEMENTS
 import com.moziik.app.ui.LIEN_BANDE_SON
+import com.moziik.app.ui.compte.PARAMETRES_REVEIL
+import com.moziik.app.ui.compte.EcranReveil
 
 /**
  * La coquille commune à tous les écrans, comme celle du site sur mobile :
@@ -329,6 +331,7 @@ fun Coquille(sombre: Boolean, onBasculerMode: () -> Unit) {
                 composable(Fiches.PARAMETRES) { EcranParametres(retour, onOuvrir = { navigation.navigate(it) }) }
                 composable(PARAMETRES_LECTURE) { EcranLecture(retour) }
                 composable(PARAMETRES_APPARENCE) { EcranApparence(retour) }
+                composable(PARAMETRES_REVEIL) { EcranReveil(retour) }
             }
             BandeauMessage((alerte as? AlerteLecture.Message)?.texte, onFini = c.alertes::oublier, succes = (alerte as? AlerteLecture.Message)?.succes == true)
             AnimatedVisibility(

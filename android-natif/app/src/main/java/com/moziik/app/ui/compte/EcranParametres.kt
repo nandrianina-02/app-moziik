@@ -71,6 +71,9 @@ fun EcranParametres(onRetour: () -> Unit, onOuvrir: (String) -> Unit) {
     val wifi by c.reglages.wifiSeulement.collectAsStateWithLifecycle()
     val noir by c.reglages.noirProfond.collectAsStateWithLifecycle()
     val autoAimes by c.reglages.autoAimes.collectAsStateWithLifecycle()
+    val mixHebdo by c.reglages.mixHebdo.collectAsStateWithLifecycle()
+    val reveilActif by c.reglages.reveilActif.collectAsStateWithLifecycle()
+    val reveilMinutes by c.reglages.reveilMinutes.collectAsStateWithLifecycle()
     val universSuit by c.reglages.universSuitEcoute.collectAsStateWithLifecycle()
     var choixSuite by remember { mutableStateOf(false) }
     var choixGenres by remember { mutableStateOf(false) }
@@ -91,6 +94,10 @@ fun EcranParametres(onRetour: () -> Unit, onOuvrir: (String) -> Unit) {
             ) { onOuvrir(PARAMETRES_LECTURE) }
             Ligne(R.drawable.lucide_audio_waveform, "Bass Boost", NiveauBass.de(basses).libelle) { choixBasses = true }
             Ligne(R.drawable.lucide_infinity, "Après la file", ModeSuite.de(suite).libelle) { choixSuite = true }
+            Ligne(
+                R.drawable.lucide_alarm_clock, "Réveil musical",
+                if (reveilActif) "%02d:%02d".format(reveilMinutes / 60, reveilMinutes % 60) else "Désactivé",
+            ) { onOuvrir(PARAMETRES_REVEIL) }
             Ligne(R.drawable.lucide_audio_waveform, "Fondu entre les titres", if (fondu == 0) "Aucun" else "$fondu secondes") { choixFondu = true }
             Box(Modifier.padding(vertical = 4.dp)) {
                 Interrupteur(volumeEgal, "Volume égal entre les titres") { c.reglages.choisirVolumeEgal(it) }
@@ -110,8 +117,11 @@ fun EcranParametres(onRetour: () -> Unit, onOuvrir: (String) -> Unit) {
             Box(Modifier.padding(vertical = 4.dp)) {
                 Interrupteur(autoAimes, "Garder mes titres aimés hors connexion") { c.reglages.choisirAutoAimes(it) }
             }
+            Box(Modifier.padding(vertical = 4.dp)) {
+                Interrupteur(mixHebdo, "Mix de la semaine hors connexion") { c.reglages.choisirMixHebdo(it) }
+            }
             Text(
-                "Avec Premium, en Wi-Fi seulement : vos titres aimés se téléchargent d'eux-mêmes, et repartent quand vous ne les aimez plus.",
+                "Avec Premium, en Wi-Fi seulement : vos titres aimés se téléchargent d'eux-mêmes, et repartent quand vous ne les aimez plus. Le mix de la semaine garde une trentaine de titres « Pour toi », renouvelés tous les sept jours.",
                 style = Texte.secondaire, color = p.encreAttenuee.compose, modifier = Modifier.padding(top = 2.dp),
             )
         }
@@ -210,6 +220,7 @@ fun EcranParametres(onRetour: () -> Unit, onOuvrir: (String) -> Unit) {
 /** Routes des réglages ouverts depuis Paramètres, hors de l'onglet Compte. */
 const val PARAMETRES_LECTURE = "parametres/lecture"
 const val PARAMETRES_APPARENCE = "parametres/apparence"
+const val PARAMETRES_REVEIL = "parametres/reveil"
 
 @Composable
 private fun Section(titre: String, rang: Int, contenu: @Composable () -> Unit) {

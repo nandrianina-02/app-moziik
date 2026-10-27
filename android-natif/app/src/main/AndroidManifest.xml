@@ -24,6 +24,10 @@
         </intent>
     </queries>
 
+    <!-- Le réveil musical : sonner à l'heure exacte, et se replanifier après un redémarrage. -->
+    <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" />
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+
     <application
         android:name=".MoziikApplication"
         android:allowBackup="false"
@@ -81,6 +85,14 @@
             <meta-data
                 android:name="android.appwidget.provider"
                 android:resource="@xml/gadget_lecture" />
+        </receiver>
+        <!-- Le réveil musical, et sa replanification après un redémarrage ou une mise à jour. -->
+        <receiver android:name=".lecteur.ReceveurReveil" android:exported="false" />
+        <receiver android:name=".lecteur.ReceveurDemarrage" android:exported="false">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+                <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
+            </intent-filter>
         </receiver>
         <!-- Le grand gadget (4 × 2) : pochette, avancement et commandes. -->
         <receiver

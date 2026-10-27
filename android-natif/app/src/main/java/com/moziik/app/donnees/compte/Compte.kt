@@ -264,6 +264,43 @@ class ReglagesAppareil(private val contexte: Context) {
         _fondu.value = secondes
     }
 
+    private val _mixHebdo = MutableStateFlow(preferences.getBoolean("mixHebdo", false))
+    /** Une sélection « Pour toi » téléchargée chaque semaine en Wi-Fi (Premium). */
+    val mixHebdo: StateFlow<Boolean> = _mixHebdo.asStateFlow()
+
+    fun choisirMixHebdo(oui: Boolean) {
+        preferences.edit().putBoolean("mixHebdo", oui).apply()
+        _mixHebdo.value = oui
+    }
+
+    // Le réveil musical (lecteur/Reveil.kt).
+    private val _reveilActif = MutableStateFlow(preferences.getBoolean("reveilActif", false))
+    val reveilActif: StateFlow<Boolean> = _reveilActif.asStateFlow()
+    private val _reveilMinutes = MutableStateFlow(preferences.getInt("reveilMinutes", 7 * 60))
+    /** L'heure du réveil, en minutes depuis minuit. */
+    val reveilMinutes: StateFlow<Int> = _reveilMinutes.asStateFlow()
+    private val _reveilJours = MutableStateFlow(
+        preferences.getStringSet("reveilJours", setOf("1", "2", "3", "4", "5"))?.mapNotNull { it.toIntOrNull() }?.toSet() ?: emptySet(),
+    )
+    /** Les jours du réveil, lundi = 1 … dimanche = 7. */
+    val reveilJours: StateFlow<Set<Int>> = _reveilJours.asStateFlow()
+    private val _reveilSource = MutableStateFlow(preferences.getString("reveilSource", "bande-son") ?: "bande-son")
+    /** bande-son, aimes ou telechargements. */
+    val reveilSource: StateFlow<String> = _reveilSource.asStateFlow()
+
+    fun choisirReveil(actif: Boolean, minutes: Int, jours: Set<Int>, source: String) {
+        preferences.edit()
+            .putBoolean("reveilActif", actif)
+            .putInt("reveilMinutes", minutes)
+            .putStringSet("reveilJours", jours.map { it.toString() }.toSet())
+            .putString("reveilSource", source)
+            .apply()
+        _reveilActif.value = actif
+        _reveilMinutes.value = minutes
+        _reveilJours.value = jours
+        _reveilSource.value = source
+    }
+
     private val _autoAimes = MutableStateFlow(preferences.getBoolean("autoAimes", false))
     /** Garder d'office hors connexion les titres aimés, en Wi-Fi seulement (Premium). */
     val autoAimes: StateFlow<Boolean> = _autoAimes.asStateFlow()

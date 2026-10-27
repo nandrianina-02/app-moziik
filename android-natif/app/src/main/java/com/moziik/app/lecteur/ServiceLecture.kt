@@ -56,6 +56,7 @@ import androidx.media3.exoplayer.DefaultRenderersFactory
 import androidx.media3.exoplayer.audio.AudioSink
 import androidx.media3.exoplayer.audio.DefaultAudioSink
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.withTimeoutOrNull
 
 /** Canal de la notification de lecture, repris de l'app Capacitor : les réglages de l'utilisateur sur ce canal sont gardés. */
 private const val CANAL = "moziik_lecture"
@@ -173,7 +174,11 @@ class ServiceLecture : MediaLibraryService() {
         }
         portee.launch {
             while (true) {
-                if (joueur.isPlaying) GadgetLecture.progression(this@ServiceLecture, joueur.currentPosition, joueur.duration.takeIf { it != C.TIME_UNSET } ?: 0L)
+                if (joueur.isPlaying) {
+                    val duree = joueur.duration.takeIf { it != C.TIME_UNSET } ?: 0L
+                    GadgetLecture.progression(this@ServiceLecture, joueur.currentPosition, duree)
+                    joueur.currentMediaItem?.let { c.positionsLongues.garder(it.mediaId, joueur.currentPosition, duree) }
+                }
                 delay(3_000)
             }
         }
@@ -237,8 +242,53 @@ class ServiceLecture : MediaLibraryService() {
     private var enchaineAvecPrecedent = false
     private var albumCourant: String? = null
 
+    private var volumeReveil = 1f
+
     private fun appliquerVolume() {
-        session?.player?.volume = volumeNormalisation * volumeFondu * volumeVeille
+        session?.player?.volume = volumeNormalisation * volumeFondu * volumeVeille * volumeReveil
+    }
+
+    override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        val resultat = super.onStartCommand(intent, flags, startId)
+        if (intent?.action == ACTION_REVEIL) lancerReveil()
+        return resultat
+    }
+
+    /**
+     * Le réveil : la musique choisie part tout de suite, volume au plus bas,
+     * puis monte sur une minute. La liste en ligne a deux secondes et demie
+     * pour arriver ; au-delà, ou sans réseau, ce sont les titres téléchargés,
+     * puis la dernière file écoutée : le réveil sonne toujours.
+     */
+    private fun lancerReveil() {
+        val c = conteneur
+        val joueur = session?.player ?: return
+        portee.launch {
+            val qualite = c.reglages.qualiteEffective()
+            val enLigne = when (c.reglages.reveilSource.value) {
+                "telechargements" -> null
+                "aimes" -> withTimeoutOrNull(2_500) { runCatching { c.bibliotheque.titresAimes().shuffled() }.getOrNull() }
+                else -> withTimeoutOrNull(2_500) { runCatching { c.catalogue.station().titres }.getOrNull() }
+            }
+            val elements = enLigne?.takeIf { it.isNotEmpty() }?.map { it.versElement(BuildConfig.SITE, "Réveil", qualite) }
+                ?: c.horsLigne.telechargements.titres.value.shuffled().map { c.horsLigne.telechargements.versTitre(it).versElement(BuildConfig.SITE, "Réveil", qualite) }.takeIf { it.isNotEmpty() }
+                ?: repriseSauvegardee(this@ServiceLecture, BuildConfig.SITE)?.mediaItems
+            if (elements.isNullOrEmpty()) {
+                stopSelf()
+                return@launch
+            }
+            volumeReveil = 0.1f
+            appliquerVolume()
+            joueur.setMediaItems(elements.map(::complet), 0, 0L)
+            joueur.prepare()
+            joueur.play()
+            val pas = 30
+            repeat(pas) { i ->
+                delay(MONTEE_REVEIL_MS / pas)
+                volumeReveil = 0.1f + 0.9f * (i + 1) / pas
+                appliquerVolume()
+            }
+        }
     }
 
     /** Le fondu, relu vingt fois par seconde pendant la lecture : il suit la position du titre. */
@@ -394,6 +444,8 @@ class ServiceLecture : MediaLibraryService() {
             enchaineAvecPrecedent = albumCourant != null && albumCourant == mediaItem?.albumId()
             albumCourant = mediaItem?.albumId()
             volumeNormalisation = gainNormalisation(mediaItem?.sonie(), conteneur.reglages.volumeEgal.value)
+            // Une longue écoute laissée en cours reprend là où on l'avait quittée.
+            mediaItem?.let { e -> conteneur.positionsLongues.reprise(e.mediaId)?.let { joueur.seekTo(it) } }
             majFondu(joueur)
             appliquerVolume()
             // « Fin du titre » : le titre suivant ne démarre pas.
@@ -414,6 +466,10 @@ class ServiceLecture : MediaLibraryService() {
         }
 
         override fun onIsPlayingChanged(isPlaying: Boolean) {
+            // En pause : la position d'une longue écoute est gardée tout de suite.
+            if (!isPlaying) joueur.currentMediaItem?.let {
+                conteneur.positionsLongues.garder(it.mediaId, joueur.currentPosition, joueur.duration.takeIf { d -> d != C.TIME_UNSET } ?: 0L)
+            }
             compteur.lecture(isPlaying, SystemClock.elapsedRealtime())
         }
 

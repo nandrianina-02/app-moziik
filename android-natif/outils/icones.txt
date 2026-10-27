@@ -149,3 +149,4 @@ file-text
 mic
 audio-waveform
 grip-vertical
+alarm-clock

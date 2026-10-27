@@ -142,3 +142,7 @@ gauge
 chart-column
 image
 circle-check
+infinity
+settings
+activity
+file-text

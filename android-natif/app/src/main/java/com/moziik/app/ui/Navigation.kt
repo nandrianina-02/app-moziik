@@ -22,6 +22,7 @@ object Fiches {
     const val CONVERSATION = "conversation/{id}"
     const val EVENEMENT = "evenement/{id}"
     const val NOTIFICATIONS = "notifications"
+    const val PARAMETRES = "parametres"
 }
 
 /**
@@ -45,6 +46,7 @@ class Navigation(
     fun conversation(id: String) = aller("conversation/$id")
     fun evenement(id: String) = aller("evenement/$id")
     fun notifications() = aller("notifications")
+    fun parametres() = aller("parametres")
     /** L'écran Abonnement de l'onglet Compte : là où mène une fonction réservée à Premium. */
     fun abonnement() = aller("compte/abonnement")
     fun rechercher(terme: String) {

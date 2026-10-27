@@ -1,3 +1,5 @@
+@file:OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
+
 package com.moziik.app.ui.fiches
 
 import androidx.compose.foundation.layout.Arrangement
@@ -41,6 +43,7 @@ import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.launch
 import com.moziik.app.ui.horsligne.BoutonTelechargerLot
 import com.moziik.app.ui.horsligne.PastilleAlbum
+import androidx.compose.foundation.lazy.rememberLazyListState
 
 data class DonneesAlbum(val album: AlbumDetail, val autres: List<AlbumCourt>, val enregistre: Boolean)
 
@@ -81,8 +84,9 @@ private fun CorpsAlbum(donnees: DonneesAlbum, onRetour: () -> Unit) {
     var enregistre by remember(donnees) { mutableStateOf(donnees.enregistre) }
     var bascule by remember { mutableStateOf(false) }
 
-    LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = 32.dp)) {
-        item(key = "retour") { BarreRetour(onRetour) }
+    val liste = rememberLazyListState()
+    LazyColumn(Modifier.fillMaxSize(), state = liste, contentPadding = PaddingValues(bottom = 32.dp)) {
+        stickyHeader(key = "retour") { BarreCollante(onRetour, album.title, liste) }
         item(key = "entete") {
             EnTeteFiche(
                 pochette = album.coverUrl,

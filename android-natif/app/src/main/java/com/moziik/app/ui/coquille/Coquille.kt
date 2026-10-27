@@ -103,6 +103,11 @@ import com.moziik.app.ui.lecteur.rememberEtatTiroir
 import com.moziik.app.ui.lecteur.glissementDuTiroir
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.nestedscroll.nestedScroll
+import com.moziik.app.ui.compte.EcranParametres
+import com.moziik.app.ui.compte.PARAMETRES_LECTURE
+import com.moziik.app.ui.compte.PARAMETRES_APPARENCE
+import com.moziik.app.ui.compte.EcranLecture
+import com.moziik.app.ui.compte.EcranApparence
 
 /**
  * La coquille commune à tous les écrans, comme celle du site sur mobile :
@@ -232,6 +237,7 @@ fun Coquille(sombre: Boolean, onBasculerMode: () -> Unit) {
                     onBasculerMode = onBasculerMode,
                     notifications = if (session is EtatSession.Connecte) notificationsNonLues else null,
                     onNotifications = navigationFiches::notifications,
+                    onParametres = navigationFiches::parametres,
                 )
             }
             // Sans réseau, les pages déjà vues s'affichent depuis le téléphone : le dire, et mener à la musique gardée (6.4).
@@ -279,6 +285,9 @@ fun Coquille(sombre: Boolean, onBasculerMode: () -> Unit) {
                 composable(Fiches.CONVERSATION) { e -> EcranConversation(e.arguments?.getString("id").orEmpty(), retour) }
                 composable(Fiches.EVENEMENT) { e -> FicheEvenement(e.arguments?.getString("id").orEmpty(), retour) }
                 composable(Fiches.NOTIFICATIONS) { EcranNotifications(retour) }
+                composable(Fiches.PARAMETRES) { EcranParametres(retour, onOuvrir = { navigation.navigate(it) }) }
+                composable(PARAMETRES_LECTURE) { EcranLecture(retour) }
+                composable(PARAMETRES_APPARENCE) { EcranApparence(retour) }
             }
             BandeauMessage((alerte as? AlerteLecture.Message)?.texte, onFini = c.alertes::oublier, succes = (alerte as? AlerteLecture.Message)?.succes == true)
             AnimatedVisibility(
@@ -362,7 +371,7 @@ private fun BandeauHorsLigne(onMesTitres: () -> Unit) {
 
 /** `notifications` : le nombre de non lues, ou null pour un visiteur (pas de cloche). */
 @Composable
-private fun EnTete(sombre: Boolean, onBasculerMode: () -> Unit, notifications: Int?, onNotifications: () -> Unit) {
+private fun EnTete(sombre: Boolean, onBasculerMode: () -> Unit, notifications: Int?, onNotifications: () -> Unit, onParametres: () -> Unit) {
     val p = LocalPalette.current
     Row(
         Modifier
@@ -406,6 +415,17 @@ private fun EnTete(sombre: Boolean, onBasculerMode: () -> Unit, notifications: I
             }
             Spacer(Modifier.width(8.dp))
         }
+        // Tous les réglages, visiteur compris : qualité, suite de lecture, thème, notifications, compte.
+        Box(
+            Modifier
+                .size(36.dp)
+                .clip(CircleShape)
+                .clickable(role = Role.Button, onClickLabel = "Paramètres", onClick = onParametres),
+            contentAlignment = Alignment.Center,
+        ) {
+            Icone(R.drawable.lucide_settings, description = "Paramètres", teinte = p.encre.compose, taille = 19.dp)
+        }
+        Spacer(Modifier.width(8.dp))
         Box(
             Modifier
                 .size(36.dp)

@@ -1,0 +1,169 @@
+package com.moziik.app.ui.compte
+
+import android.content.Intent
+import android.os.Build
+import android.provider.Settings
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.toArgb
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.dp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.moziik.app.BuildConfig
+import com.moziik.app.R
+import com.moziik.app.donnees.session.EtatSession
+import com.moziik.app.lecteur.AlerteLecture
+import com.moziik.app.lecteur.ModeSuite
+import com.moziik.app.theme.LocalPalette
+import com.moziik.app.theme.Texte
+import com.moziik.app.theme.compose
+import com.moziik.app.ui.composants.Egaliseur
+import com.moziik.app.ui.composants.Icone
+import com.moziik.app.ui.composants.apparition
+import com.moziik.app.ui.conteneur
+import com.moziik.app.ui.lecteur.ChoixSuite
+import com.moziik.app.ui.menus.Interrupteur
+import com.moziik.app.ui.ouvrirLien
+import kotlinx.coroutines.launch
+
+/**
+ * Tous les réglages de l'app au même endroit, ouverts par la roue de
+ * l'en-tête : lecture, téléchargements, apparence, notifications, compte
+ * et version. Un visiteur y accède aussi ; les rubriques du compte
+ * n'apparaissent qu'une fois connecté.
+ */
+@Composable
+fun EcranParametres(onRetour: () -> Unit, onOuvrir: (String) -> Unit) {
+    val c = conteneur()
+    val p = LocalPalette.current
+    val contexte = LocalContext.current
+    val portee = rememberCoroutineScope()
+    val session by c.session.etat.collectAsStateWithLifecycle()
+    val qualite by c.reglages.qualite.collectAsStateWithLifecycle()
+    val apparence by c.reglages.apparence.collectAsStateWithLifecycle()
+    val suite by c.reglages.suite.collectAsStateWithLifecycle()
+    val wifi by c.reglages.wifiSeulement.collectAsStateWithLifecycle()
+    val noir by c.reglages.noirProfond.collectAsStateWithLifecycle()
+    var choixSuite by remember { mutableStateOf(false) }
+    var verification by remember { mutableStateOf(false) }
+    val connecte = session is EtatSession.Connecte
+
+    PageReglage("Paramètres", onRetour) {
+        Section("Lecture", 0) {
+            Ligne(
+                R.drawable.lucide_headphones, "Qualité et données",
+                when (qualite) { "low" -> "Économe, 64 kb/s"; "medium" -> "Standard, 128 kb/s"; else -> "Haute, 320 kb/s" } + " · écoutes récentes",
+            ) { onOuvrir(PARAMETRES_LECTURE) }
+            Ligne(R.drawable.lucide_infinity, "Après la file", ModeSuite.de(suite).libelle) { choixSuite = true }
+        }
+        Section("Téléchargements", 1) {
+            Box(Modifier.padding(vertical = 4.dp)) {
+                Interrupteur(wifi, "Télécharger seulement en Wi-Fi") { c.reglages.choisirWifiSeulement(it) }
+            }
+        }
+        Section("Apparence", 2) {
+            Ligne(
+                R.drawable.lucide_palette, "Thème",
+                when (apparence) { "clair" -> "Clair"; "sombre" -> "Sombre"; "systeme" -> "Comme le téléphone"; else -> "Celui du site" },
+            ) { onOuvrir(PARAMETRES_APPARENCE) }
+            Box(Modifier.padding(vertical = 4.dp)) {
+                Interrupteur(noir, "Noir profond en mode sombre") { c.reglages.choisirNoirProfond(it) }
+            }
+        }
+        Section("Notifications", 3) {
+            Ligne(R.drawable.lucide_bell, "Notifications du téléphone", "Annonces, messages, téléchargements") {
+                // Les canaux se règlent dans Android : un réglage maison ferait doublon avec celui du système.
+                val intention = if (Build.VERSION.SDK_INT >= 26) {
+                    Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS).putExtra(Settings.EXTRA_APP_PACKAGE, contexte.packageName)
+                } else {
+                    Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, android.net.Uri.parse("package:${contexte.packageName}"))
+                }
+                runCatching { contexte.startActivity(intention.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) }
+            }
+        }
+        if (connecte) {
+            Section("Compte", 4) {
+                Ligne(R.drawable.lucide_user_round_pen, "Profil", "Nom affiché, nom d'utilisateur") { onOuvrir("compte/profil") }
+                Ligne(R.drawable.lucide_sliders_horizontal, "Préférences", "Univers musical, mode d'écoute") { onOuvrir("compte/preferences") }
+                Ligne(R.drawable.lucide_crown, "Abonnement", "Premium, échéance, avantages") { onOuvrir("compte/abonnement") }
+                Ligne(R.drawable.lucide_shield, "Sécurité", "Mot de passe, appareils connectés") { onOuvrir("compte/securite") }
+            }
+        }
+        Section("À propos", 5) {
+            Ligne(
+                R.drawable.lucide_info, "Version ${BuildConfig.VERSION_NAME}",
+                if (verification) "Recherche d'une mise à jour…" else "Rechercher une mise à jour",
+                enCours = verification,
+            ) {
+                if (verification) return@Ligne
+                verification = true
+                portee.launch {
+                    val nouvelle = runCatching { c.miseAJour.disponible() }.getOrNull()
+                    verification = false
+                    if (nouvelle == null) {
+                        c.alertes.signaler(AlerteLecture.Message("Moziik est à jour.", succes = true))
+                    } else {
+                        ouvrirLien(contexte, nouvelle.adresse, p.base.compose.toArgb())
+                    }
+                }
+            }
+            Ligne(R.drawable.lucide_file_text, "Mentions légales", "Sur le site de Moziik") {
+                ouvrirLien(contexte, "${BuildConfig.SITE}mentions-legales", p.base.compose.toArgb())
+            }
+        }
+    }
+    if (choixSuite) ChoixSuite { choixSuite = false }
+}
+
+/** Routes des réglages ouverts depuis Paramètres, hors de l'onglet Compte. */
+const val PARAMETRES_LECTURE = "parametres/lecture"
+const val PARAMETRES_APPARENCE = "parametres/apparence"
+
+@Composable
+private fun Section(titre: String, rang: Int, contenu: @Composable () -> Unit) {
+    val p = LocalPalette.current
+    Column(Modifier.fillMaxWidth().padding(top = 18.dp).apparition(rang)) {
+        Text(titre.uppercase(), style = Texte.surtitre, color = p.encreAttenuee.compose, modifier = Modifier.padding(bottom = 6.dp))
+        contenu()
+    }
+}
+
+@Composable
+private fun Ligne(icone: Int, titre: String, detail: String, enCours: Boolean = false, onClick: () -> Unit) {
+    val p = LocalPalette.current
+    Row(
+        Modifier.fillMaxWidth().clip(RoundedCornerShape(10.dp)).clickable(role = Role.Button, onClick = onClick).padding(vertical = 10.dp, horizontal = 2.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Box(Modifier.size(36.dp).clip(RoundedCornerShape(10.dp)).background(p.accent.compose.copy(alpha = 0.1f)), contentAlignment = Alignment.Center) {
+            Icone(icone, description = null, teinte = p.accent.compose, taille = 18.dp)
+        }
+        Spacer(Modifier.width(12.dp))
+        Column(Modifier.weight(1f)) {
+            Text(titre, style = Texte.corps.copy(fontWeight = FontWeight.Medium), color = p.encre.compose)
+            Text(detail, style = Texte.secondaire, color = p.encreAttenuee.compose)
+        }
+        if (enCours) Egaliseur(hauteur = 12.dp) else Icone(R.drawable.lucide_chevron_right, description = null, teinte = p.encreAttenuee.compose, taille = 18.dp)
+    }
+}

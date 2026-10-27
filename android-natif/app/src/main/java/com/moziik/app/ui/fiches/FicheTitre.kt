@@ -1,3 +1,5 @@
+@file:OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
+
 package com.moziik.app.ui.fiches
 
 import androidx.compose.foundation.BorderStroke
@@ -58,6 +60,7 @@ import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.launch
 import com.moziik.app.ui.horsligne.BoutonTelechargerTitre
 import com.moziik.app.donnees.horsligne.ActionGardee
+import androidx.compose.foundation.lazy.rememberLazyListState
 
 data class DonneesTitre(val titre: Titre, val similaires: List<Titre>, val paroles: Paroles?)
 
@@ -99,8 +102,9 @@ private fun CorpsTitre(donnees: DonneesTitre, onRetour: () -> Unit) {
         aime = connecte && appel { c.reseau.api.aime(titre.id).liked }.getOrDefault(false)
     }
 
-    LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = 32.dp)) {
-        item(key = "retour") { BarreRetour(onRetour) }
+    val liste = rememberLazyListState()
+    LazyColumn(Modifier.fillMaxSize(), state = liste, contentPadding = PaddingValues(bottom = 32.dp)) {
+        stickyHeader(key = "retour") { BarreCollante(onRetour, titre.title, liste) }
         item(key = "entete") {
             EnTeteFiche(
                 pochette = titre.coverUrl,

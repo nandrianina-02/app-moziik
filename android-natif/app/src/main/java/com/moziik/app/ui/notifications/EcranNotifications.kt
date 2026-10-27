@@ -70,6 +70,7 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import com.moziik.app.ui.composants.SqueletteListe
+import com.moziik.app.ui.fiches.BarreCollante
 
 /** Le pictogramme d'une notification sans image, par type (NotificationItem.tsx). */
 private fun iconeDe(type: String): Int = when (type) {
@@ -167,7 +168,7 @@ fun EcranNotifications(onRetour: () -> Unit) {
         modifier = Modifier.fillMaxSize(),
     ) {
         LazyColumn(Modifier.fillMaxSize(), state = etatListe, contentPadding = PaddingValues(bottom = 32.dp)) {
-            item(key = "retour") { BarreRetour(onRetour) }
+            stickyHeader(key = "retour") { BarreCollante(onRetour, "Notifications", etatListe) }
             item(key = "titre") {
                 Row(Modifier.fillMaxWidth().padding(start = 16.dp, end = 8.dp, bottom = 8.dp), verticalAlignment = Alignment.CenterVertically) {
                     Column(Modifier.weight(1f)) {

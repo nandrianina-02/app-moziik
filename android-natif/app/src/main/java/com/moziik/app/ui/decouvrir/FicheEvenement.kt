@@ -1,3 +1,5 @@
+@file:OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
+
 package com.moziik.app.ui.decouvrir
 
 import android.content.Intent
@@ -68,6 +70,8 @@ import java.text.NumberFormat
 import java.text.SimpleDateFormat
 import java.util.Currency
 import java.util.Locale
+import androidx.compose.foundation.lazy.rememberLazyListState
+import com.moziik.app.ui.fiches.BarreCollante
 
 data class DonneesEvenement(val evenement: EvenementDetail, val devise: String)
 
@@ -131,8 +135,9 @@ private fun CorpsEvenement(donnees: DonneesEvenement, onRetour: () -> Unit) {
     val billets = e.ticketUrl?.takeIf { it.startsWith("http") && moment != Moment.PASSE }
     val prixMin = e.tickets.filter { !it.soldOut }.minOfOrNull { it.price } ?: e.price
 
-    LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = 40.dp)) {
-        item(key = "retour") { BarreRetour(onRetour) }
+    val liste = rememberLazyListState()
+    LazyColumn(Modifier.fillMaxSize(), state = liste, contentPadding = PaddingValues(bottom = 40.dp)) {
+        stickyHeader(key = "retour") { BarreCollante(onRetour, e.title, liste) }
         item(key = "affiche") {
             Column(Modifier.padding(horizontal = 16.dp).apparitionUneFois("affiche", 0, vus)) {
                 Pochette(e.coverUrl, Modifier.fillMaxWidth().aspectRatio(16f / 10f), RoundedCornerShape(p.rayon.dp))

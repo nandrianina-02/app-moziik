@@ -1,3 +1,5 @@
+@file:OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
+
 package com.moziik.app.ui.bibliotheque
 
 import androidx.compose.foundation.BorderStroke
@@ -156,10 +158,11 @@ fun EcranBibliotheque(onConnexion: () -> Unit) {
     val onglets = Onglet.entries.filter { it != Onglet.PODCASTS || podcasts.isNotEmpty() }
     val avecIA = fonctionIA("playlist")
 
-    LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 16.dp, bottom = 32.dp)) {
-        item(key = "titre") { Text("Ma bibliothèque", style = Texte.titreFiche, color = p.encre.compose) }
-        item(key = "onglets") {
-            LazyRow(Modifier.padding(vertical = 16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+    LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(start = 16.dp, end = 16.dp, bottom = 32.dp)) {
+        item(key = "titre") { Text("Ma bibliothèque", style = Texte.titreFiche, color = p.encre.compose, modifier = Modifier.padding(top = 16.dp)) }
+        // Les onglets restent en haut : on passe des titres aux albums sans remonter.
+        stickyHeader(key = "onglets") {
+            LazyRow(Modifier.fillMaxWidth().background(p.base.compose).padding(vertical = 16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 items(onglets) { o -> Puce(o.libelle, o == onglet) { onglet = o } }
             }
         }

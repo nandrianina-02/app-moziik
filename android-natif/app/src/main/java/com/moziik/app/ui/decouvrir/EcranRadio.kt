@@ -1,3 +1,5 @@
+@file:OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
+
 package com.moziik.app.ui.decouvrir
 
 import androidx.compose.foundation.background
@@ -64,6 +66,8 @@ import com.moziik.app.ui.fiches.EtatFiche
 import com.moziik.app.ui.fiches.ModeleFiche
 import com.moziik.app.ui.navigation
 import com.moziik.app.ui.rememberLancement
+import androidx.compose.foundation.lazy.rememberLazyListState
+import com.moziik.app.ui.fiches.BarreCollante
 
 /** Les pictogrammes des stations, ceux de la page Radio du site. */
 private val ICONES = mapOf(
@@ -101,8 +105,9 @@ fun EcranRadio(station: String?, onRetour: () -> Unit) {
         if (trouvee != null) lancement.stationRadio(trouvee) else c.alertes.signaler(AlerteLecture.Message("Cette station n'existe pas."))
     }
 
-    LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = 32.dp)) {
-        item(key = "retour") { BarreRetour(onRetour) }
+    val liste = rememberLazyListState()
+    LazyColumn(Modifier.fillMaxSize(), state = liste, contentPadding = PaddingValues(bottom = 32.dp)) {
+        stickyHeader(key = "retour") { BarreCollante(onRetour, "Radio Moziik", liste) }
         item(key = "entete") {
             Column(Modifier.padding(start = 16.dp, end = 16.dp, top = 8.dp)) {
                 Text("Radio Moziik", style = Texte.titreFiche, color = p.encre.compose)

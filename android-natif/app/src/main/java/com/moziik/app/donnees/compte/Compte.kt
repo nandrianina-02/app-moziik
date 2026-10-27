@@ -187,6 +187,12 @@ class ReglagesAppareil(private val contexte: Context) {
         _noirProfond.value = oui
     }
 
+    private val _suite = MutableStateFlow(preferences.getString("suite", "ambiance") ?: "ambiance")
+    /** Ce qui suit une file finie : ambiance, rythme, artiste, decouverte, populaires ou arret (lecteur/Prolongement.kt). */
+    val suite: StateFlow<String> = _suite.asStateFlow()
+
+    fun choisirSuite(cle: String) = ecrire("suite", cle).also { _suite.value = cle }
+
     private val _wifiSeulement = MutableStateFlow(preferences.getBoolean("wifiSeulement", false))
     /** Les téléchargements attendent un réseau non facturé (spécification 6.2). */
     val wifiSeulement: StateFlow<Boolean> = _wifiSeulement.asStateFlow()

@@ -52,6 +52,15 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import com.moziik.app.ui.composants.LogoMoziik
 import com.moziik.app.ui.composants.SqueletteFiche
+import androidx.compose.foundation.lazy.LazyListState
+import androidx.compose.runtime.derivedStateOf
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 
 sealed interface EtatFiche<out T> {
     data object Chargement : EtatFiche<Nothing>
@@ -79,6 +88,37 @@ class ModeleFiche<T>(private val charger: suspend () -> T) : ViewModel() {
                 EtatFiche.Erreur(messageErreur(e))
             }
         }
+    }
+}
+
+/**
+ * La barre de retour qui reste en haut pendant le défilement : une fois
+ * l'en-tête de la page passé, elle prend un fond, un filet, et le nom de
+ * ce qu'on regarde, pour ne pas perdre le fil au milieu d'une longue liste.
+ */
+@Composable
+fun BarreCollante(onRetour: () -> Unit, titre: String, liste: LazyListState) {
+    val p = LocalPalette.current
+    val defile by remember(liste) { derivedStateOf { liste.firstVisibleItemIndex >= 2 || (liste.firstVisibleItemIndex == 1 && liste.firstVisibleItemScrollOffset > 120) } }
+    val opacite by animateFloatAsState(if (defile) 1f else 0f, tween(180), label = "barre")
+    val filet = p.bordure.compose
+    Row(
+        Modifier
+            .fillMaxWidth()
+            .background(p.base.compose.copy(alpha = opacite))
+            .drawBehind { if (opacite > 0f) drawLine(filet.copy(alpha = opacite), Offset(0f, size.height), Offset(size.width, size.height), 1.dp.toPx()) }
+            .padding(end = 16.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        BarreRetour(onRetour)
+        Text(
+            titre,
+            style = Texte.corpsFort,
+            color = p.encre.compose,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.weight(1f).padding(start = 4.dp, top = 4.dp).graphicsLayer { alpha = opacite },
+        )
     }
 }
 

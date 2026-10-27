@@ -1,3 +1,5 @@
+@file:OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
+
 package com.moziik.app.ui.decouvrir
 
 import androidx.compose.foundation.BorderStroke
@@ -71,6 +73,8 @@ import java.util.Locale
 import com.moziik.app.ui.composants.LogoMoziik
 import com.moziik.app.ui.horsligne.PastilleTelechargement
 import com.moziik.app.ui.composants.SqueletteListe
+import androidx.compose.foundation.lazy.rememberLazyListState
+import com.moziik.app.ui.fiches.BarreCollante
 
 /** Les onglets du site (app/classements/page.tsx), dans son ordre et avec ses libellés. */
 enum class TypeClassement(val cle: String, val libelle: String) {
@@ -161,16 +165,18 @@ fun EcranClassements(type: String?, periode: String?, onRetour: () -> Unit) {
         }
     }
 
-    LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = 32.dp)) {
-        item(key = "retour") { BarreRetour(onRetour) }
+    val liste = rememberLazyListState()
+    LazyColumn(Modifier.fillMaxSize(), state = liste, contentPadding = PaddingValues(bottom = 32.dp)) {
+        stickyHeader(key = "retour") { BarreCollante(onRetour, "Classements", liste) }
         item(key = "titre") {
             Column(Modifier.padding(start = 16.dp, end = 16.dp, top = 8.dp)) {
                 Text("Classements", style = Texte.titreFiche, color = p.encre.compose)
                 Text("Les contenus les plus populaires sur Moziik", style = Texte.corps, color = p.encreAttenuee.compose)
             }
         }
-        item(key = "filtres") {
-            Column(Modifier.padding(top = 16.dp)) {
+        // Les filtres restent sous la barre : on change de période sans remonter en haut du classement.
+        stickyHeader(key = "filtres") {
+            Column(Modifier.background(p.base.compose).padding(top = 16.dp, bottom = 8.dp)) {
                 RangeePuces(TypeClassement.entries.map { it.libelle }, TypeClassement.entries.indexOf(typeChoisi)) { modele.type.value = TypeClassement.entries[it] }
                 Spacer(Modifier.height(8.dp))
                 RangeePuces(Periode.entries.map { it.libelle }, Periode.entries.indexOf(periodeChoisie)) { modele.periode.value = Periode.entries[it] }

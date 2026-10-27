@@ -1,3 +1,5 @@
+@file:OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
+
 package com.moziik.app.ui.fiches
 
 import androidx.compose.foundation.clickable
@@ -63,6 +65,7 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import com.moziik.app.ui.horsligne.BoutonTelechargerLot
+import androidx.compose.foundation.lazy.rememberLazyListState
 
 /**
  * La fiche d'une playlist (F7). Son propriétaire la modifie ici même
@@ -100,8 +103,9 @@ private fun CorpsPlaylist(playlist: PlaylistDetail, onRetour: () -> Unit, onRech
         onRecharger()
     }
 
-    LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = 32.dp)) {
-        item(key = "retour") { BarreRetour(onRetour) }
+    val liste = rememberLazyListState()
+    LazyColumn(Modifier.fillMaxSize(), state = liste, contentPadding = PaddingValues(bottom = 32.dp)) {
+        stickyHeader(key = "retour") { BarreCollante(onRetour, playlist.title, liste) }
         item(key = "entete") {
             EnTeteFiche(
                 pochette = playlist.coverUrl ?: titres.firstOrNull()?.coverUrl,

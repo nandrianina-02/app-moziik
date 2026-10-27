@@ -100,7 +100,10 @@ class ServiceLecture : MediaLibraryService() {
         super.onCreate()
         val c = conteneur
         resolution = ResolutionFlux(c.reseau.client, BuildConfig.SITE, estVisiteur = { c.session.etat.value is EtatSession.Anonyme })
-        prolongement = Prolongement(c.reseau.api, c.catalogue::univers, c.catalogue::mode) { ModeSuite.de(c.reglages.suite.value) }
+        prolongement = Prolongement(c.reseau.api, c.catalogue::univers, c.catalogue::mode) {
+            // Un invité d'une écoute à plusieurs ne choisit pas la suite : c'est l'hôte.
+            if (c.ensemble.estInvite) ModeSuite.ARRET else ModeSuite.de(c.reglages.suite.value)
+        }
         arborescence = ArborescenceAuto(c, BuildConfig.SITE)
 
         // Le réseau : /api/stream résolu en adresse du fichier, puis lu par OkHttp.

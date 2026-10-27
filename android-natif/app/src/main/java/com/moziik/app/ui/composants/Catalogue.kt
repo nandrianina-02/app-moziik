@@ -293,6 +293,17 @@ fun LigneTitre(
                 overflow = TextOverflow.Ellipsis,
             )
             NomArtiste(titre.artist?.stageName, titre.artist?.verified == true)
+            // Trouvé par ses paroles : la ligne qui correspond, pour reconnaître le bon titre.
+            titre.extraitParoles?.let {
+                Text(
+                    "« $it »",
+                    style = Texte.secondaire.copy(fontStyle = androidx.compose.ui.text.font.FontStyle.Italic),
+                    color = p.encreAttenuee.compose,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.padding(top = 2.dp),
+                )
+            }
             // Une longue écoute laissée en cours : où l'on s'est arrêté.
             val positions by com.moziik.app.ui.conteneur().positionsLongues.positions.collectAsStateWithLifecycle()
             positions.firstOrNull { it.id == titre.id }?.let { pos ->

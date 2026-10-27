@@ -60,6 +60,8 @@ class Conteneur(contexte: Context) {
     /** La minuterie de veille, réglée par le lecteur plein écran et appliquée par le service. */
     val veille = com.moziik.app.lecteur.MinuterieVeille()
     val lecteur = Lecteur(contexte, BuildConfig.SITE)
+    /** L'écoute à plusieurs : hôte ou invité d'une session partagée par un code. */
+    val ensemble = com.moziik.app.donnees.ensemble.EcouteEnsemble(reseau.api, lecteur, alertes, portee)
     /** Où l'on s'est arrêté dans les longues écoutes (podcasts, prédications, lives). */
     val positionsLongues = com.moziik.app.lecteur.PositionsLongues(contexte)
     /** Créé au premier titre lu, par le service de lecture. */

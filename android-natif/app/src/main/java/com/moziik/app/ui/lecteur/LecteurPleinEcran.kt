@@ -101,6 +101,11 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.material3.Slider
 import androidx.compose.material3.SliderDefaults
 import com.moziik.app.lecteur.PUISSANCE_MAX
+import com.moziik.app.donnees.ensemble.EtatEnsemble
+import com.moziik.app.ui.composants.BoutonPrincipal
+import com.moziik.app.ui.composants.ChampTexte
+import com.moziik.app.ui.partager
+import androidx.compose.ui.platform.LocalContext
 
 /**
  * Le lecteur plein écran (FullPlayerPage.tsx, mise en page téléphone) :
@@ -127,6 +132,7 @@ fun LecteurPleinEcran(etat: EtatLecteur, onFermer: () -> Unit, poignee: Modifier
     var vitesseOuverte by remember { mutableStateOf(false) }
     var suiteOuverte by remember { mutableStateOf(false) }
     var bassesOuvert by remember { mutableStateOf(false) }
+    var ensembleOuvert by remember { mutableStateOf(false) }
     // Le titre de la file qu'on déplace (son rang dans « À suivre ») et le chemin parcouru par le doigt.
     var glisse by remember { mutableStateOf<Int?>(null) }
     var decalage by remember { mutableFloatStateOf(0f) }
@@ -196,7 +202,7 @@ fun LecteurPleinEcran(etat: EtatLecteur, onFermer: () -> Unit, poignee: Modifier
                 }
             }
             item(key = "transport") { Transport(etat) }
-            item(key = "options") { Column { OptionsLecture(onVeille = { veilleOuverte = true }, onVitesse = { vitesseOuverte = true }, onSuite = { suiteOuverte = true }, onBasses = { bassesOuvert = true }) } }
+            item(key = "options") { Column { OptionsLecture(onVeille = { veilleOuverte = true }, onVitesse = { vitesseOuverte = true }, onSuite = { suiteOuverte = true }, onBasses = { bassesOuvert = true }, onEnsemble = { ensembleOuvert = true }) } }
             // Les onglets restent visibles en parcourant la file ou les paroles.
             stickyHeader(key = "onglets") { Box(Modifier.fillMaxWidth().background(p.base.compose)) { Onglets(onglet) { onglet = it } } }
             when (onglet) {
@@ -264,11 +270,12 @@ fun LecteurPleinEcran(etat: EtatLecteur, onFermer: () -> Unit, poignee: Modifier
     if (vitesseOuverte) ChoixVitesse { vitesseOuverte = false }
     if (suiteOuverte) ChoixSuite { suiteOuverte = false }
     if (bassesOuvert) ChoixBasses { bassesOuvert = false }
+    if (ensembleOuvert) ChoixEnsemble { ensembleOuvert = false }
 }
 
 /** Minuterie de veille et vitesse, sous les commandes : deux pastilles qui disent l'état en cours. */
 @Composable
-private fun OptionsLecture(onVeille: () -> Unit, onVitesse: () -> Unit, onSuite: () -> Unit, onBasses: () -> Unit) {
+private fun OptionsLecture(onVeille: () -> Unit, onVitesse: () -> Unit, onSuite: () -> Unit, onBasses: () -> Unit, onEnsemble: () -> Unit) {
     val c = conteneur()
     val p = LocalPalette.current
     val veille by c.veille.veille.collectAsStateWithLifecycle()
@@ -297,6 +304,106 @@ private fun OptionsLecture(onVeille: () -> Unit, onVitesse: () -> Unit, onSuite:
     Row(Modifier.fillMaxWidth().padding(top = 10.dp), horizontalArrangement = Arrangement.spacedBy(10.dp, Alignment.CenterHorizontally)) {
         PastilleOption(R.drawable.lucide_audio_waveform, "Basses : ${niveau.libelle}", niveau != NiveauBass.OFF, onBasses)
         PastilleOption(R.drawable.lucide_infinity, "Ensuite : ${mode.libelle}", mode != ModeSuite.AMBIANCE, onSuite)
+    }
+    val ensemble by c.ensemble.etat.collectAsStateWithLifecycle()
+    Row(Modifier.fillMaxWidth().padding(top = 10.dp), horizontalArrangement = Arrangement.Center) {
+        PastilleOption(
+            R.drawable.lucide_users,
+            when (val e = ensemble) {
+                EtatEnsemble.Aucun -> "À plusieurs"
+                is EtatEnsemble.Hote -> "À plusieurs · ${e.code} · ${e.participants}"
+                is EtatEnsemble.Invite -> "Avec ${e.hote}"
+            },
+            ensemble != EtatEnsemble.Aucun,
+            onEnsemble,
+        )
+    }
+}
+
+/**
+ * L'écoute à plusieurs : lancer une session et partager son code, ou en
+ * rejoindre une. Chacun écoute sur son téléphone, l'invité suit l'hôte.
+ */
+@Composable
+internal fun ChoixEnsemble(onFermer: () -> Unit) {
+    val c = conteneur()
+    val p = LocalPalette.current
+    val contexte = LocalContext.current
+    val portee = rememberCoroutineScope()
+    val ensemble by c.ensemble.etat.collectAsStateWithLifecycle()
+    val session by c.session.etat.collectAsStateWithLifecycle()
+    var code by remember { mutableStateOf("") }
+    var enCours by remember { mutableStateOf(false) }
+    var erreur by remember { mutableStateOf<String?>(null) }
+    Feuille(onFermer) {
+        Column(Modifier.padding(horizontal = 20.dp).padding(bottom = 8.dp)) {
+            Text("Écouter à plusieurs", style = Texte.titreSection, color = p.encre.compose)
+            when (val e = ensemble) {
+                EtatEnsemble.Aucun -> {
+                    Text(
+                        "Lancez une écoute et partagez son code : vos amis entendent la même musique au même moment, chacun sur son téléphone.",
+                        style = Texte.secondaire, color = p.encreAttenuee.compose, modifier = Modifier.padding(top = 4.dp, bottom = 16.dp),
+                    )
+                    if (session !is com.moziik.app.donnees.session.EtatSession.Connecte) {
+                        Text("Connectez-vous pour écouter à plusieurs.", style = Texte.corps, color = p.encreAttenuee.compose)
+                    } else {
+                        BoutonPrincipal("Lancer une écoute", {
+                            enCours = true
+                            erreur = null
+                            portee.launch {
+                                c.ensemble.ouvrir().onFailure { erreur = com.moziik.app.donnees.reseau.messageErreur(it) }
+                                enCours = false
+                            }
+                        }, enCours = enCours)
+                        Text("ou rejoindre avec un code", style = Texte.secondaire, color = p.encreAttenuee.compose, modifier = Modifier.padding(top = 18.dp, bottom = 8.dp))
+                        ChampTexte(
+                            valeur = code,
+                            onChange = { code = it.uppercase().filter { ch -> ch.isLetterOrDigit() }.take(6) },
+                            libelle = "Code à six caractères",
+                            icone = R.drawable.lucide_users,
+                        )
+                        Spacer(Modifier.height(10.dp))
+                        BoutonPrincipal("Rejoindre", {
+                            enCours = true
+                            erreur = null
+                            portee.launch {
+                                c.ensemble.rejoindre(code).onFailure { erreur = if (it is com.moziik.app.donnees.reseau.ErreurApi && it.statut == 404) "Code inconnu ou écoute terminée." else com.moziik.app.donnees.reseau.messageErreur(it) }
+                                enCours = false
+                            }
+                        }, actif = code.length == 6, enCours = enCours)
+                    }
+                }
+                is EtatEnsemble.Hote -> {
+                    Text("Votre code", style = Texte.secondaire, color = p.encreAttenuee.compose, modifier = Modifier.padding(top = 12.dp))
+                    Text(e.code, style = Texte.titreFiche.copy(fontSize = 40.sp, letterSpacing = 6.sp), color = p.accent.compose)
+                    Text(
+                        if (e.participants == 0) "Personne n'a encore rejoint." else "${e.participants} personne${if (e.participants > 1) "s" else ""} vous écoute${if (e.participants > 1) "nt" else ""}.",
+                        style = Texte.corps, color = p.encreAttenuee.compose, modifier = Modifier.padding(bottom = 16.dp),
+                    )
+                    BoutonPrincipal("Partager le code", {
+                        partager(contexte, "", "Écoute avec moi sur Moziik : dans le lecteur, touche « À plusieurs » et entre le code ${e.code}.")
+                    })
+                    Spacer(Modifier.height(10.dp))
+                    Text(
+                        "Arrêter l'écoute à plusieurs",
+                        style = Texte.corps.copy(fontWeight = FontWeight.Medium), color = p.danger.compose,
+                        modifier = Modifier.clip(CircleShape).clickable(role = Role.Button) { c.ensemble.quitter() }.padding(vertical = 8.dp),
+                    )
+                }
+                is EtatEnsemble.Invite -> {
+                    Text(
+                        "Vous écoutez avec ${e.hote}. Sa musique, sa position, ses pauses : votre lecteur suit le sien.",
+                        style = Texte.corps, color = p.encreAttenuee.compose, modifier = Modifier.padding(top = 8.dp, bottom = 16.dp),
+                    )
+                    Text(
+                        "Quitter l'écoute",
+                        style = Texte.corps.copy(fontWeight = FontWeight.Medium), color = p.danger.compose,
+                        modifier = Modifier.clip(CircleShape).clickable(role = Role.Button) { c.ensemble.quitter() }.padding(vertical = 8.dp),
+                    )
+                }
+            }
+            erreur?.let { Text(it, style = Texte.secondaire, color = p.danger.compose, modifier = Modifier.padding(top = 10.dp)) }
+        }
     }
 }
 

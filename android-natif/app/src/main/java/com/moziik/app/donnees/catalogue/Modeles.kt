@@ -51,6 +51,8 @@ data class Titre(
     val language: String? = null,
     /** Volume perçu mesuré (LUFS, mono), pour égaliser le volume d'un titre à l'autre ; absent si pas encore mesuré. */
     val loudness: Double? = null,
+    /** Dans une recherche : la ligne des paroles qui contient la saisie (section « Dans les paroles »). */
+    val extraitParoles: String? = null,
     @Serializable(with = AlbumSouple::class) val album: AlbumDuTitre? = null,
 ) {
     /** Un brouillon n'est jamais proposé à l'écoute (spécification, domaine D). */

@@ -79,6 +79,9 @@ import com.moziik.app.donnees.envoi.OuvertureEnvoi
 import com.moziik.app.donnees.messagerie.ReactionEnvoyee
 import com.moziik.app.donnees.push.AppareilPush
 import com.moziik.app.donnees.push.JetonPush
+import com.moziik.app.donnees.ensemble.CodeEnsemble
+import com.moziik.app.donnees.ensemble.EtatEnsembleDistant
+import com.moziik.app.donnees.ensemble.EtatPublie
 
 /**
  * Les routes du site utilisées par l'app, telles qu'elles existent
@@ -300,6 +303,19 @@ interface MoziikApi {
 
     @GET("api/me/subscription")
     suspend fun abonnement(): EtatAbonnement
+
+    // Écoute à plusieurs (donnees/ensemble/EcouteEnsemble.kt)
+    @POST("api/ecoute-ensemble")
+    suspend fun ouvrirEnsemble(): CodeEnsemble
+
+    @GET("api/ecoute-ensemble/{code}")
+    suspend fun etatEnsemble(@Path("code") code: String): EtatEnsembleDistant
+
+    @PUT("api/ecoute-ensemble/{code}")
+    suspend fun publierEnsemble(@Path("code") code: String, @Body etat: EtatPublie)
+
+    @DELETE("api/ecoute-ensemble/{code}")
+    suspend fun quitterEnsemble(@Path("code") code: String)
 
     @GET("api/me/bilan")
     suspend fun bilan(@Query("annee") annee: Int): Bilan

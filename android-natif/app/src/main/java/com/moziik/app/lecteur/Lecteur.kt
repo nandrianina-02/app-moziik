@@ -180,6 +180,16 @@ class Lecteur(private val contexte: Context, private val site: String) {
         }
     }
 
+    /** Lecture ou pause explicite, sans dépendre de l'état du moment (un chargement n'est ni l'un ni l'autre). */
+    fun mettreEnLecture(oui: Boolean) = avec { c ->
+        if (!oui) {
+            c.pause()
+        } else {
+            if (c.playbackState == Player.STATE_IDLE) c.prepare()
+            c.play()
+        }
+    }
+
     fun suivant() = avec { it.seekToNext() }
 
     /** Au-delà de 3 secondes, revient au début du titre ; sinon au titre précédent (comportement par défaut de Media3, et du site). */

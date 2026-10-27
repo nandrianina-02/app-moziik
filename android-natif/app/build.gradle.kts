@@ -34,8 +34,8 @@ android {
         minSdk = 22
         targetSdk = 35
         // Supérieur à celui de l'app Capacitor (1) : sinon Android refuse la mise à jour.
-        versionCode = 42
-        versionName = "2.37.0"
+        versionCode = 43
+        versionName = "2.38.0"
         vectorDrawables.useSupportLibrary = true
         // Le site en production : l'app ne parle qu'à son API HTTP.
         buildConfigField("String", "SITE", "\"https://app-moziik.vercel.app/\"")

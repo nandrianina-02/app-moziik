@@ -11,7 +11,7 @@ class ModeSuiteTest {
     @Test
     fun meme_rythme_trie_par_tempo_proche_et_ecarte_l_inconnu() {
         val candidats = listOf(t("a", 120.0), t("b", 101.0), t("c", null), t("d", 97.0), t("e", 0.0), t("f", 104.0))
-        assertEquals(listOf("d", "b", "f"), parRythme(100.0, candidats).map { it.id })
+        assertEquals(listOf("b", "d", "f"), parRythme(100.0, candidats).map { it.id })
     }
 
     @Test

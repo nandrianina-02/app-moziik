@@ -1,0 +1,16 @@
+# Profil de démarrage de Moziik : ces classes et méthodes sont compilées à
+# l'installation au lieu d'être interprétées au premier lancement. Les
+# bibliothèques Compose, Media3 et Coil apportent déjà le leur ; celui-ci
+# couvre le code de l'app, du lancement à l'accueil et au mini-lecteur.
+# Les jokers sont admis : le compilateur d'Android les déplie à l'installation.
+Lcom/moziik/app/**;
+HSPLcom/moziik/app/MoziikApplication;->**(**)**
+HSPLcom/moziik/app/MainActivity;->**(**)**
+HSPLcom/moziik/app/donnees/**;->**(**)**
+HSPLcom/moziik/app/theme/**;->**(**)**
+HSPLcom/moziik/app/ui/coquille/**;->**(**)**
+HSPLcom/moziik/app/ui/accueil/**;->**(**)**
+HSPLcom/moziik/app/ui/composants/**;->**(**)**
+HSPLcom/moziik/app/ui/lecteur/**;->**(**)**
+HSPLcom/moziik/app/lecteur/**;->**(**)**
+HSPLcom/moziik/app/ui/*;->**(**)**

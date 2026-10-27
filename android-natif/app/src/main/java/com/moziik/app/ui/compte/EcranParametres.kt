@@ -65,6 +65,7 @@ fun EcranParametres(onRetour: () -> Unit, onOuvrir: (String) -> Unit) {
     val suite by c.reglages.suite.collectAsStateWithLifecycle()
     val wifi by c.reglages.wifiSeulement.collectAsStateWithLifecycle()
     val noir by c.reglages.noirProfond.collectAsStateWithLifecycle()
+    val autoAimes by c.reglages.autoAimes.collectAsStateWithLifecycle()
     var choixSuite by remember { mutableStateOf(false) }
     var verification by remember { mutableStateOf(false) }
     val connecte = session is EtatSession.Connecte
@@ -81,6 +82,13 @@ fun EcranParametres(onRetour: () -> Unit, onOuvrir: (String) -> Unit) {
             Box(Modifier.padding(vertical = 4.dp)) {
                 Interrupteur(wifi, "Télécharger seulement en Wi-Fi") { c.reglages.choisirWifiSeulement(it) }
             }
+            Box(Modifier.padding(vertical = 4.dp)) {
+                Interrupteur(autoAimes, "Garder mes titres aimés hors connexion") { c.reglages.choisirAutoAimes(it) }
+            }
+            Text(
+                "Avec Premium, en Wi-Fi seulement : vos titres aimés se téléchargent d'eux-mêmes, et repartent quand vous ne les aimez plus.",
+                style = Texte.secondaire, color = p.encreAttenuee.compose, modifier = Modifier.padding(top = 2.dp),
+            )
         }
         Section("Apparence", 2) {
             Ligne(

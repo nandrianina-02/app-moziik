@@ -110,6 +110,40 @@ class HorsLigne(
         portee.launch { telechargements.enCours.collect { avancements -> avancements.values.firstOrNull()?.let(avis::progression) } }
         reprendre()
         if (!_horsReseau.value) portee.launch { rejouerEnAttente() }
+        // Le réglage activé : la synchronisation part aussitôt, sans attendre le prochain Wi-Fi.
+        portee.launch { reglages.autoAimes.drop(1).collect { if (it) synchroniserAimes(forcer = true) else retirerAuto() } }
+        portee.launch { synchroniserAimes() }
+    }
+
+    /**
+     * Les titres aimés gardés d'office hors connexion (réglage « Mes titres
+     * aimés »). Seulement en Wi-Fi ou sur un réseau non facturé, quel que
+     * soit le réglage des téléchargements manuels : ce sont des centaines de
+     * mégaoctets que l'auditeur n'a pas demandés un par un. Au plus une fois
+     * par demi-heure, sans message ni demande d'autorisation, et jamais quand
+     * le téléphone manque de place. Un titre qui n'est plus aimé repart.
+     */
+    suspend fun synchroniserAimes(forcer: Boolean = false) {
+        if (!reglages.autoAimes.value || !reglages.reseauDisponible() || reglages.reseauFacture()) return
+        if (session.etat.value !is EtatSession.Connecte) return
+        val maintenant = System.currentTimeMillis()
+        if (!forcer && maintenant - preferences.getLong("autoAimesLe", 0L) < SYNCHRO_MS) return
+        if (telechargements.espaceLibre() < ESPACE_MINIMUM) return
+        if (refus() != null) return
+        val aimes = appel { api.titresAimes().songs }.getOrNull()?.filter { it.publie } ?: return
+        preferences.edit().putLong("autoAimesLe", maintenant).apply()
+        val gardes = aimes.take(AUTO_MAXIMUM)
+        val ids = gardes.map { it.id }.toSet()
+        telechargements.titres.value
+            .filter { it.source == SOURCE_AUTO && it.id !in ids }
+            .forEach { telechargements.supprimer(it.id) }
+        demander(gardes, SOURCE_AUTO, lot = null, albumId = null, silencieux = true)
+    }
+
+    /** Le réglage coupé : ce qui avait été gardé d'office repart, les choix manuels restent. */
+    private fun retirerAuto() {
+        majFile { removeAll { it.source == SOURCE_AUTO } }
+        telechargements.titres.value.filter { it.source == SOURCE_AUTO }.forEach { telechargements.supprimer(it.id) }
     }
 
     private fun lireFile(): List<Tache> = runCatching {
@@ -165,7 +199,7 @@ class HorsLigne(
         ids.forEach { if (telechargements.estTelecharge(it)) telechargements.supprimer(it) }
     }
 
-    private suspend fun demander(titres: List<Titre>, source: String, lot: String?, albumId: String?): Refus? {
+    private suspend fun demander(titres: List<Titre>, source: String, lot: String?, albumId: String?, silencieux: Boolean = false): Refus? {
         refus()?.let { return it }
         // Les téléchargements gardent la qualité choisie et ignorent l'économie de données (5.7).
         val qualite = reglages.qualite.value
@@ -173,10 +207,14 @@ class HorsLigne(
             .filter { !telechargements.estTelecharge(it.id) && it.id !in _attente.value }
             .map { Tache(it, qualite, source, lot, albumId) }
         if (nouvelles.isEmpty()) {
-            if (lot != null) alertes.signaler(AlerteLecture.Message("« $lot » est déjà disponible hors connexion.", succes = true))
+            if (lot != null && !silencieux) alertes.signaler(AlerteLecture.Message("« $lot » est déjà disponible hors connexion.", succes = true))
             return null
         }
         majFile { addAll(nouvelles) }
+        if (silencieux) {
+            reprendre()
+            return null
+        }
         if (!avis.autorise() && !preferences.getBoolean("autorisationDemandee", false)) _demandeAutorisation.value = true
         when {
             !reglages.reseauDisponible() ->
@@ -281,6 +319,7 @@ class HorsLigne(
         if (_horsReseau.value) return
         reprendre()
         if (etait) rejouerEnAttente()
+        synchroniserAimes()
     }
 
     private fun oublierCompte() {
@@ -296,3 +335,11 @@ class HorsLigne(
         }
     }
 }
+
+/** La source des titres gardés d'office (titres aimés), distincte des choix manuels. */
+const val SOURCE_AUTO = "auto-aimes"
+/** Au plus 200 titres aimés gardés d'office : les plus récents d'abord. */
+private const val AUTO_MAXIMUM = 200
+private const val SYNCHRO_MS = 30 * 60_000L
+/** En dessous de 500 Mo libres, rien n'est gardé d'office. */
+private const val ESPACE_MINIMUM = 500L * 1024 * 1024

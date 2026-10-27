@@ -193,6 +193,15 @@ class ReglagesAppareil(private val contexte: Context) {
 
     fun choisirSuite(cle: String) = ecrire("suite", cle).also { _suite.value = cle }
 
+    private val _autoAimes = MutableStateFlow(preferences.getBoolean("autoAimes", false))
+    /** Garder d'office hors connexion les titres aimés, en Wi-Fi seulement (Premium). */
+    val autoAimes: StateFlow<Boolean> = _autoAimes.asStateFlow()
+
+    fun choisirAutoAimes(oui: Boolean) {
+        preferences.edit().putBoolean("autoAimes", oui).apply()
+        _autoAimes.value = oui
+    }
+
     private val _wifiSeulement = MutableStateFlow(preferences.getBoolean("wifiSeulement", false))
     /** Les téléchargements attendent un réseau non facturé (spécification 6.2). */
     val wifiSeulement: StateFlow<Boolean> = _wifiSeulement.asStateFlow()

@@ -21,8 +21,10 @@ firebaseCrashlytics = "19.2.1"
 googleServices = "4.4.2"
 crashlyticsPlugin = "3.0.2"
 junit = "4.13.2"
+profileinstaller = "1.4.1"
 
 [libraries]
+androidx-profileinstaller = { group = "androidx.profileinstaller", name = "profileinstaller", version.ref = "profileinstaller" }
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
 androidx-core-splashscreen = { group = "androidx.core", name = "core-splashscreen", version.ref = "splashscreen" }
 androidx-lifecycle-runtime-compose = { group = "androidx.lifecycle", name = "lifecycle-runtime-compose", version.ref = "lifecycle" }

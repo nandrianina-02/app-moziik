@@ -25,6 +25,7 @@ import {
   Timer,
   Gauge,
   Megaphone,
+  AudioLines,
 } from "lucide-react";
 import { AdminHeaderSlot } from "@/components/admin/AdminChrome";
 
@@ -125,6 +126,13 @@ const links = [
     icon: Megaphone,
     titre: "Annonces",
     description: "Un message de la plateforme, envoyé à tous les membres, aux artistes ou aux abonnés.",
+  },
+  {
+    href: "/admin/paroles",
+    label: "Paroles",
+    icon: AudioLines,
+    titre: "Paroles",
+    description: "Les titres sans paroles ou à caler, et l'atelier de synchronisation.",
   },
   {
     href: "/admin/evenements",

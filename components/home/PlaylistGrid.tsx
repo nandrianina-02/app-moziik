@@ -89,13 +89,13 @@ function PlaylistTile({ playlist }: { playlist: PlaylistCardData }) {
             e.stopPropagation();
             lot.lancer(playlist.title, () => downloadPlaylistForOffline(playlist._id));
           }}
-          className="pressable absolute bottom-2 left-2 z-10 grid h-9 w-9 cursor-pointer place-items-center rounded-full bg-black/55 text-white backdrop-blur-sm transition-colors hover:bg-black/75"
+          className="pressable absolute right-2 top-2 z-10 grid h-9 w-9 cursor-pointer place-items-center rounded-full bg-black/55 text-white backdrop-blur-sm transition-colors hover:bg-black/75"
         >
           {lot.enCours ? <Loader2 size={16} className="animate-spin" /> : <Download size={16} />}
         </span>
 
         <div className="absolute inset-x-0 bottom-0 p-3 text-white">
-          <p className="truncate text-sm font-semibold">{playlist.title}</p>
+          <p className="line-clamp-2 text-sm font-semibold leading-snug">{playlist.title}</p>
           <p className="truncate text-xs text-white/75">{playlist.songsCount} titres</p>
 
           {playlist.contributorAvatars && playlist.contributorAvatars.length > 0 && (
@@ -103,16 +103,21 @@ function PlaylistTile({ playlist }: { playlist: PlaylistCardData }) {
               {playlist.contributorAvatars.map((contributor, i) => (
                 <span
                   key={i}
-                  className="h-6 w-6 overflow-hidden rounded-full ring-2 ring-black/40"
+                  className="grid h-6 w-6 place-items-center overflow-hidden rounded-full bg-surface text-[10px] font-semibold text-ink ring-2 ring-black/40"
                   title={contributor.name}
                 >
-                  <SafeImage
-                    src={contributor.coverUrl}
-                    alt={contributor.name}
-                    width={24}
-                    height={24}
-                    className="h-full w-full object-cover"
-                  />
+                  {/* Sans photo, l'initiale de l'artiste plutôt qu'une icône d'image manquante. */}
+                  {contributor.coverUrl ? (
+                    <SafeImage
+                      src={contributor.coverUrl}
+                      alt={contributor.name}
+                      width={24}
+                      height={24}
+                      className="h-full w-full object-cover"
+                    />
+                  ) : (
+                    contributor.name.trim().charAt(0).toUpperCase() || "?"
+                  )}
                 </span>
               ))}
             </div>

@@ -268,6 +268,16 @@ export async function lancerAnalyse({
       univers,
     });
 
+    // Une pochette par playlist : les sélections partagent souvent leur
+    // titre phare, et six cartes identiques ne se distinguent plus.
+    const pochettesPrises = new Set<string>();
+    const pochettes = selections.map((s) => {
+      const libres = s.extraits.map((e) => e.pochette).filter(Boolean);
+      const choisie = libres.find((c) => !pochettesPrises.has(c)) ?? libres[0];
+      if (choisie) pochettesPrises.add(choisie);
+      return choisie || undefined;
+    });
+
     // Les playlists arrivent en brouillon : `isPublic: false` les rend
     // invisibles partout où le site filtre déjà sur ce champ, sans
     // qu'aucune page n'ait à connaître la curation.
@@ -277,7 +287,7 @@ export async function lancerAnalyse({
         return Playlist.create({
           title: mots?.titre || s.libelle,
           description: mots?.description || s.detail,
-          coverUrl: s.extraits[0]?.pochette || undefined,
+          coverUrl: pochettes[index],
           owner,
           songs: s.titres.map((id) => new Types.ObjectId(id)),
           isPublic: false,

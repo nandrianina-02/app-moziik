@@ -221,10 +221,22 @@ async function getPopularPlaylists(limit: number, univers: Univers) {
   const playlists = await Playlist.find({ isPublic: true, univers })
     .sort({ followers: -1, createdAt: -1 })
     .limit(limit)
-    .populate({ path: "songs", select: "artist", populate: { path: "artist", select: "stageName coverUrl" } });
+    .populate({ path: "songs", select: "artist coverUrl", populate: { path: "artist", select: "stageName coverUrl" } });
+
+  // Les sélections automatiques de la semaine partagent souvent leur titre
+  // phare, donc sa pochette : six cartes identiques côte à côte. Une
+  // pochette déjà montrée cède la place à celle d'un autre titre de la
+  // playlist.
+  const pochettesVues = new Set<string>();
 
   return playlists.map((p) => {
-    const songs = p.songs as unknown as { artist?: { _id: { toString: () => string }; stageName: string; coverUrl?: string } }[];
+    const songs = p.songs as unknown as {
+      coverUrl?: string;
+      artist?: { _id: { toString: () => string }; stageName: string; coverUrl?: string };
+    }[];
+    const candidates = [p.coverUrl, ...songs.map((s) => s.coverUrl)].filter((c): c is string => Boolean(c));
+    const coverUrl = candidates.find((c) => !pochettesVues.has(c)) ?? p.coverUrl;
+    if (coverUrl) pochettesVues.add(coverUrl);
     const seenArtists = new Set<string>();
     const contributorAvatars: { name: string; coverUrl?: string }[] = [];
     for (const song of songs) {
@@ -238,7 +250,7 @@ async function getPopularPlaylists(limit: number, univers: Univers) {
     return {
       _id: p._id,
       title: p.title,
-      coverUrl: p.coverUrl,
+      coverUrl,
       songsCount: p.songs.length,
       followersCount: p.followers.length,
       contributorAvatars,

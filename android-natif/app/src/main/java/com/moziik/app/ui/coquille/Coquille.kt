@@ -119,6 +119,7 @@ import androidx.compose.animation.animateColorAsState
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.graphics.lerp
 
 /**
  * La coquille commune à tous les écrans, comme celle du site sur mobile :
@@ -242,7 +243,9 @@ fun Coquille(sombre: Boolean, onBasculerMode: () -> Unit) {
     }
 
     CompositionLocalProvider(LocalNavigation provides navigationFiches, LocalMenus provides menus) {
-    Box(Modifier.fillMaxSize().background(p.base.compose)) {
+    // Le cadre : un ton à peine plus marqué que le fond des pages, autour de l'en-tête et de la barre du bas.
+    val cadre = lerp(p.base.compose, p.encre.compose, 0.05f)
+    Box(Modifier.fillMaxSize().background(cadre)) {
         Column(Modifier.fillMaxSize()) {
             // L'en-tête et la barre du bas restent sur toutes les pages : le contenu, lecteur compris, vit entre les deux.
             EnTete(
@@ -260,7 +263,16 @@ fun Coquille(sombre: Boolean, onBasculerMode: () -> Unit) {
             ) {
                 BandeauHorsLigne(onMesTitres = { aller(Destination.MA_ZONE) })
             }
-            Box(Modifier.weight(1f)) {
+            // La zone de contenu : un panneau aux quatre coins arrondis, posé dans le cadre.
+            val panneau = RoundedCornerShape(22.dp)
+            Box(
+                Modifier
+                    .weight(1f)
+                    .padding(horizontal = 8.dp)
+                    .clip(panneau)
+                    .background(p.base.compose)
+                    .border(BorderStroke(1.dp, p.bordure.compose.copy(alpha = 0.6f)), panneau),
+            ) {
             Column(Modifier.fillMaxSize()) {
             NavHost(
                 navController = navigation,
@@ -394,7 +406,6 @@ private fun EnTete(sombre: Boolean, onBasculerMode: () -> Unit, notifications: I
     Row(
         Modifier
             .fillMaxWidth()
-            .background(p.base.compose)
             .windowInsetsPadding(WindowInsets.statusBars)
             .height(56.dp)
             .padding(horizontal = 16.dp),
@@ -475,10 +486,9 @@ private fun BarreDuBas(onglet: Destination, nonLus: Int, onChoisir: (Destination
     BoxWithConstraints(
         Modifier
             .fillMaxWidth()
-            .background(p.surface.compose)
-            .filetSuperieur(p.bordure.compose)
             .windowInsetsPadding(WindowInsets.navigationBars)
-            .height(66.dp),
+            .padding(top = 4.dp)
+            .height(64.dp),
     ) {
         val largeur = maxWidth / onglets.size
         val position by animateDpAsState(largeur * rang, tween(Mouvement.VOILE, easing = Mouvement.sortieDouce), label = "onglet")
@@ -546,7 +556,3 @@ private fun BarreDuBas(onglet: Destination, nonLus: Int, onChoisir: (Destination
         }
     }
 }
-
-/** Le filet de 1 dp qui sépare la barre du contenu, comme border-t sur le site. */
-private fun Modifier.filetSuperieur(couleur: Color): Modifier =
-    drawBehind { drawLine(couleur, start = Offset.Zero, end = Offset(size.width, 0f), strokeWidth = 1.dp.toPx()) }

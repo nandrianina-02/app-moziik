@@ -49,6 +49,8 @@ data class Titre(
     val sharesCount: Int = 0,
     val releaseDate: String? = null,
     val language: String? = null,
+    /** Volume perçu mesuré (LUFS, mono), pour égaliser le volume d'un titre à l'autre ; absent si pas encore mesuré. */
+    val loudness: Double? = null,
     @Serializable(with = AlbumSouple::class) val album: AlbumDuTitre? = null,
 ) {
     /** Un brouillon n'est jamais proposé à l'écoute (spécification, domaine D). */

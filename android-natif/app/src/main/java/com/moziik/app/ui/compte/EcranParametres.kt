@@ -75,6 +75,9 @@ fun EcranParametres(onRetour: () -> Unit, onOuvrir: (String) -> Unit) {
     var choixSuite by remember { mutableStateOf(false) }
     var choixGenres by remember { mutableStateOf(false) }
     var choixBasses by remember { mutableStateOf(false) }
+    var choixFondu by remember { mutableStateOf(false) }
+    val fondu by c.reglages.fondu.collectAsStateWithLifecycle()
+    val volumeEgal by c.reglages.volumeEgal.collectAsStateWithLifecycle()
     val basses by c.reglages.basses.collectAsStateWithLifecycle()
     val genres by c.reglages.genresPreferes.collectAsStateWithLifecycle()
     var verification by remember { mutableStateOf(false) }
@@ -88,6 +91,10 @@ fun EcranParametres(onRetour: () -> Unit, onOuvrir: (String) -> Unit) {
             ) { onOuvrir(PARAMETRES_LECTURE) }
             Ligne(R.drawable.lucide_audio_waveform, "Bass Boost", NiveauBass.de(basses).libelle) { choixBasses = true }
             Ligne(R.drawable.lucide_infinity, "Après la file", ModeSuite.de(suite).libelle) { choixSuite = true }
+            Ligne(R.drawable.lucide_audio_waveform, "Fondu entre les titres", if (fondu == 0) "Aucun" else "$fondu secondes") { choixFondu = true }
+            Box(Modifier.padding(vertical = 4.dp)) {
+                Interrupteur(volumeEgal, "Volume égal entre les titres") { c.reglages.choisirVolumeEgal(it) }
+            }
             Box(Modifier.padding(vertical = 4.dp)) {
                 Interrupteur(universSuit, "L'univers suit ce que j'écoute") { c.reglages.choisirUniversSuitEcoute(it) }
             }
@@ -164,6 +171,27 @@ fun EcranParametres(onRetour: () -> Unit, onOuvrir: (String) -> Unit) {
     }
     if (choixSuite) ChoixSuite { choixSuite = false }
     if (choixBasses) ChoixBasses { choixBasses = false }
+    if (choixFondu) {
+        Feuille({ choixFondu = false }) {
+            Text("Fondu entre les titres", style = Texte.titreSection, color = p.encre.compose, modifier = Modifier.padding(start = 20.dp, bottom = 2.dp))
+            Text(
+                "La fin d'un titre s'efface pendant que le suivant arrive. Jamais entre deux titres du même album, qui s'enchaînent sans blanc.",
+                style = Texte.secondaire, color = p.encreAttenuee.compose, modifier = Modifier.padding(start = 20.dp, end = 20.dp, bottom = 8.dp),
+            )
+            listOf(0, 2, 4, 6, 8).forEach { s ->
+                Row(
+                    Modifier.fillMaxWidth().clickable(role = Role.RadioButton) {
+                        c.reglages.choisirFondu(s)
+                        choixFondu = false
+                    }.padding(horizontal = 20.dp, vertical = 13.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Text(if (s == 0) "Aucun" else "$s secondes", style = Texte.corps.copy(fontWeight = FontWeight.Medium), color = if (s == fondu) p.accent.compose else p.encre.compose, modifier = Modifier.weight(1f))
+                    if (s == fondu) Icone(R.drawable.lucide_check, description = "Choisi", teinte = p.accent.compose, taille = 18.dp)
+                }
+            }
+        }
+    }
     if (choixGenres) {
         Feuille({
             choixGenres = false

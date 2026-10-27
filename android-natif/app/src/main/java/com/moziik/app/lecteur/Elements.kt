@@ -27,6 +27,8 @@ private const val ARTISTE_ID = "artisteId"
 private const val VERIFIE = "verifie"
 private const val SOURCE = "source"
 private const val UNIVERS = "univers"
+private const val SONIE = "sonie"
+private const val ALBUM = "album"
 
 /** Ce que le lecteur montre d'un titre en cours ou en file. */
 @kotlinx.serialization.Serializable
@@ -54,6 +56,8 @@ fun Titre.versElement(site: String, source: String?, qualite: String = "high"): 
         putBoolean(VERIFIE, artist?.verified == true)
         putString(SOURCE, source)
         putString(UNIVERS, univers)
+        loudness?.let { putDouble(SONIE, it) }
+        putString(ALBUM, album?.id)
     }
     val metadonnees = MediaMetadata.Builder()
         .setTitle(title)
@@ -118,3 +122,9 @@ fun TitreLu.versTitre() = Titre(
 
 /** L'univers du titre (general ou christian), s'il était connu quand il a été mis en file. */
 fun MediaItem.univers(): String? = mediaMetadata.extras?.getString(UNIVERS)
+
+/** Le volume perçu mesuré du titre, s'il l'était quand il a été mis en file. */
+fun MediaItem.sonie(): Double? = mediaMetadata.extras?.takeIf { it.containsKey(SONIE) }?.getDouble(SONIE)
+
+/** L'album du titre : deux titres du même album s'enchaînent sans fondu. */
+fun MediaItem.albumId(): String? = mediaMetadata.extras?.getString(ALBUM)

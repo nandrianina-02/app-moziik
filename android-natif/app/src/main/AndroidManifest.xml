@@ -82,6 +82,18 @@
                 android:name="android.appwidget.provider"
                 android:resource="@xml/gadget_lecture" />
         </receiver>
+        <!-- Le grand gadget (4 × 2) : pochette, avancement et commandes. -->
+        <receiver
+            android:name=".lecteur.GadgetLectureGrand"
+            android:exported="false"
+            android:label="Lecture Moziik, grand format">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/gadget_lecture_grand" />
+        </receiver>
         <!-- Android Auto : déclare Moziik comme application multimédia. -->
         <meta-data
             android:name="com.google.android.gms.car.application"

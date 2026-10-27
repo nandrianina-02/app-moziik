@@ -121,6 +121,9 @@ import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.ui.graphics.lerp
+import com.moziik.app.ui.LIEN_RECHERCHE
+import com.moziik.app.ui.LIEN_TELECHARGEMENTS
+import com.moziik.app.ui.LIEN_BANDE_SON
 
 /**
  * La coquille commune à tous les écrans, comme celle du site sur mobile :
@@ -232,6 +235,17 @@ fun Coquille(sombre: Boolean, onBasculerMode: () -> Unit) {
     LaunchedEffect(lienEntrant) {
         val lien = lienEntrant ?: return@LaunchedEffect
         c.lienEntrant.value = null
+        // Les raccourcis de l'icône de l'app.
+        when (lien) {
+            LIEN_RECHERCHE -> return@LaunchedEffect aller(Destination.RECHERCHE)
+            LIEN_TELECHARGEMENTS -> return@LaunchedEffect aller(Destination.MA_ZONE)
+            LIEN_BANDE_SON -> {
+                runCatching { c.catalogue.station() }
+                    .onSuccess { c.lecteur.lire(it.titres, 0, it.source) }
+                    .onFailure { c.alertes.signaler(AlerteLecture.Message("Ta bande son n'a pas pu être chargée. Vérifie ta connexion.")) }
+                return@LaunchedEffect
+            }
+        }
         val cible = com.moziik.app.donnees.catalogue.cibleDe(lien, com.moziik.app.BuildConfig.SITE)
         if (!navigationFiches.suivre(cible)) navigationFiches.notifications()
     }
@@ -488,13 +502,15 @@ private fun BarreDuBas(onglet: Destination, nonLus: Int, onChoisir: (Destination
         Modifier
             .fillMaxWidth()
             .windowInsetsPadding(WindowInsets.navigationBars)
-            .padding(top = 4.dp)
-            .heightIn(min = 64.dp),
+            .padding(top = 4.dp),
     ) {
         val largeur = maxWidth / onglets.size
         val position by animateDpAsState(largeur * rang, tween(Mouvement.VOILE, easing = Mouvement.sortieDouce), label = "onglet")
         // Le repère : une pastille douce derrière l'icône, et un trait net au ras du filet.
-        Box(Modifier.offset(x = position).width(largeur).fillMaxHeight()) {
+        // Il prend la taille de la barre (matchParentSize) sans jamais la décider : la barre
+        // garde la hauteur de son contenu, et le contenu de la page la place qui reste.
+        Box(Modifier.matchParentSize()) {
+          Box(Modifier.offset(x = position).width(largeur).fillMaxHeight()) {
             Box(
                 Modifier
                     .align(Alignment.TopCenter)
@@ -510,8 +526,9 @@ private fun BarreDuBas(onglet: Destination, nonLus: Int, onChoisir: (Destination
                     .clip(RoundedCornerShape(bottomStart = 2.dp, bottomEnd = 2.dp))
                     .background(p.accent.compose),
             )
+          }
         }
-        Row(Modifier.fillMaxSize(), verticalAlignment = Alignment.CenterVertically) {
+        Row(Modifier.fillMaxWidth().heightIn(min = 64.dp), verticalAlignment = Alignment.CenterVertically) {
             onglets.forEach { d ->
                 val active = d == onglet
                 val couleur by animateColorAsState(if (active) p.accent.compose else p.encreAttenuee.compose, tween(Mouvement.VOILE), label = "couleur")
@@ -519,7 +536,7 @@ private fun BarreDuBas(onglet: Destination, nonLus: Int, onChoisir: (Destination
                 Column(
                     Modifier
                         .weight(1f)
-                        .fillMaxHeight()
+                        .padding(vertical = 8.dp)
                         .clickable(
                             interactionSource = remember { MutableInteractionSource() },
                             indication = null,

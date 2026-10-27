@@ -246,6 +246,24 @@ class ReglagesAppareil(private val contexte: Context) {
         _bassesHarmoniques.value = harmoniques
     }
 
+    private val _volumeEgal = MutableStateFlow(preferences.getBoolean("volumeEgal", true))
+    /** Les titres forts sont ramenés au niveau des autres (lecteur/Volume.kt). */
+    val volumeEgal: StateFlow<Boolean> = _volumeEgal.asStateFlow()
+
+    fun choisirVolumeEgal(oui: Boolean) {
+        preferences.edit().putBoolean("volumeEgal", oui).apply()
+        _volumeEgal.value = oui
+    }
+
+    private val _fondu = MutableStateFlow(preferences.getInt("fondu", 0))
+    /** Durée du fondu entre deux titres, en secondes (0 : aucun). */
+    val fondu: StateFlow<Int> = _fondu.asStateFlow()
+
+    fun choisirFondu(secondes: Int) {
+        preferences.edit().putInt("fondu", secondes).apply()
+        _fondu.value = secondes
+    }
+
     private val _autoAimes = MutableStateFlow(preferences.getBoolean("autoAimes", false))
     /** Garder d'office hors connexion les titres aimés, en Wi-Fi seulement (Premium). */
     val autoAimes: StateFlow<Boolean> = _autoAimes.asStateFlow()

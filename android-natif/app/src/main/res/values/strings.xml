@@ -5,4 +5,5 @@
     <string name="canal_telechargements">Téléchargements</string>
     <string name="canal_notifications">Notifications</string>
     <string name="gadget_description">Le titre en cours et les commandes de lecture</string>
+    <string name="gadget_grand_description">Grande pochette, avancement du titre et commandes de lecture</string>
 </resources>

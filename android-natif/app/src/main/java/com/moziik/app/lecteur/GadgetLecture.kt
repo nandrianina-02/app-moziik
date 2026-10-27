@@ -28,7 +28,7 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 
 /** Côté de la pochette du gadget, en pixels : assez pour un écran dense, assez peu pour le transport. */
-private const val COTE_POCHETTE = 192
+private const val COTE_POCHETTE = 320
 
 /** Ce que montre le gadget ; null au repos, sans lecture en cours. */
 private data class EtatGadget(
@@ -47,11 +47,13 @@ private data class EtatGadget(
  */
 class GadgetLecture : AppWidgetProvider() {
     override fun onUpdate(contexte: Context, gestionnaire: AppWidgetManager, ids: IntArray) {
-        gestionnaire.updateAppWidget(ids, vues(contexte, etat, pochette))
+        gestionnaire.updateAppWidget(ids, vues(contexte, etat, pochette, R.layout.gadget_lecture))
     }
 
     companion object {
         private var etat: EtatGadget? = null
+        // L'avancement du titre, pour la barre du grand gadget (en millièmes).
+        private var avancement = 0
         private var pochette: Bitmap? = null
         private var adressePochette: String? = null
         private var chargement: Job? = null
@@ -95,17 +97,42 @@ class GadgetLecture : AppWidgetProvider() {
             etat = null
             pochette = null
             adressePochette = null
+            avancement = 0
             publier(contexte)
         }
 
         private fun publier(contexte: Context) {
             val gestionnaire = AppWidgetManager.getInstance(contexte)
-            val ids = gestionnaire.getAppWidgetIds(ComponentName(contexte, GadgetLecture::class.java))
-            if (ids.isNotEmpty()) gestionnaire.updateAppWidget(ids, vues(contexte, etat, pochette))
+            val petits = gestionnaire.getAppWidgetIds(ComponentName(contexte, GadgetLecture::class.java))
+            if (petits.isNotEmpty()) gestionnaire.updateAppWidget(petits, vues(contexte, etat, pochette, R.layout.gadget_lecture))
+            val grands = gestionnaire.getAppWidgetIds(ComponentName(contexte, GadgetLectureGrand::class.java))
+            if (grands.isNotEmpty()) gestionnaire.updateAppWidget(grands, vues(contexte, etat, pochette, R.layout.gadget_lecture_grand))
         }
 
-        private fun vues(contexte: Context, etat: EtatGadget?, pochette: Bitmap?): RemoteViews {
-            val v = RemoteViews(contexte.packageName, R.layout.gadget_lecture)
+        /**
+         * La barre d'avancement du grand gadget, relue toutes les quelques
+         * secondes par le service pendant la lecture : une mise à jour partielle,
+         * qui ne redessine ni la pochette ni les boutons.
+         */
+        fun progression(contexte: Context, positionMs: Long, dureeMs: Long) {
+            val nouveau = if (dureeMs > 0) (positionMs * 1000 / dureeMs).toInt().coerceIn(0, 1000) else 0
+            if (nouveau == avancement) return
+            avancement = nouveau
+            val gestionnaire = AppWidgetManager.getInstance(contexte)
+            val grands = gestionnaire.getAppWidgetIds(ComponentName(contexte, GadgetLectureGrand::class.java))
+            if (grands.isEmpty()) return
+            val v = RemoteViews(contexte.packageName, R.layout.gadget_lecture_grand)
+            v.setProgressBar(R.id.gadget_progression, 1000, avancement, false)
+            gestionnaire.partiallyUpdateAppWidget(grands, v)
+        }
+
+        internal fun rafraichirGrand(contexte: Context, gestionnaire: AppWidgetManager, ids: IntArray) {
+            gestionnaire.updateAppWidget(ids, vues(contexte, etat, pochette, R.layout.gadget_lecture_grand))
+        }
+
+        private fun vues(contexte: Context, etat: EtatGadget?, pochette: Bitmap?, gabarit: Int): RemoteViews {
+            val v = RemoteViews(contexte.packageName, gabarit)
+            if (gabarit == R.layout.gadget_lecture_grand) v.setProgressBar(R.id.gadget_progression, 1000, if (etat == null) 0 else avancement, false)
             val ouvrir = PendingIntent.getActivity(
                 contexte, 0,
                 Intent(contexte, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP),
@@ -160,5 +187,15 @@ class GadgetLecture : AppWidgetProvider() {
             Canvas(sortie).drawRoundRect(RectF(0f, 0f, source.width.toFloat(), source.height.toFloat()), rayon, rayon, pinceau)
             return sortie
         }
+    }
+}
+
+/**
+ * Le grand gadget (4 × 2) : grande pochette, titre, artiste, avancement et
+ * commandes. Il partage l'état et les boutons du petit (GadgetLecture).
+ */
+class GadgetLectureGrand : AppWidgetProvider() {
+    override fun onUpdate(contexte: Context, gestionnaire: AppWidgetManager, ids: IntArray) {
+        GadgetLecture.rafraichirGrand(contexte, gestionnaire, ids)
     }
 }

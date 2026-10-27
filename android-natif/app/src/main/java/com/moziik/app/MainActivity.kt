@@ -31,12 +31,14 @@ import com.moziik.app.donnees.push.EXTRA_LIEN
 import androidx.compose.animation.Crossfade
 import androidx.compose.animation.core.tween
 import com.moziik.app.ui.bienvenue.EcranBienvenue
+import com.moziik.app.ui.publierRaccourcis
 
 /** Une seule activité : tout l'écran est dessiné par Compose, le mini-lecteur reste d'une page à l'autre. */
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         installSplashScreen()
         super.onCreate(savedInstanceState)
+        publierRaccourcis(this)
         // Retour de la connexion Google alors que l'app avait été fermée entre-temps.
         if (savedInstanceState == null) {
             recevoirRelais(intent)

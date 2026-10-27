@@ -158,6 +158,25 @@ class ServiceLecture : MediaLibraryService() {
             .setWakeMode(C.WAKE_MODE_NETWORK)
             .build()
         joueur.addListener(Ecouteur(joueur))
+        // Le réglage « volume égal » change en pleine lecture : le titre en cours suit aussitôt.
+        portee.launch {
+            c.reglages.volumeEgal.collect {
+                volumeNormalisation = gainNormalisation(joueur.currentMediaItem?.sonie(), it)
+                appliquerVolume()
+            }
+        }
+        portee.launch {
+            while (true) {
+                if (joueur.isPlaying || volumeFondu != 1f) majFondu(joueur)
+                delay(50)
+            }
+        }
+        portee.launch {
+            while (true) {
+                if (joueur.isPlaying) GadgetLecture.progression(this@ServiceLecture, joueur.currentPosition, joueur.duration.takeIf { it != C.TIME_UNSET } ?: 0L)
+                delay(3_000)
+            }
+        }
 
         val ouvrirApp = PendingIntent.getActivity(
             this,
@@ -194,16 +213,50 @@ class ServiceLecture : MediaLibraryService() {
                     delay((v.finMs - System.currentTimeMillis() - FONDU_MS).coerceAtLeast(0))
                     val pas = 16
                     repeat(pas) { i ->
-                        j.volume = 1f - (i + 1).toFloat() / pas
+                        volumeVeille = 1f - (i + 1).toFloat() / pas
+                        appliquerVolume()
                         delay(FONDU_MS / pas)
                     }
                     j.pause()
                     c.veille.annuler()
                 } finally {
                     // Annulée en plein fondu, ou terminée : le volume revient pour la prochaine écoute.
-                    j.volume = 1f
+                    volumeVeille = 1f
+                    appliquerVolume()
                 }
             }
+        }
+    }
+
+    // Le volume du lecteur est le produit de trois réglages indépendants : l'égalisation du
+    // titre en cours, le fondu entre deux titres et la minuterie de veille.
+    private var volumeNormalisation = 1f
+    private var volumeFondu = 1f
+    private var volumeVeille = 1f
+    private var arriveeAuto = false
+    private var enchaineAvecPrecedent = false
+    private var albumCourant: String? = null
+
+    private fun appliquerVolume() {
+        session?.player?.volume = volumeNormalisation * volumeFondu * volumeVeille
+    }
+
+    /** Le fondu, relu vingt fois par seconde pendant la lecture : il suit la position du titre. */
+    private fun majFondu(j: Player) {
+        val dureeMs = conteneur.reglages.fondu.value * 1000L
+        val suivant = j.nextMediaItemIndex.takeIf { it != C.INDEX_UNSET }?.let { j.getMediaItemAt(it) }
+        val courant = j.currentMediaItem
+        val memeAlbum = courant?.albumId() != null && courant.albumId() == suivant?.albumId()
+        val f = facteurFondu(
+            positionMs = j.currentPosition,
+            dureeTitreMs = j.duration.takeIf { it != C.TIME_UNSET } ?: 0L,
+            dureeMs = dureeMs,
+            finVersUnAutre = suivant != null && !memeAlbum && j.repeatMode != Player.REPEAT_MODE_ONE,
+            debutDepuisUnAutre = arriveeAuto && !enchaineAvecPrecedent,
+        )
+        if (kotlin.math.abs(f - volumeFondu) > 0.004f) {
+            volumeFondu = f
+            appliquerVolume()
         }
     }
 
@@ -336,6 +389,13 @@ class ServiceLecture : MediaLibraryService() {
 
         override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
             suivreUnivers(mediaItem)
+            // Volume du nouveau titre ; le fondu d'entrée ne joue qu'après un enchaînement automatique.
+            arriveeAuto = reason == Player.MEDIA_ITEM_TRANSITION_REASON_AUTO
+            enchaineAvecPrecedent = albumCourant != null && albumCourant == mediaItem?.albumId()
+            albumCourant = mediaItem?.albumId()
+            volumeNormalisation = gainNormalisation(mediaItem?.sonie(), conteneur.reglages.volumeEgal.value)
+            majFondu(joueur)
+            appliquerVolume()
             // « Fin du titre » : le titre suivant ne démarre pas.
             if (reason == Player.MEDIA_ITEM_TRANSITION_REASON_AUTO && conteneur.veille.veille.value == Veille.FinDuTitre) {
                 joueur.pause()

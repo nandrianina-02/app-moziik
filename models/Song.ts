@@ -77,6 +77,12 @@ export interface ISong {
   bpmSource?: "manuel" | "balise" | "analyse";
   /** Date à laquelle les abonnés ont été prévenus de la sortie (lib/annonceSortie.ts). */
   sortieAnnoncee?: Date;
+  /**
+   * Volume perçu (sonie EBU R128, LUFS) mesuré en mono sur la minute
+   * centrale : l'application Android s'en sert pour égaliser le volume
+   * d'un titre à l'autre. Absent tant que le titre n'a pas été mesuré.
+   */
+  loudness?: number;
   musicalKey?: string; // tonalité (ex. "C#m")
   isrc?: string;
   copyright?: string;
@@ -126,6 +132,7 @@ const SongSchema = new Schema<ISong>({
   bpm: { type: Number },
   bpmSource: { type: String, enum: ["manuel", "balise", "analyse"] },
   sortieAnnoncee: { type: Date },
+  loudness: { type: Number },
   musicalKey: { type: String },
   isrc: { type: String },
   copyright: { type: String },

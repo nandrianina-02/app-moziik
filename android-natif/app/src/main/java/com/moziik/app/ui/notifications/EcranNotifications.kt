@@ -1,3 +1,5 @@
+@file:OptIn(ExperimentalFoundationApi::class)
+
 package com.moziik.app.ui.notifications
 
 import androidx.compose.foundation.ExperimentalFoundationApi

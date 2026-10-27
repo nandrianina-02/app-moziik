@@ -232,6 +232,20 @@ class ReglagesAppareil(private val contexte: Context) {
 
     fun choisirBasses(cle: String) = ecrire("basses", cle).also { _basses.value = cle }
 
+    private val _bassesPuissance = MutableStateFlow(preferences.getFloat("bassesPuissance", 9f))
+    /** Le niveau Personnalisé : puissance du grave, de 0 à 14 dB. */
+    val bassesPuissance: StateFlow<Float> = _bassesPuissance.asStateFlow()
+
+    private val _bassesHarmoniques = MutableStateFlow(preferences.getFloat("bassesHarmoniques", 0.25f))
+    /** Le niveau Personnalisé : part des harmoniques de basse, de 0 à 1. */
+    val bassesHarmoniques: StateFlow<Float> = _bassesHarmoniques.asStateFlow()
+
+    fun choisirBassesPerso(puissance: Float, harmoniques: Float) {
+        preferences.edit().putFloat("bassesPuissance", puissance).putFloat("bassesHarmoniques", harmoniques).apply()
+        _bassesPuissance.value = puissance
+        _bassesHarmoniques.value = harmoniques
+    }
+
     private val _autoAimes = MutableStateFlow(preferences.getBoolean("autoAimes", false))
     /** Garder d'office hors connexion les titres aimés, en Wi-Fi seulement (Premium). */
     val autoAimes: StateFlow<Boolean> = _autoAimes.asStateFlow()

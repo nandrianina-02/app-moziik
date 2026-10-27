@@ -29,7 +29,7 @@ class TraitementBasses : BaseAudioProcessor() {
     override fun queueInput(inputBuffer: ByteBuffer) {
         val octets = inputBuffer.remaining()
         if (octets == 0) return
-        if (chaine.niveau == NiveauBass.OFF) {
+        if (chaine.reglage.neutre) {
             // Off : le son passe à l'octet près, sans conversion.
             replaceOutputBuffer(octets).put(inputBuffer).flip()
             chaine.reinitialiser()

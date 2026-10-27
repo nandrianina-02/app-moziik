@@ -55,6 +55,7 @@ import android.content.Context
 import androidx.media3.exoplayer.DefaultRenderersFactory
 import androidx.media3.exoplayer.audio.AudioSink
 import androidx.media3.exoplayer.audio.DefaultAudioSink
+import kotlinx.coroutines.flow.combine
 
 /** Canal de la notification de lecture, repris de l'app Capacitor : les réglages de l'utilisateur sur ce canal sont gardés. */
 private const val CANAL = "moziik_lecture"
@@ -124,7 +125,11 @@ class ServiceLecture : MediaLibraryService() {
         }
         // Le Bass Boost se branche dans la sortie audio du lecteur, avant le changement de vitesse.
         val basses = TraitementBasses()
-        portee.launch { c.reglages.basses.collect { basses.chaine.niveau = NiveauBass.de(it) } }
+        portee.launch {
+            combine(c.reglages.basses, c.reglages.bassesPuissance, c.reglages.bassesHarmoniques) { cle, puissance, harmoniques ->
+                NiveauBass.de(cle).reglage ?: ReglageBasses.personnalise(puissance, harmoniques)
+            }.collect { basses.chaine.reglage = it }
+        }
         val rendus = object : DefaultRenderersFactory(this) {
             override fun buildAudioSink(context: Context, enableFloatOutput: Boolean, enableAudioTrackPlaybackParams: Boolean): AudioSink =
                 DefaultAudioSink.Builder(context)

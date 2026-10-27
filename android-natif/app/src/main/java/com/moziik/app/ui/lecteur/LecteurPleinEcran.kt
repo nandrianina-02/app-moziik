@@ -98,6 +98,9 @@ import androidx.compose.ui.semantics.customActions
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.material3.Slider
+import androidx.compose.material3.SliderDefaults
+import com.moziik.app.lecteur.PUISSANCE_MAX
 
 /**
  * Le lecteur plein écran (FullPlayerPage.tsx, mise en page téléphone) :
@@ -309,7 +312,7 @@ internal fun ChoixBasses(onFermer: () -> Unit) {
     Feuille(onFermer) {
         Text("Bass Boost", style = Texte.titreSection, color = p.encre.compose, modifier = Modifier.padding(start = 20.dp, bottom = 2.dp))
         Text(
-            "Un grave profond qui garde la voix nette. Le son est limité juste sous le maximum : il ne sature jamais, même au plus fort.",
+            "Plus profond que sur le site : sous-grave et harmoniques en plus. La voix reste nette, et le son est limité juste sous le maximum : il ne sature jamais, même au plus fort.",
             style = Texte.secondaire, color = p.encreAttenuee.compose, modifier = Modifier.padding(start = 20.dp, end = 20.dp, bottom = 8.dp),
         )
         NiveauBass.entries.forEach { n ->
@@ -317,13 +320,19 @@ internal fun ChoixBasses(onFermer: () -> Unit) {
                 Modifier.fillMaxWidth().clickable(role = Role.RadioButton) { c.reglages.choisirBasses(n.cle) }.padding(horizontal = 20.dp, vertical = 11.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                // Cinq barres de hauteur croissante : le niveau se lit d'un coup d'oeil.
-                Row(Modifier.width(30.dp).height(18.dp), horizontalArrangement = Arrangement.spacedBy(2.dp), verticalAlignment = Alignment.Bottom) {
-                    repeat(4) { i ->
-                        Box(
-                            Modifier.width(4.dp).fillMaxHeight((i + 1) / 4f).clip(RoundedCornerShape(1.dp))
-                                .background(if (i < n.ordinal) p.accent.compose else p.bordure.compose),
-                        )
+                // Des barres de hauteur croissante : le niveau se lit d'un coup d'oeil.
+                if (n == NiveauBass.PERSO) {
+                    Box(Modifier.width(30.dp), contentAlignment = Alignment.CenterStart) {
+                        Icone(R.drawable.lucide_sliders_horizontal, description = null, teinte = if (n.cle == basses) p.accent.compose else p.encreAttenuee.compose, taille = 18.dp)
+                    }
+                } else {
+                    Row(Modifier.width(30.dp).height(18.dp), horizontalArrangement = Arrangement.spacedBy(2.dp), verticalAlignment = Alignment.Bottom) {
+                        repeat(5) { i ->
+                            Box(
+                                Modifier.width(4.dp).fillMaxHeight((i + 1) / 5f).clip(RoundedCornerShape(1.dp))
+                                    .background(if (i < n.ordinal) p.accent.compose else p.bordure.compose),
+                            )
+                        }
                     }
                 }
                 Spacer(Modifier.width(12.dp))
@@ -334,6 +343,48 @@ internal fun ChoixBasses(onFermer: () -> Unit) {
                 if (n.cle == basses) Icone(R.drawable.lucide_check, description = "Choisi", teinte = p.accent.compose, taille = 18.dp)
             }
         }
+        if (basses == NiveauBass.PERSO.cle) ReglagePerso()
+    }
+}
+
+/** Les deux curseurs du niveau Personnalisé ; le son suit pendant qu'on glisse. */
+@Composable
+private fun ReglagePerso() {
+    val c = conteneur()
+    val p = LocalPalette.current
+    val puissance by c.reglages.bassesPuissance.collectAsStateWithLifecycle()
+    val harmoniques by c.reglages.bassesHarmoniques.collectAsStateWithLifecycle()
+    val couleurs = SliderDefaults.colors(
+        thumbColor = p.accent.compose,
+        activeTrackColor = p.accent.compose,
+        inactiveTrackColor = p.bordure.compose,
+    )
+    Column(Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 8.dp)) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text("Puissance du grave", style = Texte.corps.copy(fontWeight = FontWeight.Medium), color = p.encre.compose, modifier = Modifier.weight(1f))
+            Text("+${puissance.toInt()} dB", style = Texte.secondaire.copy(fontFeatureSettings = "tnum"), color = p.encreAttenuee.compose)
+        }
+        Slider(
+            value = puissance,
+            onValueChange = { c.reglages.choisirBassesPerso(it, harmoniques) },
+            valueRange = 0f..PUISSANCE_MAX.toFloat(),
+            colors = couleurs,
+            modifier = Modifier.semantics { contentDescription = "Puissance du grave" },
+        )
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text("Harmoniques", style = Texte.corps.copy(fontWeight = FontWeight.Medium), color = p.encre.compose, modifier = Modifier.weight(1f))
+            Text("${(harmoniques * 100).toInt()} %", style = Texte.secondaire.copy(fontFeatureSettings = "tnum"), color = p.encreAttenuee.compose)
+        }
+        Slider(
+            value = harmoniques,
+            onValueChange = { c.reglages.choisirBassesPerso(puissance, it) },
+            colors = couleurs,
+            modifier = Modifier.semantics { contentDescription = "Harmoniques de basse" },
+        )
+        Text(
+            "Les harmoniques font entendre le grave sur le haut-parleur du téléphone et les petits écouteurs, qui ne descendent pas jusqu'à lui.",
+            style = Texte.secondaire, color = p.encreAttenuee.compose,
+        )
     }
 }
 

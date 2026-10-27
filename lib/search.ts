@@ -685,6 +685,14 @@ export async function rechercheGlobale(opts: OptionsRecherche): Promise<Resultat
     "songs",
     estTronque("songs", songsTries.length)
   );
+  // Une phrase qu'on a en tête : les titres dont les paroles la contiennent, avec la ligne trouvée.
+  ajouter(
+    "paroles",
+    "Dans les paroles",
+    "song",
+    await titresParParoles(opts.q, opts.univers, new Set(songsTries.map((t) => String(t._id)))),
+    "liste"
+  );
 
   const albumsSeuls = albumsTries.filter((a) => a.type === "album");
   const epsSeuls = albumsTries.filter((a) => a.type !== "album");
@@ -714,6 +722,48 @@ export async function rechercheGlobale(opts: OptionsRecherche): Promise<Resultat
   sections.push(...(await sectionsLiees({ focus, songsTries, artistsTries })));
 
   return { ...vide, focus, top, sections, counts, genresDisponibles, approximatif };
+}
+
+/* ------------------------------------------------ recherche dans les paroles -- */
+
+/** Moins de quatre caractères, une recherche dans les paroles remonterait la moitié du catalogue. */
+const PAROLES_MIN = 4;
+const PAROLES_MAX = 12;
+
+/**
+ * Les titres publiés dont les paroles contiennent la saisie, sans tenir
+ * compte de la casse ni des espaces multiples. Chaque titre porte
+ * `extraitParoles`, la ligne trouvée, débarrassée de ses horodatages LRC :
+ * c'est elle qui dit pourquoi le titre est là. Les titres déjà trouvés par
+ * leur nom ne sont pas répétés ; ceux de l'univers courant passent devant.
+ */
+async function titresParParoles(q: string, univers: Univers | undefined, exclus: Set<string>): Promise<Record<string, unknown>[]> {
+  const phrase = q.trim();
+  if (phrase.length < PAROLES_MIN) return [];
+  const motif = phrase.replace(/[.*+?^${}()|[\]\\]/g, "\\$&").replace(/\s+/g, "\\s+");
+  const titres = await Song.find({ status: "published", lyrics: { $regex: motif, $options: "i" } })
+    .select(`${CHAMPS_SONG} lyrics`)
+    .populate("artist", "stageName verified coverUrl")
+    .populate("album", "title coverUrl type")
+    .sort({ playsCount: -1 })
+    .limit(PAROLES_MAX * 2)
+    .lean();
+  const trouve = new RegExp(motif, "i");
+  return titres
+    .filter((t) => !exclus.has(String(t._id)))
+    .map(({ lyrics, ...t }) => ({ ...t, extraitParoles: ligneTrouvee(lyrics, trouve) }))
+    .filter((t) => t.extraitParoles)
+    .sort((a, b) => Number(b.univers === univers) - Number(a.univers === univers))
+    .slice(0, PAROLES_MAX);
+}
+
+/** La première ligne des paroles qui contient la saisie, sans horodatage, coupée à 140 caractères. */
+function ligneTrouvee(paroles: string | undefined, trouve: RegExp): string | null {
+  for (const brute of String(paroles ?? "").split(/\r?\n/)) {
+    const ligne = brute.replace(/\[[^\]]*\]/g, "").replace(/<[^>]*>/g, "").trim();
+    if (ligne && trouve.test(ligne)) return ligne.slice(0, 140);
+  }
+  return null;
 }
 
 /* ------------------------------------------------- suggestions rapides -- */

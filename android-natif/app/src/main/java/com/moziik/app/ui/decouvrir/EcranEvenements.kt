@@ -141,9 +141,9 @@ private fun CorpsEvenements(liste: ListeEvenements, onRetour: () -> Unit) {
         }
     }
 
-    val liste = rememberLazyListState()
-    LazyColumn(Modifier.fillMaxSize(), state = liste, contentPadding = PaddingValues(start = 16.dp, end = 16.dp, bottom = 32.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
-        stickyHeader(key = "retour") { BarreCollante(onRetour, "Évènements", liste) }
+    val etatListe = rememberLazyListState()
+    LazyColumn(Modifier.fillMaxSize(), state = etatListe, contentPadding = PaddingValues(start = 16.dp, end = 16.dp, bottom = 32.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
+        stickyHeader(key = "retour") { BarreCollante(onRetour, "Évènements", etatListe) }
         item(key = "titre") { Text("Évènements", style = Texte.titreFiche, color = p.encre.compose) }
         if (liste.events.isEmpty()) {
             item(key = "vide") { Text("Aucun évènement annoncé pour le moment.", style = Texte.corps, color = p.encreAttenuee.compose) }

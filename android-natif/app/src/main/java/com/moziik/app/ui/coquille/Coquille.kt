@@ -126,6 +126,8 @@ import com.moziik.app.ui.LIEN_TELECHARGEMENTS
 import com.moziik.app.ui.LIEN_BANDE_SON
 import com.moziik.app.ui.compte.PARAMETRES_REVEIL
 import com.moziik.app.ui.compte.EcranReveil
+import com.moziik.app.ui.decouvrir.EcranBlindTest
+import androidx.compose.ui.platform.LocalConfiguration
 
 /**
  * La coquille commune à tous les écrans, comme celle du site sur mobile :
@@ -262,8 +264,13 @@ fun Coquille(sombre: Boolean, onBasculerMode: () -> Unit) {
     CompositionLocalProvider(LocalNavigation provides navigationFiches, LocalMenus provides menus) {
     // Le cadre : un ton à peine plus marqué que le fond des pages, autour de l'en-tête et de la barre du bas.
     val cadre = lerp(p.base.compose, p.encre.compose, 0.05f)
+    // Tablette ou téléphone couché : la navigation passe en barre latérale, le contenu garde toute la hauteur.
+    val large = LocalConfiguration.current.screenWidthDp >= 600
     Box(Modifier.fillMaxSize().background(cadre)) {
-        Column(Modifier.fillMaxSize()) {
+      Row(Modifier.fillMaxSize()) {
+        if (large) BarreLaterale(onglet = onglet, nonLus = nonLus, onChoisir = aller)
+        // Sans barre du bas, le contenu s'arrête au-dessus de la barre de gestes du système.
+        Column(Modifier.weight(1f).fillMaxHeight().then(if (large) Modifier.windowInsetsPadding(WindowInsets.navigationBars).padding(bottom = 8.dp) else Modifier)) {
             // L'en-tête et la barre du bas restent sur toutes les pages : le contenu, lecteur compris, vit entre les deux.
             EnTete(
                 sombre = sombre,
@@ -328,6 +335,7 @@ fun Coquille(sombre: Boolean, onBasculerMode: () -> Unit) {
                 composable(Fiches.CONVERSATION) { e -> EcranConversation(e.arguments?.getString("id").orEmpty(), retour) }
                 composable(Fiches.EVENEMENT) { e -> FicheEvenement(e.arguments?.getString("id").orEmpty(), retour) }
                 composable(Fiches.NOTIFICATIONS) { EcranNotifications(retour) }
+                composable(Fiches.BLIND_TEST) { EcranBlindTest(retour, onConnexion = { aller(Destination.COMPTE) }) }
                 composable(Fiches.PARAMETRES) { EcranParametres(retour, onOuvrir = { navigation.navigate(it) }) }
                 composable(PARAMETRES_LECTURE) { EcranLecture(retour) }
                 composable(PARAMETRES_APPARENCE) { EcranApparence(retour) }
@@ -367,8 +375,9 @@ fun Coquille(sombre: Boolean, onBasculerMode: () -> Unit) {
             }
             }
             // Clavier ouvert (message, recherche) : la barre du bas s'efface pour laisser la place à la saisie.
-            if (!clavier) BarreDuBas(onglet = onglet, nonLus = nonLus, onChoisir = aller)
+            if (!clavier && !large) BarreDuBas(onglet = onglet, nonLus = nonLus, onChoisir = aller)
         }
+      }
     }
 
         HoteMenus(menus)
@@ -487,6 +496,54 @@ private fun EnTete(sombre: Boolean, onBasculerMode: () -> Unit, notifications: I
                 teinte = p.encre.compose,
                 taille = 18.dp,
             )
+        }
+    }
+}
+
+/**
+ * La barre latérale des grands écrans : les mêmes onglets que la barre du
+ * bas, à la verticale ; une pastille à l'accent se pose derrière l'onglet
+ * actif.
+ */
+@Composable
+private fun BarreLaterale(onglet: Destination, nonLus: Int, onChoisir: (Destination) -> Unit) {
+    val p = LocalPalette.current
+    Column(
+        Modifier
+            .fillMaxHeight()
+            .windowInsetsPadding(WindowInsets.statusBars)
+            .windowInsetsPadding(WindowInsets.navigationBars)
+            .width(88.dp)
+            .padding(top = 72.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        Destination.entries.forEach { d ->
+            val active = d == onglet
+            val couleur by animateColorAsState(if (active) p.accent.compose else p.encreAttenuee.compose, tween(Mouvement.VOILE), label = "couleur")
+            val pastille by animateColorAsState(if (active) p.accent.compose.copy(alpha = 0.14f) else p.accent.compose.copy(alpha = 0f), tween(Mouvement.VOILE), label = "pastille")
+            Column(
+                Modifier
+                    .clip(RoundedCornerShape(12.dp))
+                    .clickable(role = Role.Tab) { onChoisir(d) }
+                    .semantics { selected = active }
+                    .padding(horizontal = 8.dp, vertical = 6.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+            ) {
+                Box(Modifier.size(width = 56.dp, height = 32.dp).clip(CircleShape).background(pastille), contentAlignment = Alignment.Center) {
+                    Icone(dessin = d.icone, description = null, teinte = couleur, taille = 22.dp)
+                    if (d == Destination.MESSAGES && nonLus > 0) {
+                        Box(Modifier.align(Alignment.TopEnd).padding(top = 4.dp, end = 12.dp).size(8.dp).clip(CircleShape).background(p.accent.compose))
+                    }
+                }
+                Spacer(Modifier.height(4.dp))
+                Text(
+                    d.libelle,
+                    style = Texte.navigation.copy(fontWeight = if (active) FontWeight.SemiBold else FontWeight.Medium),
+                    color = couleur,
+                    maxLines = 1,
+                )
+            }
         }
     }
 }

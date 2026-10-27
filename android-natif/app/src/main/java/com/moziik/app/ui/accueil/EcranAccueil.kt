@@ -248,6 +248,7 @@ private fun RaccourcisAccueil(modifier: Modifier = Modifier) {
         Triple("Genres", R.drawable.lucide_tags) { nav.titres() },
         Triple("Ambiances", R.drawable.lucide_radio) { nav.radio() },
         Triple("Évènements", R.drawable.lucide_calendar_days) { nav.evenements() },
+        Triple("Blind test", R.drawable.lucide_gamepad_2) { nav.blindTest() },
     )
     Row(modifier.fillMaxWidth().padding(top = 24.dp), horizontalArrangement = Arrangement.SpaceBetween) {
         raccourcis.forEach { (libelle, icone, action) ->

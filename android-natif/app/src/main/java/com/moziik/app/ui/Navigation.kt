@@ -23,6 +23,7 @@ object Fiches {
     const val EVENEMENT = "evenement/{id}"
     const val NOTIFICATIONS = "notifications"
     const val PARAMETRES = "parametres"
+    const val BLIND_TEST = "blind-test"
 }
 
 /**
@@ -47,6 +48,7 @@ class Navigation(
     fun evenement(id: String) = aller("evenement/$id")
     fun notifications() = aller("notifications")
     fun parametres() = aller("parametres")
+    fun blindTest() = aller("blind-test")
     /** L'écran Abonnement de l'onglet Compte : là où mène une fonction réservée à Premium. */
     fun abonnement() = aller("compte/abonnement")
     fun rechercher(terme: String) {

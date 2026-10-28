@@ -1,10 +1,9 @@
 package com.moziik.app.ui.decouvrir
 
 import android.content.Context
+import android.net.Uri
 import androidx.annotation.OptIn
 import androidx.compose.animation.AnimatedContent
-import androidx.compose.animation.core.Animatable
-import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -41,6 +40,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.withFrameMillis
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -53,11 +53,13 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.media3.common.MediaItem
 import androidx.media3.common.util.UnstableApi
+import androidx.media3.datasource.ResolvingDataSource
 import androidx.media3.datasource.okhttp.OkHttpDataSource
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
 import com.moziik.app.BuildConfig
 import com.moziik.app.R
+import com.moziik.app.donnees.catalogue.ATTENTE_EXTRAIT_MS
 import com.moziik.app.donnees.catalogue.DUREE_EXTRAIT_MS
 import com.moziik.app.donnees.catalogue.Manche
 import com.moziik.app.donnees.catalogue.debutExtraitMs
@@ -65,6 +67,7 @@ import com.moziik.app.donnees.catalogue.pointsDe
 import com.moziik.app.donnees.catalogue.preparerPartie
 import com.moziik.app.donnees.session.EtatSession
 import com.moziik.app.donnees.session.appel
+import com.moziik.app.lecteur.ResolutionFlux
 import com.moziik.app.lecteur.adresseFlux
 import com.moziik.app.theme.LocalPalette
 import com.moziik.app.theme.Mouvement
@@ -78,7 +81,9 @@ import com.moziik.app.ui.composants.apparition
 import com.moziik.app.ui.conteneur
 import com.moziik.app.ui.fiches.BarreRetour
 import com.moziik.app.ui.partager
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 private sealed interface EtapeJeu {
     data object Regles : EtapeJeu
@@ -112,10 +117,15 @@ fun EcranBlindTest(onRetour: () -> Unit, onConnexion: () -> Unit) {
     val preferences = remember { contexte.getSharedPreferences("blind-test", Context.MODE_PRIVATE) }
     var record by remember { mutableIntStateOf(preferences.getInt("record", 0)) }
 
-    // Un lecteur à part, avec le client du compte : la redirection vers le fichier est suivie sans le jeton.
+    // Un lecteur à part, branché comme celui de l'écoute : /api/stream est résolu avec le jeton du
+    // compte, puis le fichier est lu sans lui, chez l'hébergeur.
+    val resolution = remember { ResolutionFlux(c.reseau.client, BuildConfig.SITE, estVisiteur = { false }) }
     val extraits = remember {
+        val reseau = ResolvingDataSource.Factory(OkHttpDataSource.Factory(c.reseau.clientPublic)) { spec ->
+            resolution.resoudre(spec.uri.toString())?.let { spec.withUri(Uri.parse(it)) } ?: spec
+        }
         ExoPlayer.Builder(contexte)
-            .setMediaSourceFactory(DefaultMediaSourceFactory(OkHttpDataSource.Factory(c.reseau.client)))
+            .setMediaSourceFactory(DefaultMediaSourceFactory(reseau))
             .build()
     }
     DisposableEffect(Unit) { onDispose { extraits.release() } }
@@ -144,6 +154,14 @@ fun EcranBlindTest(onRetour: () -> Unit, onConnexion: () -> Unit) {
                     erreur = "La partie n'a pas pu être préparée. Vérifiez votre connexion."
                     etape = EtapeJeu.Regles
                 }
+        }
+    }
+
+    // La manche suivante se prépare pendant celle-ci : son adresse est déjà résolue quand elle commence.
+    LaunchedEffect(etape) {
+        val suivante = (etape as? EtapeJeu.Manche)?.let { partie.getOrNull(it.rang + 1) } ?: return@LaunchedEffect
+        withContext(Dispatchers.IO) {
+            runCatching { resolution.resoudre(adresseFlux(BuildConfig.SITE, suivante.reponse.id, QUALITE_EXTRAIT)) }
         }
     }
 
@@ -238,17 +256,36 @@ private fun MancheEnCours(
     val c = conteneur()
     val p = LocalPalette.current
     var choisie by remember(manche) { mutableStateOf<String?>(null) }
-    var depart by remember(manche) { mutableLongStateOf(0L) }
-    val temps = remember(manche) { Animatable(1f) }
+    var entendu by remember(manche) { mutableLongStateOf(0L) }
+    var pret by remember(manche) { mutableStateOf(false) }
+    var illisible by remember(manche) { mutableStateOf(false) }
 
-    // L'extrait part, et la barre de temps descend sur dix secondes ; sans réponse, la manche est perdue.
+    // Les dix secondes se comptent sur le son entendu, d'après la position du lecteur : le
+    // chargement ne mange pas l'extrait, une coupure du réseau suspend le temps, et le
+    // décompte ne dépend pas de la vitesse des animations du téléphone (qui peut être nulle).
     LaunchedEffect(manche) {
-        val qualite = "low"
-        extraits.setMediaItem(MediaItem.fromUri(adresseFlux(BuildConfig.SITE, manche.reponse.id, qualite)), debutExtraitMs(manche.reponse.duration))
+        extraits.setMediaItem(MediaItem.fromUri(adresseFlux(BuildConfig.SITE, manche.reponse.id, QUALITE_EXTRAIT)), debutExtraitMs(manche.reponse.duration))
         extraits.prepare()
         extraits.play()
-        depart = System.currentTimeMillis()
-        temps.animateTo(0f, tween(DUREE_EXTRAIT_MS.toInt(), easing = LinearEasing))
+        val limite = System.currentTimeMillis() + ATTENTE_EXTRAIT_MS
+        while (!extraits.isPlaying) {
+            if (extraits.playerError != null || System.currentTimeMillis() > limite) {
+                extraits.stop()
+                illisible = true
+                return@LaunchedEffect
+            }
+            withFrameMillis { }
+        }
+        pret = true
+        val origine = extraits.currentPosition
+        while (choisie == null && entendu < DUREE_EXTRAIT_MS) {
+            if (extraits.playerError != null) {
+                illisible = true
+                return@LaunchedEffect
+            }
+            withFrameMillis { }
+            entendu = (extraits.currentPosition - origine).coerceIn(0L, DUREE_EXTRAIT_MS)
+        }
         extraits.pause()
         if (choisie == null) {
             choisie = ""
@@ -264,7 +301,7 @@ private fun MancheEnCours(
         }
         Spacer(Modifier.height(10.dp))
         Box(Modifier.fillMaxWidth().height(4.dp).clip(RoundedCornerShape(2.dp)).background(p.bordure.compose)) {
-            Box(Modifier.fillMaxWidth(temps.value).fillMaxHeight().background(p.accent.compose))
+            Box(Modifier.fillMaxWidth(1f - entendu.toFloat() / DUREE_EXTRAIT_MS).fillMaxHeight().background(p.accent.compose))
         }
         Spacer(Modifier.height(24.dp))
         // La pochette reste cachée jusqu'à la réponse : elle donnerait la solution.
@@ -273,9 +310,21 @@ private fun MancheEnCours(
                 Pochette(manche.reponse.coverUrl, Modifier.size(150.dp))
             } else {
                 Box(Modifier.size(150.dp).clip(RoundedCornerShape(p.rayon.dp)).background(p.surface.compose).border(BorderStroke(1.dp, p.bordure.compose), RoundedCornerShape(p.rayon.dp)), contentAlignment = Alignment.Center) {
-                    Egaliseur(hauteur = 28.dp, libelle = "Extrait en cours")
+                    if (illisible) {
+                        Icone(R.drawable.lucide_x, description = null, teinte = p.encreAttenuee.compose, taille = 28.dp)
+                    } else {
+                        Egaliseur(hauteur = 28.dp, libelle = if (pret) "Extrait en cours" else "Chargement de l'extrait")
+                    }
                 }
             }
+        }
+        if (illisible) {
+            Text(
+                "Cet extrait n'a pas pu être lu : la manche ne compte pas.",
+                style = Texte.secondaire,
+                color = p.encreAttenuee.compose,
+                modifier = Modifier.fillMaxWidth().padding(top = 12.dp),
+            )
         }
         Spacer(Modifier.height(24.dp))
         manche.propositions.forEach { t ->
@@ -294,10 +343,11 @@ private fun MancheEnCours(
                     .clip(forme)
                     .border(BorderStroke(if (montree && (juste || t.id == choisie)) 2.dp else 1.dp, couleur), forme)
                     .background(if (montree && juste) p.accent.compose.copy(alpha = 0.1f) else p.surface.compose)
-                    .clickable(enabled = !montree, role = Role.Button) {
+                    // Pas de réponse avant le son : elle rapporterait le maximum sans avoir rien entendu.
+                    .clickable(enabled = pret && !montree && !illisible, role = Role.Button) {
                         choisie = t.id
                         extraits.pause()
-                        onReponse(juste, System.currentTimeMillis() - depart)
+                        onReponse(juste, entendu)
                     }
                     .padding(horizontal = 16.dp, vertical = 13.dp),
                 verticalAlignment = Alignment.CenterVertically,
@@ -309,6 +359,10 @@ private fun MancheEnCours(
                 if (montree && juste) Icone(R.drawable.lucide_check, description = "Bonne réponse", teinte = p.accent.compose, taille = 18.dp)
                 if (montree && !juste && t.id == choisie) Icone(R.drawable.lucide_x, description = "Mauvaise réponse", teinte = p.danger.compose, taille = 18.dp)
             }
+        }
+        if (illisible) {
+            Spacer(Modifier.height(8.dp))
+            BoutonPrincipal(if (rang + 1 < total) "Manche suivante" else "Voir mon score", onSuivante)
         }
         if (choisie != null) {
             Spacer(Modifier.height(8.dp))
@@ -351,3 +405,6 @@ private fun Fin(score: Int, justes: Int, total: Int, record: Int, onRejouer: () 
         }
     }
 }
+
+/** La qualité légère suffit à reconnaître un titre, et l'extrait démarre plus vite. */
+private const val QUALITE_EXTRAIT = "low"

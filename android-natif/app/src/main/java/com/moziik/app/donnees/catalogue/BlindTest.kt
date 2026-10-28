@@ -2,6 +2,9 @@ package com.moziik.app.donnees.catalogue
 
 import kotlin.random.Random
 
+/** Au-delà, l'extrait est déclaré illisible : la manche ne compte pas, plutôt que d'attendre en silence. */
+const val ATTENTE_EXTRAIT_MS = 15_000L
+
 /** Dix manches : assez pour un vrai score, assez court pour rejouer. */
 const val MANCHES = 10
 

@@ -69,12 +69,13 @@ export type ThemePreset = {
 export const PRESET_PERSONNALISE = "custom";
 
 /**
- * Les préréglages. Le premier reprend exactement la palette d'origine du
- * site — corail sur indigo profond — pour que « thème par défaut » veuille
- * dire la même chose qu'avant l'arrivée de cet écran.
+ * Les préréglages. Le premier est l'identité du site : l'orange de
+ * l'icône de l'application (le carré au M et à la note) sur indigo
+ * profond. Il était corail (#FF6B4A) avant que l'icône ne devienne la
+ * marque ; l'écart se voyait à côté d'elle.
  */
 export const THEME_PRESETS: ThemePreset[] = [
-  { id: "moziik", label: "Moziik", accent: "#FF6B4A", backgroundDark: "#0D0F1A", backgroundLight: "#FBF9F4" },
+  { id: "moziik", label: "Moziik", accent: "#F84A26", backgroundDark: "#0D0F1A", backgroundLight: "#FBF9F4" },
   { id: "ocean", label: "Océan", accent: "#38BDF8", backgroundDark: "#0A1220", backgroundLight: "#F4F9FF" },
   { id: "emeraude", label: "Émeraude", accent: "#34D399", backgroundDark: "#08150F", backgroundLight: "#F3FBF6" },
   { id: "violet", label: "Violet", accent: "#A78BFA", backgroundDark: "#110E1E", backgroundLight: "#F8F6FF" },
@@ -86,7 +87,7 @@ export const THEME_PRESETS: ThemePreset[] = [
 export const THEME_PAR_DEFAUT: ThemePreference = {
   preset: "moziik",
   mode: "dark",
-  accent: "#FF6B4A",
+  accent: "#F84A26",
   backgroundDark: "#0D0F1A",
   backgroundLight: "#FBF9F4",
   secondary: "#3DDC97",

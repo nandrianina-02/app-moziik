@@ -22,7 +22,7 @@ export default async function manifest(): Promise<MetadataRoute.Manifest> {
     start_url: "/",
     display: "standalone",
     background_color: "#0D0F1A",
-    theme_color: "#FF6B4A",
+    theme_color: "#F84A26",
     icons: [
       { src: icon512, sizes: "512x512", type: "image/png", purpose: "any" },
       { src: icon192, sizes: "192x192", type: "image/png", purpose: "any" },

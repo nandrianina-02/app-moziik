@@ -28,8 +28,8 @@
      Les passer en variables règle les deux d'un coup : la teinte assez
      sombre pour être lue SUR le fond clair est aussi, par symétrie du
      rapport de contraste, assez sombre pour porter du texte clair. */
-  --color-accent: 255 107 74;      /* #FF6B4A — 6,8:1 sur le fond sombre */
-  --color-accent-hover: 255 130 103; /* #FF8267 */
+  --color-accent: 248 74 38;       /* #F84A26, l'orange de l'icône — 5,4:1 sur le fond sombre */
+  --color-accent-hover: 250 104 74; /* #FA684A */
   --color-verified: 61 220 151;    /* #3DDC97 — 10,8:1 */
 
   /* États sémantiques : erreur, avertissement, information. Ils étaient

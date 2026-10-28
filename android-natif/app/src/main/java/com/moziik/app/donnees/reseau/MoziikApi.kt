@@ -156,6 +156,8 @@ interface MoziikApi {
         @Query("page") page: Int,
         @Query("limit") limite: Int,
         @Query("univers") univers: String?,
+        @Query("sort") tri: String? = null,
+        @Query("seed") graine: Int? = null,
     ): PageTitres
 
     @GET("api/me/liked-songs")

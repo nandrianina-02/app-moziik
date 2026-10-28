@@ -276,8 +276,13 @@ class Catalogue(
 
     suspend fun radio(): ReponseRadio = appel { api.radio(univers()) }.getOrThrow()
 
-    suspend fun pageTitres(genre: String?, page: Int): PageTitres =
-        appel { api.pageTitres(genre, page, TAILLE_PAGE, univers()) }.getOrThrow().let { it.copy(songs = it.songs.filter { t -> t.publie }) }
+    /**
+     * Une page de titres d'un genre, dans un ordre mélangé : trié par date, un
+     * genre se lirait album par album. La même graine garde le même ordre
+     * d'une page à l'autre.
+     */
+    suspend fun pageTitres(genre: String?, page: Int, graine: Int): PageTitres =
+        appel { api.pageTitres(genre, page, TAILLE_PAGE, univers(), tri = "random", graine = graine) }.getOrThrow().let { it.copy(songs = it.songs.filter { t -> t.publie }) }
 
     @Volatile private var genresConnus: List<String>? = null
 

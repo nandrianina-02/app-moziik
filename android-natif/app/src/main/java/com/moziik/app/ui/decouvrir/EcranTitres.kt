@@ -72,6 +72,8 @@ class ModeleTitres(private val catalogue: Catalogue, genre: String?) : ViewModel
     private val _genres = MutableStateFlow<List<String>>(emptyList())
     val genres: StateFlow<List<String>> = _genres.asStateFlow()
     private var chargement: Job? = null
+    /** Tirée à l'ouverture de l'écran : un nouveau mélange à chaque visite, stable pendant le défilement. */
+    private val graine = 1 + kotlin.random.Random.nextInt(2_000_000_000)
 
     init {
         viewModelScope.launch { _genres.value = runCatching { catalogue.genres() }.getOrDefault(emptyList()) }
@@ -92,7 +94,7 @@ class ModeleTitres(private val catalogue: Catalogue, genre: String?) : ViewModel
         _etat.update { it.copy(chargement = true, erreur = null) }
         chargement = viewModelScope.launch {
             try {
-                val page = catalogue.pageTitres(actuel.genre, actuel.page + 1)
+                val page = catalogue.pageTitres(actuel.genre, actuel.page + 1, graine)
                 _etat.update {
                     it.copy(titres = (it.titres + page.songs).distinctBy { t -> t.id }, page = actuel.page + 1, encore = page.hasMore, chargement = false)
                 }

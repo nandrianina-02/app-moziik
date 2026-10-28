@@ -29,6 +29,7 @@ private const val SOURCE = "source"
 private const val UNIVERS = "univers"
 private const val SONIE = "sonie"
 private const val ALBUM = "album"
+private const val ORIGINE = "origine"
 
 /** Ce que le lecteur montre d'un titre en cours ou en file. */
 @kotlinx.serialization.Serializable
@@ -49,7 +50,7 @@ data class TitreLu(
  * la notification et à l'écran verrouillé ; l'adresse, elle, est reposée
  * par le service (une MediaController ne transmet pas l'URI).
  */
-fun Titre.versElement(site: String, source: String?, qualite: String = "high"): MediaItem {
+fun Titre.versElement(site: String, source: String?, qualite: String = "high", origine: String? = null): MediaItem {
     val extras = Bundle().apply {
         putDouble(DUREE, duration)
         putString(ARTISTE_ID, artist?.id)
@@ -58,6 +59,7 @@ fun Titre.versElement(site: String, source: String?, qualite: String = "high"): 
         putString(UNIVERS, univers)
         loudness?.let { putDouble(SONIE, it) }
         putString(ALBUM, album?.id)
+        putString(ORIGINE, origine)
     }
     val metadonnees = MediaMetadata.Builder()
         .setTitle(title)
@@ -128,3 +130,6 @@ fun MediaItem.sonie(): Double? = mediaMetadata.extras?.takeIf { it.containsKey(S
 
 /** L'album du titre : deux titres du même album s'enchaînent sans fondu. */
 fun MediaItem.albumId(): String? = mediaMetadata.extras?.getString(ALBUM)
+
+/** D'où la file a été lancée (« artiste:<id> » depuis la page d'un artiste) : la suite en dépend. */
+fun MediaItem.origine(): String? = mediaMetadata.extras?.getString(ORIGINE)

@@ -102,7 +102,7 @@ class ServiceLecture : MediaLibraryService() {
         resolution = ResolutionFlux(c.reseau.client, BuildConfig.SITE, estVisiteur = { c.session.etat.value is EtatSession.Anonyme })
         prolongement = Prolongement(c.reseau.api, c.catalogue::univers, c.catalogue::mode) {
             // Un invité d'une écoute à plusieurs ne choisit pas la suite : c'est l'hôte.
-            if (c.ensemble.estInvite) ModeSuite.ARRET else ModeSuite.de(c.reglages.suite.value)
+            if (c.ensemble.estInvite) ModeSuite.ARRET else ModeSuite.AUTOMATIQUE
         }
         arborescence = ArborescenceAuto(c, BuildConfig.SITE)
 
@@ -579,7 +579,7 @@ class ServiceLecture : MediaLibraryService() {
             val exclus = (0 until joueur.mediaItemCount).map { joueur.getMediaItemAt(it).mediaId }.toSet() + historique
             prolongementEnCours = true
             portee.launch {
-                val suite = prolongement.suite(dernier.mediaId, exclus)
+                val suite = prolongement.suite(dernier.mediaId, exclus, dernier.origine())
                 prolongementEnCours = false
                 // Une autre file a été lancée pendant l'attente : cette suite ne la concerne pas.
                 if (joueur.mediaItemCount == 0 || joueur.getMediaItemAt(joueur.mediaItemCount - 1).mediaId != dernier.mediaId) return@launch

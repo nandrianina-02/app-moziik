@@ -75,7 +75,6 @@ import com.moziik.app.lecteur.versTitre
 import com.moziik.app.ui.fiches.BlocCommentaires
 import com.moziik.app.donnees.horsligne.ActionGardee
 import com.moziik.app.lecteur.Veille
-import com.moziik.app.lecteur.ModeSuite
 import com.moziik.app.ui.composants.rememberTeintePochette
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.tween
@@ -130,7 +129,6 @@ fun LecteurPleinEcran(etat: EtatLecteur, onFermer: () -> Unit, poignee: Modifier
     val haut by animateColorAsState(teinte?.copy(alpha = if (p.sombre) 0.75f else 0.22f) ?: p.base.compose, tween(400), label = "teinte")
     var veilleOuverte by remember { mutableStateOf(false) }
     var vitesseOuverte by remember { mutableStateOf(false) }
-    var suiteOuverte by remember { mutableStateOf(false) }
     var bassesOuvert by remember { mutableStateOf(false) }
     var ensembleOuvert by remember { mutableStateOf(false) }
     // Le titre de la file qu'on déplace (son rang dans « À suivre ») et le chemin parcouru par le doigt.
@@ -202,7 +200,7 @@ fun LecteurPleinEcran(etat: EtatLecteur, onFermer: () -> Unit, poignee: Modifier
                 }
             }
             item(key = "transport") { Transport(etat) }
-            item(key = "options") { Column { OptionsLecture(onVeille = { veilleOuverte = true }, onVitesse = { vitesseOuverte = true }, onSuite = { suiteOuverte = true }, onBasses = { bassesOuvert = true }, onEnsemble = { ensembleOuvert = true }) } }
+            item(key = "options") { Column { OptionsLecture(onVeille = { veilleOuverte = true }, onVitesse = { vitesseOuverte = true }, onBasses = { bassesOuvert = true }, onEnsemble = { ensembleOuvert = true }) } }
             // Les onglets restent visibles en parcourant la file ou les paroles.
             stickyHeader(key = "onglets") { Box(Modifier.fillMaxWidth().background(p.base.compose)) { Onglets(onglet) { onglet = it } } }
             when (onglet) {
@@ -268,14 +266,13 @@ fun LecteurPleinEcran(etat: EtatLecteur, onFermer: () -> Unit, poignee: Modifier
     }
     if (veilleOuverte) ChoixVeille { veilleOuverte = false }
     if (vitesseOuverte) ChoixVitesse { vitesseOuverte = false }
-    if (suiteOuverte) ChoixSuite { suiteOuverte = false }
     if (bassesOuvert) ChoixBasses { bassesOuvert = false }
     if (ensembleOuvert) ChoixEnsemble { ensembleOuvert = false }
 }
 
 /** Minuterie de veille et vitesse, sous les commandes : deux pastilles qui disent l'état en cours. */
 @Composable
-private fun OptionsLecture(onVeille: () -> Unit, onVitesse: () -> Unit, onSuite: () -> Unit, onBasses: () -> Unit, onEnsemble: () -> Unit) {
+private fun OptionsLecture(onVeille: () -> Unit, onVitesse: () -> Unit, onBasses: () -> Unit, onEnsemble: () -> Unit) {
     val c = conteneur()
     val p = LocalPalette.current
     val veille by c.veille.veille.collectAsStateWithLifecycle()
@@ -297,13 +294,10 @@ private fun OptionsLecture(onVeille: () -> Unit, onVitesse: () -> Unit, onSuite:
         PastilleOption(R.drawable.lucide_timer, libelleVeille, veille != Veille.Aucune, onVeille)
         PastilleOption(R.drawable.lucide_gauge, "Vitesse ${libelleVitesse(vitesse)}", vitesse != 1f, onVitesse)
     }
-    val suite by c.reglages.suite.collectAsStateWithLifecycle()
-    val mode = ModeSuite.de(suite)
     val basses by c.reglages.basses.collectAsStateWithLifecycle()
     val niveau = NiveauBass.de(basses)
     Row(Modifier.fillMaxWidth().padding(top = 10.dp), horizontalArrangement = Arrangement.spacedBy(10.dp, Alignment.CenterHorizontally)) {
         PastilleOption(R.drawable.lucide_audio_waveform, "Basses : ${niveau.libelle}", niveau != NiveauBass.OFF, onBasses)
-        PastilleOption(R.drawable.lucide_infinity, "Ensuite : ${mode.libelle}", mode != ModeSuite.AMBIANCE, onSuite)
     }
     val ensemble by c.ensemble.etat.collectAsStateWithLifecycle()
     Row(Modifier.fillMaxWidth().padding(top = 10.dp), horizontalArrangement = Arrangement.Center) {
@@ -492,33 +486,6 @@ private fun ReglagePerso() {
             "Les harmoniques font entendre le grave sur le haut-parleur du téléphone et les petits écouteurs, qui ne descendent pas jusqu'à lui.",
             style = Texte.secondaire, color = p.encreAttenuee.compose,
         )
-    }
-}
-
-/** Ce qui suit la file : le mode de suite, réglable aussi dans les paramètres. */
-@Composable
-internal fun ChoixSuite(onFermer: () -> Unit) {
-    val c = conteneur()
-    val p = LocalPalette.current
-    val suite by c.reglages.suite.collectAsStateWithLifecycle()
-    Feuille(onFermer) {
-        Text("Après la file", style = Texte.titreSection, color = p.encre.compose, modifier = Modifier.padding(start = 20.dp, bottom = 2.dp))
-        Text("Quand le dernier titre se termine, la lecture continue avec :", style = Texte.secondaire, color = p.encreAttenuee.compose, modifier = Modifier.padding(start = 20.dp, end = 20.dp, bottom = 8.dp))
-        ModeSuite.entries.forEach { m ->
-            Row(
-                Modifier.fillMaxWidth().clickable(role = Role.Button) {
-                    c.reglages.choisirSuite(m.cle)
-                    onFermer()
-                }.padding(horizontal = 20.dp, vertical = 11.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Column(Modifier.weight(1f)) {
-                    Text(m.libelle, style = Texte.corps.copy(fontWeight = FontWeight.Medium), color = if (m.cle == suite) p.accent.compose else p.encre.compose)
-                    Text(m.detail, style = Texte.secondaire, color = p.encreAttenuee.compose)
-                }
-                if (m.cle == suite) Icone(R.drawable.lucide_check, description = "Choisi", teinte = p.accent.compose, taille = 18.dp)
-            }
-        }
     }
 }
 

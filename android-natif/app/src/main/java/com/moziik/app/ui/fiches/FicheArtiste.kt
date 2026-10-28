@@ -56,6 +56,7 @@ import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.launch
 import com.moziik.app.ui.horsligne.PastillePlaylist
 import androidx.compose.foundation.lazy.rememberLazyListState
+import com.moziik.app.lecteur.ORIGINE_ARTISTE
 
 data class DonneesArtiste(val reponse: ReponseArtiste, val suivi: Boolean)
 
@@ -116,7 +117,7 @@ private fun CorpsArtiste(donnees: DonneesArtiste, onRetour: () -> Unit) {
                 pastilles = listOf(nombre(abonnes, "abonné"), nombre(artiste.totalPlays, "écoute")),
             ) {
                 if (tous.isNotEmpty()) {
-                    BoutonFiche(R.drawable.lucide_play_plein, "Écouter", onClick = { c.lecteur.lire(tous, 0, artiste.stageName) }, principal = true)
+                    BoutonFiche(R.drawable.lucide_play_plein, "Écouter", onClick = { c.lecteur.lire(tous, 0, artiste.stageName, origine = ORIGINE_ARTISTE + artiste.id) }, principal = true)
                 }
                 BoutonFiche(
                     if (suivi) R.drawable.lucide_user_check else R.drawable.lucide_user_plus,
@@ -172,7 +173,8 @@ private fun CorpsArtiste(donnees: DonneesArtiste, onRetour: () -> Unit) {
         itemsIndexed(affiches, key = { _, t -> "titre-${t.id}" }) { i, titre ->
             LigneTitre(
                 titre, i + 1, titre.id == lecture.courant?.id, lecture.enLecture,
-                onClick = { c.lecteur.lire(tous, i, artiste.stageName) },
+                // Lancée d'ici, la suite reste avec l'artiste (jusqu'à cinq titres) avant de s'ouvrir.
+                onClick = { c.lecteur.lire(tous, i, artiste.stageName, origine = ORIGINE_ARTISTE + artiste.id) },
                 modifier = Modifier.padding(horizontal = 12.dp),
                 onAppuiLong = { menus.titre(titre) },
             )

@@ -133,7 +133,7 @@ class Lecteur(private val contexte: Context, private val site: String) {
      * on y saute simplement : relancer la même liste ne la reconstruit pas
      * (spécification 5.5).
      */
-    fun lire(titres: List<Titre>, depart: Int, source: String?) {
+    fun lire(titres: List<Titre>, depart: Int, source: String?, origine: String? = null) {
         val jouables = titres.filter { it.publie }
         if (jouables.isEmpty()) return
         val premier = titres.getOrNull(depart)?.let { voulu -> jouables.indexOfFirst { it.id == voulu.id } }?.takeIf { it >= 0 } ?: 0
@@ -142,7 +142,7 @@ class Lecteur(private val contexte: Context, private val site: String) {
             if (memeFile) {
                 c.seekToDefaultPosition(premier)
             } else {
-                c.setMediaItems(jouables.map { it.versElement(site, source) }, premier, 0)
+                c.setMediaItems(jouables.map { it.versElement(site, source, origine = origine) }, premier, 0)
             }
             c.prepare()
             c.play()

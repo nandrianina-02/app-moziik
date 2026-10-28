@@ -34,7 +34,6 @@ import com.moziik.app.BuildConfig
 import com.moziik.app.R
 import com.moziik.app.donnees.session.EtatSession
 import com.moziik.app.lecteur.AlerteLecture
-import com.moziik.app.lecteur.ModeSuite
 import com.moziik.app.theme.LocalPalette
 import com.moziik.app.theme.Texte
 import com.moziik.app.theme.compose
@@ -42,7 +41,6 @@ import com.moziik.app.ui.composants.Egaliseur
 import com.moziik.app.ui.composants.Icone
 import com.moziik.app.ui.composants.apparition
 import com.moziik.app.ui.conteneur
-import com.moziik.app.ui.lecteur.ChoixSuite
 import com.moziik.app.ui.menus.Interrupteur
 import com.moziik.app.ui.ouvrirLien
 import kotlinx.coroutines.launch
@@ -67,7 +65,6 @@ fun EcranParametres(onRetour: () -> Unit, onOuvrir: (String) -> Unit) {
     val session by c.session.etat.collectAsStateWithLifecycle()
     val qualite by c.reglages.qualite.collectAsStateWithLifecycle()
     val apparence by c.reglages.apparence.collectAsStateWithLifecycle()
-    val suite by c.reglages.suite.collectAsStateWithLifecycle()
     val wifi by c.reglages.wifiSeulement.collectAsStateWithLifecycle()
     val noir by c.reglages.noirProfond.collectAsStateWithLifecycle()
     val autoAimes by c.reglages.autoAimes.collectAsStateWithLifecycle()
@@ -75,7 +72,6 @@ fun EcranParametres(onRetour: () -> Unit, onOuvrir: (String) -> Unit) {
     val reveilActif by c.reglages.reveilActif.collectAsStateWithLifecycle()
     val reveilMinutes by c.reglages.reveilMinutes.collectAsStateWithLifecycle()
     val universSuit by c.reglages.universSuitEcoute.collectAsStateWithLifecycle()
-    var choixSuite by remember { mutableStateOf(false) }
     var choixGenres by remember { mutableStateOf(false) }
     var choixBasses by remember { mutableStateOf(false) }
     var choixFondu by remember { mutableStateOf(false) }
@@ -93,7 +89,6 @@ fun EcranParametres(onRetour: () -> Unit, onOuvrir: (String) -> Unit) {
                 when (qualite) { "low" -> "Économe, 64 kb/s"; "medium" -> "Standard, 128 kb/s"; else -> "Haute, 320 kb/s" } + " · écoutes récentes",
             ) { onOuvrir(PARAMETRES_LECTURE) }
             Ligne(R.drawable.lucide_audio_waveform, "Bass Boost", NiveauBass.de(basses).libelle) { choixBasses = true }
-            Ligne(R.drawable.lucide_infinity, "Après la file", ModeSuite.de(suite).libelle) { choixSuite = true }
             Ligne(
                 R.drawable.lucide_alarm_clock, "Réveil musical",
                 if (reveilActif) "%02d:%02d".format(reveilMinutes / 60, reveilMinutes % 60) else "Désactivé",
@@ -179,7 +174,6 @@ fun EcranParametres(onRetour: () -> Unit, onOuvrir: (String) -> Unit) {
             }
         }
     }
-    if (choixSuite) ChoixSuite { choixSuite = false }
     if (choixBasses) ChoixBasses { choixBasses = false }
     if (choixFondu) {
         Feuille({ choixFondu = false }) {

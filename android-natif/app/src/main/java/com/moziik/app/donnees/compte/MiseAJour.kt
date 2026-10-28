@@ -84,11 +84,16 @@ class MiseAJour(
 ) {
     private val preferences = contexte.getSharedPreferences("mise-a-jour", Context.MODE_PRIVATE)
 
-    suspend fun disponible(): VersionDisponible? {
+    /**
+     * `demandee` : la recherche lancée à la main depuis les Paramètres. Elle
+     * passe outre « Plus tard », qui ne vaut que pour la proposition faite au
+     * démarrage : sinon, elle répondrait « à jour » à qui ne l'est pas.
+     */
+    suspend fun disponible(demandee: Boolean = false): VersionDisponible? {
         if (BuildConfig.APPLICATION_ID != "com.moziik.app") return null
         val candidate = laPlusRecente(duSite(), deGithub()) ?: return null
         if (!plusRecente(candidate.version, BuildConfig.VERSION_NAME)) return null
-        if (preferences.getString("ignoree", null) == candidate.version) return null
+        if (!demandee && preferences.getString("ignoree", null) == candidate.version) return null
         return candidate
     }
 

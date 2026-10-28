@@ -158,7 +158,7 @@ fun EcranParametres(onRetour: () -> Unit, onOuvrir: (String) -> Unit) {
                 if (verification) return@Ligne
                 verification = true
                 portee.launch {
-                    val nouvelle = runCatching { c.miseAJour.disponible() }.getOrNull()
+                    val nouvelle = runCatching { c.miseAJour.disponible(demandee = true) }.getOrNull()
                     verification = false
                     if (nouvelle == null) {
                         c.alertes.signaler(AlerteLecture.Message("Moziik est à jour.", succes = true))

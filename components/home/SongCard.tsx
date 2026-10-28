@@ -2,18 +2,13 @@
 
 import { useState } from "react";
 import { useSession } from "next-auth/react";
-import { BadgeCheck, Play, Pause } from "lucide-react";
+import { BadgeCheck } from "lucide-react";
 import { SafeImage } from "@/components/ui/SafeImage";
 import { usePlayer, type PlayableSong, type PlaySource } from "@/context/PlayerProvider";
 import { SongContextMenu } from "@/components/music/SongContextMenu";
 import { BoutonTelechargement } from "@/components/music/BoutonTelechargement";
+import { BoutonLectureCarte } from "@/components/music/BoutonLectureCarte";
 import { useLongPress } from "@/components/music/useLongPress";
-
-function formatTime(seconds: number) {
-  const m = Math.floor(seconds / 60);
-  const s = Math.floor(seconds % 60);
-  return `${m}:${s.toString().padStart(2, "0")}`;
-}
 
 export function SongCard({
   song,
@@ -29,7 +24,7 @@ export function SongCard({
   onDeleted?: () => void;
 }) {
   const { data: session } = useSession();
-  const { currentSong, isPlaying, playQueue, togglePlay } = usePlayer();
+  const { currentSong, playQueue, togglePlay } = usePlayer();
   const isCurrent = currentSong?._id === song._id;
   const [menuPosition, setMenuPosition] = useState<{ x: number; y: number } | null>(null);
 
@@ -53,7 +48,9 @@ export function SongCard({
 
   return (
     <div
-      className="pressable group w-full text-left"
+      // La carte entière s'éclaire au survol, comme sur Spotify : on vise la
+      // carte, pas seulement sa pochette.
+      className="pressable group w-full rounded-lg p-2 text-left transition-colors duration-200 hover:bg-ink/[0.06]"
       onContextMenu={(e) => {
         e.preventDefault();
         openMenuAt(e.clientX, e.clientY);
@@ -75,7 +72,7 @@ export function SongCard({
             handleClick();
           }
         }}
-        className="relative aspect-square w-full cursor-pointer overflow-hidden rounded-xl2 bg-surface">
+        className="relative aspect-square w-full cursor-pointer overflow-hidden rounded-md bg-surface shadow-[0_8px_24px_rgba(0,0,0,0.35)]">
           <SafeImage
             src={song.coverUrl}
             alt={song.title}
@@ -83,14 +80,7 @@ export function SongCard({
             height={220}
             className="h-full w-full object-cover"
           />
-          <span className="absolute right-2 top-2 rounded-full bg-black/60 px-2 py-0.5 text-[11px] text-white">
-            {formatTime(song.duration)}
-          </span>
-          <span className="absolute inset-0 grid place-items-center bg-black/0 transition-colors group-hover:bg-black/30">
-            <span className="grid h-10 w-10 place-items-center rounded-full bg-accent text-base shadow-lg au-survol">
-              {isCurrent && isPlaying ? <Pause size={16} fill="currentColor" /> : <Play size={16} fill="currentColor" />}
-            </span>
-          </span>
+          <BoutonLectureCarte titres={queue} depart={index} source={source ?? { type: "home" }} enCours={isCurrent} libelle={song.title} />
           {/* Hors du bouton de lecture, posé par-dessus : imbriquer un
               bouton dans un autre est invalide, et le clic du premier
               lancerait le second. */}
@@ -99,7 +89,7 @@ export function SongCard({
           </span>
       </div>
       <button onClick={handleClick} className="w-full text-left">
-        <p className={`mt-2 truncate text-sm font-medium ${isCurrent ? "text-accent" : "text-ink"}`}>{song.title}</p>
+        <p className={`mt-2.5 truncate text-sm font-semibold ${isCurrent ? "text-accent" : "text-ink"}`}>{song.title}</p>
         <p className="flex items-center gap-1 truncate text-xs text-ink-muted">
           {song.artist?.stageName ?? "Artiste supprimé"}
           {song.artist?.verified && <BadgeCheck size={11} className="shrink-0 text-verified" />}

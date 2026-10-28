@@ -11,6 +11,16 @@ import { downloadPlaylistForOffline } from "@/lib/offlineCache";
 import { ContextMenuShell, MenuItem } from "@/components/ui/ContextMenuShell";
 import { ShareModal } from "@/components/share/ShareModal";
 import { buildPlaylistSubject } from "@/components/share/shareSubject";
+import { BoutonLectureCarte } from "@/components/music/BoutonLectureCarte";
+import { usePlayer, type PlayableSong } from "@/context/PlayerProvider";
+
+/** Les titres d'une playlist, pour la lancer depuis sa carte. */
+async function titresDeLaPlaylist(id: string): Promise<PlayableSong[]> {
+  const res = await fetch(`/api/playlists/${id}`);
+  if (!res.ok) throw new Error();
+  const { playlist } = (await res.json()) as { playlist: { songs: PlayableSong[] } };
+  return playlist.songs ?? [];
+}
 
 type PlaylistCardData = {
   _id: string;
@@ -32,6 +42,7 @@ export function PlaylistGrid({ playlists }: { playlists: PlaylistCardData[] }) {
 }
 
 function PlaylistTile({ playlist }: { playlist: PlaylistCardData }) {
+  const { playSource } = usePlayer();
   const [menuPosition, setMenuPosition] = useState<{ x: number; y: number } | null>(null);
   const [showShareModal, setShowShareModal] = useState(false);
 
@@ -47,7 +58,9 @@ function PlaylistTile({ playlist }: { playlist: PlaylistCardData }) {
       <Link
         href={`/playlist/${playlist._id}`}
         prefetch={false}
-        className="pressable group relative block aspect-[4/5] w-full overflow-hidden rounded-xl2 bg-surface"
+        // Même carte que les titres et les albums : pochette carrée, texte
+        // dessous, la carte entière qui s'éclaire au survol.
+        className="pressable group block rounded-lg p-2 transition-colors duration-200 hover:bg-ink/[0.06]"
         onContextMenu={(e) => {
           e.preventDefault();
           openMenuAt(e.clientX, e.clientY);
@@ -56,65 +69,60 @@ function PlaylistTile({ playlist }: { playlist: PlaylistCardData }) {
         onTouchEnd={longPress.onTouchEnd}
         onTouchMove={longPress.onTouchMove}
       >
-        {playlist.coverUrl ? (
-          <SafeImage
-            src={playlist.coverUrl}
-            alt={playlist.title}
-            width={220}
-            height={280}
-            className="absolute inset-0 h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
+        <div className="relative aspect-square w-full overflow-hidden rounded-md bg-surface shadow-[0_8px_24px_rgba(0,0,0,0.35)]">
+          {playlist.coverUrl ? (
+            <SafeImage src={playlist.coverUrl} alt={playlist.title} width={220} height={220} className="absolute inset-0 h-full w-full object-cover" />
+          ) : (
+            <div className="grid h-full w-full place-items-center text-ink-muted">
+              <ListMusic size={28} />
+            </div>
+          )}
+
+          {/* Hors du lien, posée par-dessus : un lien ne contient pas un
+              bouton, et le clic partirait sur la page au lieu de télécharger. */}
+          <span
+            role="button"
+            tabIndex={0}
+            aria-label={`Télécharger « ${playlist.title} » pour l'écoute hors connexion`}
+            aria-busy={lot.enCours}
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              lot.lancer(playlist.title, () => downloadPlaylistForOffline(playlist._id));
+            }}
+            onKeyDown={(e) => {
+              if (e.key !== "Enter" && e.key !== " ") return;
+              e.preventDefault();
+              e.stopPropagation();
+              lot.lancer(playlist.title, () => downloadPlaylistForOffline(playlist._id));
+            }}
+            className="pressable absolute right-2 top-2 z-10 grid h-8 w-8 cursor-pointer place-items-center rounded-full bg-black/55 text-white backdrop-blur-sm transition-colors hover:bg-black/75"
+          >
+            {lot.enCours ? <Loader2 size={15} className="animate-spin" /> : <Download size={15} />}
+          </span>
+
+          <BoutonLectureCarte
+            titres={() => titresDeLaPlaylist(playlist._id)}
+            source={{ type: "playlist", label: playlist.title, id: playlist._id }}
+            enCours={playSource?.type === "playlist" && playSource.id === playlist._id}
+            libelle={playlist.title}
           />
-        ) : (
-          <div className="grid h-full w-full place-items-center text-ink-muted">
-            <ListMusic size={28} />
-          </div>
-        )}
-        <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/20 to-transparent" />
+        </div>
 
-        {/* Hors du lien, posée par-dessus : un lien ne contient pas un
-            bouton, et le clic partirait sur la page au lieu de télécharger. */}
-        <span
-          role="button"
-          tabIndex={0}
-          aria-label={`Télécharger « ${playlist.title} » pour l'écoute hors connexion`}
-          aria-busy={lot.enCours}
-          onClick={(e) => {
-            e.preventDefault();
-            e.stopPropagation();
-            lot.lancer(playlist.title, () => downloadPlaylistForOffline(playlist._id));
-          }}
-          onKeyDown={(e) => {
-            if (e.key !== "Enter" && e.key !== " ") return;
-            e.preventDefault();
-            e.stopPropagation();
-            lot.lancer(playlist.title, () => downloadPlaylistForOffline(playlist._id));
-          }}
-          className="pressable absolute right-2 top-2 z-10 grid h-9 w-9 cursor-pointer place-items-center rounded-full bg-black/55 text-white backdrop-blur-sm transition-colors hover:bg-black/75"
-        >
-          {lot.enCours ? <Loader2 size={16} className="animate-spin" /> : <Download size={16} />}
-        </span>
-
-        <div className="absolute inset-x-0 bottom-0 p-3 text-white">
-          <p className="line-clamp-2 text-sm font-semibold leading-snug">{playlist.title}</p>
-          <p className="truncate text-xs text-white/75">{playlist.songsCount} titres</p>
-
+        <p className="mt-2.5 line-clamp-1 text-sm font-semibold text-ink">{playlist.title}</p>
+        <div className="mt-0.5 flex items-center gap-2">
+          <p className="truncate text-xs text-ink-muted">{playlist.songsCount} titres</p>
           {playlist.contributorAvatars && playlist.contributorAvatars.length > 0 && (
-            <div className="mt-2 flex -space-x-2">
+            <div className="ml-auto flex -space-x-1.5">
               {playlist.contributorAvatars.map((contributor, i) => (
                 <span
                   key={i}
-                  className="grid h-6 w-6 place-items-center overflow-hidden rounded-full bg-surface text-[10px] font-semibold text-ink ring-2 ring-black/40"
+                  className="grid h-5 w-5 place-items-center overflow-hidden rounded-full bg-surface text-[9px] font-semibold text-ink ring-2 ring-base"
                   title={contributor.name}
                 >
                   {/* Sans photo, l'initiale de l'artiste plutôt qu'une icône d'image manquante. */}
                   {contributor.coverUrl ? (
-                    <SafeImage
-                      src={contributor.coverUrl}
-                      alt={contributor.name}
-                      width={24}
-                      height={24}
-                      className="h-full w-full object-cover"
-                    />
+                    <SafeImage src={contributor.coverUrl} alt={contributor.name} width={20} height={20} className="h-full w-full object-cover" />
                   ) : (
                     contributor.name.trim().charAt(0).toUpperCase() || "?"
                   )}

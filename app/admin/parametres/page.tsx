@@ -503,14 +503,14 @@ export default function AdminSettingsPage() {
       {onglet === "application" && (
         <AdminCard
           title="Application Android"
-          description="Distribuée par le site, faute d'accès au Play Store."
+          description="Distribuée par les publications GitHub de l'application, faute d'accès au Play Store."
         >
           <div className="space-y-4">
             <p className="rounded-xl border border-border bg-base px-3 py-2.5 text-xs text-ink-muted">
-              Ces champs se remplissent tout seuls avec{" "}
-              <code className="rounded bg-surface px-1">node scripts/publier-apk.mjs &lt;fichier&gt; &lt;version&gt;</code>,
-              qui envoie l&apos;APK et inscrit son adresse ici. Les modifier à la main ne sert
-              qu&apos;à corriger un libellé — ou à retirer une version en vidant l&apos;adresse.
+              Rien à saisir à chaque version : le site propose tout seul la dernière version
+              signée, publiée sur GitHub par la construction de l&apos;application. Ces champs ne
+              servent qu&apos;à annoncer une version hébergée ailleurs ; elle n&apos;est proposée que si
+              elle est plus récente.
             </p>
 
             <FormField

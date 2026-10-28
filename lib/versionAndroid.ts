@@ -74,6 +74,13 @@ async function depuisGithub(): Promise<VersionAndroid | null> {
   }
 }
 
+const SECOURS: VersionAndroid = {
+  url: `https://github.com/${DEPOT}/releases/latest/download/${FICHIER}`,
+  version: "",
+  tailleMo: 0,
+  notes: "",
+};
+
 type Reglages = {
   androidApkUrl?: string;
   androidVersion?: string;
@@ -94,7 +101,10 @@ export async function derniereVersionAndroid(reglages: Reglages): Promise<Versio
         notes: reglages.androidNotes ?? "",
       }
     : null;
-  if (!github) return annoncee;
+  // GitHub injoignable : le lien « latest » reste juste, même sans connaître
+  // le numéro. Une adresse relative visait l'ancien fichier rangé dans le
+  // site, retiré depuis.
+  if (!github) return annoncee?.url.startsWith("http") ? annoncee : SECOURS;
   if (!annoncee) return github;
   return plusRecente(annoncee.version, github.version) ? annoncee : github;
 }

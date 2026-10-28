@@ -6,13 +6,11 @@ import { useParams } from "next/navigation";
 import { useSession } from "next-auth/react";
 import {
   BadgeCheck,
-  Users,
   Music2,
   Disc3,
   Play,
-  Pause,
   Share2,
-  MoreVertical,
+  MoreHorizontal,
   UserPlus,
   UserCheck,
   Camera,
@@ -25,6 +23,7 @@ import {
   MessageCircle,
 } from "lucide-react";
 import { usePlayer, type PlayableSong } from "@/context/PlayerProvider";
+import { BoutonLectureMedia, BoutonActionMedia } from "@/components/music/EnteteMedia";
 import { SafeImage } from "@/components/ui/SafeImage";
 import { useToast } from "@/context/ToastProvider";
 import { idbGet, idbPut, STORES } from "@/lib/offlineDb";
@@ -292,7 +291,9 @@ export function ArtistDetailClient() {
       {fromCache && <p className="px-6 pt-4 text-xs text-accent md:px-10">Affiché depuis la version enregistrée (hors-ligne).</p>}
 
       {/* --- Bannière --- */}
-      <div className="group relative h-48 w-full overflow-hidden sm:h-64 md:h-72">
+      {/* Comme sur Spotify : une grande bannière, le nom de l'artiste en très
+          grand dessus, puis une barre d'actions au grand bouton rond. */}
+      <div className="group relative h-60 w-full overflow-hidden sm:h-72 md:h-80">
         <SafeImage
           src={artist.bannerUrl || DEFAULT_BANNER}
           alt=""
@@ -301,7 +302,7 @@ export function ArtistDetailClient() {
           className="h-full w-full object-cover"
           priority
         />
-        <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent" />
+        <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/25 to-black/10" />
 
         {isOwnProfile && (
           <>
@@ -339,7 +340,7 @@ export function ArtistDetailClient() {
               alt={artist.stageName}
               width={112}
               height={112}
-              className="h-20 w-20 rounded-full border-4 border-base object-cover shadow-lg sm:h-28 sm:w-28"
+              className="h-20 w-20 rounded-full object-cover shadow-[0_8px_32px_rgba(0,0,0,0.5)] sm:h-32 sm:w-32"
             />
             {isOwnProfile && (
               <>
@@ -362,65 +363,52 @@ export function ArtistDetailClient() {
             )}
           </div>
           <div className="min-w-0 pb-1 text-white">
-            <h1 className="flex items-center gap-1.5 truncate text-xl font-display sm:text-2xl">
-              {artist.stageName}
-              {artist.verified && <BadgeCheck size={18} className="shrink-0 text-verified" />}
-            </h1>
-            {artist.genres.length > 0 && <p className="text-xs text-white/80 sm:text-sm">{artist.genres.join(" · ")}</p>}
+            {artist.verified && (
+              <p className="mb-1 flex items-center gap-1.5 text-xs font-medium sm:text-sm">
+                <BadgeCheck size={18} className="shrink-0 text-verified" fill="currentColor" stroke="black" />
+                Artiste vérifié
+              </p>
+            )}
+            <h1 className="truncate font-display text-4xl font-bold leading-none tracking-tight sm:text-6xl lg:text-7xl">{artist.stageName}</h1>
+            <p className="mt-2 text-xs text-white/85 sm:text-sm">
+              {formatCompact(artist.totalPlays)} écoutes · {formatCompact(artist.followersCount)} abonnés
+              {artist.genres.length > 0 && <span className="text-white/70"> · {artist.genres.join(" · ")}</span>}
+            </p>
           </div>
         </div>
       </div>
 
       <div className="px-6 md:px-10">
-        {/* --- Stats + actions --- */}
-        <div className="flex flex-wrap items-center justify-between gap-4 border-b border-border py-5">
-          <div className="flex flex-wrap items-center gap-x-5 gap-y-1 text-xs text-ink-muted sm:text-sm">
-            <span className="flex items-center gap-1.5">
-              <Users size={13} /> {formatCompact(artist.followersCount)} abonnés
-            </span>
-            <span className="flex items-center gap-1.5">
-              <Music2 size={13} /> {artist.songsCount} morceaux
-            </span>
-            <span className="flex items-center gap-1.5">
-              <Disc3 size={13} /> {artist.albumsCount} albums
-            </span>
-            <span className="flex items-center gap-1.5">
-              <Play size={13} fill="currentColor" /> {formatCompact(artist.totalPlays)} écoutes
-            </span>
-          </div>
-
-          <div className="flex w-full items-center gap-2 overflow-x-auto sm:w-auto">
-            <button
-              onClick={handleMainPlay}
-              className="flex shrink-0 items-center gap-2 rounded-full bg-accent px-5 py-2 text-sm font-medium text-base hover:bg-accent-hover"
-            >
-              {isCurrentArtistPlaying ? <Pause size={15} fill="currentColor" /> : <Play size={15} fill="currentColor" />}
-              Lecture
-            </button>
+        {/* --- Actions, puis les chiffres --- */}
+        <div className="flex flex-wrap items-center justify-between gap-4 py-5">
+          <div className="flex items-center gap-3">
+            <BoutonLectureMedia enCours={isCurrentArtistPlaying} onClick={handleMainPlay} libelle={artist.stageName} />
             {!isOwnProfile && (
               <button
                 onClick={toggleFollow}
-                className={`flex shrink-0 items-center gap-1.5 rounded-full px-5 py-2 text-sm font-medium transition-colors ${
-                  following ? "border border-border text-ink-muted hover:border-accent" : "border border-border hover:border-accent"
+                className={`flex shrink-0 items-center gap-1.5 rounded-full border px-4 py-1.5 text-sm font-semibold transition-colors ${
+                  following ? "border-ink/40 text-ink hover:border-ink" : "border-ink/40 text-ink hover:scale-[1.02] hover:border-ink"
                 }`}
               >
                 {following ? <UserCheck size={15} /> : <UserPlus size={15} />}
                 {following ? "Abonné" : "Suivre"}
               </button>
             )}
-            <button
-              onClick={() => setShowShareModal(true)}
-              className="flex shrink-0 items-center gap-1.5 rounded-full border border-border px-5 py-2 text-sm font-medium text-ink-muted hover:border-accent hover:text-accent"
-            >
-              <Share2 size={14} /> Partager
-            </button>
-            <button
-              onClick={(e) => openMenuAt(e.clientX, e.clientY)}
-              aria-label="Plus d'options"
-              className="grid h-9 w-9 shrink-0 place-items-center rounded-full border border-border text-ink-muted transition-colors hover:border-accent hover:text-accent"
-            >
-              <MoreVertical size={15} />
-            </button>
+            <BoutonActionMedia libelle="Partager" onClick={() => setShowShareModal(true)}>
+              <Share2 size={20} />
+            </BoutonActionMedia>
+            <BoutonActionMedia libelle="Plus d'options" onClick={(e) => openMenuAt(e.clientX, e.clientY)}>
+              <MoreHorizontal size={22} />
+            </BoutonActionMedia>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-x-5 gap-y-1 text-xs text-ink-muted sm:text-sm">
+            <span className="flex items-center gap-1.5">
+              <Music2 size={13} /> {artist.songsCount} morceaux
+            </span>
+            <span className="flex items-center gap-1.5">
+              <Disc3 size={13} /> {artist.albumsCount} albums
+            </span>
           </div>
         </div>
 

@@ -1,7 +1,7 @@
 "use client";
 
 import Image from "next/image";
-import { EqualizerLoader } from "@/components/ui/EqualizerLoader";
+import { IconeMarque } from "@/components/layout/Marque";
 import { useSiteConfig } from "@/context/SiteConfigProvider";
 
 export default function AuthLayout({ children }: { children: React.ReactNode }) {
@@ -12,11 +12,7 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
       {/* Panneau gauche : image + accroche — masqué sur mobile pour laisser toute la place au formulaire */}
       <div className="relative hidden lg:flex lg:flex-col lg:justify-between overflow-hidden bg-base px-12 py-10">
         <div className="flex items-center gap-2">
-          {siteConfig.logoUrl ? (
-            <Image src={siteConfig.logoUrl} alt="" width={28} height={28} className="h-7 w-7 object-contain" priority />
-          ) : (
-            <EqualizerLoader size="sm" />
-          )}
+          <IconeMarque taille={30} />
           <span className="font-display text-lg">{siteConfig.siteName}</span>
         </div>
 
@@ -46,11 +42,7 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
       <div className="flex min-h-screen items-center justify-center px-6 py-12">
         <div className="w-full max-w-sm">
           <div className="flex items-center gap-2 mb-8 justify-center lg:hidden">
-            {siteConfig.logoUrl ? (
-              <Image src={siteConfig.logoUrl} alt="" width={28} height={28} className="h-7 w-7 object-contain" priority />
-            ) : (
-              <EqualizerLoader size="sm" />
-            )}
+            <IconeMarque taille={30} />
             <span className="font-display text-lg">{siteConfig.siteName}</span>
           </div>
           {children}

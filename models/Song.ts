@@ -91,6 +91,8 @@ export interface ISong {
   genrePropose?: string;
   genreConfiance?: number;
   genreSource?: "artiste" | "balise" | "audio";
+  /** Date à laquelle l'administration a validé le genre : ces titres servent d'exemples à l'analyse du son. */
+  genreVerifie?: Date;
   musicalKey?: string; // tonalité (ex. "C#m")
   isrc?: string;
   copyright?: string;
@@ -144,6 +146,7 @@ const SongSchema = new Schema<ISong>({
   genrePropose: { type: String },
   genreConfiance: { type: Number },
   genreSource: { type: String, enum: ["artiste", "balise", "audio"] },
+  genreVerifie: { type: Date },
   musicalKey: { type: String },
   isrc: { type: String },
   copyright: { type: String },

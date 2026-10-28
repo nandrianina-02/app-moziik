@@ -15,6 +15,9 @@ import { parseOrThrow } from "@/lib/validation";
  * Rien n'est appliqué sans passer par ici : l'administration accepte,
  * corrige ou rejette, et seul `genre` compte pour le site et l'application.
  *
+ * Un genre appliqué ici est marqué `genreVerifie` : l'analyse du son apprend
+ * de ces titres-là en priorité, plutôt que des classements par défaut.
+ *
  * GET   ?vue=propositions | a-classer | genre&g=…  &page=
  * PATCH { ids, genre } applique un genre ; { ids, accepter: true } applique
  *       la proposition de chaque titre ; { ids, rejeter: true } l'efface.
@@ -89,7 +92,7 @@ export const PATCH = withApiErrors(async (req: Request) => {
   const genres = (await getSiteConfig()).genres ?? [];
   if (corps.genre !== undefined) {
     if (!genres.includes(corps.genre)) throw new ApiError("Ce genre n'est pas dans la liste du site.", 400);
-    const r = await Song.updateMany({ _id: { $in: corps.ids } }, { $set: { genre: corps.genre }, ...SANS_PROPOSITION });
+    const r = await Song.updateMany({ _id: { $in: corps.ids } }, { $set: { genre: corps.genre, genreVerifie: new Date() }, ...SANS_PROPOSITION });
     return NextResponse.json({ modifies: r.modifiedCount });
   }
 
@@ -99,7 +102,7 @@ export const PATCH = withApiErrors(async (req: Request) => {
   const parGenre = new Map<string, unknown[]>();
   for (const t of titres) parGenre.set(t.genrePropose as string, [...(parGenre.get(t.genrePropose as string) ?? []), t._id]);
   for (const [genre, ids] of parGenre) {
-    await Song.updateMany({ _id: { $in: ids } }, { $set: { genre }, ...SANS_PROPOSITION });
+    await Song.updateMany({ _id: { $in: ids } }, { $set: { genre, genreVerifie: new Date() }, ...SANS_PROPOSITION });
   }
   return NextResponse.json({ modifies: titres.length });
 });

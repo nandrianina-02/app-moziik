@@ -83,6 +83,14 @@ export interface ISong {
    * d'un titre à l'autre. Absent tant que le titre n'a pas été mesuré.
    */
   loudness?: number;
+  /**
+   * Genre proposé par un outil d'analyse, en attente de l'administration
+   * (app/admin/genres) : jamais affiché, jamais utilisé tant qu'il n'est pas
+   * accepté. `genreSource` dit d'où vient la proposition.
+   */
+  genrePropose?: string;
+  genreConfiance?: number;
+  genreSource?: "artiste" | "balise" | "audio";
   musicalKey?: string; // tonalité (ex. "C#m")
   isrc?: string;
   copyright?: string;
@@ -133,6 +141,9 @@ const SongSchema = new Schema<ISong>({
   bpmSource: { type: String, enum: ["manuel", "balise", "analyse"] },
   sortieAnnoncee: { type: Date },
   loudness: { type: Number },
+  genrePropose: { type: String },
+  genreConfiance: { type: Number },
+  genreSource: { type: String, enum: ["artiste", "balise", "audio"] },
   musicalKey: { type: String },
   isrc: { type: String },
   copyright: { type: String },

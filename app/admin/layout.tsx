@@ -26,6 +26,7 @@ import {
   Gauge,
   Megaphone,
   AudioLines,
+  Tags,
 } from "lucide-react";
 import { AdminHeaderSlot } from "@/components/admin/AdminChrome";
 
@@ -126,6 +127,13 @@ const links = [
     icon: Megaphone,
     titre: "Annonces",
     description: "Un message de la plateforme, envoyé à tous les membres, aux artistes ou aux abonnés.",
+  },
+  {
+    href: "/admin/genres",
+    label: "Genres",
+    icon: Tags,
+    titre: "Genres à valider",
+    description: "Les genres proposés par l'analyse, à accepter ou corriger, et les titres encore sans genre.",
   },
   {
     href: "/admin/paroles",

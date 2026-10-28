@@ -2,6 +2,7 @@ import { getSiteConfig } from "@/lib/siteConfig";
 import { liensSociauxUtilisables } from "@/lib/socialPlatforms";
 import { fonctionnalitesIADisponibles } from "@/lib/ai/client";
 import { normaliserTheme } from "@/lib/theme";
+import { derniereVersionAndroid } from "@/lib/versionAndroid";
 
 /**
  * La configuration du site telle que le navigateur la voit : ce qui
@@ -18,6 +19,8 @@ export async function configPublique() {
   // un bouton qui repondrait par une erreur. Aucun secret n'y transite :
   // c'est une liste d'identifiants de fonctionnalites.
   const aiFeatures = await fonctionnalitesIADisponibles();
+  // La dernière publication de l'application, ou l'annonce de l'administration si elle est plus récente.
+  const android = await derniereVersionAndroid(config);
   return {
     aiFeatures,
     siteName: config.siteName,
@@ -51,11 +54,11 @@ export async function configPublique() {
     legalUpdatedAt: config.legalUpdatedAt,
     // L'application : sa présence conditionne l'affichage du bouton de
     // téléchargement, il faut donc que le client la connaisse.
-    androidApkUrl: config.androidApkUrl,
-    androidVersion: config.androidVersion,
-    androidSizeMB: config.androidSizeMB,
-    androidPublishedAt: config.androidPublishedAt,
-    androidNotes: config.androidNotes,
+    androidApkUrl: android?.url ?? "",
+    androidVersion: android?.version ?? "",
+    androidSizeMB: android?.tailleMo ?? 0,
+    androidPublishedAt: android?.publieLe,
+    androidNotes: android?.notes ?? "",
     // Nettoyes ici et pas seulement a la saisie : la base peut
     // contenir des liens ecrits avant que le schema ne filtre.
     socialLinks: liensSociauxUtilisables(config.socialLinks),

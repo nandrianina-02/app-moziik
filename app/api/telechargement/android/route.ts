@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { getSiteConfig } from "@/lib/siteConfig";
+import { derniereVersionAndroid } from "@/lib/versionAndroid";
 import { withApiErrors, ApiError } from "@/lib/apiError";
 
 /**
@@ -21,8 +22,10 @@ import { withApiErrors, ApiError } from "@/lib/apiError";
  * Un APK pèse plusieurs dizaines de mégaoctets et change à chaque
  * version. Le versionner ferait grossir le dépôt sans fin, et chaque
  * déploiement transporterait un binaire que personne ne relit. Il est
- * hébergé à part et son adresse vit dans les réglages
- * (scripts/publier-apk.mjs s'en charge).
+ * hébergé à part : chaque version signée devient une publication du dépôt
+ * GitHub de l'application, que le site lit seul (lib/versionAndroid.ts).
+ * Une adresse saisie dans les réglages l'emporte si elle annonce une
+ * version plus récente.
  */
 /**
  * Jamais figée au build.
@@ -35,8 +38,7 @@ import { withApiErrors, ApiError } from "@/lib/apiError";
 export const dynamic = "force-dynamic";
 
 export const GET = withApiErrors(async (req: Request) => {
-  const config = await getSiteConfig();
-  const stocke = config.androidApkUrl?.trim();
+  const stocke = (await derniereVersionAndroid(await getSiteConfig()))?.url;
 
   if (!stocke) {
     // 404 et non 302 vers une page : ce qui demande cette adresse est un

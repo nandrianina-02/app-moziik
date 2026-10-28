@@ -27,17 +27,21 @@ function BrowseSongsPageContent() {
   // ci-dessous, sans état incohérent.
   const [genre, setGenre] = useState(searchParams.get("genre") || "Tous");
   const { univers } = useUnivers();
+  // Les titres arrivent mélangés, sans blocs par album ni par artiste. La
+  // graine, tirée à l'ouverture, garde le même ordre pendant le défilement ;
+  // revenir sur la page donne un nouveau mélange.
+  const [graine] = useState(() => 1 + Math.floor(Math.random() * 2_000_000_000));
 
   const fetchPage = useCallback(
     async (page: number) => {
-      const params = new URLSearchParams({ page: String(page), limit: "24" });
+      const params = new URLSearchParams({ page: String(page), limit: "24", sort: "random", seed: String(graine) });
       if (genre !== "Tous") params.set("genre", genre);
       const res = await fetch(`/api/songs?${params}`);
       if (!res.ok) throw new Error("Échec du chargement.");
       const data = await res.json();
       return { items: data.songs as PlayableSong[], hasMore: data.hasMore as boolean };
     },
-    [genre]
+    [genre, graine]
   );
 
   // La clé de la liste porte l'univers : la changer remet la pagination à

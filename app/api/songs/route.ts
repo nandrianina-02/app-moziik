@@ -11,13 +11,14 @@ import { requireAuthUser } from "@/lib/mobileAuth";
 import { universDeLaRequete } from "@/lib/universServer";
 import { annoncerSortie } from "@/lib/annonceSortie";
 import { universALaPublication } from "@/lib/universClassify";
+import { hasardDe, melangerSansVoisins } from "@/lib/melange";
 
 export const GET = withApiErrors(async (req: Request) => {
   const { searchParams } = new URL(req.url);
   const genre = searchParams.get("genre");
   const artistId = searchParams.get("artist");
   const limit = Number(searchParams.get("limit") ?? 30);
-  const sort = searchParams.get("sort"); // "popular" | par défaut : plus récents d'abord
+  const sort = searchParams.get("sort"); // "popular" | "random" (avec seed) | par défaut : plus récents d'abord
   // Pagination optionnelle pour le scroll infini : absente, le
   // comportement est strictement identique à avant (page 1 implicite,
   // pas de hasMore dans la réponse ne gêne pas les appelants existants
@@ -32,6 +33,22 @@ export const GET = withApiErrors(async (req: Request) => {
   const query: Record<string, unknown> = { status: "published", univers: await universDeLaRequete(req) };
   if (genre) query.genre = genre;
   if (artistId) query.artist = artistId;
+
+  // Ordre mélangé (pages de genre) : seuls les identifiants sont lus pour
+  // tirer l'ordre, puis la page demandée est chargée. La graine du client
+  // garde le même ordre d'une page à l'autre.
+  if (sort === "random") {
+    const graine = Number(searchParams.get("seed")) || Math.floor(Date.now() / 86_400_000);
+    const tous = await Song.find(query).select("_id artist").lean();
+    const ordre = melangerSansVoisins(tous, (s) => String(s.artist), hasardDe(graine));
+    const ids = ordre.slice((page - 1) * limit, page * limit).map((s) => String(s._id));
+    const docs = await Song.find({ _id: { $in: ids } })
+      .populate("artist", "stageName verified")
+      .populate("featuring.artist", "stageName verified");
+    const parId = new Map(docs.map((d) => [String(d._id), d]));
+    const songs = ids.map((id) => parId.get(id)).filter(Boolean);
+    return NextResponse.json({ songs, page, hasMore: page * limit < tous.length, total: tous.length });
+  }
 
   const [songs, total] = await Promise.all([
     Song.find(query)

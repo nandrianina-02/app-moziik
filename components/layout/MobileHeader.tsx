@@ -18,7 +18,7 @@ export function MobileHeader() {
 
   return (
     <>
-      <header className="md:hidden fixed top-0 inset-x-0 z-30 flex items-center justify-between border-b border-border bg-surface/95 backdrop-blur px-4 h-14 print:hidden">
+      <header className="md:hidden fixed top-0 inset-x-0 z-30 flex items-center justify-between bg-cadre px-4 h-14 print:hidden">
         <button
           onClick={() => setDrawerOpen(true)}
           aria-label="Ouvrir le menu"

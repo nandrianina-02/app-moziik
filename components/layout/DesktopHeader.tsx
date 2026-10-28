@@ -54,7 +54,10 @@ export function DesktopHeader() {
   const sousTitre = premium ? "Premium" : role === "admin" ? "Administrateur" : role === "artist" ? "Artiste" : "Membre";
 
   return (
-    <header className="sticky top-0 z-20 hidden shrink-0 items-center gap-4 border-b border-border bg-base/85 px-6 py-3 backdrop-blur md:flex md:px-10 print:hidden">
+    // Le haut du panneau de contenu : il reste en place au défilement, avec
+    // ses coins arrondis découpés sur le cadre (le fond du conteneur).
+    <div className="sticky top-0 z-20 hidden bg-cadre pt-2 md:block print:hidden">
+    <header className="flex shrink-0 items-center gap-4 rounded-t-panneau border-b border-border bg-base px-6 py-3 md:px-8">
       {/* Même composant que la page de recherche : les suggestions
           instantanées doivent être disponibles depuis n'importe quel écran,
           pas seulement une fois arrivé sur /recherche. */}
@@ -140,6 +143,7 @@ export function DesktopHeader() {
         )}
       </div>
     </header>
+    </div>
   );
 }
 

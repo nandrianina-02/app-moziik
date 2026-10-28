@@ -37,6 +37,8 @@ const config: Config = {
         // de FOND — voulu sur `bg-accent` ou `bg-ink`, invisible partout
         // ailleurs. Les titres du projet ecrivent `text-base text-ink` pour
         // reprendre la main sur la couleur ; `text-[15px]` evite la question.
+        // Le cadre autour des panneaux (globals.css) : opaque, sans nuance d'opacité.
+        cadre: "var(--cadre)",
         base: {
           DEFAULT: "rgb(var(--color-base) / <alpha-value>)",
         },
@@ -108,6 +110,8 @@ const config: Config = {
         lg: "calc(var(--radius) * 0.67)",
         xl: "var(--radius)",
         xl2: "calc(var(--radius) * 1.67)",
+        // Les panneaux du cadre (barre latérale, contenu) : rayon propre, indépendant du réglage --radius.
+        panneau: "var(--rayon-panneau)",
         "2xl": "calc(var(--radius) * 1.33)",
         "3xl": "calc(var(--radius) * 2)",
         full: "9999px",

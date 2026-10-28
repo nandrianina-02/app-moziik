@@ -29,7 +29,7 @@ export function MobileNav() {
   if (clavierVisible) return null;
 
   return (
-    <nav className="md:hidden fixed bottom-0 inset-x-0 z-40 border-t border-border bg-surface/95 backdrop-blur print:hidden">
+    <nav className="md:hidden fixed bottom-0 inset-x-0 z-40 bg-cadre print:hidden">
       <ul className="flex justify-between px-2 py-2">
         {links.map(({ href, label, icon: Icon }) => {
           const isActive = href === "/" ? pathname === "/" : pathname.startsWith(href);

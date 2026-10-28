@@ -29,7 +29,6 @@ import {
 import { usePlayer } from "@/context/PlayerProvider";
 import { useToast } from "@/context/ToastProvider";
 import { useOnlineStatus } from "@/context/OnlineStatusProvider";
-import { useSidebar } from "@/context/SidebarProvider";
 import { useClavierVisible } from "@/hooks/useClavierVisible";
 import { useSession } from "next-auth/react";
 import { SeekBar } from "@/components/player/SeekBar";
@@ -164,7 +163,6 @@ export function MiniPlayerBar() {
   const { status: authStatus } = useSession();
   const pushToast = useToast();
   const { isOnline } = useOnlineStatus();
-  const { collapsed } = useSidebar();
   const clavierVisible = useClavierVisible();
 
   const [offlineState, setOfflineState] = useState<"idle" | "saving" | "saved">("idle");
@@ -309,23 +307,18 @@ export function MiniPlayerBar() {
   return (
     <div
       ref={refBarre}
-      className={`fixed bottom-16 left-0 right-0 z-30 transition-[left] duration-300 ease-out md:bottom-0 md:px-4 md:pb-4 print:hidden ${
+      className={`fixed bottom-16 left-0 right-0 z-30 md:bottom-0 print:hidden ${
         // Clavier ouvert : la vue web est redimensionnée, et une barre
         // `fixed` vient se poser AU-DESSUS du clavier, en plein milieu de
         // l'écran — par-dessus les suggestions de recherche qu'on est en
         // train de lire. `hidden` et non l'opacité : il ne doit occuper
         // ni place ni clics. La lecture, elle, continue.
         clavierVisible ? "hidden md:block" : ""
-      } ${
-        // Décalage exact sur la largeur de la sidebar pour que le lecteur
-        // reste dans la zone de contenu et ne passe jamais dessous.
-        collapsed ? "md:left-20" : "md:left-64"
       }`}
     >
-      {/* Carte flottante sur desktop (bords arrondis + ombre portée),
-          barre pleine largeur collée au bas sur mobile où l'espace
-          horizontal est trop précieux pour des marges. */}
-      <div className="border-t border-border bg-surface/95 backdrop-blur-md shadow-[0_-8px_32px_-16px_rgba(0,0,0,0.35)] md:rounded-2xl md:border md:shadow-[0_8px_40px_-12px_rgba(0,0,0,0.3)]">
+      {/* Posé sur le cadre, sur toute la largeur, sous les panneaux : la
+          barre latérale et le contenu s'arrêtent au-dessus de lui. */}
+      <div className="bg-cadre">
       {/* ---------- COMPACT : mobile et tablette ----------
           Jusqu'à `lg`, la sidebar occupe déjà 256 px : à 768 px il ne
           reste que 480 px au lecteur. La disposition en trois colonnes y

@@ -13,6 +13,7 @@ import { AccesProvider } from "@/context/AccesProvider";
 import { SiteConfigProvider } from "@/context/SiteConfigProvider";
 import { SidebarProvider } from "@/context/SidebarProvider";
 import { Sidebar } from "@/components/layout/Sidebar";
+import { CoinsCadre } from "@/components/layout/CoinsCadre";
 import { MainContent } from "@/components/layout/MainContent";
 import { NotificationsProvider } from "@/context/NotificationsProvider";
 import { MessagesProvider } from "@/context/MessagesProvider";
@@ -165,7 +166,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
                           <Sidebar />
                           {/* Colonne de contenu : la barre supérieure doit
                               rester à droite de la sidebar, jamais par-dessus. */}
-                          <div className="flex min-w-0 flex-1 flex-col">
+                          <div className="flex min-w-0 flex-1 flex-col md:px-2">
                             <DesktopHeader />
                             {/* Dans le flux, sous l'en-tete : le bandeau ne
                                 recouvre plus ni la barre de recherche ni la
@@ -174,6 +175,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
                             <MainContent>{children}</MainContent>
                           </div>
                         </div>
+                        <CoinsCadre />
                         <NotificationsDrawer />
                         <MiniPlayerBar />
                         <QuotaWall />

@@ -55,9 +55,18 @@
   --tint-rose: 251 113 133;
   --tint-blue: 96 165 250;
   --tint-slate: 148 163 184;
+
+  /* Le cadre : la couleur autour des panneaux (barre latérale, contenu),
+     comme sur l'application. Tirée du fond pour suivre tous les thèmes,
+     y compris ceux qu'un abonné compose : plus sombre que lui. */
+  --cadre: color-mix(in srgb, rgb(var(--color-base)) 45%, #000);
+  /* Arrondi des panneaux : celui de l'application (22 dp), un peu moins
+     sur ordinateur où les panneaux sont plus grands que l'écran d'un téléphone. */
+  --rayon-panneau: 12px;
 }
 
 html.light {
+  --cadre: color-mix(in srgb, rgb(var(--color-base)) 90%, #000);
   /* Thème clair — mêmes variables, valeurs différentes. Comme tous
      les composants utilisent bg-base / bg-surface / text-ink / etc.
      (jamais de couleur en dur), le thème change partout d'un coup. */
@@ -100,8 +109,9 @@ html.light {
 }
 
 @layer base {
+  /* Le fond de la page est le cadre ; chaque panneau pose son propre fond. */
   body {
-    @apply bg-base text-ink font-body antialiased transition-colors duration-300;
+    @apply bg-cadre text-ink font-body antialiased transition-colors duration-300;
   }
   h1, h2, h3, h4 {
     @apply font-display;

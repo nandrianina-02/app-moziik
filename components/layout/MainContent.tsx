@@ -37,8 +37,11 @@ export function MainContent({ children }: { children: React.ReactNode }) {
     // occupaient n'a plus lieu d'être — sans quoi il resterait cent
     // soixante pixels de vide entre le contenu et le clavier, sur l'écran
     // où la place manque le plus.
+    // Le panneau de contenu : fond de page, posé sur le cadre avec une
+    // marge latérale sur téléphone ; ses coins arrondis sont dessinés par
+    // CoinsCadre, aux bords de l'écran.
     <main
-      className={`min-w-0 flex-1 ${topPad} ${
+      className={`mx-1.5 min-w-0 flex-1 bg-base md:mx-0 ${topPad} ${
         clavierVisible
           ? currentSong
             ? "pb-0 md:pb-28"

@@ -72,11 +72,23 @@ export function Sidebar() {
       // (`overflow-y-auto` ici) : sous 640 px de haut, le pied de page
       // sortait de l'écran et il fallait faire défiler toute la colonne
       // pour atteindre les playlists.
-      className={`sticky top-0 print:hidden hidden h-screen shrink-0 flex-col overflow-hidden border-r border-border transition-all duration-300 ease-out md:flex ${
-        collapsed ? "md:w-20 md:px-2" : "md:w-64 md:px-4"
+      //
+      // Un panneau arrondi posé sur le cadre, comme le contenu à sa droite.
+      // L'élément `aside` ne fait que réserver la largeur dans la page ; le
+      // panneau est fixé aux bords de l'écran, du haut jusqu'au lecteur qui
+      // occupe toute la largeur en bas. Une hauteur en unités d'écran (vh,
+      // dvh) ne correspondait pas toujours à la zone visible.
+      className={`print:hidden hidden shrink-0 transition-all duration-300 ease-out md:block ${
+        collapsed ? "md:w-20" : "md:w-64"
       }`}
     >
-      <div className={`mb-6 flex shrink-0 items-center px-2 pt-6 ${collapsed ? "flex-col gap-3" : "justify-between"}`}>
+      <div
+        className={`fixed bottom-[var(--hauteur-lecteur,0px)] left-0 top-0 z-10 flex p-2 pr-0 transition-all duration-300 ease-out ${
+          collapsed ? "w-20" : "w-64"
+        }`}
+      >
+      <div className={`flex min-h-0 w-full flex-col overflow-hidden rounded-panneau bg-base ${collapsed ? "px-2" : "px-3"}`}>
+      <div className={`mb-6 flex shrink-0 items-center px-2 pt-5 ${collapsed ? "flex-col gap-3" : "justify-between"}`}>
         <div className={`flex min-w-0 items-center gap-2 ${collapsed ? "justify-center" : ""}`}>
           <IconeMarque taille={28} />
           {!collapsed && (
@@ -113,7 +125,7 @@ export function Sidebar() {
 
       {/* Pied fixe : le repli et les liens légaux restent joignables quelle
           que soit la hauteur d'écran. */}
-      <div className={`shrink-0 border-t border-border pb-6 pt-3 ${collapsed ? "px-0" : ""}`}>
+      <div className={`shrink-0 border-t border-border pb-4 pt-3 ${collapsed ? "px-0" : ""}`}>
         <button
           onClick={toggleCollapsed}
           aria-label={collapsed ? "Déplier le menu" : "Replier le menu"}
@@ -160,6 +172,8 @@ export function Sidebar() {
           </>
         )}
         </div>
+      </div>
+      </div>
       </div>
     </aside>
   );

@@ -31,7 +31,7 @@ export default function PlaylistDetailPage() {
   const { id } = useParams<{ id: string }>();
   const { data: session } = useSession();
   const pushToast = useToast();
-  const { currentSong, isPlaying, playQueue } = usePlayer();
+  const { currentSong, isPlaying, playQueue, togglePlay } = usePlayer();
 
   const [playlist, setPlaylist] = useState<PlaylistDetail | null>(null);
   const [loading, setLoading] = useState(true);
@@ -254,29 +254,33 @@ export default function PlaylistDetailPage() {
 
   return (
     <div className="mx-auto w-full max-w-[1600px] px-4 py-6 sm:px-6 md:px-10 md:py-10">
+      <PlaylistHero
+        playlist={playlist}
+        totalPlays={totalPlays}
+        totalDuration={totalDuration}
+        isCurrentPlaylistPlaying={isCurrentPlaylistPlaying}
+        downloading={downloading}
+        downloadProgress={downloadProgress}
+        canManage={canManage}
+        editMode={editMode}
+        savingMeta={savingMeta}
+        // La playlist déjà en cours (même en pause) reprend là où elle en était.
+        onTogglePlayAll={() =>
+          playlist.songs.some((t) => t._id === currentSong?._id)
+            ? togglePlay()
+            : playQueue(playlist.songs, 0, { type: "playlist", label: playlist.title, id: playlist._id })
+        }
+        onDownloadAll={handleDownloadPlaylist}
+        onShare={() => setShowShareModal(true)}
+        onOpenMore={(x, y) => setMenuPosition({ x, y })}
+        onToggleEditMode={() => setEditMode((v) => !v)}
+        onEditCover={() => setEditingCover(true)}
+        onSaveMeta={handleSaveMeta}
+        onToggleVisibility={handleToggleVisibility}
+      />
       <div className="grid gap-6 lg:grid-cols-[1fr_320px]">
         <div className="min-w-0">
-          <PlaylistHero
-            playlist={playlist}
-            totalPlays={totalPlays}
-            totalDuration={totalDuration}
-            isCurrentPlaylistPlaying={isCurrentPlaylistPlaying}
-            downloading={downloading}
-            downloadProgress={downloadProgress}
-            canManage={canManage}
-            editMode={editMode}
-            savingMeta={savingMeta}
-            onTogglePlayAll={() => playQueue(playlist.songs, 0, { type: "playlist", label: playlist.title, id: playlist._id })}
-            onDownloadAll={handleDownloadPlaylist}
-            onShare={() => setShowShareModal(true)}
-            onOpenMore={(x, y) => setMenuPosition({ x, y })}
-            onToggleEditMode={() => setEditMode((v) => !v)}
-            onEditCover={() => setEditingCover(true)}
-            onSaveMeta={handleSaveMeta}
-            onToggleVisibility={handleToggleVisibility}
-          />
-
-          <div className="mt-6">
+          <div>
             {/* `editMode` ne peut être vrai que si `canManage` l'est : toute
                 action d'édition est donc hors de portée d'un visiteur. */}
             <PlaylistTabs

@@ -18,6 +18,8 @@ export function EnteteMedia({
   fond,
   etiquette,
   titre,
+  description,
+  edition,
   infos,
   coinHaut,
   children,
@@ -28,6 +30,10 @@ export function EnteteMedia({
   fond: { couleurDe?: string | null; banniere?: string | null };
   etiquette: React.ReactNode;
   titre: string;
+  /** Une phrase sous le titre (description d'une playlist). */
+  description?: string | null;
+  /** Remplace le titre et la description : le formulaire du mode édition. */
+  edition?: React.ReactNode;
   infos: React.ReactNode;
   /** Ce qui se pose en haut à droite (mode édition). */
   coinHaut?: React.ReactNode;
@@ -51,9 +57,14 @@ export function EnteteMedia({
         <div className="w-44 shrink-0 sm:w-48 md:w-56 [&_img]:shadow-[0_16px_48px_rgba(0,0,0,0.5)]">{pochette}</div>
         <div className="min-w-0 flex-1 pb-1">
           <div className="text-xs font-semibold text-ink">{etiquette}</div>
-          <h1 className="mt-1 line-clamp-2 break-words font-display text-3xl font-bold leading-[1.05] tracking-tight sm:text-5xl lg:text-6xl">
-            {titre}
-          </h1>
+          {edition ?? (
+            <>
+              <h1 className="mt-1 line-clamp-2 break-words font-display text-3xl font-bold leading-[1.05] tracking-tight sm:text-5xl lg:text-6xl">
+                {titre}
+              </h1>
+              {description && <p className="mt-3 line-clamp-2 max-w-2xl text-sm text-ink/70">{description}</p>}
+            </>
+          )}
           <div className="mt-3 flex flex-wrap items-center justify-center gap-x-1.5 gap-y-1 text-sm text-ink/80 sm:justify-start">{infos}</div>
         </div>
       </div>

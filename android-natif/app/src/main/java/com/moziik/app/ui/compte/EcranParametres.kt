@@ -170,8 +170,7 @@ fun EcranParametres(onRetour: () -> Unit, onOuvrir: (String) -> Unit) {
             // Le lien de la dernière version publiée : il ne change jamais et ne demande aucun compte.
             Ligne(R.drawable.lucide_share_2, "Partager l'application", "Le lien de téléchargement de Moziik") {
                 val envoi = Intent(Intent.ACTION_SEND).setType("text/plain")
-                    .putExtra(Intent.EXTRA_TEXT, "Écoute Moziik sur Android :
-$LIEN_DERNIERE_VERSION")
+                    .putExtra(Intent.EXTRA_TEXT, "Écoute Moziik sur Android :\n$LIEN_DERNIERE_VERSION")
                 runCatching { contexte.startActivity(Intent.createChooser(envoi, "Partager").addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) }
             }
             Ligne(R.drawable.lucide_shield, "Confidentialité", "Vos données, ce qu'on en fait, vos droits") {

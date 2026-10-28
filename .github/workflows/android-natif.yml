@@ -58,6 +58,9 @@ jobs:
   version-publiee:
     if: github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
+    # Écrire dans les publications du dépôt (lien de téléchargement permanent).
+    permissions:
+      contents: write
     defaults:
       run:
         working-directory: android-natif
@@ -118,3 +121,26 @@ jobs:
           name: moziik-mapping
           path: android-natif/app/build/outputs/mapping/release/mapping.txt
           if-no-files-found: ignore
+
+      # Le lien permanent : chaque version signée devient une publication du
+      # dépôt (public), avec un fichier au nom constant. Ainsi
+      # releases/latest/download/moziik.apk désigne toujours la dernière
+      # version, se télécharge sans compte GitHub et n'expire pas, à la
+      # différence des artefacts (90 jours, compte requis). L'app lit aussi
+      # cette publication pour proposer la mise à jour (MiseAJour.kt).
+      - name: Publication de la version
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          VERSION=$(sed -nE 's/^\s*versionName = "([^"]+)".*/\1/p' app/build.gradle.kts | head -1)
+          APK=$(ls app/build/outputs/apk/release/*.apk | head -1)
+          cp "$APK" "$RUNNER_TEMP/moziik.apk"
+          git log -1 --format=%B | grep -v "^Co-Authored-By" > "$RUNNER_TEMP/notes.md"
+          if gh release view "v$VERSION" > /dev/null 2>&1; then
+            gh release upload "v$VERSION" "$RUNNER_TEMP/moziik.apk" --clobber
+          else
+            gh release create "v$VERSION" "$RUNNER_TEMP/moziik.apk" --target "$GITHUB_SHA" \
+              --title "Moziik $VERSION" --notes-file "$RUNNER_TEMP/notes.md" --latest
+          fi
+          echo "Lien permanent : https://github.com/${GITHUB_REPOSITORY}/releases/latest/download/moziik.apk" >> "$GITHUB_STEP_SUMMARY"

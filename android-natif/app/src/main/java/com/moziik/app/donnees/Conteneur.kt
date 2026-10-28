@@ -50,7 +50,7 @@ class Conteneur(contexte: Context) {
     val notifications = Notifications(reseau.api)
     val commentaires = Commentaires(reseau.api)
     val envoi = EnvoiFichiers(reseau.api, reseau.clientPublic)
-    val miseAJour = MiseAJour(contexte, reseau.api, BuildConfig.SITE)
+    val miseAJour = MiseAJour(contexte, reseau.api, reseau.clientPublic, BuildConfig.SITE)
     val push = Push(contexte, reseau.api, session, portee).also { p -> session.avantDeconnexion = { p.retirer() } }
     /** Le chemin du site ouvert depuis une notification, que la coquille suit puis efface. */
     val lienEntrant = kotlinx.coroutines.flow.MutableStateFlow<String?>(null)

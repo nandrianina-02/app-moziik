@@ -30,6 +30,7 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.moziik.app.donnees.compte.LIEN_DERNIERE_VERSION
 import com.moziik.app.BuildConfig
 import com.moziik.app.R
 import com.moziik.app.donnees.session.EtatSession
@@ -165,6 +166,13 @@ fun EcranParametres(onRetour: () -> Unit, onOuvrir: (String) -> Unit) {
                         ouvrirLien(contexte, nouvelle.adresse, p.base.compose.toArgb())
                     }
                 }
+            }
+            // Le lien de la dernière version publiée : il ne change jamais et ne demande aucun compte.
+            Ligne(R.drawable.lucide_share_2, "Partager l'application", "Le lien de téléchargement de Moziik") {
+                val envoi = Intent(Intent.ACTION_SEND).setType("text/plain")
+                    .putExtra(Intent.EXTRA_TEXT, "Écoute Moziik sur Android :
+$LIEN_DERNIERE_VERSION")
+                runCatching { contexte.startActivity(Intent.createChooser(envoi, "Partager").addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) }
             }
             Ligne(R.drawable.lucide_shield, "Confidentialité", "Vos données, ce qu'on en fait, vos droits") {
                 ouvrirLien(contexte, "${BuildConfig.SITE}confidentialite", p.base.compose.toArgb())

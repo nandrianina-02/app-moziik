@@ -18,7 +18,6 @@ import {
   BadgeCheck,
   TrendingUp,
   TrendingDown,
-  CheckCircle2,
   Share2,
   ExternalLink,
 } from "lucide-react";
@@ -36,6 +35,7 @@ import { ShareModal } from "@/components/share/ShareModal";
 import { StationPersonnelle } from "@/components/radio/StationPersonnelle";
 import type { ShareSubject } from "@/components/share/shareSubject";
 import { useUnivers } from "@/context/UniversProvider";
+import { EnteteMedia, Point, BoutonLectureMedia, BoutonActionMedia } from "@/components/music/EnteteMedia";
 import { STATIONS, resoudreStation, stationDeGenre, type Station as StationPartagee } from "@/lib/radios";
 
 function shuffle<T>(items: T[]): T[] {
@@ -103,7 +103,7 @@ function PageRadio() {
   const router = useRouter();
   const params = useSearchParams();
   const { univers } = useUnivers();
-  const { playQueue, currentSong, queue, isPlaying, togglePlay, progress } = usePlayer();
+  const { playQueue, currentSong, queue, isPlaying, togglePlay, progress, playSource } = usePlayer();
   const [loadingStation, setLoadingStation] = useState<string | null>(null);
   const [data, setData] = useState<RadioData | null>(null);
   // Distingue « pas encore arrivé » (squelettes) de « ne viendra pas »
@@ -197,41 +197,39 @@ function PageRadio() {
   const upNext: PlayableSong[] = currentIndex >= 0 ? queue.slice(currentIndex + 1) : [];
 
   return (
-    <div className="mx-auto w-full max-w-[1600px] px-6 py-8 md:px-10 md:py-10 space-y-8">
-      <div className="flex flex-wrap items-center justify-between gap-6">
-        <div className="max-w-lg">
-          <h1 className="text-2xl font-display md:text-3xl">Radio Moziik</h1>
-          <p className="mt-2 text-sm text-ink-muted">
-            Une sélection aléatoire et continue parmi tous les sons publiés sur la plateforme. Parfait pour découvrir
-            de nouveaux artistes.
-          </p>
-          <div className="mt-5 flex flex-wrap gap-3">
-            <button
-              onClick={() => launchStation(null)}
-              disabled={loadingStation === "default"}
-              className="flex items-center gap-2 rounded-full bg-accent px-5 py-2.5 text-sm font-medium text-base hover:bg-accent-hover disabled:opacity-60"
-            >
-              {loadingStation === "default" ? <EqualizerLoader size="sm" /> : <RadioIcon size={16} />}
-              Lancer la radio
-            </button>
-            <button
-              onClick={toggleLikeCurrent}
-              disabled={!currentSong}
-              className="flex items-center gap-2 rounded-full border border-border px-5 py-2.5 text-sm font-medium hover:border-accent disabled:opacity-60"
-            >
-              <Heart size={16} /> Ajouter aux favoris
-            </button>
+    <div className="mx-auto w-full max-w-[1600px] space-y-8 px-4 py-6 sm:px-6 md:px-10 md:py-10">
+      <EnteteMedia
+        fond={{}}
+        pochette={
+          <div className="relative grid aspect-square w-full place-items-center overflow-hidden rounded-md bg-accent text-base shadow-[0_16px_48px_rgba(0,0,0,0.5)]">
+            <span className="absolute inset-[12%] rounded-full border-2 border-current opacity-20" />
+            <span className="absolute inset-[26%] rounded-full border-2 border-current opacity-35" />
+            <RadioIcon size={56} className="relative" />
           </div>
-        </div>
-        <div className="relative hidden h-40 w-40 shrink-0 place-items-center sm:grid">
-          <span className="absolute inset-0 rounded-full bg-accent/10" />
-          <span className="absolute inset-4 rounded-full bg-accent/15" />
-          <span className="absolute inset-9 rounded-full bg-accent/25" />
-          <span className="relative grid h-16 w-16 place-items-center rounded-full bg-base shadow-lg">
-            <RadioIcon size={22} className="text-accent" />
-          </span>
-        </div>
-      </div>
+        }
+        etiquette="Radio"
+        titre="Radio Moziik"
+        description="Une sélection aléatoire et continue parmi tous les sons publiés : la meilleure façon de découvrir de nouveaux artistes."
+        infos={
+          <>
+            <span className="font-semibold text-ink">Tout le catalogue</span>
+            <Point />
+            <span>Lecture continue</span>
+            <Point />
+            <span>{STATIONS.length} stations</span>
+          </>
+        }
+      >
+        <BoutonLectureMedia
+          enCours={playSource?.type === "radio" && isPlaying}
+          chargement={loadingStation === "default"}
+          onClick={() => (playSource?.type === "radio" ? togglePlay() : launchStation(null))}
+          libelle="la radio"
+        />
+        <BoutonActionMedia libelle="Ajouter le titre en cours aux favoris" onClick={toggleLikeCurrent} disabled={!currentSong}>
+          <Heart size={22} />
+        </BoutonActionMedia>
+      </EnteteMedia>
 
       {/* La station bâtie pour l'auditeur passe avant les stations de
           genre : elle est la seule à dépendre de lui, les huit tuiles
@@ -244,8 +242,8 @@ function PageRadio() {
 
       <Reveal className="grid grid-cols-1 gap-6 lg:grid-cols-2">
         <section>
-          <h2 className="mb-3 text-xs font-medium uppercase tracking-wide text-accent">Prochaines chansons</h2>
-          <div className="rounded-xl2 border border-border bg-surface p-4">
+          <h2 className="mb-3 font-display text-xl font-bold text-ink md:text-2xl">Prochaines chansons</h2>
+          <div className="rounded-lg bg-ink/[0.04] p-4">
             {upNext.length === 0 ? (
               <p className="py-4 text-center text-sm text-ink-muted">Lance la radio pour remplir la file.</p>
             ) : (
@@ -259,50 +257,33 @@ function PageRadio() {
         </section>
 
         <section>
-          <h2 className="mb-3 text-xs font-medium uppercase tracking-wide text-accent">Stations rapides</h2>
+          <h2 className="mb-3 font-display text-xl font-bold text-ink md:text-2xl">Stations rapides</h2>
           <div className="stagger grid grid-cols-2 gap-3 sm:grid-cols-4">
             {stations.map((station) => (
               <button
                 key={station.cle}
                 onClick={() => launchStation(station)}
                 disabled={loadingStation === station.cle}
-                className={`flex aspect-[4/3] flex-col items-center justify-center gap-2 rounded-xl2 text-white transition-transform hover:scale-[1.02] disabled:opacity-60 ${station.fond}`}
+                className={`flex aspect-[4/3] flex-col items-start justify-end gap-1.5 rounded-md p-3 text-left text-white transition-transform duration-200 hover:scale-[1.02] disabled:opacity-60 ${station.fond}`}
               >
                 {loadingStation === station.cle ? <EqualizerLoader size="sm" /> : <station.icon size={20} />}
-                <span className="text-xs font-medium">{station.label}</span>
+                <span className="text-sm font-bold">{station.label}</span>
               </button>
             ))}
           </div>
         </section>
       </Reveal>
 
-      <Reveal>
-        <section className="rounded-xl2 border border-border bg-surface p-6">
-        <h2 className="mb-4 text-xs font-medium uppercase tracking-wide text-accent">Pourquoi écouter radio ?</h2>
-        <ul className="space-y-2 text-sm">
-          {[
-            "Découvrez automatiquement de nouveaux artistes",
-            "Lecture continue sans interruption",
-            "Recommandations selon les titres les plus populaires",
-            "Parfait pour travailler, se détendre ou voyager",
-          ].map((line) => (
-            <li key={line} className="flex items-center gap-2 text-ink-muted">
-              <CheckCircle2 size={15} className="shrink-0 text-verified" /> {line}
-            </li>
-          ))}
-        </ul>
-        </section>
-      </Reveal>
 
       {/* Les recommandations viennent d'un second appel : le haut de page
           (lancement de la radio, stations, file d'attente) est utilisable
           sans attendre, et ces blocs se remplissent ensuite. */}
       {!data && !recoFailed && (
         <div aria-busy="true" className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-          <Skeleton className="h-44 rounded-xl2" />
-          <Skeleton className="h-44 rounded-xl2" />
-          <Skeleton className="h-52 rounded-xl2" />
-          <Skeleton className="h-52 rounded-xl2" />
+          <Skeleton className="h-44 rounded-lg" />
+          <Skeleton className="h-44 rounded-lg" />
+          <Skeleton className="h-52 rounded-lg" />
+          <Skeleton className="h-52 rounded-lg" />
         </div>
       )}
 
@@ -310,7 +291,7 @@ function PageRadio() {
         <>
           <Reveal className="grid grid-cols-1 gap-6 lg:grid-cols-2">
             <section>
-              <h2 className="mb-3 text-xs font-medium uppercase tracking-wide text-accent">Artistes recommandés</h2>
+              <h2 className="mb-3 font-display text-xl font-bold text-ink md:text-2xl">Artistes recommandés</h2>
               <div className="stagger flex flex-wrap gap-4">
                 {data.recommendedArtists.map((artist) => (
                   <div key={artist._id} className="w-20 text-center">
@@ -337,7 +318,7 @@ function PageRadio() {
 
             <section>
               <div className="mb-3 flex items-center justify-between">
-                <h2 className="text-xs font-medium uppercase tracking-wide text-accent">Genres populaires</h2>
+                <h2 className="font-display text-xl font-bold text-ink md:text-2xl">Genres populaires</h2>
                 <Link href="/recherche" className="text-xs text-ink-muted hover:text-ink">
                   Voir tout
                 </Link>
@@ -359,7 +340,7 @@ function PageRadio() {
           <Reveal className="grid grid-cols-1 gap-6 lg:grid-cols-2">
             <section>
               <div className="mb-3 flex items-center justify-between">
-                <h2 className="text-xs font-medium uppercase tracking-wide text-accent">Les plus écoutés aujourd&apos;hui</h2>
+                <h2 className="font-display text-xl font-bold text-ink md:text-2xl">Les plus écoutés aujourd&apos;hui</h2>
                 <Link href="/classements" className="text-xs text-ink-muted hover:text-ink">
                   Voir tout
                 </Link>
@@ -373,12 +354,12 @@ function PageRadio() {
 
             <section>
               <div className="mb-3 flex items-center justify-between">
-                <h2 className="text-xs font-medium uppercase tracking-wide text-accent">Tendances</h2>
+                <h2 className="font-display text-xl font-bold text-ink md:text-2xl">Tendances</h2>
                 <Link href="/classements" className="text-xs text-ink-muted hover:text-ink">
                   Voir tout
                 </Link>
               </div>
-              <div className="rounded-xl2 border border-border bg-surface p-2">
+              <div className="rounded-lg bg-ink/[0.04] p-2">
                 {data.trending.map((song) => (
                   <TrendingRow key={song._id} song={song} />
                 ))}
@@ -418,9 +399,9 @@ function NowPlayingCard({
 
   return (
     <section>
-      <h2 className="mb-3 text-xs font-medium uppercase tracking-wide text-accent">En écoute</h2>
+      <h2 className="mb-3 font-display text-xl font-bold text-ink md:text-2xl">En écoute</h2>
       <div
-        className="flex flex-wrap items-center gap-5 rounded-xl2 border border-border bg-surface p-5"
+        className="flex flex-wrap items-center gap-5 rounded-lg bg-ink/[0.04] p-5"
         onContextMenu={(e) => {
           e.preventDefault();
           openMenuAt(e.clientX, e.clientY);
@@ -429,7 +410,7 @@ function NowPlayingCard({
         onTouchEnd={longPress.onTouchEnd}
         onTouchMove={longPress.onTouchMove}
       >
-        <SafeImage src={currentSong.coverUrl} alt={currentSong.title} width={88} height={88} className="rounded-xl2 object-cover shrink-0" />
+        <SafeImage src={currentSong.coverUrl} alt={currentSong.title} width={88} height={88} className="rounded-md object-cover shrink-0" />
         <div className="min-w-[180px] flex-1">
           <p className="text-lg font-display">{currentSong.title}</p>
           <p className="flex items-center gap-1 text-sm text-ink-muted">
@@ -537,7 +518,7 @@ function TopTodayTile({ song, rank }: { song: RadioData["topToday"][number]; ran
       onTouchMove={longPress.onTouchMove}
     >
       <Link href={`/son/${song._id}`} className="group">
-        <div className="relative aspect-square overflow-hidden rounded-xl2 bg-base">
+        <div className="relative aspect-square overflow-hidden rounded-md bg-base">
           <SafeImage src={song.coverUrl} alt={song.title} width={120} height={120} className="h-full w-full object-cover" />
           <span className="absolute inset-0 grid place-items-center bg-black/0 transition-colors group-hover:bg-black/30">
             <Play size={20} className="text-white au-survol" fill="currentColor" />

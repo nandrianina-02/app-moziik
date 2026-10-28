@@ -22,7 +22,7 @@ export function AlbumDetailClient() {
   const { id } = useParams<{ id: string }>();
   const { data: session, status } = useSession();
   const pushToast = useToast();
-  const { currentSong, isPlaying, playQueue } = usePlayer();
+  const { currentSong, isPlaying, playQueue, togglePlay } = usePlayer();
 
   const [album, setAlbum] = useState<AlbumDetail | null>(null);
   const [loading, setLoading] = useState(true);
@@ -215,31 +215,35 @@ export function AlbumDetailClient() {
 
   return (
     <div className="mx-auto w-full max-w-[1600px] px-4 py-6 sm:px-6 md:px-10 md:py-10">
+      <AlbumHero
+        album={album}
+        totalPlays={totalPlays}
+        totalLikes={totalLikes}
+        isCurrentAlbumPlaying={isCurrentAlbumPlaying}
+        saved={saved}
+        savingToggle={savingToggle}
+        downloading={downloading}
+        downloadProgress={downloadProgress}
+        canManage={canManage}
+        editMode={editMode}
+        onChangeType={handleChangeType}
+        // L'album déjà en cours (même en pause) reprend là où il en était, au lieu de repartir du premier titre.
+        onTogglePlayAll={() =>
+          album.songs.some((t) => t._id === currentSong?._id)
+            ? togglePlay()
+            : playQueue(album.songs, 0, { type: "album", label: album.title, id: album._id })
+        }
+        onToggleSaved={toggleSaved}
+        onDownloadAll={handleDownloadAlbum}
+        onShare={() => setShowShareModal(true)}
+        onOpenMore={openMenuAt}
+        onToggleEditMode={() => setEditMode((v) => !v)}
+        onEditBanner={() => setEditingImage("banner")}
+        onEditCover={() => setEditingImage("cover")}
+      />
       <div className="grid gap-6 lg:grid-cols-[1fr_320px]">
         <div className="min-w-0">
-          <AlbumHero
-            album={album}
-            totalPlays={totalPlays}
-            totalLikes={totalLikes}
-            isCurrentAlbumPlaying={isCurrentAlbumPlaying}
-            saved={saved}
-            savingToggle={savingToggle}
-            downloading={downloading}
-            downloadProgress={downloadProgress}
-            canManage={canManage}
-            editMode={editMode}
-            onChangeType={handleChangeType}
-            onTogglePlayAll={() => playQueue(album.songs, 0, { type: "album", label: album.title, id: album._id })}
-            onToggleSaved={toggleSaved}
-            onDownloadAll={handleDownloadAlbum}
-            onShare={() => setShowShareModal(true)}
-            onOpenMore={openMenuAt}
-            onToggleEditMode={() => setEditMode((v) => !v)}
-            onEditBanner={() => setEditingImage("banner")}
-            onEditCover={() => setEditingImage("cover")}
-          />
-
-          <div className="mt-6">
+          <div>
             <AlbumTabs
               album={album}
               commentsCount={commentsCount}

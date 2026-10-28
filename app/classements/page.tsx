@@ -1,8 +1,9 @@
 "use client";
 
 import { Suspense, useEffect, useState } from "react";
-import { useSearchParams } from "next/navigation";
-import { BadgeCheck, Trophy, TrendingUp, TrendingDown, Minus, Play, Pause, MoreVertical, ChevronDown } from "lucide-react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { BadgeCheck, Trophy, TrendingUp, TrendingDown, Minus, Play, Pause, MoreHorizontal, ChevronDown } from "lucide-react";
+import { EnteteMedia, Point, BoutonLectureMedia } from "@/components/music/EnteteMedia";
 import { SafeImage } from "@/components/ui/SafeImage";
 import { Skeleton, SkeletonRows } from "@/components/ui/Skeleton";
 import { PageSections } from "@/components/home/PageSections";
@@ -27,7 +28,7 @@ const periods: { value: Period; label: string }[] = [
 ];
 
 const types: { value: ChartType; label: string }[] = [
-  { value: "songs", label: "Sons" },
+  { value: "songs", label: "Titres" },
   { value: "artists", label: "Artistes" },
   { value: "albums", label: "Albums" },
   { value: "listeners", label: "Auditeurs" },
@@ -169,6 +170,15 @@ function ChartsPageContent() {
     playQueue(songsQueue, targetIndex, { type: "chart", label: `Classement · ${periodLabel}` });
   }
 
+  function lireTout() {
+    if (ranking.some((r) => r._id === currentSong?._id)) togglePlay();
+    else playFrom(0);
+  }
+
+  const classementEnCours = type === "songs" && isPlaying && ranking.some((r) => r._id === currentSong?._id);
+  const libellePeriode = periods.find((p) => p.value === period)?.label ?? "";
+  const libelleType = types.find((t) => t.value === type)?.label.toLowerCase() ?? "";
+
   const podium = ranking.slice(0, 3);
   const rest = ranking.slice(3);
 
@@ -183,55 +193,93 @@ function ChartsPageContent() {
   } = useProgressiveList(rest, { initial: 17, step: 25, resetKey: `${type}|${period}|${genre}` });
 
   return (
-    <div className="mx-auto w-full max-w-[1600px] px-6 py-8 md:px-10 md:py-10">
-      <div className="mb-6 flex flex-wrap items-start justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-display">Classements</h1>
-          <p className="mt-1 text-sm text-ink-muted">Les contenus les plus populaires sur Moziik</p>
-        </div>
-
-        {(type === "songs" || type === "albums") && (
-          <label className="flex items-center gap-2 rounded-xl border border-border bg-surface px-3.5 py-2 text-sm">
-            <span className="text-ink-muted">Genre :</span>
-            <select value={genre} onChange={(e) => setGenre(e.target.value)} className="bg-transparent outline-none">
-              <option value="">Tous les genres</option>
-              {genres.map((g) => (
-                <option key={g} value={g}>
-                  {g}
-                </option>
-              ))}
-            </select>
-            <ChevronDown size={14} className="text-ink-muted" />
-          </label>
+    <div className="mx-auto w-full max-w-[1600px] px-4 py-6 sm:px-6 md:px-10 md:py-10">
+      {/* Comme les « Top 50 » de Spotify : une pochette, un très grand
+          titre, et le classement entier à lancer d'un geste. */}
+      <EnteteMedia
+        fond={{}}
+        pochette={
+          <div className="grid aspect-square w-full place-items-center rounded-md bg-accent text-base shadow-[0_16px_48px_rgba(0,0,0,0.5)]">
+            <div className="text-center">
+              <Trophy size={56} className="mx-auto" />
+              <p className="mt-2 font-display text-lg font-bold uppercase tracking-wide">{libellePeriode}</p>
+            </div>
+          </div>
+        }
+        etiquette="Classement"
+        titre={`Top ${libelleType}`}
+        infos={
+          <>
+            <span className="font-semibold text-ink">{libellePeriode}</span>
+            {genre && (
+              <>
+                <Point />
+                <span>{genre}</span>
+              </>
+            )}
+            <Point />
+            <span>{totalPlays.toLocaleString("fr-FR")} écoutes</span>
+            {trendPct !== null && (
+              <>
+                <Point />
+                <span className={trendPct >= 0 ? "text-verified" : ""}>
+                  {trendPct >= 0 ? "+" : ""}
+                  {trendPct.toFixed(0)} % sur la période
+                </span>
+              </>
+            )}
+          </>
+        }
+      >
+        {type === "songs" && ranking.length > 0 && (
+          <BoutonLectureMedia enCours={classementEnCours} onClick={lireTout} libelle={`le top ${libelleType}`} />
         )}
-      </div>
+      </EnteteMedia>
 
-      <div className="mb-3 flex flex-wrap gap-2">
-        {types.map((t) => (
-          <button
-            key={t.value}
-            onClick={() => setType(t.value)}
-            className={`rounded-full px-3.5 py-1.5 text-xs font-medium border transition-colors ${
-              type === t.value ? "bg-accent text-base border-accent" : "border-border text-ink-muted hover:border-accent"
-            }`}
-          >
-            {t.label}
-          </button>
-        ))}
-      </div>
-
-      <div className="mb-6 flex flex-wrap gap-2">
-        {periods.map((p) => (
-          <button
-            key={p.value}
-            onClick={() => setPeriod(p.value)}
-            className={`rounded-full px-3.5 py-1.5 text-xs font-medium border transition-colors ${
-              period === p.value ? "bg-accent text-base border-accent" : "border-border text-ink-muted hover:border-accent"
-            }`}
-          >
-            {p.label}
-          </button>
-        ))}
+      {/* Les filtres en puces, comme ceux de l'accueil et de la bibliothèque. */}
+      <div className="mb-6 mt-2 space-y-2">
+        <div className="flex flex-wrap items-center gap-2">
+          {types.map((t) => (
+            <button
+              key={t.value}
+              onClick={() => setType(t.value)}
+              aria-pressed={type === t.value}
+              className={`rounded-full px-3.5 py-1.5 text-sm font-medium transition-colors duration-200 ${
+                type === t.value ? "bg-ink text-base" : "bg-ink/[0.08] text-ink hover:bg-ink/[0.14]"
+              }`}
+            >
+              {t.label}
+            </button>
+          ))}
+          {(type === "songs" || type === "albums") && (
+            <label className="ml-auto flex items-center gap-1.5 rounded-full bg-ink/[0.08] px-3.5 py-1.5 text-sm">
+              <span className="sr-only">Genre</span>
+              <select value={genre} onChange={(e) => setGenre(e.target.value)} className="bg-transparent font-medium outline-none">
+                <option value="">Tous les genres</option>
+                {genres.map((g) => (
+                  <option key={g} value={g}>
+                    {g}
+                  </option>
+                ))}
+              </select>
+              <ChevronDown size={14} className="text-ink-muted" />
+            </label>
+          )}
+        </div>
+        <div className="flex flex-wrap gap-2">
+          {periods.map((p) => (
+            <button
+              key={p.value}
+              onClick={() => setPeriod(p.value)}
+              aria-pressed={period === p.value}
+              className={`rounded-full px-3 py-1 text-xs font-medium transition-colors duration-200 ${
+                period === p.value ? "bg-accent text-base" : "text-ink-muted hover:bg-ink/[0.08] hover:text-ink"
+              }`}
+            >
+              {p.label}
+            </button>
+          ))}
+        </div>
       </div>
 
       {loading && <ChartsSkeleton />}
@@ -240,7 +288,7 @@ function ChartsPageContent() {
         <>
           <div className="mb-6 grid grid-cols-1 gap-4 lg:grid-cols-[320px_1fr_260px]">
             {session?.user && viewer ? (
-              <div className="rounded-xl2 border border-border bg-surface p-5">
+              <div className="rounded-lg bg-ink/[0.04] p-5">
                 <h3 className="mb-3 text-sm font-medium text-accent">Votre classement</h3>
                 <div className="flex items-center gap-3">
                   <SafeImage src={session.user.image ?? undefined} alt="" width={56} height={56} className="rounded-full object-cover" />
@@ -269,18 +317,18 @@ function ChartsPageContent() {
                     </div>
                   </div>
                 ) : viewer.rank <= 100 ? (
-                  <p className="mt-3 text-xs font-medium text-verified">Vous êtes dans le Top 100 🔥</p>
+                  <p className="mt-3 text-xs font-medium text-verified">Vous êtes dans le Top 100.</p>
                 ) : null}
               </div>
             ) : (
-              <div className="rounded-xl2 border border-dashed border-border p-5 text-sm text-ink-muted">
+              <div className="rounded-lg bg-ink/[0.04] p-5 text-sm text-ink-muted">
                 {session?.user
                   ? "Écoute des titres pour apparaître dans ce classement."
                   : "Connecte-toi pour voir ta position dans ce classement."}
               </div>
             )}
 
-            <div className="rounded-xl2 border border-border bg-surface p-5">
+            <div className="rounded-lg bg-ink/[0.04] p-5">
               <div className="mb-4 flex items-center gap-1.5 text-sm font-medium">
                 {/* L'or des médailles (#F5C542) ne donne que 1,6:1 sur le
                     fond crème : cette icône isolée suit le token, les
@@ -298,7 +346,7 @@ function ChartsPageContent() {
               )}
             </div>
 
-            <div className="rounded-xl2 border border-border bg-surface p-5">
+            <div className="rounded-lg bg-ink/[0.04] p-5">
               <div className="mb-2 flex items-center gap-1.5 text-sm font-medium text-accent">
                 <TrendingUp size={16} /> Tendances
               </div>
@@ -313,10 +361,10 @@ function ChartsPageContent() {
           </div>
 
           {rest.length === 0 && podium.length === 0 ? null : (
-            <Reveal className="overflow-x-auto rounded-xl2 border border-border bg-surface">
-              <table className="w-full min-w-[640px] text-sm">
+            <Reveal className="overflow-x-auto">
+              <table className="w-full min-w-[640px] border-separate border-spacing-0 text-sm">
                 <thead>
-                  <tr className="border-b border-border text-left text-xs text-ink-muted">
+                  <tr className="text-left text-xs uppercase tracking-wide text-ink-muted [&>th]:border-b [&>th]:border-border">
                     <th className="px-4 py-3 font-medium">#</th>
                     <th className="px-4 py-3 font-medium">
                       {type === "songs" ? "Titre" : type === "albums" ? "Album" : type === "artists" ? "Artiste" : "Auditeur"}
@@ -343,7 +391,7 @@ function ChartsPageContent() {
               </table>
 
               {hasMore && (
-                <div className="border-t border-border">
+                <div className="mt-2">
                   <ShowMoreButton label="Voir plus de places" remaining={remaining} onClick={showMore} full />
                 </div>
               )}
@@ -367,11 +415,11 @@ function ChartsSkeleton() {
   return (
     <div aria-busy="true">
       <div className="mb-6 grid grid-cols-1 gap-4 lg:grid-cols-[320px_1fr_260px]">
-        <Skeleton className="h-40 rounded-xl2" />
-        <Skeleton className="h-40 rounded-xl2" />
-        <Skeleton className="h-40 rounded-xl2" />
+        <Skeleton className="h-40 rounded-lg" />
+        <Skeleton className="h-40 rounded-lg" />
+        <Skeleton className="h-40 rounded-lg" />
       </div>
-      <div className="rounded-xl2 border border-border bg-surface p-4">
+      <div className="p-1">
         <SkeletonRows count={8} />
       </div>
     </div>
@@ -416,7 +464,7 @@ function PodiumTile({
     >
       <button
         onClick={onPlay}
-        className={`relative flex w-full flex-col justify-end overflow-hidden rounded-xl2 text-left text-white aspect-[3/4] ${podiumStyle[index].order} ${
+        className={`relative flex w-full flex-col justify-end overflow-hidden rounded-md text-left text-white aspect-[3/4] ${podiumStyle[index].order} ${
           isCurrent ? "ring-2 ring-accent" : ""
         }`}
       >
@@ -457,8 +505,10 @@ function RankingRow({
   maxPlays: number;
   onPlay: () => void;
 }) {
+  const router = useRouter();
   const [menuPosition, setMenuPosition] = useState<{ x: number; y: number } | null>(null);
   const playableSong = type === "songs" && item.audioUrl ? itemToPlayableSong(item) : null;
+  const page = type === "artists" ? `/artiste/${item._id}` : type === "albums" ? `/album/${item._id}` : null;
 
   function openMenuAt(x: number, y: number) {
     setMenuPosition({ x, y });
@@ -467,7 +517,12 @@ function RankingRow({
 
   return (
     <tr
-      className="border-b border-border/60 last:border-0"
+      // Toute la ligne réagit, comme une liste de titres de Spotify : un titre
+      // se lance, un artiste ou un album ouvre sa page.
+      onClick={() => (type === "songs" ? onPlay() : page && router.push(page))}
+      className={`group transition-colors duration-150 hover:bg-ink/[0.06] [&>td:first-child]:rounded-l-md [&>td:last-child]:rounded-r-md ${
+        type === "songs" || page ? "cursor-pointer" : ""
+      }`}
       onContextMenu={
         playableSong
           ? (e) => {
@@ -480,12 +535,31 @@ function RankingRow({
       onTouchEnd={playableSong ? longPress.onTouchEnd : undefined}
       onTouchMove={playableSong ? longPress.onTouchMove : undefined}
     >
-      <td className="px-4 py-3 text-ink-muted">{item.rank}</td>
-      <td className="px-4 py-3">
+      <td className="w-12 px-4 py-2.5 text-ink-muted tabular-nums">
+        {type === "songs" ? (
+          <>
+            {isCurrent && isPlaying ? (
+              <Pause size={14} fill="currentColor" className="text-accent" />
+            ) : (
+              <span className={`group-hover:hidden ${isCurrent ? "text-accent" : ""}`}>{item.rank}</span>
+            )}
+            {!(isCurrent && isPlaying) && <Play size={14} fill="currentColor" className="hidden text-ink group-hover:block" />}
+          </>
+        ) : (
+          item.rank
+        )}
+      </td>
+      <td className="px-4 py-2.5">
         <div className="flex items-center gap-3">
-          <SafeImage src={item.coverUrl ?? item.avatarUrl} alt="" width={36} height={36} className="rounded-lg object-cover shrink-0" />
+          <SafeImage
+            src={item.coverUrl ?? item.avatarUrl}
+            alt=""
+            width={40}
+            height={40}
+            className={`shrink-0 object-cover ${type === "artists" || type === "listeners" ? "rounded-full" : "rounded"}`}
+          />
           <div className="min-w-0">
-            <p className="flex items-center gap-1 truncate font-medium">
+            <p className={`flex items-center gap-1 truncate font-medium ${isCurrent ? "text-accent" : ""}`}>
               {itemLabel(item)}
               {item.verified && <BadgeCheck size={12} className="shrink-0 text-verified" />}
             </p>
@@ -493,16 +567,16 @@ function RankingRow({
           </div>
         </div>
       </td>
-      {type === "songs" && <td className="px-4 py-3 text-ink-muted">{item.genre}</td>}
-      <td className="px-4 py-3">
+      {type === "songs" && <td className="px-4 py-2.5 text-ink-muted">{item.genre}</td>}
+      <td className="px-4 py-2.5">
         <div className="flex items-center gap-2">
           <span className="w-14 shrink-0">{item.plays.toLocaleString("fr-FR")}</span>
-          <div className="h-1.5 w-24 overflow-hidden rounded-full bg-base">
+          <div className="h-1 w-24 overflow-hidden rounded-full bg-ink/10">
             <div className="h-full rounded-full bg-accent" style={{ width: `${maxPlays ? Math.min(100, (item.plays / maxPlays) * 100) : 0}%` }} />
           </div>
         </div>
       </td>
-      <td className="px-4 py-3">
+      <td className="px-4 py-2.5">
         {item.evolution === null ? (
           <span className="text-ink-muted">Nouveau</span>
         ) : item.evolution === 0 ? (
@@ -519,25 +593,20 @@ function RankingRow({
           </span>
         )}
       </td>
-      <td className="px-4 py-3">
-        <div className="flex items-center justify-end gap-1">
-          {type === "songs" && (
+      <td className="px-4 py-2.5">
+        <div className="flex items-center justify-end">
+          {playableSong && (
             <button
-              onClick={onPlay}
-              className={`grid h-8 w-8 place-items-center rounded-full border transition-colors ${
-                isCurrent ? "border-accent text-accent" : "border-border text-ink-muted hover:border-accent hover:text-accent"
-              }`}
+              onClick={(e) => {
+                e.stopPropagation();
+                openMenuAt(e.clientX, e.clientY);
+              }}
+              aria-label="Plus d'options"
+              className="grid h-8 w-8 place-items-center rounded-full text-ink-muted opacity-100 transition-opacity hover:text-ink [@media(hover:hover)]:opacity-0 [@media(hover:hover)]:group-hover:opacity-100"
             >
-              {isCurrent && isPlaying ? <Pause size={13} fill="currentColor" /> : <Play size={13} fill="currentColor" />}
+              <MoreHorizontal size={18} />
             </button>
           )}
-          <button
-            onClick={(e) => openMenuAt(e.clientX, e.clientY)}
-            disabled={!playableSong}
-            className="grid h-8 w-8 place-items-center rounded-full text-ink-muted hover:text-ink disabled:opacity-40"
-          >
-            <MoreVertical size={15} />
-          </button>
         </div>
       </td>
 

@@ -268,32 +268,31 @@ export function SongDetailClient() {
 
   return (
     <div className="mx-auto w-full max-w-[1600px] px-4 py-6 sm:px-6 md:px-10 md:py-10">
+      <SongHero
+        song={song}
+        album={album}
+        commentsCount={commentsCount}
+        isCurrent={isCurrent}
+        isPlaying={isPlaying}
+        liked={liked}
+        offline={offline}
+        offlineBusy={offlineBusy}
+        onTogglePlay={() =>
+          isCurrent ? togglePlay() : playQueue([song], 0, { type: "song", label: song.title, id: song._id })
+        }
+        onToggleLike={toggleLike}
+        onToggleOffline={toggleOffline}
+        onShare={() => setShowShareModal(true)}
+        onAddToQueue={() => {
+          enqueue(song);
+          pushToast("success", "Ajouté à la file d'attente.");
+        }}
+        onAddToPlaylist={() => setShowAddToPlaylist(true)}
+        onOpenMore={(x, y) => setMenuPosition({ x, y })}
+      />
       <div className="grid gap-6 lg:grid-cols-[1fr_320px]">
         <div className="min-w-0">
-          <SongHero
-            song={song}
-            album={album}
-            commentsCount={commentsCount}
-            isCurrent={isCurrent}
-            isPlaying={isPlaying}
-            liked={liked}
-            offline={offline}
-            offlineBusy={offlineBusy}
-            onTogglePlay={() =>
-              isCurrent ? togglePlay() : playQueue([song], 0, { type: "song", label: song.title, id: song._id })
-            }
-            onToggleLike={toggleLike}
-            onToggleOffline={toggleOffline}
-            onShare={() => setShowShareModal(true)}
-            onAddToQueue={() => {
-              enqueue(song);
-              pushToast("success", "Ajouté à la file d'attente.");
-            }}
-            onAddToPlaylist={() => setShowAddToPlaylist(true)}
-            onOpenMore={(x, y) => setMenuPosition({ x, y })}
-          />
-
-          <div className="mt-6">
+          <div>
             <SongTabs
               song={song}
               album={album}

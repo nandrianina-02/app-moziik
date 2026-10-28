@@ -259,7 +259,7 @@ async function getPopularPlaylists(limit: number, univers: Univers) {
 }
 
 /** Genres / ambiances : genres distincts des titres publiés, triés par popularité (nombre de titres). */
-async function getGenreTiles(limit: number, univers: Univers) {
+export async function getGenreTiles(limit: number, univers: Univers) {
   const results = await Song.aggregate([
     { $match: { status: "published", univers } },
     { $group: { _id: "$genre", count: { $sum: 1 } } },

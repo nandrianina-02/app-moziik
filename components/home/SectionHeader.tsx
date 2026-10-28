@@ -24,7 +24,7 @@ export function SectionHeader({
   return (
     <div className="mb-4 flex items-end justify-between gap-4">
       <div className="min-w-0">
-        <h2 className="flex items-center gap-2 font-display text-lg leading-tight tracking-tight text-ink">
+        <h2 className="flex items-center gap-2 font-display text-xl font-bold leading-tight tracking-tight text-ink md:text-2xl">
           {icon}
           <span className="truncate">{title}</span>
           {badge && (
@@ -39,9 +39,9 @@ export function SectionHeader({
       {seeAllHref && (
         <Link
           href={seeAllHref}
-          className="group flex shrink-0 items-center gap-0.5 text-xs font-medium text-ink-muted transition-colors hover:text-accent"
+          className="group flex shrink-0 items-center gap-0.5 text-sm font-semibold text-ink-muted transition-colors hover:text-ink hover:underline"
         >
-          Voir tout
+          Tout afficher
           <ChevronRight size={14} className="transition-transform group-hover:translate-x-0.5" />
         </Link>
       )}

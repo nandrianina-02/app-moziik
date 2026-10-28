@@ -36,6 +36,7 @@ import {
   type RecentSearchItem,
 } from "@/lib/recentSearches";
 import { useUnivers } from "@/context/UniversProvider";
+import { GenreTiles } from "@/components/home/GenreTiles";
 
 /* ----------------------------------------------------------------- types - */
 
@@ -99,8 +100,21 @@ function SearchPageContent() {
   const [type, setType] = useState(() => searchParams.get("type") ?? "all");
   const [tri, setTri] = useState(() => searchParams.get("sort") ?? "relevance");
   const [genre, setGenre] = useState(() => searchParams.get("genre") ?? "");
+  const [genresParcourir, setGenresParcourir] = useState<{ genre: string; count: number }[]>([]);
   const [filtresOuverts, setFiltresOuverts] = useState(false);
   const { univers } = useUnivers();
+
+  // Les genres de « Parcourir tout ». L'univers est dans l'adresse : la
+  // réponse est gardée dix minutes par le navigateur, et changer d'univers
+  // doit en demander une autre.
+  useEffect(() => {
+    const controleur = new AbortController();
+    fetch(`/api/genres?univers=${univers}`, { signal: controleur.signal })
+      .then((r) => (r.ok ? r.json() : { genres: [] }))
+      .then((d) => setGenresParcourir(d.genres ?? []))
+      .catch(() => {});
+    return () => controleur.abort();
+  }, [univers]);
 
   const [resultat, setResultat] = useState<Resultat | null>(null);
   const [chargement, setChargement] = useState(false);
@@ -755,6 +769,15 @@ function SearchPageContent() {
               ))}
             </div>
           </section>
+
+          {/* « Parcourir tout », comme sur Spotify : une tuile par genre,
+              qui mène à ses titres. */}
+          {genresParcourir.length > 0 && (
+            <section className="mb-10">
+              <h2 className="mb-4 font-display text-xl font-bold text-ink md:text-2xl">Parcourir tout</h2>
+              <GenreTiles genres={genresParcourir} />
+            </section>
+          )}
 
           {/* Sections éditoriales de l'admin. Uniquement dans l'état par
               défaut : pendant une recherche, l'écran appartient aux

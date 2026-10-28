@@ -173,24 +173,27 @@ export default function EventsPage() {
   const affiches = filtres.slice(0, visibles);
 
   return (
-    <div className="mx-auto w-full max-w-[1600px] px-6 py-8 md:px-10 md:py-10">
-      <section className="relative mb-7 overflow-hidden rounded-xl2 bg-[#0b1020] px-6 py-10 md:px-10 md:py-14">
-        <div aria-hidden className="absolute inset-0 bg-gradient-to-br from-accent/25 via-transparent to-transparent" />
+    <div className="mx-auto w-full max-w-[1600px] px-4 py-6 sm:px-6 md:px-10 md:py-10">
+      {/* En-tête pleine largeur, comme les autres pages : une lueur de
+          l'accent qui s'efface, aux couleurs du thème (il était bleu nuit
+          en dur, quel que soit le thème choisi). */}
+      <section className="relative -mx-4 -mt-6 mb-7 px-4 pb-6 pt-10 sm:-mx-6 sm:px-6 md:-mx-10 md:-mt-10 md:px-10 md:pt-16">
+        <div aria-hidden className="absolute inset-0 bg-gradient-to-b from-accent/30 via-accent/[0.08] to-transparent" />
 
-        <div className="relative">
-          <h1 className="font-display text-3xl text-white md:text-4xl">Évènements</h1>
-          <p className="mt-2 max-w-xl text-sm text-white/70">
+        <div className="relative animate-fade-in-up">
+          <h1 className="font-display text-4xl font-bold tracking-tight md:text-6xl">Évènements</h1>
+          <p className="mt-2 max-w-xl text-sm text-ink/70">
             Concerts, festivals et rencontres annoncés sur {siteName}.
           </p>
 
           <div className="relative mt-6 max-w-lg">
-            <Search size={16} className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-white/50" />
+            <Search size={16} className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-ink-muted" />
             <input
               value={recherche}
               onChange={(e) => setRecherche(e.target.value)}
               placeholder="Rechercher un évènement, un lieu..."
               aria-label="Rechercher un évènement"
-              className="w-full rounded-full border border-white/15 bg-white/10 py-3 pl-11 pr-4 text-sm text-white placeholder:text-white/50 outline-none backdrop-blur-sm transition-colors focus:border-accent"
+              className="w-full rounded-full border border-transparent bg-ink/[0.08] py-3 pl-11 pr-4 text-sm text-ink outline-none transition-colors placeholder:text-ink-muted hover:bg-ink/[0.12] focus:border-ink/40"
             />
           </div>
         </div>
@@ -201,8 +204,8 @@ export default function EventsPage() {
           type="button"
           onClick={() => setCategorie("")}
           aria-pressed={categorie === ""}
-          className={`rounded-full px-4 py-2 text-xs font-medium transition-colors ${
-            categorie === "" ? "bg-accent text-base" : "border border-border text-ink-muted hover:border-accent hover:text-ink"
+          className={`rounded-full px-3.5 py-1.5 text-sm font-medium transition-colors duration-200 ${
+            categorie === "" ? "bg-ink text-base" : "bg-ink/[0.08] text-ink hover:bg-ink/[0.14]"
           }`}
         >
           Toutes ({events.length})
@@ -216,10 +219,8 @@ export default function EventsPage() {
             type="button"
             onClick={() => setCategorie(valeur)}
             aria-pressed={categorie === valeur}
-            className={`rounded-full px-4 py-2 text-xs font-medium transition-colors ${
-              categorie === valeur
-                ? "bg-accent text-base"
-                : "border border-border text-ink-muted hover:border-accent hover:text-ink"
+            className={`rounded-full px-3.5 py-1.5 text-sm font-medium transition-colors duration-200 ${
+              categorie === valeur ? "bg-ink text-base" : "bg-ink/[0.08] text-ink hover:bg-ink/[0.14]"
             }`}
           >
             {libelleCategorie(valeur)} ({comptesParCategorie.get(valeur)})

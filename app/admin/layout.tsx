@@ -27,6 +27,8 @@ import {
   Megaphone,
   AudioLines,
   Tags,
+  Copy,
+  CalendarClock,
 } from "lucide-react";
 import { AdminHeaderSlot } from "@/components/admin/AdminChrome";
 
@@ -134,6 +136,20 @@ const links = [
     icon: Tags,
     titre: "Genres à valider",
     description: "Les genres proposés par l'analyse, à accepter ou corriger, et les titres encore sans genre.",
+  },
+  {
+    href: "/admin/doublons",
+    label: "Doublons",
+    icon: Copy,
+    titre: "Doublons",
+    description: "Les morceaux importés deux fois, repérés à l'écoute : garder l'un, écarter l'autre.",
+  },
+  {
+    href: "/admin/annees",
+    label: "Années",
+    icon: CalendarClock,
+    titre: "Années de sortie",
+    description: "Les titres datés du jour de leur import, à dater par album.",
   },
   {
     href: "/admin/paroles",

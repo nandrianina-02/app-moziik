@@ -93,6 +93,14 @@ export interface ISong {
   genreSource?: "artiste" | "balise" | "audio";
   /** Date à laquelle l'administration a validé le genre : ces titres servent d'exemples à l'analyse du son. */
   genreVerifie?: Date;
+  /**
+   * Date à laquelle l'administration a confirmé l'année de sortie
+   * (app/admin/annees). Beaucoup de titres importés ont reçu la date de leur
+   * import : tant qu'elle n'est pas confirmée, l'année est douteuse.
+   */
+  anneeVerifiee?: Date;
+  /** Titre gardé quand celui-ci a été écarté comme doublon (app/admin/doublons). */
+  doublonDe?: Types.ObjectId;
   musicalKey?: string; // tonalité (ex. "C#m")
   isrc?: string;
   copyright?: string;
@@ -147,6 +155,8 @@ const SongSchema = new Schema<ISong>({
   genreConfiance: { type: Number },
   genreSource: { type: String, enum: ["artiste", "balise", "audio"] },
   genreVerifie: { type: Date },
+  anneeVerifiee: { type: Date },
+  doublonDe: { type: Schema.Types.ObjectId, ref: "Song" },
   musicalKey: { type: String },
   isrc: { type: String },
   copyright: { type: String },

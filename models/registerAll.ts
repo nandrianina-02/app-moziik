@@ -25,6 +25,7 @@ import "@/models/Badge";
 import "@/models/Comment";
 import "@/models/Conversation";
 import "@/models/CurationRun";
+import "@/models/Doublon";
 import "@/models/Event";
 import "@/models/HelpArticle";
 import "@/models/HomepageHubCard";

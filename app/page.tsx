@@ -8,9 +8,8 @@ import { Skeleton } from "@/components/ui/Skeleton";
 import { useToast } from "@/context/ToastProvider";
 import type { PlayableSong } from "@/context/PlayerProvider";
 import { HeroCarousel, type HeroSlide } from "@/components/home/HeroCarousel";
-import { AccueilEntete } from "@/components/home/AccueilEntete";
-import { RaccourcisAccueil } from "@/components/home/RaccourcisAccueil";
-import { CarteBandeSon } from "@/components/home/CarteBandeSon";
+import { AccueilEntete, SECTIONS_PAR_FILTRE, type FiltreAccueil } from "@/components/home/AccueilEntete";
+import { AccesRapide } from "@/components/home/AccesRapide";
 import { EventsCard, RadioCard, FeaturedArtists, ActivityFeed, SupportArtistsCard } from "@/components/home/HomeSidebar";
 import { PremiumBanner } from "@/components/home/PremiumBanner";
 import { SectionHeader } from "@/components/home/SectionHeader";
@@ -41,6 +40,8 @@ export default function HomePage() {
   }, [failed, pushToast]);
 
   const canPublish = session?.user?.role === "artist" || session?.user?.role === "admin";
+  const [filtre, setFiltre] = useState<FiltreAccueil>("tout");
+  const tout = filtre === "tout";
 
   const newReleases = slotData<PlayableSong[]>(slots, "new_releases") ?? [];
 
@@ -56,7 +57,12 @@ export default function HomePage() {
   const topTracksSlot = slots.find((s) => s.key === "top_tracks");
   const topTracks = topTracksSlot?.status === "ready" ? (topTracksSlot.data as PlayableSong[]) : undefined;
 
-  const mainSlots = slots.filter((s) => !SIDEBAR_SECTION_KEYS.includes(s.key) && s.key !== "premium");
+  const mainSlots = slots.filter(
+    (s) =>
+      !SIDEBAR_SECTION_KEYS.includes(s.key) &&
+      s.key !== "premium" &&
+      (tout || SECTIONS_PAR_FILTRE[filtre as Exclude<FiltreAccueil, "tout">].includes(s.key))
+  );
   // La colonne latérale garde son ordre visuel propre (palmarès en haut,
   // activité en bas) : l'ordre défini par l'admin pilote le flux principal,
   // pas l'empilement de cette colonne.
@@ -69,8 +75,16 @@ export default function HomePage() {
   }>(slots, "premium");
 
   return (
-    <div className="mx-auto w-full max-w-[1600px] px-6 py-8 md:px-10 md:py-10">
-      <AccueilEntete peutPublier={canPublish} />
+    <div className="relative">
+      {/* Une lueur de l'accent en haut du panneau, qui s'efface en
+          descendant : l'accueil a une tête, sans bandeau ni image. */}
+      <div aria-hidden className="pointer-events-none absolute inset-x-0 top-0 h-80 bg-gradient-to-b from-accent/[0.14] to-transparent" />
+    <div className="relative mx-auto w-full max-w-[1600px] px-4 py-6 md:px-8 md:py-8">
+      <AccueilEntete peutPublier={canPublish} filtre={filtre} onFiltre={setFiltre} />
+
+      <div className="mb-8 animate-fade-in-up">
+        <AccesRapide secours={topTracks?.length ? topTracks : newReleases} />
+      </div>
 
       {/* La page vient de l'instantané gardé sur l'appareil : elle est
           lisible tout de suite, mais elle date de la dernière visite. Le
@@ -83,9 +97,9 @@ export default function HomePage() {
         </p>
       )}
 
-      <div className="grid grid-cols-1 gap-8 lg:grid-cols-[1fr_320px]">
+      <div className={`grid grid-cols-1 gap-8 ${tout ? "lg:grid-cols-[1fr_320px]" : ""}`}>
         <div className="space-y-10 min-w-0">
-          {heroPending ? (
+          {!tout ? null : heroPending ? (
             <Skeleton
               aria-busy="true"
               className="min-h-[340px] w-full rounded-xl2 sm:min-h-[400px] md:min-h-[440px] lg:min-h-[480px]"
@@ -93,12 +107,6 @@ export default function HomePage() {
           ) : (
             <HeroCarousel slides={(hero as HeroSlide[] | null) ?? []} relatedSongs={newReleases} />
           )}
-
-          {/* Les deux blocs qui suivent ne dépendent d'aucune donnée du
-              flux : ils sont là dès le premier rendu, et ne laissent donc
-              jamais de squelette derrière eux. */}
-          <RaccourcisAccueil />
-          <CarteBandeSon />
 
           {/* Avant même de connaître la liste des sections (première ligne
               du flux), la page occupe déjà sa place à l'écran. */}
@@ -119,7 +127,11 @@ export default function HomePage() {
 
           {/* La colonne latérale et la bannière arrivent toujours au
               premier lot : seule cette colonne-ci se prolonge. */}
-          <SuiteSections encore={encore} suite={suite} charger={chargerSuite} />
+          {!tout && !starting && mainSlots.length === 0 && (
+            <p className="py-10 text-center text-sm text-ink-muted">Rien de ce type sur l&apos;accueil pour l&apos;instant.</p>
+          )}
+
+          {tout && <SuiteSections encore={encore} suite={suite} charger={chargerSuite} />}
         </div>
 
         {/* `lg:sticky` : la colonne latérale suit le défilement de la
@@ -130,7 +142,8 @@ export default function HomePage() {
             la musique. Deux colonnes sur téléphone les ramènent à trois
             rangées. Les cartes qui portent une liste — artistes, activité —
             reprennent la pleine largeur (`sm:col-span-2` posé chez elles). */}
-        <aside className="grid grid-cols-2 gap-3 sm:grid-cols-2 lg:block lg:space-y-4 lg:sticky lg:top-6 lg:self-start">
+        {tout && (
+        <aside className="grid grid-cols-2 gap-3 sm:grid-cols-2 lg:block lg:space-y-4 lg:sticky lg:top-24 lg:self-start">
           {starting && ["top_tracks", "events"].map((key) => <HomeSidebarSkeleton key={key} sectionKey={key} />)}
 
           {sidebarSlots.map((slot) => {
@@ -158,14 +171,16 @@ export default function HomePage() {
 
           <SupportArtistsCard />
         </aside>
+        )}
       </div>
 
-      {premiumData && (
+      {tout && premiumData && (
         <div className="mt-10">
           <PremiumBanner plans={premiumData.plans} isSubscriber={premiumData.isSubscriber} />
         </div>
       )}
 
+    </div>
     </div>
   );
 }

@@ -118,7 +118,7 @@ export default function AppearancePage() {
         <ArrowLeft size={15} /> Mon compte
       </Link>
 
-      <h1 className="text-2xl font-display sm:text-3xl">Apparence</h1>
+      <h1 className="font-display text-2xl font-bold sm:text-3xl">Apparence</h1>
       <p className="mt-1 text-sm text-ink-muted">
         {peutPersonnaliser
           ? "Choisis un thème ou compose le tien. L'aperçu s'applique tout de suite ; rien n'est gardé tant que tu n'as pas enregistré."

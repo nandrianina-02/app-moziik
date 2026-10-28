@@ -116,7 +116,7 @@ export default function ActivitePage() {
   if (status !== "authenticated") {
     return (
       <div className="animate-fade-in-up mx-auto w-full max-w-3xl px-4 py-6 sm:px-6 md:px-10 md:py-10">
-        <h1 className="text-2xl font-display">Historique d&apos;activité</h1>
+        <h1 className="font-display text-2xl font-bold">Historique d&apos;activité</h1>
         <p className="mt-2 text-sm text-ink-muted">
           Connectez-vous pour consulter votre historique.{" "}
           <Link href="/connexion" className="text-accent hover:underline">
@@ -139,7 +139,7 @@ export default function ActivitePage() {
           <ArrowLeft size={15} /> Mon compte
         </Link>
 
-        <h1 className="flex items-center gap-2 text-2xl font-display sm:text-3xl">
+        <h1 className="flex items-center gap-2 font-display text-2xl font-bold sm:text-3xl">
           <History size={22} className="text-accent" /> Historique d&apos;activité
         </h1>
         <p className="mt-1 text-sm text-ink-muted">

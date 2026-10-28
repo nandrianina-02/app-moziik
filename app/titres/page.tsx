@@ -53,7 +53,7 @@ function BrowseSongsPageContent() {
 
   return (
     <div className="mx-auto w-full max-w-[1600px] px-6 py-8 md:px-10 md:py-10">
-      <h1 className="mb-1 text-2xl font-display">Découvrir</h1>
+      <h1 className="mb-1 font-display text-2xl font-bold md:text-3xl">Découvrir</h1>
       <p className="mb-6 text-sm text-ink-muted">Tous les titres publiés sur Moziik.</p>
 
       <div className="mb-6 flex flex-wrap gap-2">
@@ -61,8 +61,10 @@ function BrowseSongsPageContent() {
           <button
             key={g}
             onClick={() => setGenre(g)}
-            className={`rounded-full border px-3.5 py-1.5 text-xs font-medium transition-colors ${
-              genre === g ? "border-accent bg-accent text-base" : "border-border text-ink-muted hover:border-accent"
+            aria-pressed={genre === g}
+            // Les mêmes puces que l'accueil, la bibliothèque et les classements.
+            className={`rounded-full px-3.5 py-1.5 text-sm font-medium transition-colors duration-200 ${
+              genre === g ? "bg-ink text-base" : "bg-ink/[0.08] text-ink hover:bg-ink/[0.14]"
             }`}
           >
             {g}
@@ -82,7 +84,7 @@ function BrowseSongsPageContent() {
         <p className="py-16 text-center text-sm text-ink-muted">Aucun titre pour ce genre.</p>
       ) : (
         <>
-          <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6">
+          <div className="grid grid-cols-2 gap-x-2 gap-y-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6">
             {songs.map((song, index) => (
               <Reveal key={song._id} delayMs={(index % 12) * 30}>
                 <SongCard song={song} queue={songs} index={index} />

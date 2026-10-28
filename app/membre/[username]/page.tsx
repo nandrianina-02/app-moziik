@@ -79,7 +79,7 @@ export default function MemberProfilePage() {
         />
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-2">
-            <h1 className="truncate text-2xl font-display">{user.name}</h1>
+            <h1 className="truncate font-display text-2xl font-bold md:text-3xl">{user.name}</h1>
             {artist?.verified && <BadgeCheck size={18} className="shrink-0 text-verified" />}
           </div>
           <p className="text-sm text-ink-muted">@{user.username}</p>

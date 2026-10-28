@@ -270,7 +270,7 @@ export default function AccountPage() {
   if (status === "authenticated" && session?.user && !profil) {
     return (
       <div className="animate-fade-in-up mx-auto w-full max-w-4xl px-4 py-6 sm:px-6 md:px-10 md:py-10">
-        <h1 className="text-2xl font-display sm:text-3xl">Mon compte</h1>
+        <h1 className="font-display text-2xl font-bold sm:text-3xl">Mon compte</h1>
         <div className="mt-6 rounded-xl2 border border-border bg-surface p-6 text-center">
           <p className="text-sm text-ink">
             {echec
@@ -303,7 +303,7 @@ export default function AccountPage() {
   if (status !== "authenticated" || !session?.user || !profil) {
     return (
       <div className="animate-fade-in-up mx-auto w-full max-w-4xl px-4 py-6 sm:px-6 md:px-10 md:py-10">
-        <h1 className="text-2xl font-display">Mon compte</h1>
+        <h1 className="font-display text-2xl font-bold">Mon compte</h1>
         <p className="mt-2 text-sm text-ink-muted">
           Connecte-toi pour accéder à ton compte.{" "}
           <Link href="/connexion" className="text-accent hover:underline">
@@ -318,7 +318,7 @@ export default function AccountPage() {
 
   return (
     <div className="mx-auto w-full max-w-4xl px-4 py-6 sm:px-6 md:px-10 md:py-10">
-      <h1 className="text-2xl font-display sm:text-3xl">Mon compte</h1>
+      <h1 className="font-display text-2xl font-bold sm:text-3xl">Mon compte</h1>
       <p className="mt-1 text-sm text-ink-muted">Gérez vos informations personnelles et vos préférences.</p>
 
       <div className="mt-5">

@@ -47,7 +47,7 @@ export default function ArtistRevenuePage() {
 
   return (
     <div className="mx-auto w-full max-w-2xl px-6 py-8 md:px-10 md:py-10">
-      <h1 className="text-2xl font-display mb-6">Mes revenus</h1>
+      <h1 className="mb-6 font-display text-2xl font-bold md:text-3xl">Mes revenus</h1>
 
       <div className="grid grid-cols-2 gap-4 mb-8">
         <StatCard label="Total cumulé" value={`${data.totalUSD.toFixed(2)} $`} icon={Wallet} />

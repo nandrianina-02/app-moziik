@@ -434,7 +434,7 @@ function SearchPageContent() {
 
   return (
     <div className="mx-auto w-full max-w-6xl px-4 py-6 sm:px-6 md:px-10 md:py-10">
-      <h1 className="mb-5 font-display text-2xl text-ink">Recherche</h1>
+      <h1 className="mb-5 font-display text-2xl font-bold text-ink md:text-3xl">Recherche</h1>
 
       {!isOnline && (
         <p className="mb-4 flex items-center gap-1.5 text-xs text-accent">

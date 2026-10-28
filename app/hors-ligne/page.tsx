@@ -46,7 +46,7 @@ export default function HorsLignePage() {
         <CloudOff size={28} />
       </span>
 
-      <h1 className="text-2xl font-display text-ink">
+      <h1 className="font-display text-2xl font-bold text-ink">
         {enLigne ? "Cette page n’est pas enregistrée" : "Vous êtes hors-ligne"}
       </h1>
       <p className="mt-2 text-sm text-ink-muted">

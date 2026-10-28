@@ -26,7 +26,7 @@ const shareableTypes: ShareSubjectType[] = ["song", "album", "playlist", "artist
 
 export function CustomCollection({ items }: { items: CustomItem[] }) {
   return (
-    <div className="stagger grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6">
+    <div className="stagger grid grid-cols-2 gap-x-2 gap-y-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6">
       {items.map((item) => (
         <CustomCollectionTile key={item._id} item={item} />
       ))}
@@ -65,17 +65,11 @@ function CustomCollectionTile({ item }: { item: CustomItem }) {
       onTouchEnd={longPress.onTouchEnd}
       onTouchMove={longPress.onTouchMove}
     >
-      <Link href={item.href} className="pressable group">
-        <div className="relative aspect-square w-full overflow-hidden rounded-xl2 bg-surface">
-          <SafeImage
-            src={item.coverUrl}
-            alt={item.title}
-            width={200}
-            height={200}
-            className="h-full w-full object-cover transition-transform group-hover:scale-105"
-          />
+      <Link href={item.href} className="pressable group block rounded-lg p-2 transition-colors duration-200 hover:bg-ink/[0.06]">
+        <div className="relative aspect-square w-full overflow-hidden rounded-md bg-surface shadow-[0_8px_24px_rgba(0,0,0,0.35)]">
+          <SafeImage src={item.coverUrl} alt={item.title} width={200} height={200} className="h-full w-full object-cover" />
         </div>
-        <p className="mt-2 truncate text-sm font-medium text-ink">{item.title}</p>
+        <p className="mt-2.5 truncate text-sm font-semibold text-ink">{item.title}</p>
       </Link>
 
       {menuPosition && (

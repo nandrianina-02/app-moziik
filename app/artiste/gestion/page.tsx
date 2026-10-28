@@ -329,7 +329,7 @@ export default function ArtistManagementPage() {
           className="h-[72px] w-[72px] shrink-0 rounded-full object-cover sm:h-24 sm:w-24"
         />
         <div className="min-w-0">
-          <h1 className="text-2xl font-display sm:text-3xl">Mon espace artiste</h1>
+          <h1 className="font-display text-2xl font-bold sm:text-3xl">Mon espace artiste</h1>
           <p className="mt-1 text-sm text-ink-muted">Gère ta musique, tes albums et tes collaborations</p>
           {artist?.verified && (
             <span className="mt-2.5 inline-flex items-center gap-1.5 rounded-full border border-border px-3 py-1 text-xs font-medium text-verified">

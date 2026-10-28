@@ -22,7 +22,7 @@ type AlbumCardData = {
 
 export function AlbumGrid({ albums }: { albums: AlbumCardData[] }) {
   return (
-    <div className="stagger grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6">
+    <div className="stagger grid grid-cols-2 gap-x-2 gap-y-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6">
       {albums.map((album) => (
         <AlbumTile key={album._id} album={album} />
       ))}

@@ -51,7 +51,7 @@ export function SectionBlock({ section, sourceLabel = "home" }: { section: Secti
         const songs = section.data as PlayableSong[];
         if (songs.length === 0) return null;
         return (
-          <div className="stagger grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6">
+          <div className="stagger grid grid-cols-2 gap-x-2 gap-y-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6">
             {songs.map((song, index) => (
               <SongCard
                 key={song._id}
@@ -131,21 +131,22 @@ export function SectionBlock({ section, sourceLabel = "home" }: { section: Secti
 
 function ArtistRow({ artists }: { artists: ArtistCard[] }) {
   return (
-    <div className="stagger grid grid-cols-3 gap-4 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-8">
+    // La carte d'artiste de Spotify : photo ronde, nom, « Artiste », la carte qui s'éclaire au survol.
+    <div className="stagger grid grid-cols-3 gap-x-2 gap-y-3 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-8">
       {artists.map((artist) => (
-        <Link key={artist._id} href={`/artiste/${artist._id}`} className="group text-center">
+        <Link key={artist._id} href={`/artiste/${artist._id}`} className="group rounded-lg p-2 transition-colors duration-200 hover:bg-ink/[0.06]">
           <SafeImage
             src={artist.coverUrl}
             alt={artist.stageName}
-            width={96}
-            height={96}
-            className="mx-auto aspect-square w-full rounded-full object-cover transition-transform group-hover:scale-105"
+            width={120}
+            height={120}
+            className="mx-auto aspect-square w-full rounded-full object-cover shadow-[0_8px_24px_rgba(0,0,0,0.35)]"
           />
-          <p className="mt-2 flex items-center justify-center gap-1 truncate text-xs font-medium">
+          <p className="mt-2.5 flex items-center gap-1 truncate text-sm font-semibold">
             <span className="truncate">{artist.stageName}</span>
-            {artist.verified && <BadgeCheck size={11} className="shrink-0 text-verified" />}
+            {artist.verified && <BadgeCheck size={12} className="shrink-0 text-verified" />}
           </p>
-          <p className="truncate text-[11px] text-ink-muted">{artist.followersCount} abonnés</p>
+          <p className="truncate text-xs text-ink-muted">Artiste · {artist.followersCount} abonnés</p>
         </Link>
       ))}
     </div>
@@ -159,7 +160,7 @@ function EventRow({ events }: { events: EventCardData[] }) {
         <Link
           key={event._id}
           href="/evenements"
-          className="flex items-center gap-3 rounded-xl2 border border-border bg-surface px-4 py-3 transition-colors hover:border-accent"
+          className="flex items-center gap-3 rounded-md bg-ink/[0.06] px-3 py-2.5 transition-colors duration-200 hover:bg-ink/[0.12]"
         >
           <SafeImage src={event.coverUrl} alt="" width={44} height={44} className="shrink-0 rounded-lg object-cover" />
           <span className="min-w-0 flex-1">

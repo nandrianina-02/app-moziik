@@ -7,6 +7,7 @@ import { withApiErrors } from "@/lib/apiError";
 import { requireAdmin } from "@/lib/requireAdmin";
 import { parseOrThrow } from "@/lib/validation";
 import { oublierSectionsPubliees } from "@/lib/cacheSections";
+import { ANNEES_DOUTEUSES } from "@/lib/adminQualite";
 
 /**
  * Les années de sortie douteuses, pour l'administration.
@@ -23,9 +24,6 @@ import { oublierSectionsPubliees } from "@/lib/cacheSections";
  */
 
 const GROUPES_PAR_PAGE = 15;
-const DEUX_JOURS_MS = 2 * 86_400_000;
-/** Au-delà, une sortie « nostalgique » est forcément une date d'import. */
-const NOSTALGIE_AVANT = new Date(Date.UTC(2010, 0, 1));
 
 const corpsSchema = z
   .object({
@@ -35,14 +33,7 @@ const corpsSchema = z
   })
   .refine((v) => (v.annee !== undefined) !== (v.confirmer === true), { message: "Un seul choix : année ou confirmer." });
 
-const DOUTEUX = {
-  status: "published",
-  anneeVerifiee: { $exists: false },
-  $or: [
-    { $expr: { $lte: [{ $abs: { $subtract: ["$releaseDate", "$createdAt"] } }, DEUX_JOURS_MS] } },
-    { genre: "Nostalgie", releaseDate: { $gte: NOSTALGIE_AVANT } },
-  ],
-};
+const DOUTEUX = ANNEES_DOUTEUSES;
 
 export const GET = withApiErrors(async (req: Request) => {
   await requireAdmin(req);

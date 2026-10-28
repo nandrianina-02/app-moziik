@@ -2,277 +2,112 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import {
-  LayoutDashboard,
-  Users,
-  Music,
-  Disc3,
-  ListMusic,
-  MessageCircle,
-  CalendarDays,
-  Settings,
-  Award,
-  Home,
-  UploadCloud,
-  LifeBuoy,
-  HelpCircle,
-  Inbox,
-  Sparkles,
-  Wand2,
-  LineChart,
-  Church,
-  UserCog,
-  Timer,
-  Gauge,
-  Megaphone,
-  AudioLines,
-  Tags,
-  Copy,
-  CalendarClock,
-} from "lucide-react";
+import { UserCog } from "lucide-react";
 import { AdminHeaderSlot } from "@/components/admin/AdminChrome";
+import { ATraiterProvider, useATraiter } from "@/components/admin/ATraiter";
+import { SECTIONS_ADMIN, correspond, pageOuverte } from "@/components/admin/navigationAdmin";
 
-/**
- * Une entrée de navigation porte aussi l'en-tête de sa page : titre et
- * sous-titre vivent ici, pas dans chaque écran. C'est ce qui garantit que
- * toutes les pages d'administration se présentent de la même façon — avant,
- * certaines avaient leur propre titre, d'autres aucun.
- */
-const links = [
-  {
-    href: "/admin",
-    label: "Vue d'ensemble",
-    icon: LayoutDashboard,
-    titre: "Vue d'ensemble",
-    description: "L'activité de la plateforme en un coup d'œil.",
-  },
-  {
-    href: "/admin/accueil",
-    label: "Page d'accueil",
-    icon: Home,
-    titre: "Page d'accueil",
-    description: "Composez les sections vues par les visiteurs.",
-  },
-  {
-    href: "/admin/membres",
-    label: "Membres & artistes",
-    icon: Users,
-    titre: "Membres & artistes",
-    description: "Comptes, rôles, vérifications et suspensions.",
-  },
-  {
-    href: "/admin/musiques",
-    label: "Musiques",
-    icon: Music,
-    titre: "Musiques",
-    description: "Le catalogue publié, planifié et en brouillon.",
-  },
-  {
-    href: "/admin/import",
-    label: "Import de musiques",
-    icon: UploadCloud,
-    titre: "Import de musiques",
-    description: "Publiez plusieurs morceaux en une seule fois.",
-  },
-  {
-    href: "/admin/albums",
-    label: "Albums",
-    icon: Disc3,
-    titre: "Albums",
-    description: "Les disques du catalogue et leurs titres.",
-  },
-  {
-    href: "/admin/playlists",
-    label: "Playlists",
-    icon: ListMusic,
-    titre: "Playlists",
-    description: "Les sélections publiques et éditoriales.",
-  },
-  {
-    href: "/admin/analyses",
-    label: "Analyses",
-    icon: LineChart,
-    titre: "Analyses",
-    description: "Rapports hebdomadaires et points d'attention.",
-  },
-  {
-    href: "/admin/selections",
-    label: "Sélections auto",
-    icon: Wand2,
-    titre: "Sélections automatiques",
-    description: "Les playlists proposées chaque semaine, à valider.",
-  },
-  {
-    href: "/admin/univers",
-    label: "Général / Évangélique",
-    icon: Church,
-    titre: "Général / Évangélique",
-    description: "Le classement du catalogue en deux univers musicaux.",
-  },
-  {
-    href: "/admin/commentaires",
-    label: "Commentaires",
-    icon: MessageCircle,
-    titre: "Commentaires",
-    description: "Ce que les auditeurs écrivent sous les morceaux.",
-  },
-  {
-    href: "/admin/messages",
-    label: "Messages",
-    icon: Inbox,
-    titre: "Messages",
-    description: "Les discussions ouvertes depuis la page de contact.",
-  },
-  {
-    href: "/admin/annonces",
-    label: "Annonces",
-    icon: Megaphone,
-    titre: "Annonces",
-    description: "Un message de la plateforme, envoyé à tous les membres, aux artistes ou aux abonnés.",
-  },
-  {
-    href: "/admin/genres",
-    label: "Genres",
-    icon: Tags,
-    titre: "Genres à valider",
-    description: "Les genres proposés par l'analyse, à accepter ou corriger, et les titres encore sans genre.",
-  },
-  {
-    href: "/admin/doublons",
-    label: "Doublons",
-    icon: Copy,
-    titre: "Doublons",
-    description: "Les morceaux importés deux fois, repérés à l'écoute : garder l'un, écarter l'autre.",
-  },
-  {
-    href: "/admin/annees",
-    label: "Années",
-    icon: CalendarClock,
-    titre: "Années de sortie",
-    description: "Les titres datés du jour de leur import, à dater par album.",
-  },
-  {
-    href: "/admin/paroles",
-    label: "Paroles",
-    icon: AudioLines,
-    titre: "Paroles",
-    description: "Les titres sans paroles ou à caler, et l'atelier de synchronisation.",
-  },
-  {
-    href: "/admin/evenements",
-    label: "Évènements",
-    icon: CalendarDays,
-    titre: "Évènements",
-    description: "Concerts et sorties annoncés sur la plateforme.",
-  },
-  {
-    href: "/admin/badges",
-    label: "Badges",
-    icon: Award,
-    titre: "Badges",
-    description: "Distinctions attribuées aux membres et aux artistes.",
-  },
-  {
-    href: "/admin/aide",
-    label: "Centre d'aide",
-    icon: LifeBuoy,
-    titre: "Centre d'aide",
-    description: "Les articles publiés sur la page d'aide publique.",
-  },
-  {
-    href: "/admin/escalades",
-    label: "Questions sans réponse",
-    icon: HelpCircle,
-    titre: "Questions sans réponse",
-    description: "Ce sur quoi l'assistant passe la main — et l'article qui manque.",
-  },
-  {
-    href: "/admin/ia",
-    label: "Assistance IA",
-    icon: Sparkles,
-    titre: "Assistance IA",
-    description: "Fonctionnalités assistées, plafond et consommation.",
-  },
-  {
-    href: "/admin/bpm",
-    label: "Tempo",
-    icon: Gauge,
-    titre: "Analyse du tempo",
-    description: "Mesurez le BPM des titres qui n'en ont pas — huit modes d'écoute en dépendent.",
-  },
-  {
-    href: "/admin/taches",
-    label: "Tâches",
-    icon: Timer,
-    titre: "Tâches planifiées",
-    description: "Relancez à la main ce que l'ordonnanceur exécute la nuit.",
-  },
-  {
-    href: "/admin/parametres",
-    label: "Paramètres du site",
-    icon: Settings,
-    titre: "Paramètres du site",
-    description: "Gérez les réglages globaux de votre plateforme.",
-  },
-];
+/** Un nombre d'éléments en attente, à côté d'une entrée de navigation. */
+function Compteur({ n }: { n: number }) {
+  if (n <= 0) return null;
+  return (
+    <span className="min-w-[18px] rounded bg-accent/10 px-1 text-center text-[11px] font-semibold tabular-nums leading-[18px] text-accent">
+      {n > 999 ? "999+" : n}
+    </span>
+  );
+}
 
-export default function AdminLayout({ children }: { children: React.ReactNode }) {
-  const pathname = usePathname();
-
-  // La plus longue route qui correspond : /admin/accueil doit gagner sur
-  // /admin, qui préfixe tout le reste.
-  const page =
-    [...links]
-      .sort((a, b) => b.href.length - a.href.length)
-      .find((l) => (l.href === "/admin" ? pathname === "/admin" : pathname.startsWith(l.href))) ?? links[0];
+function Navigation() {
+  const chemin = usePathname();
+  const compteurs = useATraiter();
+  const { section: ouverte, page } = pageOuverte(chemin);
 
   return (
-    <div className="mx-auto w-full max-w-[1600px] px-4 py-6 sm:px-6 sm:py-8 md:px-10 md:py-10">
-      <nav className="-mx-4 mb-7 flex gap-2 overflow-x-auto px-4 pb-1 sm:mx-0 sm:px-0">
-        {links.map(({ href, label, icon: Icon }) => {
-          const active = href === "/admin" ? pathname === "/admin" : pathname.startsWith(href);
-          return (
-            <Link
-              key={href}
-              href={href}
-              className={`flex items-center gap-1.5 whitespace-nowrap rounded-full border px-3.5 py-1.5 text-xs font-medium transition-colors ${
-                active
-                  ? "border-accent bg-accent text-base"
-                  : "border-border text-ink-muted hover:border-accent hover:text-ink"
-              }`}
-            >
-              <Icon size={14} />
-              {label}
-            </Link>
-          );
-        })}
+    <>
+      <header className="mb-8">
+        {/* Les sections : cinq entrées, chacune mène à sa première page. */}
+        <div className="flex items-center justify-between gap-4 border-b border-border">
+          <nav aria-label="Sections de l'administration" className="-mb-px -ml-3 flex min-w-0 overflow-x-auto">
+            {SECTIONS_ADMIN.map((section) => {
+              const active = section === ouverte;
+              const enAttente = section.pages.reduce((n, p) => n + (compteurs[p.href] ?? 0), 0);
+              const Icone = section.icon;
+              return (
+                <Link
+                  key={section.label}
+                  href={section.pages[0].href}
+                  aria-current={active ? "true" : undefined}
+                  className={`relative flex shrink-0 items-center gap-2 whitespace-nowrap px-3 py-3 text-sm font-medium transition-colors ${
+                    active ? "text-ink" : "text-ink-muted hover:text-ink"
+                  }`}
+                >
+                  <Icone size={15} className={active ? "text-accent" : ""} />
+                  {section.label}
+                  <Compteur n={enAttente} />
+                  <span
+                    aria-hidden
+                    className={`absolute bottom-0 left-3 right-3 h-0.5 transition-colors ${
+                      active ? "bg-accent" : "bg-transparent"
+                    }`}
+                  />
+                </Link>
+              );
+            })}
+          </nav>
+          {/* Sortie de l'administration : on y arrive par le menu du compte, rien n'y ramenait. */}
+          <Link
+            href="/compte"
+            className="flex shrink-0 items-center gap-1.5 py-3 text-xs font-medium text-ink-muted transition-colors hover:text-ink"
+          >
+            <UserCog size={14} />
+            <span className="hidden sm:inline">Mon compte</span>
+          </Link>
+        </div>
 
-        {/* Sortie de l'espace d'administration.
-            L'admin y arrive par le menu du compte, mais rien ne l'y
-            ramenait : la navigation ci-dessus ne liste que des écrans
-            d'administration, et « Mon compte » n'en est pas un. Le trait
-            marque bien qu'on quitte la série. */}
-        <span aria-hidden className="mx-1 w-px shrink-0 self-stretch bg-border" />
-        <Link
-          href="/compte"
-          className="flex items-center gap-1.5 whitespace-nowrap rounded-full border border-border px-3.5 py-1.5 text-xs font-medium text-ink-muted transition-colors hover:border-accent hover:text-ink"
-        >
-          <UserCog size={14} />
-          Mon compte
-        </Link>
-      </nav>
+        {/* Les pages de la section ouverte, et elles seules. */}
+        {ouverte.pages.length > 1 && (
+          <nav aria-label={`Pages de la section ${ouverte.label}`} className="-mx-1 flex overflow-x-auto py-2">
+            {ouverte.pages.map((p) => {
+              const active = correspond(p.href, chemin);
+              return (
+                <Link
+                  key={p.href}
+                  href={p.href}
+                  aria-current={active ? "page" : undefined}
+                  className={`flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-md px-2.5 py-1.5 text-[13px] transition-colors ${
+                    active ? "bg-surface font-medium text-ink" : "text-ink-muted hover:text-ink"
+                  }`}
+                >
+                  {p.label}
+                  <Compteur n={compteurs[p.href] ?? 0} />
+                </Link>
+              );
+            })}
+          </nav>
+        )}
+      </header>
 
-      {/* En-tête commun : titre, sous-titre, et le réceptacle où chaque page
-          vient déposer son action principale. */}
-      <div className="mb-6 flex flex-wrap items-start justify-between gap-4">
-        <div className="min-w-0">
-          <h1 className="text-2xl font-display sm:text-3xl">{page.titre}</h1>
-          <p className="mt-1 text-sm text-ink-muted">{page.description}</p>
+      {/* En-tête commun : la section en surtitre, le titre, et le réceptacle
+          où chaque page dépose son action principale. */}
+      <div className="mb-6 flex flex-wrap items-end justify-between gap-4">
+        <div key={page.href} className="min-w-0 animate-fade-in-up">
+          <p className="text-[11px] font-medium uppercase tracking-[0.14em] text-ink-muted">{ouverte.label}</p>
+          <h1 className="mt-1 text-2xl font-display sm:text-3xl">{page.titre}</h1>
+          <p className="mt-1 max-w-2xl text-sm text-ink-muted">{page.description}</p>
         </div>
         <AdminHeaderSlot />
       </div>
+    </>
+  );
+}
 
-      {children}
-    </div>
+export default function AdminLayout({ children }: { children: React.ReactNode }) {
+  return (
+    <ATraiterProvider>
+      <div className="mx-auto w-full max-w-[1600px] px-4 py-6 sm:px-6 sm:py-8 md:px-10 md:py-10">
+        <Navigation />
+        {children}
+      </div>
+    </ATraiterProvider>
   );
 }

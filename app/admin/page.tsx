@@ -2,11 +2,11 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { Users, Mic2, Music, Crown, UserPlus, Disc3, CalendarPlus, TrendingUp, TrendingDown, LucideIcon } from "lucide-react";
+import { ArrowRight, CalendarClock, CheckCircle2, Copy, Inbox, Tags, TrendingDown, TrendingUp, Wand2, type LucideIcon } from "lucide-react";
 import { AdminStatsSkeleton, AdminPanelSkeleton } from "@/components/admin/AdminSkeleton";
 import { Sparkline } from "@/components/admin/Sparkline";
 import { AreaChart } from "@/components/admin/AreaChart";
-import { DonutChart } from "@/components/admin/DonutChart";
+import { useATraiter } from "@/components/admin/ATraiter";
 import { useToast } from "@/context/ToastProvider";
 
 type Stats = {
@@ -25,37 +25,53 @@ type Stats = {
   recentActivity: { type: string; message: string; at: string }[];
 };
 
-const quickActions = [
-  { href: "/admin/membres", label: "Gérer les membres", icon: UserPlus, bg: "bg-accent/10", color: "text-accent" },
-  { href: "/admin/musiques", label: "Modérer les musiques", icon: Music, bg: "bg-tint-violet/10", color: "text-tint-violet" },
-  { href: "/admin/albums", label: "Gérer les albums", icon: Disc3, bg: "bg-tint-emerald/10", color: "text-tint-emerald" },
-  { href: "/admin/evenements", label: "Modérer les évènements", icon: CalendarPlus, bg: "bg-tint-amber/10", color: "text-tint-amber" },
+/** La liste de travail : ce qui attend une décision, dans l'ordre où il vaut mieux le traiter. */
+const FILES: { href: string; libelle: (n: number) => string; icon: LucideIcon }[] = [
+  { href: "/admin/messages", libelle: (n) => `${n} message${n > 1 ? "s" : ""} non lu${n > 1 ? "s" : ""}`, icon: Inbox },
+  { href: "/admin/selections", libelle: (n) => `${n} sélection${n > 1 ? "s" : ""} automatique${n > 1 ? "s" : ""} à valider`, icon: Wand2 },
+  { href: "/admin/doublons", libelle: (n) => `${n} doublon${n > 1 ? "s" : ""} possible${n > 1 ? "s" : ""}`, icon: Copy },
+  { href: "/admin/genres", libelle: (n) => `${n} genre${n > 1 ? "s" : ""} proposé${n > 1 ? "s" : ""} à valider`, icon: Tags },
+  { href: "/admin/annees", libelle: (n) => `${n} année${n > 1 ? "s" : ""} de sortie à vérifier`, icon: CalendarClock },
 ];
 
 function timeAgo(iso: string) {
   const diffMs = Date.now() - new Date(iso).getTime();
   const hours = Math.floor(diffMs / (60 * 60 * 1000));
   if (hours < 1) return "à l'instant";
-  if (hours < 24) return `il y a ${hours}h`;
+  if (hours < 24) return `il y a ${hours} h`;
   const days = Math.floor(hours / 24);
-  if (days < 30) return `il y a ${days}j`;
+  if (days < 30) return `il y a ${days} j`;
   return new Date(iso).toLocaleDateString("fr-FR", { day: "2-digit", month: "2-digit" });
 }
 
-function TrendLabel({ pct }: { pct: number | null }) {
-  if (pct === null) return <span className="text-ink-muted">Pas de données le mois dernier</span>;
-  const positive = pct >= 0;
+function Tendance({ pct }: { pct: number | null }) {
+  if (pct === null) return <span className="text-ink-muted">Pas de comparaison possible</span>;
+  const hausse = pct >= 0;
   return (
-    <span className={`flex items-center gap-1 ${positive ? "text-tint-emerald" : "text-accent"}`}>
-      {positive ? <TrendingUp size={12} /> : <TrendingDown size={12} />}
-      {positive ? "+" : ""}
-      {pct.toFixed(0)}% ce mois
+    <span className="flex items-center gap-1 text-ink-muted">
+      {hausse ? <TrendingUp size={12} className="text-accent" /> : <TrendingDown size={12} />}
+      <span className="tabular-nums text-ink">
+        {hausse ? "+" : ""}
+        {pct.toFixed(0)} %
+      </span>
+      sur un mois
     </span>
+  );
+}
+
+/** Un bloc titré, séparé du reste par un filet plutôt que par une carte. */
+function Bloc({ titre, children, className = "" }: { titre: string; children: React.ReactNode; className?: string }) {
+  return (
+    <section className={`animate-fade-in-up ${className}`}>
+      <h2 className="mb-3 border-b border-border pb-2 text-[11px] font-medium uppercase tracking-[0.14em] text-ink-muted">{titre}</h2>
+      {children}
+    </section>
   );
 }
 
 export default function AdminDashboardPage() {
   const pushToast = useToast();
+  const compteurs = useATraiter();
   const [stats, setStats] = useState<Stats | null>(null);
 
   useEffect(() => {
@@ -87,139 +103,95 @@ export default function AdminDashboardPage() {
     const date = new Date(Date.now() - (stats.signupsEvolution.length - 1 - i) * 24 * 60 * 60 * 1000);
     return date.toLocaleDateString("fr-FR", { day: "2-digit", month: "short" });
   });
+  const files = FILES.map((f) => ({ ...f, n: compteurs[f.href] ?? 0 })).filter((f) => f.n > 0);
+  const contenuMax = Math.max(1, ...stats.contentBreakdown.map((s) => s.count));
+
+  const chiffres = [
+    { label: "Membres", valeur: stats.members, tendance: stats.trends.members, courbe: stats.sparklines.members },
+    { label: "Artistes", valeur: stats.artists, tendance: stats.trends.artists, courbe: stats.sparklines.artists },
+    { label: "Titres publiés", valeur: stats.publishedSongs, tendance: stats.trends.songs, courbe: stats.sparklines.songs },
+    { label: "Abonnés Premium", valeur: stats.activeSubscriptions, tendance: stats.trends.subscriptions, courbe: null },
+  ];
 
   return (
-    <div className="space-y-6">
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <TopStatCard
-          icon={Users}
-          bg="bg-accent/10"
-          color="text-accent"
-          sparkColor="rgb(var(--color-accent))"
-          label="Membres"
-          value={stats.members}
-          trend={stats.trends.members}
-          sparkline={stats.sparklines.members}
-        />
-        <TopStatCard
-          icon={Mic2}
-          bg="bg-tint-violet/10"
-          color="text-tint-violet"
-          sparkColor="rgb(var(--tint-violet))"
-          label="Artistes"
-          value={stats.artists}
-          trend={stats.trends.artists}
-          sparkline={stats.sparklines.artists}
-        />
-        <TopStatCard
-          icon={Music}
-          bg="bg-tint-emerald/10"
-          color="text-tint-emerald"
-          sparkColor="rgb(var(--tint-emerald))"
-          label="Musiques"
-          value={stats.publishedSongs}
-          trend={stats.trends.songs}
-          sparkline={stats.sparklines.songs}
-        />
-        <TopStatCard
-          icon={Crown}
-          bg="bg-tint-amber/10"
-          color="text-tint-amber"
-          sparkColor="rgb(var(--tint-amber))"
-          label="Abonnements Premium"
-          value={stats.activeSubscriptions}
-          trend={stats.trends.subscriptions}
-          sparkline={null}
-        />
-      </div>
-
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-[1fr_320px]">
-        <div className="min-w-0 space-y-6">
-          <div className="rounded-xl2 border border-border bg-surface p-5">
-            <h2 className="mb-4 text-sm font-medium">Évolution des inscriptions</h2>
-            <AreaChart values={stats.signupsEvolution} labels={evolutionLabels} />
-          </div>
-
-          <div className="rounded-xl2 border border-border bg-surface p-5">
-            <h2 className="mb-1 text-sm font-medium">Actions rapides</h2>
-            <p className="mb-4 text-xs text-ink-muted">Accès direct aux tâches de modération les plus fréquentes</p>
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-              {quickActions.map(({ href, label, icon: Icon, bg, color }) => (
-                <Link
-                  key={href}
-                  href={href}
-                  className="flex items-center gap-3 rounded-xl border border-border px-4 py-3 text-sm font-medium transition-colors hover:border-accent"
-                >
-                  <span className={`grid h-9 w-9 shrink-0 place-items-center rounded-full ${bg}`}>
-                    <Icon size={16} className={color} />
-                  </span>
-                  {label}
-                </Link>
-              ))}
+    <div className="space-y-10">
+      {/* Les chiffres clés, sur une seule bande : les filets entre les cases
+          sont l'écart de la grille, laissé à la couleur des bordures. */}
+      <div className="grid grid-cols-2 gap-px border-y border-border bg-border xl:grid-cols-4">
+        {chiffres.map((c) => (
+          <div key={c.label} className="flex flex-col gap-2 bg-base px-4 py-5 animate-fade-in-up xl:px-6">
+            <p className="text-xs text-ink-muted">{c.label}</p>
+            <div className="flex items-end justify-between gap-3">
+              <p className="text-3xl font-display tabular-nums leading-none">{c.valeur.toLocaleString("fr-FR")}</p>
+              {c.courbe && c.courbe.some((v) => v > 0) && <Sparkline values={c.courbe} />}
+            </div>
+            <div className="text-xs">
+              <Tendance pct={c.tendance} />
             </div>
           </div>
+        ))}
+      </div>
+
+      <div className="grid grid-cols-1 gap-10 lg:grid-cols-[1fr_340px]">
+        <div className="min-w-0 space-y-10">
+          <Bloc titre="À traiter">
+            {files.length === 0 ? (
+              <p className="flex items-center gap-2 py-2 text-sm text-ink-muted">
+                <CheckCircle2 size={15} className="text-accent" />
+                Rien n&apos;attend de décision pour l&apos;instant.
+              </p>
+            ) : (
+              <ul className="divide-y divide-border">
+                {files.map(({ href, libelle, icon: Icone, n }) => (
+                  <li key={href}>
+                    <Link href={href} className="group flex items-center gap-3 py-3 text-sm transition-colors hover:text-accent">
+                      <Icone size={16} className="shrink-0 text-ink-muted group-hover:text-accent" />
+                      <span className="flex-1">{libelle(n)}</span>
+                      <ArrowRight size={15} className="text-ink-muted transition-transform group-hover:translate-x-0.5 group-hover:text-accent" />
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </Bloc>
+
+          <Bloc titre="Inscriptions, trente derniers jours">
+            <AreaChart values={stats.signupsEvolution} labels={evolutionLabels} />
+          </Bloc>
         </div>
 
-        <div className="space-y-6">
-          <div className="rounded-xl2 border border-border bg-surface p-5">
-            <h2 className="mb-4 text-sm font-medium">Répartition du contenu</h2>
-            <DonutChart segments={stats.contentBreakdown} />
-          </div>
+        <div className="space-y-10">
+          <Bloc titre="Contenu">
+            <ul className="space-y-3">
+              {stats.contentBreakdown.map((s) => (
+                <li key={s.label}>
+                  <div className="mb-1 flex items-baseline justify-between text-sm">
+                    <span className="text-ink">{s.label}</span>
+                    <span className="tabular-nums text-ink-muted">{s.count.toLocaleString("fr-FR")}</span>
+                  </div>
+                  <div className="h-1 bg-border">
+                    <div className="h-1 bg-accent" style={{ width: `${(s.count / contenuMax) * 100}%` }} />
+                  </div>
+                </li>
+              ))}
+            </ul>
+          </Bloc>
 
-          <div className="rounded-xl2 border border-border bg-surface p-5">
-            <h2 className="mb-4 text-sm font-medium">Activités récentes</h2>
+          <Bloc titre="Activité récente">
             {stats.recentActivity.length === 0 ? (
               <p className="text-sm text-ink-muted">Rien à signaler pour l&apos;instant.</p>
             ) : (
-              <ul className="space-y-3">
+              <ul className="divide-y divide-border">
                 {stats.recentActivity.map((item, i) => (
-                  <li key={i} className="flex items-start justify-between gap-3 text-sm">
+                  <li key={i} className="flex items-start justify-between gap-3 py-2.5 text-sm">
                     <span className="text-ink">{item.message}</span>
                     <span className="shrink-0 whitespace-nowrap text-xs text-ink-muted">{timeAgo(item.at)}</span>
                   </li>
                 ))}
               </ul>
             )}
-          </div>
+          </Bloc>
         </div>
-      </div>
-    </div>
-  );
-}
-
-function TopStatCard({
-  icon: Icon,
-  bg,
-  color,
-  sparkColor,
-  label,
-  value,
-  trend,
-  sparkline,
-}: {
-  icon: LucideIcon;
-  bg: string;
-  color: string;
-  sparkColor: string;
-  label: string;
-  value: number;
-  trend: number | null;
-  sparkline: number[] | null;
-}) {
-  return (
-    <div className="rounded-xl2 border border-border bg-surface p-4">
-      <div className="flex items-start justify-between gap-3">
-        <div>
-          <span className={`mb-2 grid h-10 w-10 place-items-center rounded-full ${bg}`}>
-            <Icon size={18} className={color} />
-          </span>
-          <p className="text-xs text-ink-muted">{label}</p>
-          <p className="text-2xl font-display">{value}</p>
-        </div>
-        {sparkline && sparkline.some((v) => v > 0) && <Sparkline values={sparkline} color={sparkColor} />}
-      </div>
-      <div className="mt-2 text-xs">
-        <TrendLabel pct={trend} />
       </div>
     </div>
   );

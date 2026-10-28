@@ -12,15 +12,8 @@ import { ContextMenuShell, MenuItem } from "@/components/ui/ContextMenuShell";
 import { ShareModal } from "@/components/share/ShareModal";
 import { buildPlaylistSubject } from "@/components/share/shareSubject";
 import { BoutonLectureCarte } from "@/components/music/BoutonLectureCarte";
-import { usePlayer, type PlayableSong } from "@/context/PlayerProvider";
-
-/** Les titres d'une playlist, pour la lancer depuis sa carte. */
-async function titresDeLaPlaylist(id: string): Promise<PlayableSong[]> {
-  const res = await fetch(`/api/playlists/${id}`);
-  if (!res.ok) throw new Error();
-  const { playlist } = (await res.json()) as { playlist: { songs: PlayableSong[] } };
-  return playlist.songs ?? [];
-}
+import { usePlayer } from "@/context/PlayerProvider";
+import { titresDeLaPlaylist } from "@/components/music/titresCollections";
 
 type PlaylistCardData = {
   _id: string;

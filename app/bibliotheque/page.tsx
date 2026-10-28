@@ -193,7 +193,7 @@ export default function LibraryPage() {
 
   return (
     <div className="mx-auto w-full max-w-[1600px] px-6 py-8 md:px-10 md:py-10">
-      <h1 className="mb-6 text-2xl font-display">Ma bibliothèque</h1>
+      <h1 className="mb-5 font-display text-2xl font-bold md:text-3xl">Ma bibliothèque</h1>
 
       <LibraryTabs tabs={activeTabs} active={tab} onChange={setTab} />
 

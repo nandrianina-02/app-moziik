@@ -10,6 +10,7 @@ import {
 } from "@/lib/validation";
 import { requireAuthUser, type AuthUser } from "@/lib/mobileAuth";
 import { recalculerUniversPlaylist } from "@/lib/universClassify";
+import { prevenirAjoutTitres } from "@/lib/notificationsSociales";
 
 /**
  * Charge une playlist dont l'utilisateur a le droit de modifier le contenu.
@@ -87,6 +88,10 @@ export const POST = withApiErrors(
     if (nouveaux.length) {
       playlist.songs.push(...nouveaux.map((id) => new Types.ObjectId(id)));
       await playlist.save();
+      // Une playlist commune : les autres participants voient arriver les titres.
+      if (playlist.collaborative && playlist.collaborateurs.length > 0) {
+        await prevenirAjoutTitres(playlist, authUser.id, nouveaux.length);
+      }
     }
 
     return respondWithPopulated(playlist);

@@ -7,6 +7,7 @@ import Playlist from "@/models/Playlist";
 import { ApiError, withApiErrors } from "@/lib/apiError";
 import { requireAuthUser, type AuthUser } from "@/lib/mobileAuth";
 import { parseOrThrow } from "@/lib/validation";
+import { prevenirArriveeCollaborateur } from "@/lib/notificationsSociales";
 
 /**
  * La collaboration sur une playlist.
@@ -92,7 +93,9 @@ export const POST = withApiErrors(async (req: Request, { params }: { params: { i
   if (!playlist.collaborative || !playlist.jetonInvitation || playlist.jetonInvitation !== jeton) {
     throw new ApiError("Ce lien d'invitation n'est plus valable.", 410);
   }
-  await Playlist.updateOne({ _id: playlist._id }, { $addToSet: { collaborateurs: authUser.id } });
+  const r = await Playlist.updateOne({ _id: playlist._id }, { $addToSet: { collaborateurs: authUser.id } });
+  // Rouvrir le lien quand on participe déjà ne prévient personne.
+  if (r.modifiedCount > 0) await prevenirArriveeCollaborateur(playlist, authUser.id);
   return NextResponse.json({ ok: true });
 });
 

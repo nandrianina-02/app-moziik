@@ -2,7 +2,8 @@ import { Schema, models, model, Types, Model } from "mongoose";
 
 export type NotificationType =
   | "new_song"      // un artiste suivi publie un son
-  | "new_follower"  // nouvel abonné
+  | "new_follower"  // nouvel abonné (à un artiste, ou entre membres)
+  | "playlist"      // playlist collaborative : arrivée d'un collaborateur, titres ajoutés
   | "like"          // quelqu'un a aimé un morceau de l'utilisateur
   | "comment"       // commentaire sur un son de l'utilisateur
   | "event"         // nouvel évènement d'un artiste suivi
@@ -27,7 +28,7 @@ const NotificationSchema = new Schema<INotification>({
   recipient: { type: Schema.Types.ObjectId, ref: "User", required: true, index: true },
   type: {
     type: String,
-    enum: ["new_song", "new_follower", "like", "comment", "event", "payment", "message", "system"],
+    enum: ["new_song", "new_follower", "playlist", "like", "comment", "event", "payment", "message", "system"],
     required: true,
   },
   title: { type: String, required: true },

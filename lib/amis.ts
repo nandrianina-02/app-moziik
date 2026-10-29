@@ -22,14 +22,19 @@ function enAmi(u: { _id: Types.ObjectId; name: string; username?: string; avatar
   return { _id: u._id.toString(), name: u.name, username: u.username, avatarUrl: u.avatarUrl };
 }
 
-/** Suit ou cesse de suivre un membre. Renvoie le nouveau nombre d'abonnés de ce membre. */
-export async function suivreMembre(moiId: string, cibleId: string, suivre: boolean): Promise<number> {
+/**
+ * Suit ou cesse de suivre un membre. Renvoie le nouveau nombre d'abonnés
+ * de ce membre, et si un abonnement vient réellement d'être créé (pour ne
+ * prévenir qu'à ce moment-là).
+ */
+export async function suivreMembre(moiId: string, cibleId: string, suivre: boolean): Promise<{ abonnes: number; nouveau: boolean }> {
   if (moiId === cibleId) throw new Error("soi-meme");
-  await User.updateOne(
+  const r = await User.updateOne(
     { _id: moiId },
     suivre ? { $addToSet: { abonnementsMembres: cibleId } } : { $pull: { abonnementsMembres: cibleId } }
   );
-  return User.countDocuments({ abonnementsMembres: cibleId });
+  const abonnes = await User.countDocuments({ abonnementsMembres: cibleId });
+  return { abonnes, nouveau: suivre && r.modifiedCount > 0 };
 }
 
 /** Ce qu'un profil montre de ses liens, vu par `moiId` (absent si visiteur anonyme). */

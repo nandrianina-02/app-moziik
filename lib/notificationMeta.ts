@@ -1,9 +1,10 @@
-import { Music, UserPlus, Heart, MessageCircle, CalendarDays, CreditCard, Megaphone, Send } from "lucide-react";
+import { Music, UserPlus, Heart, MessageCircle, CalendarDays, CreditCard, Megaphone, Send, ListMusic } from "lucide-react";
 import type { NotificationType } from "@/models/Notification";
 
 export const notificationIcons: Record<NotificationType, typeof Music> = {
   new_song: Music,
   new_follower: UserPlus,
+  playlist: ListMusic,
   like: Heart,
   comment: MessageCircle,
   event: CalendarDays,
@@ -15,6 +16,7 @@ export const notificationIcons: Record<NotificationType, typeof Music> = {
 export const notificationLabels: Record<NotificationType, string> = {
   new_song: "Nouveau son",
   new_follower: "Nouvel abonné",
+  playlist: "Playlist",
   like: "J'aime",
   comment: "Commentaire",
   event: "Évènement",
@@ -26,7 +28,8 @@ export const notificationLabels: Record<NotificationType, string> = {
 /** Libellé de l'action rapide principale proposée sur la carte, par type. */
 export const notificationActionLabels: Partial<Record<NotificationType, string>> = {
   new_song: "Écouter",
-  new_follower: "Voir mes abonnés",
+  new_follower: "Voir",
+  playlist: "Voir la playlist",
   like: "Voir le morceau",
   comment: "Répondre",
   event: "Voir l'évènement",
@@ -44,6 +47,7 @@ export const notificationActionLabels: Partial<Record<NotificationType, string>>
 export const notificationTints: Record<NotificationType, { tile: string; icon: string; badge: string }> = {
   new_song: { tile: "bg-accent/10", icon: "text-accent", badge: "bg-accent" },
   new_follower: { tile: "bg-tint-blue/10", icon: "text-tint-blue", badge: "bg-tint-blue" },
+  playlist: { tile: "bg-tint-teal/10", icon: "text-tint-teal", badge: "bg-tint-teal" },
   like: { tile: "bg-tint-rose/10", icon: "text-tint-rose", badge: "bg-tint-rose" },
   comment: { tile: "bg-tint-teal/10", icon: "text-tint-teal", badge: "bg-tint-teal" },
   event: { tile: "bg-tint-amber/10", icon: "text-tint-amber", badge: "bg-tint-amber" },

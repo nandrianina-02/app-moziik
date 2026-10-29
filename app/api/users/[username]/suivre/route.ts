@@ -4,6 +4,7 @@ import User from "@/models/User";
 import { ApiError, withApiErrors } from "@/lib/apiError";
 import { requireAuthUser } from "@/lib/mobileAuth";
 import { suivreMembre } from "@/lib/amis";
+import { prevenirNouvelAbonne } from "@/lib/notificationsSociales";
 
 /**
  * Suivre un membre (POST) ou cesser de le suivre (DELETE).
@@ -19,7 +20,8 @@ async function basculer(req: Request, username: string, suivre: boolean) {
     .lean();
   if (!cible) throw new ApiError("Profil introuvable.", 404);
   if (String(cible._id) === authUser.id) throw new ApiError("Vous ne pouvez pas vous suivre vous-même.", 400);
-  const abonnes = await suivreMembre(authUser.id, String(cible._id), suivre);
+  const { abonnes, nouveau } = await suivreMembre(authUser.id, String(cible._id), suivre);
+  if (nouveau) await prevenirNouvelAbonne(authUser.id, String(cible._id));
   return NextResponse.json({ suivi: suivre, abonnes });
 }
 

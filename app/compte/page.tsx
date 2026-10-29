@@ -26,7 +26,7 @@ import {
   Sparkles,
   Users,
 } from "lucide-react";
-import { oublierCompte } from "@/lib/offlineApi";
+import { oublierCompte, viderCacheApi } from "@/lib/offlineApi";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { FormField } from "@/components/ui/FormField";
@@ -240,7 +240,8 @@ export default function AccountPage() {
       const res = await fetch("/api/me", { method: "DELETE" });
       const data = await res.json().catch(() => null);
       if (!res.ok) throw new Error(data?.error);
-      await oublierCompte();
+      // Le compte n'existe plus : sa copie hors connexion n'a plus de raison d'être.
+      await oublierCompte({ effacer: true });
       await signOut({ redirect: false });
       pushToast("success", "Compte supprimé.");
       router.push("/");
@@ -658,9 +659,19 @@ export default function AccountPage() {
                 }}
               />
               <Ligne
+                icon={Trash2}
+                titre="Effacer les données de cet appareil"
+                aide="La copie hors connexion de votre compte dans ce navigateur. Elle est gardée à la déconnexion ; vos données en ligne ne sont pas touchées."
+                bouton="Effacer"
+                onClick={async () => {
+                  const n = await viderCacheApi().catch(() => 0);
+                  pushToast("success", n > 0 ? "Données de cet appareil effacées." : "Aucune donnée à effacer sur cet appareil.");
+                }}
+              />
+              <Ligne
                 icon={LogOut}
                 titre="Se déconnecter"
-                aide="Ferme la session de cet appareil uniquement."
+                aide="Ferme la session de cet appareil. Vos données hors connexion restent, rangées sous votre compte."
                 bouton="Déconnexion"
                 onClick={async () => {
                   await oublierCompte();

@@ -217,14 +217,17 @@ export function confirmerCompteMemorise() {
 }
 
 /**
- * Déconnexion : on efface la mémoire du compte ET ses entrées.
+ * Déconnexion : on oublie quel compte était connecté, sans effacer ses
+ * entrées. Elles sont rangées sous l'identifiant du compte : un autre
+ * compte ne les lit pas, et elles resservent quand il revient. Les
+ * effacer n'a lieu qu'à la demande (`effacer: true`).
  *
  * À n'appeler qu'EN LIGNE. Hors-ligne, /api/auth/session échoue et NextAuth
  * rapporte « unauthenticated » exactement comme après une vraie
  * déconnexion : purger sur ce signal viderait le cache de quelqu'un qui
  * n'a fait que prendre le métro.
  */
-export async function oublierCompte() {
+export async function oublierCompte({ effacer = false }: { effacer?: boolean } = {}) {
   const precedent = utilisateurCourant;
   try {
     window.localStorage.removeItem(CLE_DERNIER_COMPTE);
@@ -236,7 +239,7 @@ export async function oublierCompte() {
   oublierLeJour();
   utilisateurCourant = "anonyme";
   comptePret = true;
-  if (precedent !== "anonyme") await viderCacheApi(precedent).catch(() => 0);
+  if (effacer && precedent !== "anonyme") await viderCacheApi(precedent).catch(() => 0);
 }
 
 /** Supprime tout ce qui a été mis en cache pour un compte donné. */

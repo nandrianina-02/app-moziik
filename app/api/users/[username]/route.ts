@@ -5,6 +5,8 @@ import Artist from "@/models/Artist";
 import Badge from "@/models/Badge";
 import Playlist from "@/models/Playlist";
 import { ApiError, withApiErrors } from "@/lib/apiError";
+import { getAuthUser } from "@/lib/mobileAuth";
+import { liensDuProfil } from "@/lib/amis";
 
 /**
  * Le profil public d'un membre.
@@ -17,7 +19,7 @@ import { ApiError, withApiErrors } from "@/lib/apiError";
  * Un compte suspendu n'a pas de page : la modération l'a retiré de la
  * plateforme, l'exposer encore la contredirait.
  */
-export const GET = withApiErrors(async (_req: Request, { params }: { params: { username: string } }) => {
+export const GET = withApiErrors(async (req: Request, { params }: { params: { username: string } }) => {
   const username = params.username.toLowerCase();
 
   await connectDB();
@@ -26,7 +28,8 @@ export const GET = withApiErrors(async (_req: Request, { params }: { params: { u
     .lean();
   if (!user) throw new ApiError("Profil introuvable.", 404);
 
-  const [badges, playlists, artist] = await Promise.all([
+  const authUser = await getAuthUser(req);
+  const [badges, playlists, artist, social] = await Promise.all([
     Badge.find({ key: { $in: user.badges ?? [] } }).select("key label description icon category").lean(),
     Playlist.find({ owner: user._id, isPublic: true })
       .select("title coverUrl songs createdAt")
@@ -36,9 +39,13 @@ export const GET = withApiErrors(async (_req: Request, { params }: { params: { u
     user.role === "artist"
       ? Artist.findOne({ user: user._id }).select("stageName verified coverUrl followers totalPlays").lean()
       : null,
+    // Des nombres et des booléens : qui suit qui reste privé, seul le
+    // compte connecté sait s'il suit ce membre.
+    liensDuProfil(user._id.toString(), authUser?.id),
   ]);
 
   return NextResponse.json({
+    social,
     user: {
       name: user.name,
       username: user.username,
@@ -65,5 +72,5 @@ export const GET = withApiErrors(async (_req: Request, { params }: { params: { u
           totalPlays: artist.totalPlays ?? 0,
         }
       : null,
-  });
+  }, { headers: { "Cache-Control": "no-store" } });
 });

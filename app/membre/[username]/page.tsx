@@ -3,10 +3,12 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
-import { Award, BadgeCheck, CalendarDays, ListMusic, Mic2, UserRound } from "lucide-react";
+import { Award, BadgeCheck, CalendarDays, ListMusic, Loader2, Mic2, UserCheck, UserPlus, UserRound } from "lucide-react";
+import { useSession } from "next-auth/react";
 import { SafeImage } from "@/components/ui/SafeImage";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { useFormatDate } from "@/context/SiteConfigProvider";
+import { useToast } from "@/context/ToastProvider";
 
 type ProfilPublic = {
   user: { name: string; username: string; avatarUrl?: string; role: string; createdAt: string };
@@ -20,6 +22,7 @@ type ProfilPublic = {
     followersCount: number;
     totalPlays: number;
   } | null;
+  social: { abonnes: number; abonnements: number; estMoi: boolean; suivi: boolean; mutuel: boolean };
 };
 
 /**
@@ -33,6 +36,31 @@ export default function MemberProfilePage() {
   const formatDate = useFormatDate();
   const [profil, setProfil] = useState<ProfilPublic | null>(null);
   const [introuvable, setIntrouvable] = useState(false);
+  const { status } = useSession();
+  const pushToast = useToast();
+  const [bascule, setBascule] = useState(false);
+
+  async function basculerSuivi() {
+    if (!profil) return;
+    if (status !== "authenticated") {
+      pushToast("info", "Connectez-vous pour suivre ce membre.");
+      return;
+    }
+    const suivre = !profil.social.suivi;
+    setBascule(true);
+    try {
+      const res = await fetch(`/api/users/${params.username}/suivre`, { method: suivre ? "POST" : "DELETE" });
+      if (!res.ok) throw new Error();
+      const { abonnes } = (await res.json()) as { abonnes: number };
+      // Ne plus suivre défait aussi le lien mutuel ; le suivre de nouveau
+      // ne le rétablit qu'après relecture, d'où ce `false` prudent.
+      setProfil((p) => (p ? { ...p, social: { ...p.social, suivi: suivre, abonnes, mutuel: suivre ? p.social.mutuel : false } } : p));
+    } catch {
+      pushToast("error", "L'action n'a pas abouti. Réessayez.");
+    } finally {
+      setBascule(false);
+    }
+  }
 
   useEffect(() => {
     fetch(`/api/users/${params.username}`)
@@ -65,7 +93,7 @@ export default function MemberProfilePage() {
     );
   }
 
-  const { user, badges, playlists, artist } = profil;
+  const { user, badges, playlists, artist, social } = profil;
 
   return (
     <div className="mx-auto w-full max-w-3xl px-4 py-6 sm:px-6 md:px-10 md:py-10">
@@ -86,7 +114,26 @@ export default function MemberProfilePage() {
           <p className="mt-2 flex items-center gap-1.5 text-xs text-ink-muted">
             <CalendarDays size={13} /> Sur Moziik depuis le {formatDate(user.createdAt)}
           </p>
+          <p className="mt-1 text-xs text-ink-muted">
+            <span className="font-semibold text-ink">{social.abonnes}</span> abonné{social.abonnes > 1 ? "s" : ""}
+            <span className="mx-1.5">·</span>
+            <span className="font-semibold text-ink">{social.abonnements}</span> abonnement{social.abonnements > 1 ? "s" : ""}
+          </p>
         </div>
+
+        {!social.estMoi && (
+          <button
+            onClick={basculerSuivi}
+            disabled={bascule}
+            aria-pressed={social.suivi}
+            className={`flex shrink-0 items-center gap-1.5 rounded-full px-4 py-2 text-sm font-semibold transition-colors disabled:opacity-60 ${
+              social.suivi ? "border border-border text-ink hover:border-ink" : "bg-ink text-base hover:bg-ink/90"
+            }`}
+          >
+            {bascule ? <Loader2 size={15} className="animate-spin" /> : social.suivi ? <UserCheck size={15} /> : <UserPlus size={15} />}
+            {social.suivi ? "Abonné" : "Suivre"}
+          </button>
+        )}
 
         {artist && (
           <Link

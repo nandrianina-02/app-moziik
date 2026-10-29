@@ -90,6 +90,18 @@ export interface IUser {
   theme?: IUserTheme;
   likedSongs: Types.ObjectId[];
   savedAlbums: Types.ObjectId[];
+  /**
+   * Les membres que ce compte suit. Distinct des artistes suivis
+   * (Artist.followers) : suivre un membre, c'est voir ce qu'il écoute,
+   * et deux comptes qui se suivent mutuellement peuvent faire un Blend.
+   */
+  abonnementsMembres: Types.ObjectId[];
+  /**
+   * Ce que le compte écoute est-il visible par ses abonnés ? Oui par
+   * défaut, comme sur les grandes plateformes ; le réglage
+   * « Partager mon activité d'écoute » le coupe.
+   */
+  partageEcoute: boolean;
   resetToken?: string;
   resetTokenExpires?: Date;
   createdAt: Date;
@@ -152,6 +164,9 @@ const UserSchema = new Schema<IUser>({
   },
   likedSongs: [{ type: Schema.Types.ObjectId, ref: "Song" }],
   savedAlbums: [{ type: Schema.Types.ObjectId, ref: "Album" }],
+  // Indexé : le nombre d'abonnés d'un membre se compte sur ce champ.
+  abonnementsMembres: { type: [{ type: Schema.Types.ObjectId, ref: "User" }], default: [], index: true },
+  partageEcoute: { type: Boolean, default: true },
   resetToken: { type: String },
   resetTokenExpires: { type: Date },
   createdAt: { type: Date, default: Date.now },

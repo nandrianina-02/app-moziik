@@ -13,6 +13,7 @@ import {
   Mic2,
   Wallet,
   Shield,
+  Users,
 } from "lucide-react";
 
 export type NavLink = { href: string; label: string; icon: LucideIcon };
@@ -26,6 +27,7 @@ export const primaryLinks: NavLink[] = [
   { href: "/classements", label: "Classements", icon: Trophy },
   { href: "/evenements", label: "Évènements", icon: CalendarDays },
   { href: "/messages", label: "Messages", icon: MessagesSquare },
+  { href: "/amis", label: "Amis", icon: Users },
 ];
 
 /** Compte / abonnement — regroupés séparément dans l'UI. */

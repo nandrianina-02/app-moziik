@@ -24,6 +24,7 @@ import {
   User as UserIcon,
   Wallet,
   Sparkles,
+  Users,
 } from "lucide-react";
 import { oublierCompte } from "@/lib/offlineApi";
 import { Skeleton } from "@/components/ui/Skeleton";
@@ -762,6 +763,20 @@ export default function AccountPage() {
                 className="pressable flex items-center gap-1.5 rounded-xl border border-border px-4 py-2 text-sm font-medium text-ink transition-colors hover:border-accent hover:text-accent"
               >
                 <Sparkles size={14} /> Voir mon bilan
+              </Link>
+            </div>
+          </AdminCard>
+
+          <AdminCard title="Amis et confidentialité">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <p className="text-sm text-ink-muted">
+                Les membres que vous suivez, ce qu&apos;ils écoutent, et le réglage « Partager mon activité d&apos;écoute ».
+              </p>
+              <Link
+                href="/amis"
+                className="pressable flex items-center gap-1.5 rounded-xl border border-border px-4 py-2 text-sm font-medium text-ink transition-colors hover:border-accent hover:text-accent"
+              >
+                <Users size={14} /> Gérer
               </Link>
             </div>
           </AdminCard>

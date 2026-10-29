@@ -137,6 +137,8 @@ fun EcranAccueil() {
     val contexte = LocalContext.current
     val p = LocalPalette.current
     val vus = remember { mutableSetOf<Any>() }
+    var filtre by rememberSaveable { mutableStateOf(FiltreAccueil.TOUT) }
+    val prenom = (session as? EtatSession.Connecte)?.utilisateur?.name?.trim()?.split(Regex("\\s+"))?.firstOrNull()
     val nav = navigation()
     val menus = LocalMenus.current
 
@@ -171,7 +173,7 @@ fun EcranAccueil() {
         },
     ) {
         LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 32.dp)) {
-            item(key = "entete") { EnTeteAccueil() }
+            item(key = "entete") { EnTeteSalutation(prenom, filtre) { filtre = it } }
             if (etat.reprise) {
                 item(key = "reprise") { MentionReprise() }
             }
@@ -181,7 +183,13 @@ fun EcranAccueil() {
                 }
                 etat.vide && etat.erreur != null -> item(key = "erreur") { ErreurAccueil(etat.erreur.orEmpty(), modele::charger) }
             }
-            if (etat.diapos.isNotEmpty()) {
+            if (!etat.vide) {
+                item(key = "acces-rapide") {
+                    val secours = etat.sections.filterIsInstance<Section.Titres>().let { t -> (t.firstOrNull { it.cle == "top_tracks" } ?: t.firstOrNull { it.cle == "new_releases" })?.titres.orEmpty() }
+                    GrilleAccesRapide(secours, lancement, Modifier.padding(bottom = 8.dp).apparitionUneFois("acces-rapide", 0, vus))
+                }
+            }
+            if (filtre == FiltreAccueil.TOUT && etat.diapos.isNotEmpty()) {
                 item(key = "banniere") {
                     Banniere(
                         diapos = etat.diapos,
@@ -193,15 +201,12 @@ fun EcranAccueil() {
                 }
             }
             if (!etat.vide) {
-                item(key = "raccourcis") { RaccourcisAccueil(Modifier.apparitionUneFois("raccourcis", 1, vus)) }
-                item(key = "bande-son") {
-                    val prenom = (session as? EtatSession.Connecte)?.utilisateur?.name?.trim()?.split(Regex("\\s+"))?.firstOrNull()
-                    CarteBandeSon(prenom, (session as? EtatSession.Connecte)?.utilisateur?.avatarUrl, lancement, Modifier.apparitionUneFois("bande-son", 1, vus))
-                }
                 // Mix du jour, Découvertes de la semaine, Radar des sorties : composés par le site.
-                item(key = "selections") { RangeeSelections(Modifier.padding(top = 28.dp).apparitionUneFois("selections", 2, vus)) }
+                if (filtre == FiltreAccueil.TOUT || filtre == FiltreAccueil.PLAYLISTS) {
+                    item(key = "selections") { RangeeSelections(Modifier.padding(top = 28.dp).apparitionUneFois("selections", 2, vus)) }
+                }
             }
-            val affichees = SectionsAuto.entrelacer(etat.sections, etat.auto)
+            val affichees = SectionsAuto.entrelacer(etat.sections, etat.auto).filter { filtre.garde(it) }
             affichees.forEachIndexed { rang, section ->
                 item(key = "section-$rang-${section.cle}") {
                     // Une colonne : l'en-tête et le contenu d'une section se suivent (une boîte les superposait).
@@ -209,61 +214,6 @@ fun EcranAccueil() {
                         BlocSection(section, lecture, lancement, suivre)
                     }
                 }
-            }
-        }
-    }
-}
-
-/** Un seul onglet ici : « Chart » rejoindra l'en-tête avec l'écran Classements (AccueilEntete.tsx). */
-@Composable
-private fun EnTeteAccueil() {
-    val p = LocalPalette.current
-    val nav = navigation()
-    val menus = LocalMenus.current
-    Row(Modifier.padding(top = 8.dp, bottom = 16.dp), verticalAlignment = Alignment.Top) {
-        Column(Modifier.width(IntrinsicSize.Max)) {
-            Text("Pour toi", style = Texte.titreFiche, color = p.accent.compose)
-            Spacer(Modifier.height(6.dp))
-            Box(Modifier.fillMaxWidth().height(3.dp).clip(CircleShape).background(p.accent.compose))
-        }
-        Box(Modifier.padding(horizontal = 12.dp, vertical = 4.dp).width(1.dp).height(24.dp).background(p.bordure.compose))
-        Text(
-            "Chart",
-            style = Texte.titreFiche,
-            color = p.encreAttenuee.compose,
-            modifier = Modifier.clip(RoundedCornerShape(6.dp)).pressable(role = Role.Tab) { nav.classements() },
-        )
-    }
-}
-
-/**
- * Quatre portes d'entrée sous la bannière (RaccourcisAccueil.tsx) : l'accès
- * direct quand on sait déjà ce qu'on cherche. Chacune mène à un écran qui
- * existe.
- */
-@Composable
-private fun RaccourcisAccueil(modifier: Modifier = Modifier) {
-    val p = LocalPalette.current
-    val nav = navigation()
-    val menus = LocalMenus.current
-    val raccourcis: List<Triple<String, Int, () -> Unit>> = listOf(
-        Triple("Artistes", R.drawable.lucide_mic_vocal) { nav.classements("artists") },
-        Triple("Genres", R.drawable.lucide_tags) { nav.titres() },
-        Triple("Ambiances", R.drawable.lucide_radio) { nav.radio() },
-        Triple("Évènements", R.drawable.lucide_calendar_days) { nav.evenements() },
-        Triple("Blind test", R.drawable.lucide_gamepad_2) { nav.blindTest() },
-    )
-    Row(modifier.fillMaxWidth().padding(top = 24.dp), horizontalArrangement = Arrangement.SpaceBetween) {
-        raccourcis.forEach { (libelle, icone, action) ->
-            Column(
-                Modifier.weight(1f).clip(RoundedCornerShape(12.dp)).pressable(onClick = action).padding(vertical = 4.dp),
-                horizontalAlignment = Alignment.CenterHorizontally,
-            ) {
-                Box(Modifier.size(56.dp).clip(CircleShape).background(p.accent.compose), contentAlignment = Alignment.Center) {
-                    Icone(icone, description = null, teinte = p.base.compose, taille = 24.dp)
-                }
-                Spacer(Modifier.height(8.dp))
-                Text(libelle, style = Texte.secondaire.copy(fontWeight = FontWeight.Medium), color = p.encre.compose, maxLines = 1)
             }
         }
     }

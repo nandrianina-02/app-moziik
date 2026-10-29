@@ -41,7 +41,8 @@ export function MainContent({ children }: { children: React.ReactNode }) {
     // marge latérale sur téléphone ; ses coins arrondis sont dessinés par
     // CoinsCadre, aux bords de l'écran.
     <main
-      className={`mx-1.5 min-w-0 flex-1 bg-base md:mx-0 ${topPad} ${
+      // Conteneur de référence des grilles (variantes cq-*, tailwind.config.ts).
+      className={`mx-1.5 min-w-0 flex-1 bg-base [container-type:inline-size] md:mx-0 ${topPad} ${
         clavierVisible
           ? currentSong
             ? "pb-0 md:pb-28"

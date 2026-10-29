@@ -46,7 +46,7 @@ export function SkeletonCard() {
 /** Grille de cartes — nombre de cellules ajustable. */
 export function SkeletonCardGrid({ count = 6 }: { count?: number }) {
   return (
-    <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6">
+    <div className="grid grid-cols-2 gap-4 cq-sm:grid-cols-3 cq-md:grid-cols-4 cq-lg:grid-cols-6">
       {Array.from({ length: count }).map((_, i) => (
         <SkeletonCard key={i} />
       ))}

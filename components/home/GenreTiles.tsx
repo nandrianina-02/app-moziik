@@ -18,7 +18,7 @@ const palette = [
 
 export function GenreTiles({ genres }: { genres: { genre: string; count: number }[] }) {
   return (
-    <div className="stagger grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6">
+    <div className="stagger grid grid-cols-2 gap-3 cq-sm:grid-cols-3 cq-md:grid-cols-4 cq-lg:grid-cols-6">
       {/* Sans préchargement : ce lien se répète à chaque élément de la liste, et Next tirerait sinon une charge de route par élément visible. */}
       {genres.map((g, i) => (
         <Link

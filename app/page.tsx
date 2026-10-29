@@ -105,8 +105,8 @@ export default function HomePage() {
         </p>
       )}
 
-      <div className={`grid grid-cols-1 gap-8 ${tout ? "lg:grid-cols-[1fr_320px]" : ""}`}>
-        <div className="space-y-10 min-w-0">
+      <div className={`grid grid-cols-1 gap-8 ${tout ? "cq-xl:grid-cols-[1fr_320px]" : ""}`}>
+        <div className="min-w-0 space-y-10 [container-type:inline-size]">
           {!tout ? null : heroPending ? (
             <Skeleton
               aria-busy="true"
@@ -151,7 +151,7 @@ export default function HomePage() {
             rangées. Les cartes qui portent une liste — artistes, activité —
             reprennent la pleine largeur (`sm:col-span-2` posé chez elles). */}
         {tout && (
-        <aside className="grid grid-cols-2 gap-3 sm:grid-cols-2 lg:block lg:space-y-4 lg:sticky lg:top-24 lg:self-start">
+        <aside className="grid grid-cols-2 gap-3 cq-xl:block cq-xl:space-y-4 cq-xl:sticky cq-xl:top-24 cq-xl:self-start">
           {starting && ["top_tracks", "events"].map((key) => <HomeSidebarSkeleton key={key} sectionKey={key} />)}
 
           {sidebarSlots.map((slot) => {

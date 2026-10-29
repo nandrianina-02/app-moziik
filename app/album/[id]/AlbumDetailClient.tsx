@@ -241,8 +241,8 @@ export function AlbumDetailClient() {
         onEditBanner={() => setEditingImage("banner")}
         onEditCover={() => setEditingImage("cover")}
       />
-      <div className="grid gap-6 lg:grid-cols-[1fr_320px]">
-        <div className="min-w-0">
+      <div className="grid gap-6 cq-xl:grid-cols-[1fr_320px]">
+        <div className="min-w-0 [container-type:inline-size]">
           <div>
             <AlbumTabs
               album={album}

@@ -5,7 +5,7 @@ import { SECTION_SEE_ALL, SECTION_SUBTITLE } from "@/components/home/sectionMeta
 /** Grille de cartes carrées, aux mêmes points de rupture que les sections réelles. */
 function CardGrid({ count }: { count: number }) {
   return (
-    <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6">
+    <div className="grid grid-cols-2 gap-4 cq-sm:grid-cols-3 cq-md:grid-cols-4 cq-lg:grid-cols-6">
       {Array.from({ length: count }).map((_, i) => (
         <SkeletonCard key={i} />
       ))}

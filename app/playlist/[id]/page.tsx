@@ -278,8 +278,8 @@ export default function PlaylistDetailPage() {
         onSaveMeta={handleSaveMeta}
         onToggleVisibility={handleToggleVisibility}
       />
-      <div className="grid gap-6 lg:grid-cols-[1fr_320px]">
-        <div className="min-w-0">
+      <div className="grid gap-6 cq-xl:grid-cols-[1fr_320px]">
+        <div className="min-w-0 [container-type:inline-size]">
           <div>
             {/* `editMode` ne peut être vrai que si `canManage` l'est : toute
                 action d'édition est donc hors de portée d'un visiteur. */}

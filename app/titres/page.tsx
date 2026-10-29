@@ -84,7 +84,7 @@ function BrowseSongsPageContent() {
         <p className="py-16 text-center text-sm text-ink-muted">Aucun titre pour ce genre.</p>
       ) : (
         <>
-          <div className="grid grid-cols-2 gap-x-2 gap-y-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6">
+          <div className="grid grid-cols-2 gap-x-2 gap-y-3 cq-sm:grid-cols-3 cq-md:grid-cols-4 cq-lg:grid-cols-6">
             {songs.map((song, index) => (
               <Reveal key={song._id} delayMs={(index % 12) * 30}>
                 <SongCard song={song} queue={songs} index={index} />

@@ -51,7 +51,7 @@ export function SectionBlock({ section, sourceLabel = "home" }: { section: Secti
         const songs = section.data as PlayableSong[];
         if (songs.length === 0) return null;
         return (
-          <div className="stagger grid grid-cols-2 gap-x-2 gap-y-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6">
+          <div className="stagger grid grid-cols-2 gap-x-2 gap-y-3 cq-sm:grid-cols-3 cq-md:grid-cols-4 cq-lg:grid-cols-6">
             {songs.map((song, index) => (
               <SongCard
                 key={song._id}
@@ -132,7 +132,7 @@ export function SectionBlock({ section, sourceLabel = "home" }: { section: Secti
 function ArtistRow({ artists }: { artists: ArtistCard[] }) {
   return (
     // La carte d'artiste de Spotify : photo ronde, nom, « Artiste », la carte qui s'éclaire au survol.
-    <div className="stagger grid grid-cols-3 gap-x-2 gap-y-3 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-8">
+    <div className="stagger grid grid-cols-3 gap-x-2 gap-y-3 cq-sm:grid-cols-4 cq-md:grid-cols-6 cq-lg:grid-cols-8">
       {artists.map((artist) => (
         <Link key={artist._id} href={`/artiste/${artist._id}`} className="group rounded-lg p-2 transition-colors duration-200 hover:bg-ink/[0.06]">
           <SafeImage

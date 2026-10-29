@@ -26,7 +26,7 @@ const shareableTypes: ShareSubjectType[] = ["song", "album", "playlist", "artist
 
 export function CustomCollection({ items }: { items: CustomItem[] }) {
   return (
-    <div className="stagger grid grid-cols-2 gap-x-2 gap-y-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6">
+    <div className="stagger grid grid-cols-2 gap-x-2 gap-y-3 cq-sm:grid-cols-3 cq-md:grid-cols-4 cq-lg:grid-cols-6">
       {items.map((item) => (
         <CustomCollectionTile key={item._id} item={item} />
       ))}

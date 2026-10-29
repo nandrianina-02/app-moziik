@@ -10,8 +10,8 @@ import { Skeleton, SkeletonRows } from "@/components/ui/Skeleton";
 export function PlaylistDetailSkeleton() {
   return (
     <div aria-busy="true" className="mx-auto w-full max-w-[1600px] px-4 py-6 sm:px-6 md:px-10 md:py-10">
-      <div className="grid gap-6 lg:grid-cols-[1fr_320px]">
-        <div className="min-w-0">
+      <div className="grid gap-6 cq-xl:grid-cols-[1fr_320px]">
+        <div className="min-w-0 [container-type:inline-size]">
           <div className="overflow-hidden rounded-xl2 border border-border">
             <Skeleton className="h-32 w-full rounded-none sm:h-44 md:h-56" />
             <div className="flex flex-col gap-6 px-5 pb-6 sm:px-8 md:flex-row md:items-end md:pb-8">

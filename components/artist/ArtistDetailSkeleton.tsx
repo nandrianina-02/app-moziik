@@ -24,7 +24,7 @@ export function ArtistDetailSkeleton() {
           </div>
         </div>
 
-        <div className="mt-10 grid gap-8 lg:grid-cols-[1fr_320px]">
+        <div className="mt-10 grid gap-8 cq-xl:grid-cols-[1fr_320px]">
           <div className="min-w-0 space-y-8">
             <div>
               <Skeleton className="mb-4 h-5 w-40" />

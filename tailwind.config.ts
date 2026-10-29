@@ -1,3 +1,4 @@
+import plugin from "tailwindcss/plugin";
 import type { Config } from "tailwindcss";
 
 // Système de tokens Moziik
@@ -129,7 +130,17 @@ const config: Config = {
       },
     },
   },
-  plugins: [],
+  plugins: [
+    // Points de rupture selon la largeur réellement disponible (le
+    // conteneur le plus proche), et non celle de l'écran : quand le panneau
+    // « En cours de lecture » s'ouvre, le contenu perd 320 px sans que
+    // l'écran change, et les grilles réglées sur l'écran s'écrasaient.
+    // Un parent porte `[container-type:inline-size]`.
+    plugin(({ addVariant }) => {
+      const paliers: Record<string, number> = { "cq-sm": 520, "cq-md": 700, "cq-lg": 940, "cq-xl": 1320 };
+      for (const [nom, largeur] of Object.entries(paliers)) addVariant(nom, `@container (min-width: ${largeur}px)`);
+    }),
+  ],
 };
 
 export default config;

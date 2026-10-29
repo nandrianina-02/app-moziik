@@ -657,7 +657,7 @@ function SearchPageContent() {
             {recentes.length === 0 ? (
               <p className="text-sm text-ink-muted">Tes recherches récentes apparaîtront ici.</p>
             ) : (
-              <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6">
+              <div className="grid grid-cols-2 gap-4 cq-sm:grid-cols-3 cq-md:grid-cols-4 cq-lg:grid-cols-6">
                 {recentes.map((item) => (
                   <div key={item._id} className="relative rounded-xl2 border border-border bg-surface p-3">
                     <button

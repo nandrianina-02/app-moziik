@@ -290,8 +290,8 @@ export function SongDetailClient() {
         onAddToPlaylist={() => setShowAddToPlaylist(true)}
         onOpenMore={(x, y) => setMenuPosition({ x, y })}
       />
-      <div className="grid gap-6 lg:grid-cols-[1fr_320px]">
-        <div className="min-w-0">
+      <div className="grid gap-6 cq-xl:grid-cols-[1fr_320px]">
+        <div className="min-w-0 [container-type:inline-size]">
           <div>
             <SongTabs
               song={song}

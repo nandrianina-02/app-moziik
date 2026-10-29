@@ -12,7 +12,7 @@ export function AlbumDetailSkeleton() {
           </div>
         </div>
       </div>
-      <div className="mt-6 grid gap-6 lg:grid-cols-[1fr_320px]">
+      <div className="mt-6 grid gap-6 cq-xl:grid-cols-[1fr_320px]">
         <div className="h-64 rounded-xl2 bg-surface" />
         <div className="space-y-4">
           <div className="h-40 rounded-xl2 bg-surface" />

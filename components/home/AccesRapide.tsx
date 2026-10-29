@@ -130,7 +130,7 @@ export function AccesRapide({ secours }: { secours: PlayableSong[] }) {
   if (enAttente && abandon) return null;
   if (enAttente) {
     return (
-      <div className="grid grid-cols-2 gap-2 lg:grid-cols-4" aria-busy="true">
+      <div className="grid grid-cols-2 gap-2 cq-lg:grid-cols-4" aria-busy="true">
         {Array.from({ length: TUILES }, (_, i) => (
           <span key={i} className="h-14 animate-pulse rounded-md bg-ink/[0.06] md:h-16" />
         ))}
@@ -139,7 +139,7 @@ export function AccesRapide({ secours }: { secours: PlayableSong[] }) {
   }
 
   return (
-    <div className="grid grid-cols-2 gap-2 lg:grid-cols-4">
+    <div className="grid grid-cols-2 gap-2 cq-lg:grid-cols-4">
       <Tuile
         href="/radio"
         titre={session?.user ? "Ma bande son" : "Sélection Moziik"}

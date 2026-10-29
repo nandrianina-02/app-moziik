@@ -264,6 +264,7 @@ private fun LigneSuggestion(resultat: Resultat, onClick: () -> Unit) {
         is Resultat.DAlbum -> Triple(R.drawable.lucide_disc_3, resultat.album.title, "Album · ${resultat.album.artist?.stageName ?: "Artiste supprimé"}")
         is Resultat.DePlaylist -> Triple(R.drawable.lucide_list_music, resultat.playlist.title, "Playlist")
         is Resultat.DeGenre -> Triple(R.drawable.lucide_tags, resultat.nom, "Genre")
+        is Resultat.DeMembre -> Triple(R.drawable.lucide_user, resultat.membre.name, "Profil")
     }
     Row(
         Modifier.fillMaxWidth().clip(RoundedCornerShape(8.dp)).clickable(role = Role.Button, onClick = onClick).padding(vertical = 8.dp),
@@ -529,6 +530,8 @@ private fun ecouter(resultat: Resultat, lancement: Lancement, liste: List<Titre>
         is Resultat.DAlbum -> lancement.cible(cleDe(resultat), Cible.DAlbum(resultat.album.id))
         is Resultat.DePlaylist -> lancement.cible(cleDe(resultat), Cible.DePlaylist(resultat.playlist.id))
         is Resultat.DeGenre -> lancement.cible(cleDe(resultat), Cible.DeGenre(resultat.nom))
+        // Un profil ne se joue pas : son bouton n'est pas montré.
+        is Resultat.DeMembre -> Unit
     }
 }
 
@@ -539,6 +542,7 @@ private fun ouvrir(resultat: Resultat, nav: Navigation, lancement: Lancement, li
         is Resultat.DAlbum -> nav.album(resultat.album.id)
         is Resultat.DePlaylist -> nav.playlist(resultat.playlist.id)
         is Resultat.DeGenre -> nav.titres(resultat.nom)
+        is Resultat.DeMembre -> resultat.membre.username?.let(nav::membre)
         else -> ecouter(resultat, lancement, liste, source)
     }
 }
@@ -549,6 +553,7 @@ private fun cleDe(resultat: Resultat): String = when (resultat) {
     is Resultat.DAlbum -> "album-${resultat.album.id}"
     is Resultat.DePlaylist -> "playlist-${resultat.playlist.id}"
     is Resultat.DeGenre -> "genre-${resultat.nom}"
+    is Resultat.DeMembre -> "membre-${resultat.membre.username}"
 }
 
 private data class Vue(val titre: String, val ligne: String, val image: String?, val forme: Shape)
@@ -566,6 +571,7 @@ private fun MeilleurResultat(resultat: Resultat, lancement: Lancement, source: S
         is Resultat.DAlbum -> Vue(resultat.album.title, "Album · ${resultat.album.artist?.stageName.orEmpty()}".trimEnd(' ', '·'), resultat.album.coverUrl, carre)
         is Resultat.DePlaylist -> Vue(resultat.playlist.title, "Playlist", resultat.playlist.coverUrl, carre)
         is Resultat.DeGenre -> Vue(resultat.nom, "Genre · ${resultat.nombre} titre${if (resultat.nombre > 1) "s" else ""}", null, carre)
+        is Resultat.DeMembre -> Vue(resultat.membre.name, "Profil · @${resultat.membre.username}", resultat.membre.avatarUrl, CircleShape)
     }
     val chargement = lancement.enCours == cleDe(resultat)
     Row(
@@ -587,6 +593,7 @@ private fun MeilleurResultat(resultat: Resultat, lancement: Lancement, source: S
             Spacer(Modifier.height(2.dp))
             Text(vue.ligne, style = Texte.secondaire, color = p.encreAttenuee.compose, maxLines = 1, overflow = TextOverflow.Ellipsis)
         }
+        if (resultat is Resultat.DeMembre) return@Row
         Spacer(Modifier.width(12.dp))
         Box(
             Modifier.size(44.dp).clip(CircleShape).background(p.accent.compose).pressable { ecouter(resultat, lancement, emptyList(), source) },
@@ -616,7 +623,8 @@ private fun BlocResultats(section: SectionResultats, enGrille: Boolean, lecture:
         }
         return
     }
-    val colonnes = if (section.resultats.firstOrNull() is Resultat.DArtiste) 3 else 2
+    val ronds = section.resultats.firstOrNull().let { it is Resultat.DArtiste || it is Resultat.DeMembre }
+    val colonnes = if (ronds) 3 else 2
     if (enGrille) {
         Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
             section.resultats.chunked(colonnes).forEach { ligne ->
@@ -629,7 +637,7 @@ private fun BlocResultats(section: SectionResultats, enGrille: Boolean, lecture:
     } else {
         LazyRow(horizontalArrangement = Arrangement.spacedBy(14.dp)) {
             items(section.resultats, key = { cleDe(it) }) { r ->
-                Vignette(r, lancement, titres, source, Modifier.width(if (r is Resultat.DArtiste) 96.dp else 140.dp))
+                Vignette(r, lancement, titres, source, Modifier.width(if (r is Resultat.DArtiste || r is Resultat.DeMembre) 96.dp else 140.dp))
             }
         }
     }
@@ -652,6 +660,7 @@ private fun Vignette(resultat: Resultat, lancement: Lancement, titres: List<Titr
             badge = R.drawable.lucide_list_music, pastille = { PastillePlaylist(resultat.playlist.id, resultat.playlist.title, resultat.playlist.coverUrl) },
         )
         is Resultat.DeGenre -> CarteCollection(resultat.nom, "${resultat.nombre} titre${if (resultat.nombre > 1) "s" else ""}", null, ouvrir, modifier, chargement = chargement)
+        is Resultat.DeMembre -> CarteArtiste(resultat.membre.name, resultat.membre.avatarUrl, false, "Profil", ouvrir, modifier)
         is Resultat.DeTitre -> CarteCollection(
             resultat.titre.title, resultat.titre.artist?.stageName, resultat.titre.coverUrl, ouvrir, modifier, resultat.titre.artist?.verified == true, chargement,
             pastille = { PastilleTelechargement(resultat.titre) },

@@ -151,3 +151,4 @@ audio-waveform
 grip-vertical
 alarm-clock
 gamepad-2
+blend

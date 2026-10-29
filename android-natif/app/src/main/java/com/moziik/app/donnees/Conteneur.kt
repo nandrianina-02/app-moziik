@@ -49,6 +49,7 @@ class Conteneur(contexte: Context) {
     val compte = Compte(reseau.api)
     val notifications = Notifications(reseau.api)
     val commentaires = Commentaires(reseau.api)
+    val social = com.moziik.app.donnees.social.Social(reseau.api)
     val envoi = EnvoiFichiers(reseau.api, reseau.clientPublic)
     val miseAJour = MiseAJour(contexte, reseau.api, reseau.clientPublic, BuildConfig.SITE)
     val push = Push(contexte, reseau.api, session, portee).also { p -> session.avantDeconnexion = { p.retirer() } }

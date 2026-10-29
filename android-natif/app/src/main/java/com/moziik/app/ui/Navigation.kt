@@ -25,6 +25,9 @@ object Fiches {
     const val NOTIFICATIONS = "notifications"
     const val PARAMETRES = "parametres"
     const val BLIND_TEST = "blind-test"
+    const val MEMBRE = "membre/{username}"
+    const val AMIS = "amis"
+    const val BLEND = "blend/{username}"
 }
 
 /**
@@ -51,6 +54,9 @@ class Navigation(
     fun notifications() = aller("notifications")
     fun parametres() = aller("parametres")
     fun blindTest() = aller("blind-test")
+    fun membre(username: String) = aller("membre/${Uri.encode(username)}")
+    fun amis() = aller("amis")
+    fun blend(username: String) = aller("blend/${Uri.encode(username)}")
     /** L'écran Abonnement de l'onglet Compte : là où mène une fonction réservée à Premium. */
     fun abonnement() = aller("compte/abonnement")
     fun rechercher(terme: String) {
@@ -71,6 +77,9 @@ class Navigation(
             is Cible.Radio -> radio(cible.station)
             Cible.Evenements -> evenements()
             is Cible.DEvenement -> evenement(cible.id)
+            is Cible.DeMembre -> membre(cible.username)
+            is Cible.DeBlend -> blend(cible.username)
+            Cible.Amis -> amis()
             else -> return false
         }
         return true

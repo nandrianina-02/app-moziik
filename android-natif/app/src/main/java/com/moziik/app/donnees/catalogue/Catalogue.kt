@@ -94,13 +94,15 @@ private fun Section.estVide(): Boolean = when (this) {
     is Section.Collection -> elements.isEmpty()
 }
 
-/** Un résultat de recherche, selon son `kind`. Évènements et membres attendent leurs écrans. */
+/** Un résultat de recherche, selon son `kind`. Les évènements attendent leur écran. */
 sealed interface Resultat {
     data class DeTitre(val titre: Titre) : Resultat
     data class DArtiste(val artiste: ArtisteCarte) : Resultat
     data class DAlbum(val album: AlbumCourt) : Resultat
     data class DePlaylist(val playlist: PlaylistCourte) : Resultat
     data class DeGenre(val nom: String, val nombre: Int) : Resultat
+    /** Un profil public : il s'ouvre, il ne se joue pas. */
+    data class DeMembre(val membre: com.moziik.app.donnees.social.Membre) : Resultat
 }
 
 data class SectionResultats(val cle: String, val titre: String, val resultats: List<Resultat>, val total: Int)
@@ -118,6 +120,8 @@ private fun resultatDe(kind: String, objet: JsonObject): Resultat? = when (kind)
     "album" -> lire(AlbumCourt.serializer(), objet)?.let { Resultat.DAlbum(it) }
     "playlist" -> lire(PlaylistCourte.serializer(), objet)?.let { Resultat.DePlaylist(it) }
     "genre" -> lire(GenreTrouve.serializer(), objet)?.let { Resultat.DeGenre(it.name, it.count) }
+    // Sans nom d'utilisateur, un profil n'a pas d'adresse où l'ouvrir.
+    "user" -> lire(com.moziik.app.donnees.social.Membre.serializer(), objet)?.takeIf { !it.username.isNullOrBlank() }?.let { Resultat.DeMembre(it) }
     else -> null
 }
 

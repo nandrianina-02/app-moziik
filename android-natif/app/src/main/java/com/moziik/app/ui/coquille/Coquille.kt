@@ -325,6 +325,9 @@ fun Coquille(sombre: Boolean, onBasculerMode: () -> Unit) {
                 composable(Fiches.ARTISTE) { e -> FicheArtiste(e.arguments?.getString("id").orEmpty(), retour) }
                 composable(Fiches.PLAYLIST) { e -> FichePlaylist(e.arguments?.getString("id").orEmpty(), retour) }
                 composable(Fiches.SELECTION) { e -> EcranSelection(e.arguments?.getString("cle").orEmpty(), retour) }
+                composable(Fiches.MEMBRE) { e -> com.moziik.app.ui.social.EcranMembre(e.arguments?.getString("username").orEmpty(), retour) }
+                composable(Fiches.AMIS) { com.moziik.app.ui.social.EcranAmis(retour) }
+                composable(Fiches.BLEND) { e -> com.moziik.app.ui.social.EcranBlend(e.arguments?.getString("username").orEmpty(), retour) }
                 composable(Fiches.TITRE) { e -> FicheTitre(e.arguments?.getString("id").orEmpty(), retour) }
                 // Paramètres facultatifs : une chaîne vide vaut « non précisé ».
                 val facultatif: (String) -> NamedNavArgument = { nom -> navArgument(nom) { defaultValue = "" } }

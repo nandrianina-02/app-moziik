@@ -54,6 +54,7 @@ fun suggestionsDe(resultats: Resultats?): List<Resultat> {
             is Resultat.DAlbum -> "l" + it.album.id
             is Resultat.DePlaylist -> "p" + it.playlist.id
             is Resultat.DeGenre -> "g" + it.nom
+            is Resultat.DeMembre -> "m" + it.membre.username
         }
     }.take(5)
 }

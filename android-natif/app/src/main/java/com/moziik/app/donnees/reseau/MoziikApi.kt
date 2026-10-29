@@ -61,6 +61,12 @@ import com.moziik.app.donnees.compte.ModeCourant
 import com.moziik.app.donnees.compte.ModificationProfil
 import com.moziik.app.donnees.compte.ThemesCompte
 import retrofit2.http.Body
+import com.moziik.app.donnees.social.Blend
+import com.moziik.app.donnees.social.EtatSocial
+import com.moziik.app.donnees.social.EtatSuiviMembre
+import com.moziik.app.donnees.social.ListeActiviteAmis
+import com.moziik.app.donnees.social.ProfilMembre
+import com.moziik.app.donnees.social.ReglagePartage
 import retrofit2.http.PUT
 import retrofit2.http.DELETE
 import retrofit2.http.HTTP
@@ -343,6 +349,29 @@ interface MoziikApi {
 
     @DELETE("api/me/sessions")
     suspend fun fermerToutesLesSessions()
+
+    /** Le profil public d'un membre ; `social` dit si le compte connecté le suit. */
+    @GET("api/users/{username}")
+    suspend fun membre(@Path("username") username: String): ProfilMembre
+
+    @POST("api/users/{username}/suivre")
+    suspend fun suivreMembre(@Path("username") username: String): EtatSuiviMembre
+
+    @DELETE("api/users/{username}/suivre")
+    suspend fun neplusSuivreMembre(@Path("username") username: String): EtatSuiviMembre
+
+    @GET("api/me/activite-amis")
+    suspend fun activiteAmis(): ListeActiviteAmis
+
+    @GET("api/me/social")
+    suspend fun social(): EtatSocial
+
+    @PATCH("api/me/social")
+    suspend fun reglerPartage(@Body reglage: ReglagePartage): ReglagePartage
+
+    /** 403 si le suivi n'est pas mutuel ou si l'un des deux ne partage pas son activité. */
+    @GET("api/blend/{username}")
+    suspend fun blend(@Path("username") username: String): Blend
 
     @POST("api/me/password")
     suspend fun changerMotDePasse(@Body corps: ChangementMotDePasse)

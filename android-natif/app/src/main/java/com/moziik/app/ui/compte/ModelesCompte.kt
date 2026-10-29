@@ -135,7 +135,11 @@ sealed interface EtatProfil {
     data class Echec(val message: String) : EtatProfil
 }
 
-class CompteModele(private val api: MoziikApi, private val session: Session) : ViewModel() {
+class CompteModele(
+    private val api: MoziikApi,
+    private val session: Session,
+    private val horsLigne: com.moziik.app.donnees.horsligne.HorsLigne,
+) : ViewModel() {
     private val _profil = MutableStateFlow<EtatProfil>(EtatProfil.Chargement)
     val profil: StateFlow<EtatProfil> = _profil.asStateFlow()
 
@@ -158,9 +162,14 @@ class CompteModele(private val api: MoziikApi, private val session: Session) : V
         }
     }
 
-    fun seDeconnecter() {
+    /**
+     * Par défaut, les données du compte restent sur le téléphone et
+     * reviennent à la reconnexion ; `effacer` les retire, à la demande.
+     */
+    fun seDeconnecter(effacer: Boolean) {
         _deconnexion.value = true
         viewModelScope.launch {
+            if (effacer) horsLigne.effacerDonneesDuCompte()
             session.deconnexion()
             _deconnexion.value = false
         }

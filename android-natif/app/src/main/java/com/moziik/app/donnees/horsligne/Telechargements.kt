@@ -50,11 +50,20 @@ class Telechargements(
     /** Le client du site : jeton posé, retiré par OkHttp sur la redirection vers l'hébergeur. */
     private val client: OkHttpClient,
     private val site: String,
+    /** Le compte connecté au lancement ; ensuite, changerDeCompte. */
+    compteInitial: String? = null,
 ) {
     private val dossier = File(racine, "telechargements").apply { mkdirs() }
-    private val fichierIndex = File(dossier, "index.json")
 
-    private val _titres = MutableStateFlow(lireIndex())
+    /**
+     * Un index par compte (index-<id>.json), les fichiers en commun : un
+     * titre gardé par deux comptes n'occupe la place qu'une fois. Se
+     * déconnecter ne supprime rien ; chaque compte ne voit que les siens,
+     * et les retrouve en se reconnectant.
+     */
+    private var compte: String? = cle(compteInitial)?.also(::adopterAncienIndex)
+
+    private val _titres = MutableStateFlow(lireIndex(compte))
     /** Du plus récent au plus ancien. */
     val titres: StateFlow<List<TitreTelecharge>> = _titres.asStateFlow()
 
@@ -62,16 +71,45 @@ class Telechargements(
     /** Les téléchargements en cours et leur avancement (0 à 1). */
     val enCours: StateFlow<Map<String, Float>> = _enCours.asStateFlow()
 
-    private fun lireIndex(): List<TitreTelecharge> = runCatching {
-        JsonMoziik.decodeFromString(ListSerializer(TitreTelecharge.serializer()), fichierIndex.readText())
-    }.getOrDefault(emptyList()).filter { audio(it.id).exists() }
+    private fun cle(id: String?) = id?.filter { it.isLetterOrDigit() }?.ifEmpty { null }
+
+    private fun index(c: String) = File(dossier, "index-$c.json")
+
+    /** L'index unique d'avant la séparation par compte revient au premier compte connecté : c'est lui qui l'a rempli. */
+    private fun adopterAncienIndex(c: String) {
+        val ancien = File(dossier, "index.json")
+        if (ancien.exists() && !index(c).exists()) ancien.renameTo(index(c))
+    }
+
+    /** Connexion, déconnexion ou changement de compte : la liste devient celle du compte (vide pour un visiteur). */
+    @Synchronized
+    fun changerDeCompte(id: String?) {
+        val c = cle(id)
+        if (c == compte) return
+        c?.let(::adopterAncienIndex)
+        compte = c
+        _titres.value = lireIndex(c)
+    }
+
+    private fun lireFichier(f: File): List<TitreTelecharge> = runCatching {
+        JsonMoziik.decodeFromString(ListSerializer(TitreTelecharge.serializer()), f.readText())
+    }.getOrDefault(emptyList())
+
+    private fun lireIndex(c: String?): List<TitreTelecharge> =
+        if (c == null) emptyList() else lireFichier(index(c)).filter { audio(it.id).exists() }
 
     @Synchronized
     private fun ecrireIndex(transformation: (List<TitreTelecharge>) -> List<TitreTelecharge>) {
+        val c = compte ?: return
         val nouveaux = transformation(_titres.value)
         _titres.value = nouveaux
-        runCatching { fichierIndex.writeText(JsonMoziik.encodeToString(ListSerializer(TitreTelecharge.serializer()), nouveaux)) }
+        runCatching { index(c).writeText(JsonMoziik.encodeToString(ListSerializer(TitreTelecharge.serializer()), nouveaux)) }
     }
+
+    /** Un autre compte, ou l'ancien index pas encore adopté, garde-t-il ce titre ? Son fichier reste alors. */
+    private fun gardeAilleurs(id: String): Boolean =
+        dossier.listFiles { f -> f.name.endsWith(".json") && (f.name == "index.json" || f.name.startsWith("index-")) && f.name != "index-$compte.json" }
+            ?.any { f -> lireFichier(f).any { it.id == id } } == true
 
     private fun audio(id: String) = File(dossier, "$id.mp3")
     private fun pochette(id: String) = File(dossier, "$id.jpg")
@@ -88,6 +126,7 @@ class Telechargements(
     }
 
     private fun effacer(id: String) {
+        if (gardeAilleurs(id)) return
         audio(id).delete()
         pochette(id).delete()
         paroles(id).delete()
@@ -116,6 +155,19 @@ class Telechargements(
     /** Télécharge un titre ; déjà présent, il n'est pas retéléchargé. */
     suspend fun telecharger(titre: Titre, qualite: String, source: String = "manual") = withContext(Dispatchers.IO) {
         if (estTelecharge(titre.id)) return@withContext
+        // Déjà sur le téléphone pour un autre compte : le fichier est partagé plutôt que retéléchargé.
+        if (audio(titre.id).exists()) {
+            val octets = audio(titre.id).length()
+            ecrireIndex { liste ->
+                listOf(
+                    TitreTelecharge(
+                        id = titre.id, titre = titre.title, artiste = titre.artist?.stageName, artisteId = titre.artist?.id,
+                        verifie = titre.artist?.verified == true, duree = titre.duration, qualite = qualite, octets = octets, source = source,
+                    ),
+                ) + liste.filter { it.id != titre.id }
+            }
+            return@withContext
+        }
         _enCours.update { it + (titre.id to 0f) }
         val provisoire = File(dossier, "${titre.id}.partiel")
         try {
@@ -189,7 +241,8 @@ class Telechargements(
         return anciens.size
     }
 
-    fun espaceUtilise(): Long = dossier.listFiles()?.sumOf { it.length() } ?: 0L
+    /** La place prise par les titres du compte connecté, pas par ceux des autres comptes du téléphone. */
+    fun espaceUtilise(): Long = _titres.value.sumOf { audio(it.id).length() + pochette(it.id).length() + paroles(it.id).length() }
 
     fun espaceLibre(): Long = dossier.usableSpace
 }

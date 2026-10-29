@@ -26,6 +26,12 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.window.Dialog
+import com.moziik.app.ui.composants.LienTexte
+import com.moziik.app.ui.menus.Interrupteur
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -55,7 +61,7 @@ import com.moziik.app.ui.composants.LogoMoziik
 @Composable
 fun EcranMonCompte(onOuvrir: (String) -> Unit) {
     val c = conteneur()
-    val modele: CompteModele = viewModel { CompteModele(c.reseau.api, c.session) }
+    val modele: CompteModele = viewModel { CompteModele(c.reseau.api, c.session, c.horsLigne) }
     val profil by modele.profil.collectAsStateWithLifecycle()
     val deconnexion by modele.deconnexion.collectAsStateWithLifecycle()
 
@@ -77,7 +83,17 @@ fun EcranMonCompte(onOuvrir: (String) -> Unit) {
 }
 
 @Composable
-private fun FicheCompte(profil: Profil, deconnexionEnCours: Boolean, onDeconnexion: () -> Unit, onOuvrir: (String) -> Unit) {
+private fun FicheCompte(profil: Profil, deconnexionEnCours: Boolean, onDeconnexion: (Boolean) -> Unit, onOuvrir: (String) -> Unit) {
+    var confirmation by remember { mutableStateOf(false) }
+    if (confirmation) {
+        DialogueDeconnexion(
+            onConfirmer = { effacer ->
+                confirmation = false
+                onDeconnexion(effacer)
+            },
+            onFermer = { confirmation = false },
+        )
+    }
     val p = LocalPalette.current
     val u = profil.user
     Column(
@@ -121,7 +137,7 @@ private fun FicheCompte(profil: Profil, deconnexionEnCours: Boolean, onDeconnexi
         }
 
         Spacer(Modifier.height(24.dp))
-        BoutonDeconnexion(deconnexionEnCours, onDeconnexion, Modifier.apparition(8))
+        BoutonDeconnexion(deconnexionEnCours, { confirmation = true }, Modifier.apparition(8))
     }
 }
 
@@ -193,6 +209,38 @@ private fun Compteur(@DrawableRes icone: Int, valeur: Int, libelle: String, modi
         Spacer(Modifier.height(10.dp))
         Text(valeur.toString(), style = Texte.titreSection, color = p.encre.compose)
         Text(libelle, style = Texte.secondaire, color = p.encreAttenuee.compose)
+    }
+}
+
+/**
+ * Se déconnecter garde les données du compte sur le téléphone : un autre
+ * compte ne les voit pas, et elles reviennent à la reconnexion. Les
+ * effacer est un choix, décoché par défaut.
+ */
+@Composable
+private fun DialogueDeconnexion(onConfirmer: (Boolean) -> Unit, onFermer: () -> Unit) {
+    val p = LocalPalette.current
+    var effacer by remember { mutableStateOf(false) }
+    Dialog(onDismissRequest = onFermer) {
+        Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(p.rayon.dp)).background(p.surface.compose).padding(20.dp)) {
+            Text("Se déconnecter ?", style = Texte.titreSection, color = p.encre.compose)
+            Spacer(Modifier.height(8.dp))
+            Text(
+                "Tes téléchargements et ce qui attend d'être envoyé restent sur ce téléphone, rangés sous ton compte : tu les retrouves en te reconnectant. Un autre compte ne les voit pas.",
+                style = Texte.corps, color = p.encreAttenuee.compose,
+            )
+            Spacer(Modifier.height(12.dp))
+            Interrupteur(effacer, "Effacer aussi les données de ce compte sur ce téléphone") { effacer = it }
+            Spacer(Modifier.height(20.dp))
+            Box(
+                Modifier.fillMaxWidth().height(46.dp).clip(RoundedCornerShape(p.rayon.dp)).background(p.danger.compose)
+                    .clickable(role = Role.Button) { onConfirmer(effacer) },
+                contentAlignment = Alignment.Center,
+            ) {
+                Text(if (effacer) "Effacer et se déconnecter" else "Se déconnecter", style = Texte.corpsFort, color = p.base.compose)
+            }
+            Box(Modifier.fillMaxWidth().padding(top = 10.dp), contentAlignment = Alignment.Center) { LienTexte("Annuler", onFermer) }
+        }
     }
 }
 

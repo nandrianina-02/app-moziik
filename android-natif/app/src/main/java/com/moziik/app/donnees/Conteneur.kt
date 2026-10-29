@@ -69,9 +69,9 @@ class Conteneur(contexte: Context) {
     val horsLigne = HorsLigne(
         contexte,
         contexte.filesDir,
-        Telechargements(contexte.filesDir, reseau.client, BuildConfig.SITE),
-        EcoutesEnAttente(contexte.filesDir, reseau.api),
-        ActionsEnAttente(contexte.filesDir, reseau.api),
+        Telechargements(contexte.filesDir, reseau.client, BuildConfig.SITE, coffre.lire()?.utilisateur?.id),
+        EcoutesEnAttente(contexte.filesDir, reseau.api, coffre.lire()?.utilisateur?.id),
+        ActionsEnAttente(contexte.filesDir, reseau.api, coffre.lire()?.utilisateur?.id),
         reseau.api,
         compte,
         session,
@@ -79,7 +79,7 @@ class Conteneur(contexte: Context) {
         alertes,
         portee,
         AvisTelechargement(contexte),
-        oublierCache = { reseau.cacheHorsLigne?.oublierComptes() },
+        oublierCache = { id -> reseau.cacheHorsLigne?.oublier(id) },
         pourToi = { catalogue.station().titres },
     ).also { h ->
         catalogue.parolesGardees = h.telechargements::parolesGardees

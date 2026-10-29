@@ -66,7 +66,7 @@ class CacheHorsLigneTest {
     }
 
     @Test
-    fun un_autre_compte_ne_lit_pas_ce_cache_et_la_deconnexion_l_efface() {
+    fun un_autre_compte_ne_lit_pas_ce_cache_qui_reste_jusqu_a_l_effacement_demande() {
         serveur.enqueue(json("""{"liked":true}"""))
         lire("/api/me/liked-songs").close()
 
@@ -74,8 +74,12 @@ class CacheHorsLigneTest {
         serveur.enqueue(MockResponse().setResponseCode(500))
         lire("/api/me/liked-songs").use { assertEquals(500, it.code) }
 
+        // Retour du premier compte : sa copie a survécu au changement de compte.
         stockage.ecrire(SessionMobile("acces", "renouvellement", UtilisateurCourt("u1", "Ana", "ana@exemple.mg", null, "member")))
-        reseau.cacheHorsLigne!!.oublierComptes()
+        serveur.enqueue(MockResponse().setResponseCode(500))
+        lire("/api/me/liked-songs").use { assertEquals(200, it.code) }
+
+        reseau.cacheHorsLigne!!.oublier("u1")
         serveur.enqueue(MockResponse().setResponseCode(500))
         lire("/api/me/liked-songs").use { assertEquals(500, it.code) }
     }

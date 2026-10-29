@@ -20,7 +20,9 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.drop
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.builtins.ListSerializer
@@ -37,6 +39,8 @@ data class Tache(
     /** « Album « … » » : annoncé une fois le lot terminé. */
     val lot: String? = null,
     val albumId: String? = null,
+    /** Le compte qui l'a demandé : la file ne travaille que pour le compte connecté. */
+    val compte: String? = null,
 )
 
 /** Pourquoi un téléchargement n'a pas été accepté : l'écran en tire sa réaction. */
@@ -64,8 +68,8 @@ class HorsLigne(
     private val alertes: AlertesLecture,
     private val portee: CoroutineScope,
     val avis: AvisTelechargement,
-    /** Les réponses de l'API gardées pour le compte : effacées avec le reste à la déconnexion. */
-    private val oublierCache: () -> Unit = {},
+    /** Efface les réponses de l'API gardées pour un compte, quand il le demande. */
+    private val oublierCache: (String) -> Unit = {},
     /** La sélection « Pour toi » du moment, pour le mix de la semaine. */
     private val pourToi: suspend () -> List<Titre> = { emptyList() },
 ) {
@@ -74,7 +78,10 @@ class HorsLigne(
     private val file = ArrayDeque(lireFile())
     private var travail: Job? = null
 
-    private val _attente = MutableStateFlow(file.map { it.titre.id }.toSet())
+    /** Le compte connecté ; null pour un visiteur. */
+    private var compteCourant: String? = (session.etat.value as? EtatSession.Connecte)?.utilisateur?.id
+
+    private val _attente = MutableStateFlow(file.filter { it.compte == compteCourant }.map { it.titre.id }.toSet())
     /** Les titres demandés qui attendent leur tour, le réseau ou le Wi-Fi. */
     val attente: StateFlow<Set<String>> = _attente.asStateFlow()
 
@@ -102,14 +109,17 @@ class HorsLigne(
     init {
         surveillerReseau(contexte)
         portee.launch {
-            // Une déconnexion efface tout ce qui appartient au compte, comme sur le site (oublierCompte).
-            session.etat.drop(1).collect { etat ->
-                if (etat is EtatSession.Anonyme) oublierCompte()
+            // Une déconnexion ou un changement de compte n'efface rien : chaque compte
+            // retrouve ses téléchargements et ce qui attendait d'être envoyé.
+            // L'effacement se fait seulement à la demande (effacerDonneesDuCompte).
+            session.etat.map { (it as? EtatSession.Connecte)?.utilisateur?.id }.distinctUntilChanged().drop(1).collect { id ->
+                changerDeCompte(id)
             }
         }
         portee.launch { compte.premium.collect { if (it) preferences.edit().putBoolean("premium", true).apply() } }
         // La barre de la notification suit l'avancement du titre en cours.
         portee.launch { telechargements.enCours.collect { avancements -> avancements.values.firstOrNull()?.let(avis::progression) } }
+        compteCourant?.let { id -> majFile { adopter(id) } }
         reprendre()
         if (!_horsReseau.value) portee.launch { rejouerEnAttente() }
         // Le réglage activé : la synchronisation part aussitôt, sans attendre le prochain Wi-Fi.
@@ -169,13 +179,13 @@ class HorsLigne(
     }
 
     private fun retirerSource(source: String) {
-        majFile { removeAll { it.source == source } }
+        majFile { removeAll { it.compte == compteCourant && it.source == source } }
         telechargements.titres.value.filter { it.source == source }.forEach { telechargements.supprimer(it.id) }
     }
 
     /** Le réglage coupé : ce qui avait été gardé d'office repart, les choix manuels restent. */
     private fun retirerAuto() {
-        majFile { removeAll { it.source == SOURCE_AUTO } }
+        majFile { removeAll { it.compte == compteCourant && it.source == SOURCE_AUTO } }
         telechargements.titres.value.filter { it.source == SOURCE_AUTO }.forEach { telechargements.supprimer(it.id) }
     }
 
@@ -186,7 +196,7 @@ class HorsLigne(
     @Synchronized
     private fun majFile(transformation: ArrayDeque<Tache>.() -> Unit) {
         file.transformation()
-        _attente.value = file.map { it.titre.id }.toSet()
+        _attente.value = file.filter { it.compte == compteCourant }.map { it.titre.id }.toSet()
         runCatching {
             if (file.isEmpty()) fichierFile.delete()
             else fichierFile.writeText(JsonMoziik.encodeToString(ListSerializer(Tache.serializer()), file.toList()))
@@ -215,7 +225,7 @@ class HorsLigne(
             return null
         }
         if (titre.id in _attente.value) {
-            majFile { removeAll { it.titre.id == titre.id } }
+            majFile { removeAll { it.compte == compteCourant && it.titre.id == titre.id } }
             return null
         }
         return demander(listOf(titre), "manual", lot = null, albumId = null)
@@ -228,7 +238,7 @@ class HorsLigne(
     /** Retire d'un coup les titres d'un album ou d'une playlist, et ceux qui attendaient encore. */
     fun retirerLot(titres: List<Titre>) {
         val ids = titres.map { it.id }.toSet()
-        majFile { removeAll { it.titre.id in ids } }
+        majFile { removeAll { it.compte == compteCourant && it.titre.id in ids } }
         ids.forEach { if (telechargements.estTelecharge(it)) telechargements.supprimer(it) }
     }
 
@@ -238,7 +248,7 @@ class HorsLigne(
         val qualite = reglages.qualite.value
         val nouvelles = titres
             .filter { !telechargements.estTelecharge(it.id) && it.id !in _attente.value }
-            .map { Tache(it, qualite, source, lot, albumId) }
+            .map { Tache(it, qualite, source, lot, albumId, compteCourant) }
         if (nouvelles.isEmpty()) {
             if (lot != null && !silencieux) alertes.signaler(AlerteLecture.Message("« $lot » est déjà disponible hors connexion.", succes = true))
             return null
@@ -270,7 +280,7 @@ class HorsLigne(
     private suspend fun traiter() {
         var echecs = 0
         while (true) {
-            val tache = synchronized(this) { file.firstOrNull() } ?: break
+            val tache = synchronized(this) { file.firstOrNull { it.compte == compteCourant } } ?: break
             if (!reseauPermis()) break
             avis.commence(tache.titre.title, synchronized(this) { file.size } - 1)
             try {
@@ -284,7 +294,7 @@ class HorsLigne(
                 echecs++
             }
             majFile { remove(tache) }
-            val lotFini = tache.lot != null && synchronized(this) { file.none { it.lot == tache.lot } }
+            val lotFini = tache.lot != null && synchronized(this) { file.none { it.compte == tache.compte && it.lot == tache.lot } }
             when {
                 lotFini -> {
                     tache.albumId?.let { id -> appel { api.albumTelecharge(id) } }
@@ -306,7 +316,7 @@ class HorsLigne(
             }
         }
         // La progression laisse la place : rien ne tourne plus, ou la file attend le réseau.
-        val enAttente = synchronized(this) { file.isNotEmpty() }
+        val enAttente = synchronized(this) { file.any { it.compte == compteCourant } }
         avis.arrete(
             when {
                 !enAttente -> null
@@ -356,17 +366,48 @@ class HorsLigne(
         synchroniserMix()
     }
 
-    private fun oublierCompte() {
+    /** Les tâches d'avant la séparation par compte reviennent au compte connecté. */
+    private fun ArrayDeque<Tache>.adopter(id: String) {
+        for (i in indices) if (this[i].compte == null) this[i] = this[i].copy(compte = id)
+    }
+
+    /**
+     * Connexion, déconnexion ou passage à un autre compte. Rien n'est
+     * effacé : la file s'arrête, et chaque espace (téléchargements,
+     * écoutes et actions en attente) devient celui du nouveau compte.
+     */
+    private suspend fun changerDeCompte(id: String?) {
         travail?.cancel()
         avis.arrete()
-        majFile { clear() }
+        compteCourant = id
+        telechargements.changerDeCompte(id)
+        ecoutes.changerDeCompte(id)
+        actions.changerDeCompte(id)
+        majFile { id?.let { adopter(it) } }
+        // L'état Premium connu et les dates de synchronisation étaient ceux du compte précédent.
+        preferences.edit().remove("premium").remove("autoAimesLe").remove("mixLe").apply()
+        if (id == null) return
+        reprendre()
+        if (!_horsReseau.value) rejouerEnAttente()
+        synchroniserAimes()
+        synchroniserMix()
+    }
+
+    /**
+     * Effacer, à la demande du compte, ce qu'il a laissé sur le téléphone :
+     * téléchargements, file, copie hors connexion. Ce qui attendait d'être
+     * envoyé part d'abord, si le réseau le permet ; le reste est abandonné.
+     */
+    suspend fun effacerDonneesDuCompte() {
+        val id = compteCourant ?: return
+        if (!_horsReseau.value) runCatching { rejouerEnAttente() }
+        travail?.cancel()
+        avis.arrete()
+        majFile { removeAll { it.compte == id } }
         telechargements.toutSupprimer()
-        oublierCache()
-        preferences.edit().clear().apply()
-        portee.launch {
-            ecoutes.oublier()
-            actions.oublier()
-        }
+        ecoutes.oublier()
+        actions.oublier()
+        oublierCache(id)
     }
 }
 

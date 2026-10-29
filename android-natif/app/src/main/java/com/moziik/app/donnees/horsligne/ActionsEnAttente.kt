@@ -41,9 +41,23 @@ sealed class ActionGardee {
  * disque et rejoués dans l'ordre. Un j'aime répété sur un même titre ne
  * garde que le dernier état voulu.
  */
-class ActionsEnAttente(racine: File, private val api: MoziikApi) {
-    private val fichier = File(racine, "actions-en-attente.json")
+class ActionsEnAttente(private val racine: File, private val api: MoziikApi, compteInitial: String? = null) {
     private val verrou = Mutex()
+    /** Un fichier par compte, comme les écoutes en attente : un j'aime ne doit partir qu'au nom de son auteur. */
+    private var fichier = fichierDe(compteInitial)
+
+    private fun fichierDe(id: String?): File {
+        val c = id?.filter { it.isLetterOrDigit() }?.ifEmpty { null }
+        val f = File(racine, "actions-en-attente-${c ?: "visiteur"}.json")
+        val ancien = File(racine, "actions-en-attente.json")
+        if (c != null && ancien.exists() && !f.exists()) ancien.renameTo(f)
+        return f
+    }
+
+    suspend fun changerDeCompte(id: String?) = verrou.withLock {
+        fichier = fichierDe(id)
+        _actions.value = lire()
+    }
     private val serialiseur = ListSerializer(ActionGardee.serializer())
 
     private val _actions = MutableStateFlow(lire())

@@ -22,9 +22,25 @@ private const val MAXIMUM = 500
  * connexion (spécification 6.4, `record_play`). Elles seront datées du
  * moment de l'envoi : le site n'accepte pas de date d'écoute.
  */
-class EcoutesEnAttente(racine: File, private val api: MoziikApi) {
-    private val fichier = File(racine, "ecoutes-en-attente.json")
+class EcoutesEnAttente(private val racine: File, private val api: MoziikApi, compteInitial: String? = null) {
     private val verrou = Mutex()
+    /**
+     * Un fichier par compte : rejouées avec le jeton d'un autre compte, ces
+     * écoutes lui seraient attribuées. Se déconnecter ne les efface pas,
+     * elles partent au retour du compte.
+     */
+    private var fichier = fichierDe(compteInitial)
+
+    private fun fichierDe(id: String?): File {
+        val c = id?.filter { it.isLetterOrDigit() }?.ifEmpty { null }
+        val f = File(racine, "ecoutes-en-attente-${c ?: "visiteur"}.json")
+        // Le fichier unique d'avant la séparation revient au premier compte connecté.
+        val ancien = File(racine, "ecoutes-en-attente.json")
+        if (c != null && ancien.exists() && !f.exists()) ancien.renameTo(f)
+        return f
+    }
+
+    suspend fun changerDeCompte(id: String?) = verrou.withLock { fichier = fichierDe(id) }
 
     private fun lire(): List<EcouteGardee> = runCatching {
         JsonMoziik.decodeFromString(ListSerializer(EcouteGardee.serializer()), fichier.readText())

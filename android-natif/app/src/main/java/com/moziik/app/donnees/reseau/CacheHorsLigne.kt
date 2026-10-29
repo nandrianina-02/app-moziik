@@ -20,7 +20,7 @@ const val EN_TETE_CACHE = "X-Moziik-Cache"
  * lib/offlineApi.ts) : le réseau d'abord, toujours ; sans réseau, ou si
  * le site répond par une panne (5xx), la dernière réponse connue est
  * rendue telle quelle. Rangées par compte : un compte ne lit jamais le
- * cache d'un autre, et la déconnexion efface celui du compte.
+ * cache d'un autre, et la déconnexion le garde (voir oublier).
  */
 class CacheHorsLigne(
     private val dossier: File,
@@ -54,9 +54,14 @@ class CacheHorsLigne(
         return reponse
     }
 
-    /** Déconnexion : tout ce qui appartient à un compte disparaît ; le cache des visiteurs reste. */
-    fun oublierComptes() {
-        dossier.listFiles()?.filter { it.name != VISITEUR }?.forEach { it.deleteRecursively() }
+    /**
+     * Efface la copie d'un compte, à sa demande seulement. Une simple
+     * déconnexion la garde : rangée sous l'identifiant du compte, elle
+     * n'est lue par personne d'autre et sert de nouveau à son retour.
+     */
+    fun oublier(compteId: String) {
+        val c = compteId.filter { it.isLetterOrDigit() }.ifEmpty { return }
+        if (c != VISITEUR) File(dossier, c).deleteRecursively()
     }
 
     private fun compte(): String = stockage.lire()?.utilisateur?.id?.filter { it.isLetterOrDigit() }?.ifEmpty { null } ?: VISITEUR

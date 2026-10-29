@@ -36,7 +36,36 @@ class TelechargementsTest {
     @After
     fun arreter() = serveur.shutdown()
 
-    private fun stockage() = Telechargements(dossier.root, OkHttpClient(), site)
+    private fun stockage(compte: String? = "u1") = Telechargements(dossier.root, OkHttpClient(), site, compte)
+
+    @Test
+    fun chaque_compte_garde_les_siens_et_la_deconnexion_n_efface_rien() = runTest {
+        serveur.enqueue(MockResponse().setBody("AUDIO"))
+        val t = stockage()
+        t.telecharger(Titre(id = "abc", title = "Son"), "high")
+
+        // Déconnexion : la liste se vide à l'écran, le fichier reste.
+        t.changerDeCompte(null)
+        assertTrue(t.titres.value.isEmpty())
+        assertTrue(File(dossier.root, "telechargements/abc.mp3").exists())
+
+        // Un autre compte ne voit rien ; le même titre partage le fichier, sans nouvelle requête.
+        t.changerDeCompte("u2")
+        assertTrue(t.titres.value.isEmpty())
+        t.telecharger(Titre(id = "abc", title = "Son"), "high")
+        assertEquals(1, serveur.requestCount)
+        assertEquals(listOf("abc"), t.titres.value.map { it.id })
+
+        // Retiré par u2, le fichier reste pour u1, qui le retrouve à son retour.
+        t.supprimer("abc")
+        assertTrue(File(dossier.root, "telechargements/abc.mp3").exists())
+        t.changerDeCompte("u1")
+        assertEquals("AUDIO", t.fichier("abc")?.readText())
+
+        // Retiré par son dernier compte, le fichier part.
+        t.toutSupprimer()
+        assertFalse(File(dossier.root, "telechargements/abc.mp3").exists())
+    }
 
     @Test
     fun suit_la_redirection_et_garde_le_fichier() = runTest {

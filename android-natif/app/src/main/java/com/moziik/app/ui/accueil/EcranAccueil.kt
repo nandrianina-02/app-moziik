@@ -1,5 +1,6 @@
 package com.moziik.app.ui.accueil
 
+import com.moziik.app.ui.selections.RangeeSelections
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.infiniteRepeatable
@@ -197,6 +198,8 @@ fun EcranAccueil() {
                     val prenom = (session as? EtatSession.Connecte)?.utilisateur?.name?.trim()?.split(Regex("\\s+"))?.firstOrNull()
                     CarteBandeSon(prenom, (session as? EtatSession.Connecte)?.utilisateur?.avatarUrl, lancement, Modifier.apparitionUneFois("bande-son", 1, vus))
                 }
+                // Mix du jour, Découvertes de la semaine, Radar des sorties : composés par le site.
+                item(key = "selections") { RangeeSelections(Modifier.padding(top = 28.dp).apparitionUneFois("selections", 2, vus)) }
             }
             val affichees = SectionsAuto.entrelacer(etat.sections, etat.auto)
             affichees.forEachIndexed { rang, section ->

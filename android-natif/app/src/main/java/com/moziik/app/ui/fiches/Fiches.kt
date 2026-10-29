@@ -177,6 +177,8 @@ fun EnTeteFiche(
     forme: Shape = RoundedCornerShape(LocalPalette.current.rayon.dp),
     sousTitre: (@Composable () -> Unit)? = null,
     pastilles: List<String> = emptyList(),
+    /** Une pochette dessinée (sélection personnelle) à la place de l'image `pochette`. */
+    pochetteDessinee: (@Composable () -> Unit)? = null,
     actions: @Composable RowScope.() -> Unit = {},
 ) {
     val p = LocalPalette.current
@@ -203,7 +205,7 @@ fun EnTeteFiche(
                     .background(surface)
                     .padding(4.dp),
             ) {
-                Pochette(pochette, Modifier.fillMaxSize(), forme)
+                if (pochetteDessinee != null) pochetteDessinee() else Pochette(pochette, Modifier.fillMaxSize(), forme)
             }
         }
         Column(

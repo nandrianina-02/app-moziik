@@ -345,6 +345,12 @@ class Catalogue(
 
     suspend fun artiste(id: String): ReponseArtiste = appel { api.artiste(id) }.getOrThrow()
 
+    /** Mix du jour, Découvertes de la semaine, Radar des sorties : composés par le site pour ce compte. */
+    suspend fun selections(): List<SelectionPerso> = appel { api.selections(univers()).selections }.getOrThrow()
+
+    suspend fun selection(cle: String): DetailSelection =
+        appel { api.selection(cle, univers()) }.getOrThrow().let { it.copy(titres = it.titres.filter { t -> t.publie }) }
+
     /**
      * La radio d'un artiste : ses titres mélangés, et des titres proches de
      * ses trois plus écoutés. Une recherche de titres proches qui échoue

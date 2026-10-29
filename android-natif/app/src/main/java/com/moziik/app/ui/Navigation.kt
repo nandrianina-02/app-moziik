@@ -14,6 +14,7 @@ object Fiches {
     const val ALBUM = "album/{id}"
     const val ARTISTE = "artiste/{id}"
     const val PLAYLIST = "playlist/{id}"
+    const val SELECTION = "selection/{cle}"
     const val TITRE = "titre/{id}"
     const val CLASSEMENTS = "classements?type={type}&periode={periode}"
     const val RADIO = "radio?station={station}"
@@ -38,6 +39,7 @@ class Navigation(
     fun album(id: String) = aller("album/$id")
     fun artiste(id: String) = aller("artiste/$id")
     fun playlist(id: String) = aller("playlist/$id")
+    fun selection(cle: String) = aller("selection/$cle")
     fun titre(id: String) = aller("titre/$id")
     fun classements(type: String? = null, periode: String? = null) =
         aller("classements?type=${Uri.encode(type.orEmpty())}&periode=${Uri.encode(periode.orEmpty())}")

@@ -448,3 +448,27 @@ data class DemandeQuota(val songId: String)
 
 @Serializable
 data class Quota(val autorise: Boolean = true)
+
+/**
+ * Une sélection personnelle (Mix du jour, Découvertes de la semaine, Radar
+ * des sorties), composée par le site (lib/selections.ts) : l'app l'affiche,
+ * elle ne la calcule pas. `cle` vaut « mix-1 » à « mix-6 », « decouvertes »
+ * ou « radar ».
+ */
+@Serializable
+data class SelectionPerso(
+    val cle: String,
+    val type: String,
+    val rang: Int = 0,
+    val titre: String,
+    val description: String = "",
+    val genre: String? = null,
+    val couverture: String? = null,
+    val nombre: Int = 0,
+)
+
+@Serializable
+data class ListeSelections(val selections: List<SelectionPerso> = emptyList())
+
+@Serializable
+data class DetailSelection(val selection: SelectionPerso, val titres: List<Titre> = emptyList())

@@ -1,6 +1,8 @@
 package com.moziik.app.donnees.reseau
 
 import com.moziik.app.donnees.catalogue.Accueil
+import com.moziik.app.donnees.catalogue.DetailSelection
+import com.moziik.app.donnees.catalogue.ListeSelections
 import com.moziik.app.donnees.catalogue.DemandeIA
 import com.moziik.app.donnees.catalogue.EchangeAssistant
 import com.moziik.app.donnees.catalogue.FilAssistant
@@ -222,6 +224,13 @@ interface MoziikApi {
 
     @GET("api/playlists/{id}")
     suspend fun playlist(@Path("id") id: String): ReponsePlaylist
+
+    /** Les sélections du jour : propres au compte connecté, communes pour un visiteur. */
+    @GET("api/selections")
+    suspend fun selections(@Query("univers") univers: String?): ListeSelections
+
+    @GET("api/selections/{cle}")
+    suspend fun selection(@Path("cle") cle: String, @Query("univers") univers: String?): DetailSelection
 
     @GET("api/artists/{id}")
     suspend fun artiste(@Path("id") id: String): ReponseArtiste

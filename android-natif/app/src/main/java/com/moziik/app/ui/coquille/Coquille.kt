@@ -2,6 +2,7 @@
 
 package com.moziik.app.ui.coquille
 
+import com.moziik.app.ui.selections.EcranSelection
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.tween
@@ -323,6 +324,7 @@ fun Coquille(sombre: Boolean, onBasculerMode: () -> Unit) {
                 composable(Fiches.ALBUM) { e -> FicheAlbum(e.arguments?.getString("id").orEmpty(), retour) }
                 composable(Fiches.ARTISTE) { e -> FicheArtiste(e.arguments?.getString("id").orEmpty(), retour) }
                 composable(Fiches.PLAYLIST) { e -> FichePlaylist(e.arguments?.getString("id").orEmpty(), retour) }
+                composable(Fiches.SELECTION) { e -> EcranSelection(e.arguments?.getString("cle").orEmpty(), retour) }
                 composable(Fiches.TITRE) { e -> FicheTitre(e.arguments?.getString("id").orEmpty(), retour) }
                 // Paramètres facultatifs : une chaîne vide vaut « non précisé ».
                 val facultatif: (String) -> NamedNavArgument = { nom -> navArgument(nom) { defaultValue = "" } }

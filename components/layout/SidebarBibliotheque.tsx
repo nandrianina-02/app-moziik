@@ -174,7 +174,7 @@ export function SidebarBibliotheque({ collapsed }: { collapsed: boolean }) {
   // Repliée : les pochettes seules, comme la barre repliée de Spotify.
   if (collapsed) {
     return (
-      <div className="flex min-h-0 shrink flex-col">
+      <div className="flex min-h-[8.5rem] shrink flex-col overflow-hidden">
         <div className="mx-1 my-4 h-px shrink-0 bg-border" />
         <Tooltip label="Ma bibliothèque" show>
           <Link href="/bibliotheque" className="mb-1 flex w-full shrink-0 justify-center rounded-xl py-2 text-ink-muted transition-colors hover:bg-surface hover:text-ink">
@@ -195,9 +195,12 @@ export function SidebarBibliotheque({ collapsed }: { collapsed: boolean }) {
   }
 
   return (
-    // `min-h-0` sans `flex-grow` : le bloc garde sa hauteur tant qu'il y a la
-    // place, et se comprime en premier quand l'écran raccourcit.
-    <div className="flex min-h-0 shrink flex-col">
+    // Sans `flex-grow` : le bloc garde sa hauteur tant qu'il y a la place,
+    // et se comprime en premier quand l'écran raccourcit — mais pas en deçà
+    // de son en-tête, de ses filtres et de deux lignes. Avec `min-h-0`,
+    // ces parties fixes débordaient sur les liens Premium et Compte ; au
+    // plancher, c'est désormais la colonne entière qui défile.
+    <div className="flex min-h-[12.5rem] shrink flex-col overflow-hidden">
       <div className="my-4 h-px shrink-0 bg-border" />
 
       <div className="mb-2 flex shrink-0 items-center gap-1 px-2">
@@ -256,13 +259,14 @@ export function SidebarBibliotheque({ collapsed }: { collapsed: boolean }) {
         </div>
       )}
 
-      <div className="mb-2 flex shrink-0 flex-wrap gap-1.5 px-2">
+      {/* Sur une ligne : repliées sur deux, les puces volaient la place de la liste. */}
+      <div className="mb-2 flex shrink-0 gap-1.5 overflow-x-auto px-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
         {(Object.keys(LIBELLES) as Sorte[]).map((s) => (
           <button
             key={s}
             onClick={() => setSorte((avant) => (avant === s ? null : s))}
             aria-pressed={sorte === s}
-            className={`rounded-full px-2.5 py-1 text-xs font-medium transition-colors ${sorte === s ? "bg-ink text-base" : "bg-ink/[0.08] text-ink hover:bg-ink/[0.14]"}`}
+            className={`shrink-0 rounded-full px-2.5 py-1 text-xs font-medium transition-colors ${sorte === s ? "bg-ink text-base" : "bg-ink/[0.08] text-ink hover:bg-ink/[0.14]"}`}
           >
             {LIBELLES[s]}
           </button>

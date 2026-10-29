@@ -78,6 +78,7 @@ import com.moziik.app.ui.fiches.BarreCollante
 private fun iconeDe(type: String): Int = when (type) {
     "new_song" -> R.drawable.lucide_music_2
     "new_follower" -> R.drawable.lucide_user_plus
+    "playlist" -> R.drawable.lucide_list_music
     "like" -> R.drawable.lucide_heart
     "comment" -> R.drawable.lucide_message_circle
     "event" -> R.drawable.lucide_calendar_days

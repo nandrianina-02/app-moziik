@@ -2,6 +2,7 @@ package com.moziik.app.ui.accueil
 
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
@@ -113,7 +114,7 @@ private fun Puce(libelle: String, actif: Boolean, icone: Int?, onClick: () -> Un
         Modifier
             .clip(CircleShape)
             .background(if (actif) p.encre.compose else p.encre.compose.copy(alpha = 0.08f))
-            .combinedClickable(role = Role.Button, onClick = onClick)
+            .clickable(role = Role.Button, onClick = onClick)
             .padding(horizontal = 14.dp, vertical = 7.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {

@@ -23,6 +23,7 @@ import {
   Trash2,
   User as UserIcon,
   Wallet,
+  Sparkles,
 } from "lucide-react";
 import { oublierCompte } from "@/lib/offlineApi";
 import { Skeleton } from "@/components/ui/Skeleton";
@@ -750,6 +751,18 @@ export default function AccountPage() {
                 {enregistrement ? <Loader2 size={15} className="animate-spin" /> : <Check size={15} />}
                 Enregistrer
               </button>
+            </div>
+          </AdminCard>
+
+          <AdminCard title={`Votre année ${new Date().getFullYear()}`}>
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <p className="text-sm text-ink-muted">Vos titres, vos artistes, vos genres et vos minutes d&apos;écoute de l&apos;année, à partager en image.</p>
+              <Link
+                href="/bilan"
+                className="pressable flex items-center gap-1.5 rounded-xl border border-border px-4 py-2 text-sm font-medium text-ink transition-colors hover:border-accent hover:text-accent"
+              >
+                <Sparkles size={14} /> Voir mon bilan
+              </Link>
             </div>
           </AdminCard>
 

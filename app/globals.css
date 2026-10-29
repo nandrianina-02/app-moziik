@@ -184,6 +184,11 @@ html.light {
    Utilitaires réutilisables dans toute l'app. prefers-reduced-motion
    est déjà neutralisé plus haut (animation-duration: 0.01ms), donc ces
    classes restent accessibles sans condition supplémentaire. */
+/* Barre d'un écran du bilan de l'année (app/bilan/page.tsx). */
+@keyframes remplir-bilan {
+  from { width: 0%; }
+  to { width: 100%; }
+}
 @keyframes fadeIn {
   from { opacity: 0; }
   to { opacity: 1; }

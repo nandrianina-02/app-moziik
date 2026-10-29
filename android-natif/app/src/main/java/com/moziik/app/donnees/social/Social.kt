@@ -89,6 +89,24 @@ data class Blend(
     val titres: List<LigneBlend> = emptyList(),
 )
 
+/** La collaboration d'une playlist, vue par son propriétaire : le jeton n'est servi qu'à lui. */
+@Serializable
+data class EtatCollaboration(
+    val collaborative: Boolean = false,
+    val jeton: String? = null,
+    val collaborateurs: List<Membre> = emptyList(),
+)
+
+/** Les champs absents ne partent pas (`explicitNulls = false`) : le site les veut omis, pas nuls. */
+@Serializable
+data class DemandeCollaboration(val collaborative: Boolean? = null, val renouvelerLien: Boolean? = null)
+
+@Serializable
+data class JetonInvitation(val jeton: String)
+
+@Serializable
+data class RetraitCollaborateur(val userId: String? = null)
+
 class Social(private val api: MoziikApi) {
     suspend fun profil(username: String): ProfilMembre = appel { api.membre(username) }.getOrThrow()
 
@@ -102,6 +120,27 @@ class Social(private val api: MoziikApi) {
 
     suspend fun partager(partageEcoute: Boolean): Boolean =
         appel { api.reglerPartage(ReglagePartage(partageEcoute)) }.getOrThrow().partageEcoute
+
+    suspend fun collaboration(playlist: String): EtatCollaboration = appel { api.collaboration(playlist) }.getOrThrow()
+
+    suspend fun reglerCollaboration(playlist: String, actif: Boolean): EtatCollaboration =
+        appel { api.reglerCollaboration(playlist, DemandeCollaboration(collaborative = actif)) }.getOrThrow()
+
+    suspend fun renouvelerLien(playlist: String): EtatCollaboration =
+        appel { api.reglerCollaboration(playlist, DemandeCollaboration(renouvelerLien = true)) }.getOrThrow()
+
+    /** Rejoindre avec le jeton d'un lien d'invitation (/playlist/<id>/rejoindre?jeton=…). */
+    suspend fun rejoindre(playlist: String, jeton: String) {
+        appel { api.rejoindrePlaylist(playlist, JetonInvitation(jeton)) }.getOrThrow()
+    }
+
+    suspend fun retirerCollaborateur(playlist: String, membre: String): EtatCollaboration =
+        appel { api.retirerCollaborateur(playlist, RetraitCollaborateur(membre)) }.getOrThrow()
+
+    /** Un collaborateur se retire lui-même. */
+    suspend fun quitter(playlist: String) {
+        appel { api.quitterPlaylist(playlist, RetraitCollaborateur()) }.getOrThrow()
+    }
 
     suspend fun blend(username: String): Blend =
         appel { api.blend(username) }.getOrThrow().let { b -> b.copy(titres = b.titres.filter { it.titre.publie }) }

@@ -323,7 +323,9 @@ fun Coquille(sombre: Boolean, onBasculerMode: () -> Unit) {
                 val retour: () -> Unit = { navigation.popBackStack() }
                 composable(Fiches.ALBUM) { e -> FicheAlbum(e.arguments?.getString("id").orEmpty(), retour) }
                 composable(Fiches.ARTISTE) { e -> FicheArtiste(e.arguments?.getString("id").orEmpty(), retour) }
-                composable(Fiches.PLAYLIST) { e -> FichePlaylist(e.arguments?.getString("id").orEmpty(), retour) }
+                composable(Fiches.PLAYLIST, listOf(navArgument("jeton") { defaultValue = "" })) { e ->
+                    FichePlaylist(e.arguments?.getString("id").orEmpty(), retour, e.arguments?.getString("jeton")?.ifEmpty { null })
+                }
                 composable(Fiches.SELECTION) { e -> EcranSelection(e.arguments?.getString("cle").orEmpty(), retour) }
                 composable(Fiches.MEMBRE) { e -> com.moziik.app.ui.social.EcranMembre(e.arguments?.getString("username").orEmpty(), retour) }
                 composable(Fiches.AMIS) { com.moziik.app.ui.social.EcranAmis(retour) }

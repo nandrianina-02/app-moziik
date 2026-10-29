@@ -27,6 +27,8 @@ class CatalogueTest {
         assertEquals(Cible.DeBlend("ana.r"), cibleDe("${site}blend/ana.r", site))
         assertEquals(Cible.Amis, cibleDe("/amis", site))
         assertEquals(Cible.Inconnue, cibleDe("/membre", site))
+        assertEquals(Cible.DePlaylist(id, "aB3_x-9"), cibleDe("/playlist/$id/rejoindre?jeton=aB3_x-9", site))
+        assertEquals(Cible.DePlaylist(id), cibleDe("/playlist/$id/rejoindre", site))
         assertEquals(Cible.DeRecherche("chill vibes"), cibleDe("/recherche?q=chill%20vibes", site))
         assertEquals(Cible.Ancre("recommendations"), cibleDe("#recommendations", site))
         assertEquals(Cible.Externe("https://www.facebook.com/moziik"), cibleDe("https://www.facebook.com/moziik", site))

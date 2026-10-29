@@ -65,18 +65,40 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import com.moziik.app.ui.horsligne.BoutonTelechargerLot
+import com.moziik.app.ui.social.FeuilleCollaboration
 import androidx.compose.foundation.lazy.rememberLazyListState
 
 /**
  * La fiche d'une playlist (F7). Son propriétaire la modifie ici même
  * (F8 à F10) : titre, description, visibilité, titres ajoutés ou retirés,
- * suppression après confirmation.
+ * suppression après confirmation. Une playlist collaborative laisse aussi
+ * ses collaborateurs ajouter et retirer des titres.
+ *
+ * `jeton` : ouverte par un lien d'invitation, la playlist est d'abord
+ * rejointe, puis relue avec les droits du collaborateur.
  */
 @Composable
-fun FichePlaylist(id: String, onRetour: () -> Unit) {
+fun FichePlaylist(id: String, onRetour: () -> Unit, jeton: String? = null) {
     val c = conteneur()
     val modele: ModeleFiche<PlaylistDetail> = viewModel { ModeleFiche { c.catalogue.playlist(id) } }
     val etat by modele.etat.collectAsStateWithLifecycle()
+    val session by c.session.etat.collectAsStateWithLifecycle()
+    var invitation by rememberSaveable(id) { mutableStateOf(jeton) }
+    val connecte = session is EtatSession.Connecte
+    LaunchedEffect(invitation, connecte) {
+        val j = invitation ?: return@LaunchedEffect
+        if (!connecte) {
+            c.alertes.signaler(AlerteLecture.Message("Connecte-toi pour rejoindre cette playlist collaborative."))
+            return@LaunchedEffect
+        }
+        runCatching { c.social.rejoindre(id, j) }
+            .onSuccess {
+                c.alertes.signaler(AlerteLecture.Message("Tu participes à cette playlist.", succes = true))
+                modele.recharger()
+            }
+            .onFailure { c.alertes.signaler(AlerteLecture.Message(messageErreur(it))) }
+        invitation = null
+    }
     ContenuFiche(etat, modele::recharger) { playlist -> CorpsPlaylist(playlist, onRetour, modele::recharger) }
 }
 
@@ -94,6 +116,10 @@ private fun CorpsPlaylist(playlist: PlaylistDetail, onRetour: () -> Unit, onRech
     // La gestion est réservée au propriétaire ; le site le vérifie aussi (403).
     val moi = (session as? EtatSession.Connecte)?.utilisateur?.id
     val aMoi = moi != null && playlist.owner?.id == moi
+    val collaborateur = moi != null && playlist.collaborateurs.any { it.id == moi }
+    // Les titres : propriétaire, ou collaborateur tant que la collaboration est active.
+    val peutTitres = aMoi || (collaborateur && playlist.collaborative)
+    var collaboration by remember { mutableStateOf(false) }
     var edition by remember { mutableStateOf(false) }
     var suppression by remember { mutableStateOf(false) }
     var ajout by remember { mutableStateOf(false) }
@@ -112,11 +138,18 @@ private fun CorpsPlaylist(playlist: PlaylistDetail, onRetour: () -> Unit, onRech
                 banniere = playlist.coverUrl ?: titres.firstOrNull()?.coverUrl,
                 type = "Playlist",
                 titre = playlist.title,
-                sousTitre = if (proprietaire != null) ({ Text("par $proprietaire", style = Texte.corps, color = p.encreAttenuee.compose) }) else null,
+                sousTitre = if (proprietaire != null) ({
+                    val autres = playlist.collaborateurs.size
+                    Text(
+                        "par $proprietaire" + if (autres > 0) " et ${nombre(autres, "collaborateur")}" else "",
+                        style = Texte.corps, color = p.encreAttenuee.compose,
+                    )
+                }) else null,
                 pastilles = listOfNotNull(
                     nombre(titres.size, "titre"),
                     titres.sumOf { it.duration }.takeIf { it > 0 }?.let(::dureeTotale),
                     if (aMoi) (if (playlist.isPublic) "Publique" else "Privée") else null,
+                    if (playlist.collaborative) "Collaborative" else null,
                 ),
             ) {
                 if (titres.isNotEmpty()) {
@@ -130,15 +163,16 @@ private fun CorpsPlaylist(playlist: PlaylistDetail, onRetour: () -> Unit, onRech
                 }
             }
         }
-        if (aMoi) {
+        if (aMoi || collaborateur) {
             item(key = "gestion") {
                 Row(
                     Modifier.fillMaxWidth().padding(top = 12.dp),
                     horizontalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(10.dp, Alignment.CenterHorizontally),
                 ) {
-                    BoutonFiche(R.drawable.lucide_list_plus, "Ajouter", onClick = { ajout = true })
-                    BoutonFiche(R.drawable.lucide_pencil, "Modifier", onClick = { edition = true })
-                    BoutonFiche(R.drawable.lucide_trash_2, null, onClick = { suppression = true }, description = "Supprimer la playlist")
+                    if (peutTitres) BoutonFiche(R.drawable.lucide_list_plus, "Ajouter", onClick = { ajout = true })
+                    if (aMoi) BoutonFiche(R.drawable.lucide_pencil, "Modifier", onClick = { edition = true })
+                    BoutonFiche(R.drawable.lucide_users, null, onClick = { collaboration = true }, description = "Playlist collaborative")
+                    if (aMoi) BoutonFiche(R.drawable.lucide_trash_2, null, onClick = { suppression = true }, description = "Supprimer la playlist")
                 }
             }
         }
@@ -153,7 +187,7 @@ private fun CorpsPlaylist(playlist: PlaylistDetail, onRetour: () -> Unit, onRech
         if (titres.isEmpty()) {
             item(key = "vide") {
                 Text(
-                    if (aMoi) "Cette playlist est vide. Ajoute des titres avec « Ajouter »." else "Cette playlist est vide pour le moment.",
+                    if (peutTitres) "Cette playlist est vide. Ajoute des titres avec « Ajouter »." else "Cette playlist est vide pour le moment.",
                     style = Texte.corps, color = p.encreAttenuee.compose, modifier = Modifier.padding(16.dp),
                 )
             }
@@ -161,7 +195,7 @@ private fun CorpsPlaylist(playlist: PlaylistDetail, onRetour: () -> Unit, onRech
             item(key = "titres") { SectionFiche("Titres") {} }
         }
         itemsIndexed(titres, key = { i, t -> "titre-$i-${t.id}" }) { i, titre ->
-            val extras = if (aMoi) {
+            val extras = if (peutTitres) {
                 listOf(
                     ActionMenu("Retirer de la playlist", R.drawable.lucide_trash_2) {
                         portee.launch {
@@ -219,6 +253,20 @@ private fun CorpsPlaylist(playlist: PlaylistDetail, onRetour: () -> Unit, onRech
                         }
                         .onFailure { c.alertes.signaler(AlerteLecture.Message(messageErreur(it))) }
                 }
+            },
+        )
+    }
+    if (collaboration) {
+        FeuilleCollaboration(
+            playlist = playlist,
+            estProprietaire = aMoi,
+            onFermer = { collaboration = false },
+            onChangee = changee,
+            onQuittee = {
+                collaboration = false
+                menus.bibliothequeChangee()
+                // Privée, la playlist n'est plus lisible pour qui vient de la quitter.
+                if (playlist.isPublic) onRecharger() else onRetour()
             },
         )
     }

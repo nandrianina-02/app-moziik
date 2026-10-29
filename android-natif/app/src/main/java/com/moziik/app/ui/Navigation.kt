@@ -13,7 +13,7 @@ import com.moziik.app.donnees.catalogue.Cible
 object Fiches {
     const val ALBUM = "album/{id}"
     const val ARTISTE = "artiste/{id}"
-    const val PLAYLIST = "playlist/{id}"
+    const val PLAYLIST = "playlist/{id}?jeton={jeton}"
     const val SELECTION = "selection/{cle}"
     const val TITRE = "titre/{id}"
     const val CLASSEMENTS = "classements?type={type}&periode={periode}"
@@ -41,7 +41,7 @@ class Navigation(
 ) {
     fun album(id: String) = aller("album/$id")
     fun artiste(id: String) = aller("artiste/$id")
-    fun playlist(id: String) = aller("playlist/$id")
+    fun playlist(id: String, jeton: String? = null) = aller(if (jeton == null) "playlist/$id" else "playlist/$id?jeton=${Uri.encode(jeton)}")
     fun selection(cle: String) = aller("selection/$cle")
     fun titre(id: String) = aller("titre/$id")
     fun classements(type: String? = null, periode: String? = null) =
@@ -69,7 +69,7 @@ class Navigation(
         when (cible) {
             is Cible.DAlbum -> album(cible.id)
             is Cible.DArtiste -> artiste(cible.id)
-            is Cible.DePlaylist -> playlist(cible.id)
+            is Cible.DePlaylist -> playlist(cible.id, cible.jeton)
             is Cible.DeTitre -> titre(cible.id)
             is Cible.DeRecherche -> rechercher(cible.terme)
             is Cible.Titres -> titres(cible.genre)

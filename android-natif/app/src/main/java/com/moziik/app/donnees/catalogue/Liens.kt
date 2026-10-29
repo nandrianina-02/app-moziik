@@ -10,7 +10,8 @@ import java.net.URLDecoder
 sealed interface Cible {
     data class DeTitre(val id: String) : Cible
     data class DAlbum(val id: String) : Cible
-    data class DePlaylist(val id: String) : Cible
+    /** `jeton` : le lien d'invitation d'une playlist collaborative (/playlist/<id>/rejoindre?jeton=…). */
+    data class DePlaylist(val id: String, val jeton: String? = null) : Cible
     data class DArtiste(val id: String) : Cible
     /** Lancer la station d'un genre (vignettes de la page Radio). */
     data class DeGenre(val genre: String) : Cible
@@ -53,6 +54,8 @@ fun cibleDe(lien: String, site: String): Cible {
         "son" -> id?.let { Cible.DeTitre(it) }
         "album" -> id?.let { Cible.DAlbum(it) }
         "playlist" -> id?.let { Cible.DePlaylist(it) }
+            ?: segments.getOrNull(1)?.takeIf { OBJECT_ID.matches(it) && segments.size == 3 && segments[2] == "rejoindre" }
+                ?.let { Cible.DePlaylist(it, parametres["jeton"]?.takeIf { j -> j.isNotBlank() }) }
         // /artiste/gestion et les autres pages de l'espace artiste ne sont pas des fiches : l'identifiant est vérifié.
         "artiste" -> id?.let { Cible.DArtiste(it) }
         "titres" -> Cible.Titres(parametres["genre"]?.takeIf { it.isNotBlank() })

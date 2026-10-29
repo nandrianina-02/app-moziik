@@ -396,6 +396,9 @@ data class PlaylistDetail(
     @Serializable(with = ProprietaireSouple::class) val owner: Proprietaire? = null,
     /** Une playlist privée n'est servie qu'à son propriétaire : absente, la playlist est donc publique. */
     val isPublic: Boolean = true,
+    /** Ses collaborateurs ajoutent, retirent et réordonnent les titres tant qu'elle est collaborative. */
+    val collaborative: Boolean = false,
+    val collaborateurs: List<com.moziik.app.donnees.social.Membre> = emptyList(),
 )
 
 /** GET /api/artists/{id} : la fiche, ses titres publiés, ses sorties et son voisinage. */

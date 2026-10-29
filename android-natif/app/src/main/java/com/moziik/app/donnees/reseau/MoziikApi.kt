@@ -62,6 +62,10 @@ import com.moziik.app.donnees.compte.ModificationProfil
 import com.moziik.app.donnees.compte.ThemesCompte
 import retrofit2.http.Body
 import com.moziik.app.donnees.social.Blend
+import com.moziik.app.donnees.social.DemandeCollaboration
+import com.moziik.app.donnees.social.EtatCollaboration
+import com.moziik.app.donnees.social.JetonInvitation
+import com.moziik.app.donnees.social.RetraitCollaborateur
 import com.moziik.app.donnees.social.EtatSocial
 import com.moziik.app.donnees.social.EtatSuiviMembre
 import com.moziik.app.donnees.social.ListeActiviteAmis
@@ -372,6 +376,23 @@ interface MoziikApi {
     /** 403 si le suivi n'est pas mutuel ou si l'un des deux ne partage pas son activité. */
     @GET("api/blend/{username}")
     suspend fun blend(@Path("username") username: String): Blend
+
+    /** Propriétaire seulement (403 sinon). */
+    @GET("api/playlists/{id}/collaboration")
+    suspend fun collaboration(@Path("id") id: String): EtatCollaboration
+
+    @PATCH("api/playlists/{id}/collaboration")
+    suspend fun reglerCollaboration(@Path("id") id: String, @Body demande: DemandeCollaboration): EtatCollaboration
+
+    /** 410 quand le lien a été renouvelé ou la collaboration suspendue. */
+    @POST("api/playlists/{id}/collaboration")
+    suspend fun rejoindrePlaylist(@Path("id") id: String, @Body jeton: JetonInvitation)
+
+    @HTTP(method = "DELETE", path = "api/playlists/{id}/collaboration", hasBody = true)
+    suspend fun retirerCollaborateur(@Path("id") id: String, @Body retrait: RetraitCollaborateur): EtatCollaboration
+
+    @HTTP(method = "DELETE", path = "api/playlists/{id}/collaboration", hasBody = true)
+    suspend fun quitterPlaylist(@Path("id") id: String, @Body retrait: RetraitCollaborateur)
 
     @POST("api/me/password")
     suspend fun changerMotDePasse(@Body corps: ChangementMotDePasse)

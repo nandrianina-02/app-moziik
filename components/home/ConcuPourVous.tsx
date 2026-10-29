@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { RotateCw } from "lucide-react";
 import { useSession } from "next-auth/react";
 import { useUnivers } from "@/context/UniversProvider";
 import { CarteSelection, type ResumeSelection } from "@/components/selections/CarteSelection";
@@ -18,17 +19,33 @@ export function ConcuPourVous() {
   const { data: session, status } = useSession();
   const { univers } = useUnivers();
   const [selections, setSelections] = useState<ResumeSelection[] | null>(null);
+  const [erreur, setErreur] = useState(false);
+  const [essai, setEssai] = useState(0);
 
   useEffect(() => {
     if (status === "loading") return;
     const controleur = new AbortController();
     setSelections(null);
+    setErreur(false);
     fetch("/api/selections", { signal: controleur.signal })
-      .then((r) => (r.ok ? r.json() : { selections: [] }))
+      .then((r) => {
+        if (!r.ok) throw new Error();
+        return r.json();
+      })
       .then((d) => setSelections(d.selections ?? []))
-      .catch(() => {});
+      .catch((e) => {
+        // Base injoignable : on le dit, plutôt que de laisser des squelettes
+        // indéfiniment, et on réessaie seul un peu plus tard.
+        if ((e as Error).name !== "AbortError") setErreur(true);
+      });
     return () => controleur.abort();
-  }, [status, univers]);
+  }, [status, univers, essai]);
+
+  useEffect(() => {
+    if (!erreur) return;
+    const minuterie = window.setTimeout(() => setEssai((n) => n + 1), 20_000);
+    return () => window.clearTimeout(minuterie);
+  }, [erreur]);
 
   const connecte = status === "authenticated";
   if (selections !== null && selections.length === 0) return null;
@@ -39,6 +56,19 @@ export function ConcuPourVous() {
         <p className="text-sm text-ink-muted">{connecte ? "Conçu pour" : "Pour bien commencer"}</p>
         <h2 className="font-display text-2xl font-bold tracking-tight">{connecte ? session?.user?.name ?? "vous" : "Les mix Moziik"}</h2>
       </div>
+      {erreur ? (
+        <div className="flex items-center gap-3 rounded-lg bg-ink/[0.04] px-4 py-5 text-sm text-ink-muted">
+          <span className="flex-1">Vos sélections n&apos;ont pas pu être chargées pour l&apos;instant.</span>
+          <button
+            type="button"
+            onClick={() => setEssai((n) => n + 1)}
+            className="flex shrink-0 items-center gap-1.5 rounded-full bg-ink/[0.08] px-3.5 py-1.5 font-medium text-ink transition-colors hover:bg-ink/[0.14]"
+          >
+            <RotateCw size={14} />
+            Réessayer
+          </button>
+        </div>
+      ) : (
       <div className="-mx-2 flex gap-1 overflow-x-auto pb-2 [scrollbar-width:thin]">
         {selections === null
           ? Array.from({ length: 6 }, (_, i) => (
@@ -50,6 +80,7 @@ export function ConcuPourVous() {
             ))
           : selections.map((s) => <CarteSelection key={s.cle} s={s} personnel={connecte} />)}
       </div>
+      )}
     </section>
   );
 }

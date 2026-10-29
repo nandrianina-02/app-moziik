@@ -86,6 +86,7 @@ export function AccesRapide({ secours }: { secours: PlayableSong[] }) {
   const { univers } = useUnivers();
   const bandeSon = useBandeSon();
   const [recents, setRecents] = useState<PlayableSong[] | null>(null);
+  const [abandon, setAbandon] = useState(false);
   const connecte = status === "authenticated";
 
   useEffect(() => {
@@ -118,7 +119,16 @@ export function AccesRapide({ secours }: { secours: PlayableSong[] }) {
   const stationEnCours = playSource?.type === "radio";
 
   // Rien à montrer tant que les écoutes (ou, pour un visiteur, les titres du moment) ne sont pas arrivées.
-  if ((connecte && recents === null) || (!connecte && secours.length === 0)) {
+  const enAttente = (connecte && recents === null) || (!connecte && secours.length === 0);
+  // Base injoignable : au bout de quinze secondes, le bloc s'efface plutôt
+  // que de rester en squelette ; il revient dès que les données arrivent.
+  useEffect(() => {
+    if (!enAttente) return setAbandon(false);
+    const minuterie = window.setTimeout(() => setAbandon(true), 15_000);
+    return () => window.clearTimeout(minuterie);
+  }, [enAttente]);
+  if (enAttente && abandon) return null;
+  if (enAttente) {
     return (
       <div className="grid grid-cols-2 gap-2 lg:grid-cols-4" aria-busy="true">
         {Array.from({ length: TUILES }, (_, i) => (

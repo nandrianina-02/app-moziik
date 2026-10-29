@@ -3,6 +3,7 @@ import { randomUUID } from "crypto";
 import mongoose from "mongoose";
 import { isDatabaseUnavailableError } from "@/lib/db";
 import { masquerAudio } from "@/lib/audioPublic";
+import { cleDeCopie, copieDe, retenir } from "@/lib/copieSecours";
 
 /**
  * Les documents refusés par une écriture groupée, réduits à ce qui aide.
@@ -68,14 +69,32 @@ export class ApiError extends Error {
  * étaient jusqu'ici indiscernables d'un bug applicatif côté navigateur :
  * une base injoignable (503, temporaire, l'utilisateur peut réessayer) et
  * une donnée refusée par Mongoose (400, avec le champ fautif).
+ *
+ * Une lecture (GET) qui tombe sur une base injoignable est retentée une
+ * fois après une courte pause, puis, si la base ne répond toujours pas,
+ * reçoit la dernière bonne réponse gardée pour ce visiteur
+ * (lib/copieSecours.ts). Le 503 ne reste que s'il n'y a rien à resservir.
  */
 export function withApiErrors<T extends unknown[]>(
   handler: (...args: T) => Promise<NextResponse>
 ) {
   return async (...args: T): Promise<NextResponse> => {
-    try {
+    const cle = cleDeCopie(args[0]);
+    const executer = async () => {
       const reponse = await handler(...args);
-      return reponsesBrutes.has(reponse) ? reponse : await sansAudioBrut(reponse);
+      const finale = reponsesBrutes.has(reponse) ? reponse : await sansAudioBrut(reponse);
+      await retenir(cle, finale);
+      return finale;
+    };
+    try {
+      try {
+        return await executer();
+      } catch (err) {
+        // Une coupure de quelques secondes : un second essai suffit souvent.
+        if (!cle || !isDatabaseUnavailableError(err)) throw err;
+        await new Promise((r) => setTimeout(r, 1000));
+        return await executer();
+      }
     } catch (err) {
       if (err instanceof ApiError) {
         return NextResponse.json({ error: err.message }, { status: err.status });
@@ -83,6 +102,8 @@ export function withApiErrors<T extends unknown[]>(
 
       if (isDatabaseUnavailableError(err)) {
         console.error("Base de données injoignable :", err);
+        const copie = copieDe(cle);
+        if (copie) return copie;
         return NextResponse.json(
           { error: "Base de données momentanément injoignable. Réessaie dans quelques instants." },
           { status: 503 }

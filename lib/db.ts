@@ -37,6 +37,35 @@ const DISCONNECTED = 0;
 const CONNECTED = 1;
 const CONNECTING = 2;
 
+/**
+ * Trois essais courts plutôt qu'un seul long.
+ *
+ * L'offre partagée d'Atlas a des coupures de quelques secondes. Avec le
+ * délai par défaut du pilote (30 s) et un seul essai, chaque coupure se
+ * traduisait par une page qui attendait trente secondes avant d'échouer.
+ * Ici, un essai abandonne au bout de 6 s, et le suivant part après une
+ * courte pause : une coupure brève passe inaperçue, une vraie panne est
+ * signalée en une vingtaine de secondes au plus.
+ */
+const ESSAIS_CONNEXION = 3;
+let enVol = false;
+const DELAI_SELECTION_MS = 6000;
+const PAUSES_MS = [500, 1500];
+
+async function connecterAvecEssais(): Promise<typeof mongoose> {
+  let derniere: unknown;
+  for (let essai = 0; essai < ESSAIS_CONNEXION; essai++) {
+    try {
+      return await mongoose.connect(getMongoUri(), { bufferCommands: false, serverSelectionTimeoutMS: DELAI_SELECTION_MS });
+    } catch (err) {
+      derniere = err;
+      if (!isDatabaseUnavailableError(err) || essai === ESSAIS_CONNEXION - 1) break;
+      await new Promise((r) => setTimeout(r, PAUSES_MS[essai] ?? 1500));
+    }
+  }
+  throw derniere;
+}
+
 export async function connectDB() {
   // On ne se fie plus à la seule présence de `cache.conn` : l'objet reste
   // en cache alors que la connexion sous-jacente a pu tomber (mise en
@@ -51,20 +80,25 @@ export async function connectDB() {
 
   // `CONNECTING` : une tentative est déjà en vol, on attend la même
   // promesse. Tout autre état signifie que le cache est périmé.
-  if (mongoose.connection.readyState !== CONNECTING) {
+  // Entre deux essais, la connexion est « déconnectée » alors qu'une
+  // tentative est bien en cours : `enVol` évite d'en lancer une seconde.
+  if (mongoose.connection.readyState !== CONNECTING && !enVol) {
     cache.conn = null;
     cache.promise = null;
   }
 
   if (!cache.promise) {
-    cache.promise = mongoose
-      .connect(getMongoUri(), { bufferCommands: false })
+    enVol = true;
+    cache.promise = connecterAvecEssais()
       .catch((err) => {
         // Sans cette remise à zéro, la promesse *rejetée* restait en cache
         // et toutes les requêtes suivantes la ré-attendaient : une seule
         // seconde d'indisponibilité réseau condamnait l'instance entière.
         cache.promise = null;
         throw err;
+      })
+      .finally(() => {
+        enVol = false;
       });
   }
 

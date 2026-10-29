@@ -10,6 +10,7 @@ import type { PlayableSong } from "@/context/PlayerProvider";
 import { HeroCarousel, type HeroSlide } from "@/components/home/HeroCarousel";
 import { AccueilEntete, SECTIONS_PAR_FILTRE, type FiltreAccueil } from "@/components/home/AccueilEntete";
 import { AccesRapide } from "@/components/home/AccesRapide";
+import { ConcuPourVous } from "@/components/home/ConcuPourVous";
 import { EventsCard, RadioCard, FeaturedArtists, ActivityFeed, SupportArtistsCard } from "@/components/home/HomeSidebar";
 import { PremiumBanner } from "@/components/home/PremiumBanner";
 import { SectionHeader } from "@/components/home/SectionHeader";
@@ -85,6 +86,13 @@ export default function HomePage() {
       <div className="mb-8 animate-fade-in-up">
         <AccesRapide secours={topTracks?.length ? topTracks : newReleases} />
       </div>
+
+      {/* Les sélections personnelles : avec les playlists quand on filtre. */}
+      {(tout || filtre === "playlists") && (
+        <div className="mb-10">
+          <ConcuPourVous />
+        </div>
+      )}
 
       {/* La page vient de l'instantané gardé sur l'appareil : elle est
           lisible tout de suite, mais elle date de la dernière visite. Le

@@ -41,6 +41,7 @@ import "@/models/Playlist";
 import "@/models/RefreshToken";
 import "@/models/Royalty";
 import "@/models/SearchQuery";
+import "@/models/SelectionPersonnelle";
 import "@/models/SiteConfig";
 import "@/models/Song";
 import "@/models/SupportMessage";

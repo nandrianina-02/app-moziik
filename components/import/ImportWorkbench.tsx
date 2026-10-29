@@ -25,7 +25,8 @@ import { estFichierAudio, formaterOctets, lireMetadonneesAudio, titreDepuisNomDe
 import { estimerTempo } from "@/lib/bpm";
 import { creerPochetteParDefaut } from "@/lib/defaultCover";
 import { envoyerFichier } from "@/lib/envoiFichier";
-import { envoyerTitre } from "@/lib/envoiTitre";
+import { envoyerSource } from "@/lib/envoiTitre";
+import { usePreparationQualites } from "@/context/PreparationQualitesProvider";
 import { readApiError } from "@/lib/readApiError";
 import { useToast } from "@/context/ToastProvider";
 import { useSiteConfig } from "@/context/SiteConfigProvider";
@@ -91,6 +92,7 @@ export function ImportWorkbench({
   artisteImpose?: ArtisteOption;
 }) {
   const pushToast = useToast();
+  const { preparer: preparerQualites } = usePreparationQualites();
   const siteConfig = useSiteConfig();
   const genres = useMemo(() => (siteConfig.genres.length > 0 ? siteConfig.genres : ["Autre"]), [siteConfig.genres]);
   /**
@@ -495,7 +497,9 @@ export function ImportWorkbench({
         const pochetteEnvoyee = await envoyerFichier(ligne.pochette, "covers");
         majLigne(ligne.id, { progression: 12 });
 
-        const audioEnvoye = await envoyerTitre(ligne.fichier, { debut: null, fin: null }, (pct) =>
+        // Le fichier d'origine seulement : le titre est créé tout de suite,
+        // ses qualités d'écoute se préparent ensuite, l'une après l'autre.
+        const audioEnvoye = await envoyerSource(ligne.fichier, (pct) =>
           majLigne(ligne.id, { progression: 12 + Math.round(pct * 0.8) })
         );
         majLigne(ligne.id, { progression: 94 });
@@ -519,7 +523,6 @@ export function ImportWorkbench({
             bpmSource: ligne.bpm ? ligne.bpmSource : undefined,
             coverUrl: pochetteEnvoyee.url,
             audioUrl: audioEnvoye.audioUrl,
-            audioVariantes: audioEnvoye.audioVariantes,
             duration: Math.round(audioEnvoye.duration ?? duree),
             releaseDate,
             saveAsDraft: modePublication === "brouillon",
@@ -527,6 +530,9 @@ export function ImportWorkbench({
         });
         if (!res.ok) throw new Error(await readApiError(res, "Création du morceau refusée."));
         const { song } = await res.json();
+        if (audioEnvoye.qualitesAPreparer) {
+          preparerQualites({ songId: song._id, titre: ligne.titre.trim(), source: ligne.fichier, decoupe: { debut: null, fin: null } });
+        }
 
         if (ligne.albumId) {
           aRattacher.set(ligne.albumId, [...(aRattacher.get(ligne.albumId) ?? []), String(song._id)]);

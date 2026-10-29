@@ -13,6 +13,7 @@ import { AccesProvider } from "@/context/AccesProvider";
 import { SiteConfigProvider } from "@/context/SiteConfigProvider";
 import { SidebarProvider } from "@/context/SidebarProvider";
 import { Sidebar } from "@/components/layout/Sidebar";
+import { PreparationQualitesProvider } from "@/context/PreparationQualitesProvider";
 import { CoinsCadre } from "@/components/layout/CoinsCadre";
 import { PanneauLecture } from "@/components/player/PanneauLecture";
 import { MainContent } from "@/components/layout/MainContent";
@@ -157,6 +158,10 @@ export default async function RootLayout({ children }: { children: React.ReactNo
                   que l'univers — changer de mode vide la réserve. */}
               <ModeProvider>
               <ToastProvider>
+                {/* Sous les notifications, qu'il emploie ; au-dessus de toutes
+                    les pages, pour que les qualités d'écoute continuent de se
+                    préparer pendant qu'on navigue. */}
+                <PreparationQualitesProvider>
                 <OnlineStatusProvider>
                   <PlayerProvider>
                     <NotificationsProvider>
@@ -202,6 +207,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
                     </NotificationsProvider>
                   </PlayerProvider>
                 </OnlineStatusProvider>
+                </PreparationQualitesProvider>
               </ToastProvider>
               </ModeProvider>
               </UniversProvider>

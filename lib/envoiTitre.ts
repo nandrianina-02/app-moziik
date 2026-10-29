@@ -83,3 +83,20 @@ export async function envoyerTitre(
   );
   return { audioUrl: source.url, audioVariantes: variantes, duration: source.duration ?? duree };
 }
+
+/**
+ * Envoie seulement le fichier d'origine : le titre peut être publié tout
+ * de suite. Les qualités d'écoute se préparent ensuite en arrière-plan
+ * (context/PreparationQualitesProvider.tsx) ; d'ici là, la lecture sert la
+ * source (app/api/stream/[id]/route.ts).
+ *
+ * `qualitesAPreparer` est faux en repli Cloudinary, qui n'a pas de versions.
+ */
+export async function envoyerSource(
+  fichier: File,
+  onProgress?: (pourcent: number) => void,
+): Promise<{ audioUrl: string; duration?: number; qualitesAPreparer: boolean }> {
+  const karaks = (await modeStockage()) === "karaks-storage";
+  const envoi = await envoyerFichier(fichier, "songs", onProgress);
+  return { audioUrl: envoi.url, duration: envoi.duration, qualitesAPreparer: karaks };
+}

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
 import { Controller, useForm } from "react-hook-form";
@@ -40,7 +40,8 @@ import { SongPreviewSidebar, type ChecklistItem } from "@/components/song/SongPr
 import { FeaturingPicker } from "@/components/modals/FeaturingPicker";
 import { ArtistSinglePicker } from "@/components/modals/ArtistSinglePicker";
 import { envoyerFichier } from "@/lib/envoiFichier";
-import { envoyerTitre, envoyerVersions, type EtapeTitre } from "@/lib/envoiTitre";
+import { envoyerSource, type EtapeTitre } from "@/lib/envoiTitre";
+import { usePreparationQualites } from "@/context/PreparationQualitesProvider";
 import { identifiantFichier } from "@/lib/fichiers";
 import { readApiError } from "@/lib/readApiError";
 import { useToast } from "@/context/ToastProvider";
@@ -68,6 +69,8 @@ const TIMEZONES = [
 type ArtistOption = { _id: string; stageName: string; verified?: boolean };
 
 type SongDoc = {
+  /** Les fichiers des qualités d'écoute ; absents tant qu'elles ne sont pas prêtes. */
+  audioVariantes?: Record<string, string> | null;
   _id: string;
   title: string;
   artist: (ArtistOption & { coverUrl?: string }) | null;
@@ -192,9 +195,28 @@ export default function EditSongPage() {
   const { data: session, status } = useSession();
   const siteConfig = useSiteConfig();
   const pushToast = useToast();
+  const { preparer: preparerQualites, enCours: qualitesEnCours } = usePreparationQualites();
   const isAdmin = session?.user?.role === "admin";
 
   const [song, setSong] = useState<SongDoc | null>(null);
+  // Les qualités préparées en arrière-plan sont rattachées au titre côté
+  // serveur : à la fin de leur préparation, la page relit le titre pour ne
+  // plus proposer de les générer.
+  const preparationVue = useRef(false);
+  const preparationActive = song ? qualitesEnCours(song._id) : false;
+  useEffect(() => {
+    if (preparationActive) {
+      preparationVue.current = true;
+      return;
+    }
+    if (!preparationVue.current || !song) return;
+    preparationVue.current = false;
+    fetch(`/api/songs/${song._id}`)
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => d?.song && setSong((avant) => (avant ? { ...avant, audioVariantes: d.song.audioVariantes } : avant)))
+      .catch(() => {});
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- ne réagit qu'à la fin d'une préparation
+  }, [preparationActive]);
   const GENRES = useMemo(() => {
     const base = siteConfig.genres.length > 0 ? siteConfig.genres : ["Autre"];
     // Si le genre déjà attribué au titre a été retiré de la liste des
@@ -466,13 +488,18 @@ export default function EditSongPage() {
       let audioUrl = song.audioUrl;
       let duration = song.duration;
       let audioVariantes: Record<string, string> | null | undefined;
+      // Les qualités d'écoute à préparer en arrière-plan une fois le titre
+      // enregistré : d'ici là, il se lit en qualité d'origine.
+      let aPreparer: { source: Blob | (() => Promise<Blob>) } | null = null;
       if (audioFile) {
         setUploadingAudio(true);
-        const upload = await envoyerTitre(audioFile, decoupe, setAudioProgress, setAudioEtape);
+        setAudioEtape("source");
+        const upload = await envoyerSource(audioFile, setAudioProgress);
         audioUrl = upload.audioUrl;
-        // `null` en repli Cloudinary : les versions de l'ancien fichier
-        // ne doivent pas survivre à son remplacement.
-        audioVariantes = upload.audioVariantes ?? null;
+        // Les versions de l'ancien fichier ne doivent pas survivre à son
+        // remplacement : retirées, puis refaites en arrière-plan.
+        audioVariantes = null;
+        if (upload.qualitesAPreparer) aPreparer = { source: audioFile };
         duration = Math.round(upload.duration ?? pendingDuration ?? song.duration);
         setUploadingAudio(false);
         setAudioProgress(0);
@@ -483,14 +510,17 @@ export default function EditSongPage() {
         // Sur Karaks Storage, la découpe est inscrite dans les fichiers
         // d'écoute : la changer, c'est les encoder de nouveau, depuis la
         // source gardée intacte.
-        setUploadingAudio(true);
-        setAudioEtape("encodage");
-        const reponse = await fetch(`/api/stream/${song._id}?brut=1`);
-        if (!reponse.ok) throw new Error("Le fichier d'origine n'a pas pu être relu pour appliquer la découpe.");
-        const versions = await envoyerVersions(await reponse.blob(), decoupe, song.title, setAudioProgress, setAudioEtape);
-        audioVariantes = versions.variantes;
-        setUploadingAudio(false);
-        setAudioProgress(0);
+        // Les anciennes versions portent l'ancienne découpe : retirées tout
+        // de suite, refaites en arrière-plan depuis la source.
+        audioVariantes = null;
+        const songId = song._id;
+        aPreparer = {
+          source: async () => {
+            const reponse = await fetch(`/api/stream/${songId}?brut=1`);
+            if (!reponse.ok) throw new Error("Le fichier d'origine n'a pas pu être relu pour appliquer la découpe.");
+            return reponse.blob();
+          },
+        };
       }
 
       // Trois cas distincts : un nouveau clip, le clip existant conservé,
@@ -565,6 +595,7 @@ export default function EditSongPage() {
       if (!res.ok) throw new Error(await readApiError(res, "La mise à jour a échoué."));
 
       const data = await res.json();
+      if (aPreparer) preparerQualites({ songId: data.song._id, titre: data.song.title, source: aPreparer.source, decoupe });
       setSong(data.song);
       setCoverFile(null);
       setAudioFile(null);
@@ -862,6 +893,39 @@ export default function EditSongPage() {
                 }}
                 onDurationDetected={setPendingDuration}
               />
+
+              {/* Un titre sans ses qualités d'écoute (onglet fermé pendant
+                  leur préparation, ancien envoi) : il se lit en qualité
+                  d'origine, et la préparation se reprend d'ici. */}
+              {!audioFile && identifiantFichier(song.audioUrl) && !song.audioVariantes && (
+                <div className="mt-4 flex flex-wrap items-center gap-3 rounded-lg bg-ink/[0.04] px-4 py-3 text-sm">
+                  <p className="min-w-0 flex-1 text-ink-muted">
+                    {qualitesEnCours(song._id)
+                      ? "Les qualités d'écoute sont en cours de préparation."
+                      : "Ce titre n'a pas encore ses qualités d'écoute : il se lit en qualité d'origine, sans la découpe."}
+                  </p>
+                  {!qualitesEnCours(song._id) && (
+                    <button
+                      type="button"
+                      onClick={() =>
+                        preparerQualites({
+                          songId: song._id,
+                          titre: song.title,
+                          decoupe: { debut: song.trimStart ?? null, fin: song.trimEnd ?? null },
+                          source: async () => {
+                            const reponse = await fetch(`/api/stream/${song._id}?brut=1`);
+                            if (!reponse.ok) throw new Error("Le fichier d'origine n'a pas pu être relu.");
+                            return reponse.blob();
+                          },
+                        })
+                      }
+                      className="shrink-0 rounded-full bg-ink/[0.08] px-3.5 py-1.5 font-medium text-ink transition-colors hover:bg-ink/[0.14]"
+                    >
+                      Générer les qualités
+                    </button>
+                  )}
+                </div>
+              )}
 
               {/* La découpe porte sur le fichier déjà en ligne : aucun
                   renvoi n'est nécessaire, et elle s'annule à tout moment.

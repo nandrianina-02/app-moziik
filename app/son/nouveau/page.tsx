@@ -54,7 +54,8 @@ import {
   tonaliteCourte,
 } from "@/lib/metadataMapping";
 import { envoyerFichier } from "@/lib/envoiFichier";
-import { envoyerTitre, type EtapeTitre } from "@/lib/envoiTitre";
+import { envoyerSource, type EtapeTitre } from "@/lib/envoiTitre";
+import { usePreparationQualites } from "@/context/PreparationQualitesProvider";
 import { readApiError } from "@/lib/readApiError";
 import { useToast } from "@/context/ToastProvider";
 import { useSiteConfig, useIADisponible } from "@/context/SiteConfigProvider";
@@ -146,6 +147,7 @@ export default function NewSongPage() {
   // rendu et ferait changer l'identité des rappels qui en dépendent.
   const GENRES = useMemo(() => (siteConfig.genres.length > 0 ? siteConfig.genres : ["Autre"]), [siteConfig.genres]);
   const pushToast = useToast();
+  const { preparer: preparerQualites } = usePreparationQualites();
   const isAdmin = session?.user?.role === "admin";
 
   const [ownArtist, setOwnArtist] = useState<ArtistOption | null>(null);
@@ -739,7 +741,10 @@ export default function NewSongPage() {
       setUploadingCover(false);
 
       setUploadingAudio(true);
-      const audioUpload = await envoyerTitre(audioFile, decoupe, setAudioProgress, setAudioEtape);
+      // Le fichier d'origine seulement : le titre se publie tout de suite,
+      // ses qualités d'écoute se préparent ensuite en arrière-plan.
+      setAudioEtape("source");
+      const audioUpload = await envoyerSource(audioFile, setAudioProgress);
       setUploadingAudio(false);
       setAudioProgress(0);
 
@@ -790,7 +795,6 @@ export default function NewSongPage() {
         explicit: values.explicit,
         coverUrl: coverUpload.url,
         audioUrl: audioUpload.audioUrl,
-        audioVariantes: audioUpload.audioVariantes,
         videoUrl,
         duration: Math.round(audioUpload.duration ?? pendingDuration ?? 0),
         // Le serveur en déduit la durée réellement servie : la lui laisser
@@ -813,6 +817,9 @@ export default function NewSongPage() {
       if (!res.ok) throw new Error(await readApiError(res, "La publication a échoué."));
 
       const data = await res.json();
+      if (audioUpload.qualitesAPreparer) {
+        preparerQualites({ songId: data.song._id, titre: values.title.trim(), source: audioFile, decoupe });
+      }
 
       pushToast(
         "success",

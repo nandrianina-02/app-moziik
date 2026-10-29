@@ -20,6 +20,12 @@ const nextConfig = {
     optimizePackageImports: ["lucide-react", "react-icons", "framer-motion"],
   },
   images: {
+    // Images servies telles quelles, sans le service d'optimisation de
+    // Vercel : son quota gratuit épuisé, il répondait 402 et plus aucune
+    // pochette ne s'affichait. Les pochettes sont déjà de taille raisonnable
+    // (quelques dizaines à quelques centaines de Ko) ; formats et tailles
+    // ci-dessous ne servent plus tant que cette option est active.
+    unoptimized: true,
     remotePatterns: [
       { protocol: "https", hostname: "res.cloudinary.com" },
       { protocol: "https", hostname: "lh3.googleusercontent.com" },

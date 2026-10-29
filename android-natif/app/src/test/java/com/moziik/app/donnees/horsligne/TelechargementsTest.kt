@@ -52,8 +52,9 @@ class TelechargementsTest {
         // Un autre compte ne voit rien ; le même titre partage le fichier, sans nouvelle requête.
         t.changerDeCompte("u2")
         assertTrue(t.titres.value.isEmpty())
+        val requetes = serveur.requestCount
         t.telecharger(Titre(id = "abc", title = "Son"), "high")
-        assertEquals(1, serveur.requestCount)
+        assertEquals(requetes, serveur.requestCount)
         assertEquals(listOf("abc"), t.titres.value.map { it.id })
 
         // Retiré par u2, le fichier reste pour u1, qui le retrouve à son retour.

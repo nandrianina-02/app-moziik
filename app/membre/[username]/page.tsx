@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
-import { Award, BadgeCheck, CalendarDays, ListMusic, Loader2, Mic2, UserCheck, UserPlus, UserRound } from "lucide-react";
+import { Award, BadgeCheck, Blend, CalendarDays, ListMusic, Loader2, Mic2, UserCheck, UserPlus, UserRound } from "lucide-react";
 import { useSession } from "next-auth/react";
 import { SafeImage } from "@/components/ui/SafeImage";
 import { Skeleton } from "@/components/ui/Skeleton";
@@ -121,6 +121,14 @@ export default function MemberProfilePage() {
           </p>
         </div>
 
+        {social.mutuel && (
+          <Link
+            href={`/blend/${user.username}`}
+            className="flex shrink-0 items-center gap-1.5 rounded-full border border-border px-4 py-2 text-sm font-semibold transition-colors hover:border-ink"
+          >
+            <Blend size={15} /> Blend
+          </Link>
+        )}
         {!social.estMoi && (
           <button
             onClick={basculerSuivi}

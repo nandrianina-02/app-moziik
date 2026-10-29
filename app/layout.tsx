@@ -14,6 +14,7 @@ import { SiteConfigProvider } from "@/context/SiteConfigProvider";
 import { SidebarProvider } from "@/context/SidebarProvider";
 import { Sidebar } from "@/components/layout/Sidebar";
 import { PreparationQualitesProvider } from "@/context/PreparationQualitesProvider";
+import { EcouteEnsembleProvider } from "@/context/EcouteEnsembleProvider";
 import { CoinsCadre } from "@/components/layout/CoinsCadre";
 import { PanneauLecture } from "@/components/player/PanneauLecture";
 import { MainContent } from "@/components/layout/MainContent";
@@ -164,6 +165,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
                 <PreparationQualitesProvider>
                 <OnlineStatusProvider>
                   <PlayerProvider>
+                  <EcouteEnsembleProvider>
                     <NotificationsProvider>
                       <MessagesProvider>
                       <SidebarProvider>
@@ -205,6 +207,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
                       </SidebarProvider>
                       </MessagesProvider>
                     </NotificationsProvider>
+                  </EcouteEnsembleProvider>
                   </PlayerProvider>
                 </OnlineStatusProvider>
                 </PreparationQualitesProvider>

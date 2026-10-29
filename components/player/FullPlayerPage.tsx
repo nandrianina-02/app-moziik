@@ -56,6 +56,8 @@ import { CommentsSection } from "@/components/music/CommentsSection";
 import { SongContextMenu } from "@/components/music/SongContextMenu";
 import { AddToPlaylistModal } from "@/components/modals/AddToPlaylistModal";
 import { ShareModal } from "@/components/share/ShareModal";
+import { FenetreEcouteEnsemble } from "@/components/player/FenetreEcouteEnsemble";
+import { useEcouteEnsemble } from "@/context/EcouteEnsembleProvider";
 import { buildSongSubject } from "@/components/share/shareSubject";
 import { NIVEAUX_BASS } from "@/components/player/constants/bassBoost";
 import { downloadSongForOffline, isSongOffline, removeOfflineSong, queuePendingDownload } from "@/lib/offlineCache";
@@ -196,6 +198,8 @@ function ContenuLecteur({ song }: { song: PlayableSong }) {
     });
   });
   const [offlineState, setOfflineState] = useState<"idle" | "saving" | "saved">("idle");
+  const [fenetreEnsemble, setFenetreEnsemble] = useState(false);
+  const { etat: ecouteEnsemble } = useEcouteEnsemble();
   const [liked, setLiked] = useState(false);
   const [menuPosition, setMenuPosition] = useState<MenuAnchor | null>(null);
   const [showAddToPlaylist, setShowAddToPlaylist] = useState(false);
@@ -557,6 +561,13 @@ function ContenuLecteur({ song }: { song: PlayableSong }) {
         valeur={veilleTexte}
         onClick={(e) => ouvrirReglage("veille", e)}
       />
+      <BoutonReglage
+        icon={Users}
+        actif={!!ecouteEnsemble}
+        label="À plusieurs"
+        valeur={ecouteEnsemble ? (ecouteEnsemble.role === "hote" ? ecouteEnsemble.code : "Invité") : "Off"}
+        onClick={() => setFenetreEnsemble(true)}
+      />
       {!colonneFile && (
         <BoutonReglage
           icon={ListMusic}
@@ -893,6 +904,7 @@ function ContenuLecteur({ song }: { song: PlayableSong }) {
       {reglage?.type === "transitions" && <TransitionsMenu anchor={reglage.anchor} onClose={() => setReglage(null)} />}
       {reglage?.type === "qualite" && <QualityMenu anchor={reglage.anchor} onClose={() => setReglage(null)} />}
       {reglage?.type === "veille" && <SleepMenu anchor={reglage.anchor} onClose={() => setReglage(null)} />}
+      {fenetreEnsemble && <FenetreEcouteEnsemble onClose={() => setFenetreEnsemble(false)} />}
 
       <AnimatePresence>
         {showQueueSheet && (

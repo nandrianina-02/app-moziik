@@ -75,7 +75,9 @@ private fun n(v: Int): String = nombres.format(v)
 /**
  * Ton année sur Moziik : ce que le compte a écouté, ses titres, artistes
  * et genres préférés, et le rythme de l'année. Une seule page qui défile,
- * plutôt qu'une suite d'écrans à toucher : on la relit, on y revient.
+ * plutôt qu'une suite d'écrans à toucher : on la relit, on y revient. La
+ * version racontée écran par écran, comme sur le site, s'ouvre par
+ * « Revivre mon année » (HistoireBilan).
  */
 @Composable
 fun EcranBilan(onRetour: () -> Unit) {
@@ -135,6 +137,20 @@ private fun ContenuBilan(b: Bilan) {
     val nav = navigation()
     val contexte = LocalContext.current
     val (duree, unite) = dureeLisible(b.minutes)
+    var histoire by remember { mutableStateOf(false) }
+    if (histoire) HistoireBilan(b) { histoire = false }
+
+    Row(
+        Modifier.padding(top = 20.dp).clip(CircleShape).background(p.accent.compose)
+            .clickable(role = Role.Button) { histoire = true }
+            .padding(horizontal = 16.dp, vertical = 10.dp)
+            .apparition(0),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Icone(R.drawable.lucide_play_plein, description = null, teinte = p.base.compose, taille = 14.dp)
+        Spacer(Modifier.width(8.dp))
+        Text("Revivre mon année", style = Texte.corps.copy(fontWeight = FontWeight.SemiBold), color = p.base.compose)
+    }
 
     // Le chiffre d'ouverture : le temps passé à écouter.
     Column(Modifier.padding(top = 28.dp).apparition(0)) {
@@ -239,12 +255,7 @@ private fun ContenuBilan(b: Bilan) {
     }
 
     // Le partage en texte : il passe partout, y compris dans une messagerie sans aperçu d'image.
-    val resume = buildString {
-        append("Mon année ${b.annee} sur Moziik : ${n(duree)} $unite d'écoute")
-        b.topTitres.firstOrNull()?.let { append(", et en tête « ${it.title} »") }
-        b.topArtistes.firstOrNull()?.let { append(" — mon artiste : ${it.stageName}") }
-        append(".")
-    }
+    val resume = resumeDuBilan(b)
     Row(
         Modifier.padding(top = 28.dp).clip(CircleShape).border(BorderStroke(1.dp, p.bordure.compose), CircleShape)
             .clickable(role = Role.Button) { c.portee.launch { partagerBilanEnImage(contexte, b, resume, p.accent.compose) } }
@@ -278,7 +289,7 @@ private val INITIALES_MOIS = listOf("J", "F", "M", "A", "M", "J", "J", "A", "S",
 
 /** Douze barres d'un seul ton ; le mois le plus écouté est à l'accent plein. */
 @Composable
-private fun Mois(parMois: List<Int>) {
+internal fun Mois(parMois: List<Int>) {
     val p = LocalPalette.current
     val max = parMois.max().coerceAtLeast(1)
     val haut = parMois.indexOf(parMois.max())

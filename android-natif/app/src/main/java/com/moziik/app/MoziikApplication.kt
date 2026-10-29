@@ -12,5 +12,6 @@ class MoziikApplication : Application() {
         // Avant tout message push : Firebase s'initialise ici, sans google-services.json.
         conteneur.push.initialiser()
         conteneur.push.suivreSession()
+        com.moziik.app.donnees.compte.VerificationMiseAJour.programmer(this)
     }
 }

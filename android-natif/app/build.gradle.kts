@@ -34,8 +34,8 @@ android {
         minSdk = 22
         targetSdk = 35
         // Supérieur à celui de l'app Capacitor (1) : sinon Android refuse la mise à jour.
-        versionCode = 53
-        versionName = "2.48.0"
+        versionCode = 54
+        versionName = "2.49.0"
         vectorDrawables.useSupportLibrary = true
         // Le site en production : l'app ne parle qu'à son API HTTP.
         buildConfigField("String", "SITE", "\"https://app-moziik.vercel.app/\"")
@@ -142,6 +142,8 @@ dependencies {
     // Installe le profil de démarrage (baseline-prof.txt) même hors du Play Store : l'APK
     // téléchargé depuis le site en profite dès la première ouverture.
     implementation(libs.androidx.profileinstaller)
+    // La recherche de mise à jour en arrière-plan, app fermée (VerificationMiseAJour).
+    implementation(libs.androidx.work.runtime.ktx)
 
     testImplementation(libs.junit)
     testImplementation(libs.okhttp.mockwebserver)

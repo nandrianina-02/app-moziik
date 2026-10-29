@@ -113,6 +113,13 @@ class MiseAJour(
         }.getOrNull()
     }
 
+    /** La notification système d'une version n'est envoyée qu'une fois. */
+    fun dejaAnnoncee(version: String): Boolean = preferences.getString("annoncee", null) == version
+
+    fun annoncee(version: String) {
+        preferences.edit().putString("annoncee", version).apply()
+    }
+
     /** « Plus tard » : on ne reparle de cette version qu'à la suivante. */
     fun ignorer(version: String) {
         preferences.edit().putString("ignoree", version).apply()

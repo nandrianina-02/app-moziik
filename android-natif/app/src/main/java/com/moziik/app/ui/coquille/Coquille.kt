@@ -125,6 +125,7 @@ import androidx.compose.ui.graphics.lerp
 import com.moziik.app.ui.LIEN_RECHERCHE
 import com.moziik.app.ui.LIEN_TELECHARGEMENTS
 import com.moziik.app.ui.LIEN_BANDE_SON
+import com.moziik.app.ui.LIEN_MISE_A_JOUR
 import com.moziik.app.ui.compte.PARAMETRES_REVEIL
 import com.moziik.app.ui.compte.EcranReveil
 import com.moziik.app.ui.decouvrir.EcranBlindTest
@@ -244,6 +245,12 @@ fun Coquille(sombre: Boolean, onBasculerMode: () -> Unit) {
         when (lien) {
             LIEN_RECHERCHE -> return@LaunchedEffect aller(Destination.RECHERCHE)
             LIEN_TELECHARGEMENTS -> return@LaunchedEffect aller(Destination.MA_ZONE)
+            // La notification « Nouvelle version » : la fenêtre revient, même écartée plus tôt.
+            LIEN_MISE_A_JOUR -> {
+                nouvelle = runCatching { c.miseAJour.disponible(demandee = true) }.getOrNull()
+                if (nouvelle == null) c.alertes.signaler(AlerteLecture.Message("Tu as déjà la dernière version de Moziik.", succes = true))
+                return@LaunchedEffect
+            }
             LIEN_BANDE_SON -> {
                 runCatching { c.catalogue.station() }
                     .onSuccess { c.lecteur.lire(it.titres, 0, it.source) }

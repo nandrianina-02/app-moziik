@@ -18,6 +18,8 @@ import com.moziik.app.donnees.push.EXTRA_LIEN
 const val LIEN_RECHERCHE = "app:recherche"
 const val LIEN_BANDE_SON = "app:bande-son"
 const val LIEN_TELECHARGEMENTS = "app:telechargements"
+/** La notification « Nouvelle version » (VerificationMiseAJour) : rouvre la fenêtre de mise à jour. */
+const val LIEN_MISE_A_JOUR = "app:mise-a-jour"
 
 /**
  * Les raccourcis de l'icône de l'app (appui long sur l'icône) : rechercher,

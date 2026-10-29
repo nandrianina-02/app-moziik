@@ -1,6 +1,7 @@
 "use client";
 
 import { useSidebar } from "@/context/SidebarProvider";
+import { usePlayer } from "@/context/PlayerProvider";
 import { useClavierVisible } from "@/hooks/useClavierVisible";
 
 /**
@@ -17,8 +18,12 @@ import { useClavierVisible } from "@/hooks/useClavierVisible";
  * Le haut du panneau sur ordinateur est l'en-tête lui-même (DesktopHeader).
  */
 export function CoinsCadre() {
-  const { collapsed } = useSidebar();
+  const { collapsed, panneauLecture } = useSidebar();
+  const { currentSong } = usePlayer();
   const clavierVisible = useClavierVisible();
+  // Le panneau « En cours de lecture » prend la droite sur grand écran : le
+  // coin du contenu se pose alors à sa gauche.
+  const panneauOuvert = panneauLecture && !!currentSong;
   const peinture = "shadow-[0_0_0_48px_var(--cadre)]";
 
   return (
@@ -44,7 +49,7 @@ export function CoinsCadre() {
         aria-hidden
         className={`pointer-events-none fixed bottom-[var(--hauteur-lecteur,0px)] right-0 z-20 hidden h-5 overflow-hidden transition-[left] duration-300 ease-out md:block print:hidden ${
           collapsed ? "left-20" : "left-64"
-        }`}
+        } ${panneauOuvert ? "xl:right-80" : ""}`}
       >
         <div className={`absolute inset-x-2 bottom-2 h-12 rounded-b-panneau ${peinture}`} />
       </div>

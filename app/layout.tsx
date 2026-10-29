@@ -14,6 +14,7 @@ import { SiteConfigProvider } from "@/context/SiteConfigProvider";
 import { SidebarProvider } from "@/context/SidebarProvider";
 import { Sidebar } from "@/components/layout/Sidebar";
 import { CoinsCadre } from "@/components/layout/CoinsCadre";
+import { PanneauLecture } from "@/components/player/PanneauLecture";
 import { MainContent } from "@/components/layout/MainContent";
 import { NotificationsProvider } from "@/context/NotificationsProvider";
 import { MessagesProvider } from "@/context/MessagesProvider";
@@ -174,6 +175,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
                             <OfflineBanner />
                             <MainContent>{children}</MainContent>
                           </div>
+                          <PanneauLecture />
                         </div>
                         <CoinsCadre />
                         <NotificationsDrawer />

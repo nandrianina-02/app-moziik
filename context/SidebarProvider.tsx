@@ -3,29 +3,30 @@
 import { createContext, useContext, useEffect, useState } from "react";
 
 const COLLAPSE_KEY = "moziik:sidebar-collapsed";
+const PANNEAU_KEY = "moziik:panneau-lecture";
 
 /**
- * État de repli de la sidebar, partagé hors de `<Sidebar />`.
- *
- * La sidebar est un enfant flex de largeur variable (w-20 replié / w-64
- * déplié), alors que le mini-lecteur est en `position: fixed` : sans
- * connaître cette largeur, il s'étendait sous la sidebar au lieu de
- * rester dans la zone de contenu. Ce contexte permet au lecteur de se
- * décaler exactement de la largeur courante.
+ * Les deux colonnes qui encadrent le contenu sur ordinateur : la barre
+ * latérale à gauche (repliable), le panneau « En cours de lecture » à
+ * droite (affichable). Le lecteur, les coins du cadre et la mise en page
+ * ont tous besoin de savoir quelle place elles prennent.
  */
 const SidebarContext = createContext<{
   collapsed: boolean;
   toggleCollapsed: () => void;
-}>({ collapsed: false, toggleCollapsed: () => {} });
+  panneauLecture: boolean;
+  basculerPanneauLecture: () => void;
+}>({ collapsed: false, toggleCollapsed: () => {}, panneauLecture: true, basculerPanneauLecture: () => {} });
 
 export function SidebarProvider({ children }: { children: React.ReactNode }) {
-  // Démarre "déplié" : valeur identique côté serveur et client, donc
-  // aucun risque de désynchronisation d'hydratation. La préférence
-  // enregistrée est appliquée juste après le montage.
   const [collapsed, setCollapsed] = useState(false);
+  // Ouvert par défaut, comme sur Spotify : il ne s'affiche de toute façon
+  // que sur un grand écran, et seulement pendant une écoute.
+  const [panneauLecture, setPanneauLecture] = useState(true);
 
   useEffect(() => {
     setCollapsed(localStorage.getItem(COLLAPSE_KEY) === "1");
+    setPanneauLecture(localStorage.getItem(PANNEAU_KEY) !== "0");
   }, []);
 
   function toggleCollapsed() {
@@ -36,8 +37,18 @@ export function SidebarProvider({ children }: { children: React.ReactNode }) {
     });
   }
 
+  function basculerPanneauLecture() {
+    setPanneauLecture((prev) => {
+      const next = !prev;
+      localStorage.setItem(PANNEAU_KEY, next ? "1" : "0");
+      return next;
+    });
+  }
+
   return (
-    <SidebarContext.Provider value={{ collapsed, toggleCollapsed }}>{children}</SidebarContext.Provider>
+    <SidebarContext.Provider value={{ collapsed, toggleCollapsed, panneauLecture, basculerPanneauLecture }}>
+      {children}
+    </SidebarContext.Provider>
   );
 }
 

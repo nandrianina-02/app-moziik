@@ -24,11 +24,13 @@ import {
   Volume1,
   VolumeX,
   Maximize2,
+  PanelRight,
   MonitorSpeaker,
 } from "lucide-react";
 import { usePlayer } from "@/context/PlayerProvider";
 import { useToast } from "@/context/ToastProvider";
 import { useOnlineStatus } from "@/context/OnlineStatusProvider";
+import { useSidebar } from "@/context/SidebarProvider";
 import { useClavierVisible } from "@/hooks/useClavierVisible";
 import { useSession } from "next-auth/react";
 import { SeekBar } from "@/components/player/SeekBar";
@@ -164,6 +166,7 @@ export function MiniPlayerBar() {
   const pushToast = useToast();
   const { isOnline } = useOnlineStatus();
   const clavierVisible = useClavierVisible();
+  const { panneauLecture, basculerPanneauLecture } = useSidebar();
 
   const [offlineState, setOfflineState] = useState<"idle" | "saving" | "saved">("idle");
   const [menuPosition, setMenuPosition] = useState<{ x: number; y: number } | null>(null);
@@ -622,6 +625,19 @@ export function MiniPlayerBar() {
               <SeekBar progress={volume} duration={1} onSeek={setVolume} variant="pill" />
             </div>
           </div>
+
+          {/* Le panneau « En cours de lecture » n'existe que sur grand écran. */}
+          <button
+            onClick={basculerPanneauLecture}
+            title={panneauLecture ? "Masquer le panneau de lecture" : "Afficher le panneau de lecture"}
+            aria-label={panneauLecture ? "Masquer le panneau de lecture" : "Afficher le panneau de lecture"}
+            aria-pressed={panneauLecture}
+            className={`hidden h-8 w-8 shrink-0 place-items-center rounded-lg transition-colors xl:grid ${
+              panneauLecture ? "text-accent hover:bg-accent/10" : "text-ink-muted hover:bg-base hover:text-ink"
+            }`}
+          >
+            <PanelRight size={17} />
+          </button>
 
           <button
             onClick={openFullPlayer}

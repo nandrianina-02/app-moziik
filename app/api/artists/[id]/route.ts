@@ -7,8 +7,28 @@ import Playlist from "@/models/Playlist";
 import Comment from "@/models/Comment";
 import { ApiError, withApiErrors } from "@/lib/apiError";
 
-export const GET = withApiErrors(async (_req: Request, { params }: { params: { id: string } }) => {
+export const GET = withApiErrors(async (req: Request, { params }: { params: { id: string } }) => {
   await connectDB();
+
+  // ?resume=1 : la carte de l'artiste seule, pour le panneau « En cours de
+  // lecture » qui la redemande à chaque changement de titre. Le reste de
+  // la page (titres, albums, commentaires) lui serait inutile et coûteux.
+  if (new URL(req.url).searchParams.get("resume") === "1") {
+    const resume = await Artist.findById(params.id).select("stageName bio coverUrl bannerUrl verified followers").lean();
+    if (!resume) throw new ApiError("Artiste introuvable.", 404);
+    return NextResponse.json({
+      artist: {
+        _id: resume._id,
+        stageName: resume.stageName,
+        bio: resume.bio,
+        coverUrl: resume.coverUrl,
+        bannerUrl: resume.bannerUrl,
+        verified: resume.verified,
+        followersCount: resume.followers?.length ?? 0,
+      },
+    });
+  }
+
   const artist = await Artist.findById(params.id);
   if (!artist) throw new ApiError("Artiste introuvable.", 404);
 

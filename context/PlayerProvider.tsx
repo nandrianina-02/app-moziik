@@ -36,6 +36,8 @@ import { adresseEcoute } from "@/lib/audioSource";
 import { useMode } from "@/context/ModeProvider";
 import { morceauxSuivants } from "@/lib/playbackContinuation";
 import { appareilEcoute } from "@/lib/appareilEcoute";
+import { gainNormalisation, estDureeFondu, type DureeFondu } from "@/lib/normalisation";
+import { useFonduEnchaine } from "@/components/player/hooks/useFonduEnchaine";
 
 export type PlayableSong = {
   _id: string;
@@ -61,6 +63,8 @@ export type PlayableSong = {
   likesCount?: number;
   playsCount?: number;
   lyrics?: string;
+  /** Sonie mesurée (LUFS, mono) : sert au volume égal. Absente, le titre passe tel quel. */
+  loudness?: number;
 };
 
 export type RepeatMode = "off" | "all" | "one";
@@ -170,6 +174,12 @@ type PlayerContextValue = {
   setBassBoost: (niveau: NiveauBass) => void;
   playbackRate: number;
   setPlaybackRate: (rate: number) => void;
+  /** Volume égal : chaque titre ramené à la même sonie perçue (lib/normalisation.ts). */
+  volumeEgal: boolean;
+  setVolumeEgal: (actif: boolean) => void;
+  /** Fondu enchaîné, en secondes ; 0 = désactivé. */
+  fondu: DureeFondu;
+  setFondu: (secondes: DureeFondu) => void;
   audioQuality: AudioQuality;
   setAudioQuality: (quality: AudioQuality) => void;
   /** Le réglage : « auto », « toujours », « jamais ». */
@@ -273,6 +283,8 @@ const REPRISE_POSITION_KEY = "moziik-lecture-position";
 const OUTPUT_DEVICE_KEY = "moziik-audio-output";
 const BASS_BOOST_KEY = "moziik-bass-boost";
 const PLAYBACK_RATE_KEY = "moziik-playback-rate";
+const VOLUME_EGAL_KEY = "moziik-volume-egal";
+const FONDU_KEY = "moziik-fondu";
 
 // Mélange de Fisher-Yates, en gardant `keepFirst` (l'index en cours de
 // lecture) en toute première position pour ne pas couper la piste actuelle.
@@ -344,6 +356,11 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
     audioRef,
     ensureAudioGraph,
     reprendreContexte,
+    regleGainPiste,
+    entrerEnFondu,
+    couperPiste,
+    brancherAnnexe,
+    contexteAudio,
     setBassBoost: setEngineBassBoost,
     setPlaybackRate: setEnginePlaybackRate,
     setOutputDevice: setEngineOutputDevice,
@@ -385,6 +402,11 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
   const [outputSwitchSupported, setOutputSwitchSupported] = useState(false);
   const [bassBoost, setBassBoostState] = useState<NiveauBass>(NIVEAU_BASS_PAR_DEFAUT);
   const [playbackRate, setPlaybackRateState] = useState(1);
+  // Volume égal actif par défaut, comme sur les grandes plateformes ; fondu
+  // enchaîné désactivé par défaut : il change la fin des morceaux, c'est à
+  // l'auditeur de le vouloir.
+  const [volumeEgal, setVolumeEgalState] = useState(true);
+  const [fondu, setFonduState] = useState<DureeFondu>(0);
   const [audioQuality, setAudioQualityState] = useState<AudioQuality>("high");
   const [economieDonnees, setEconomieDonneesState] = useState<ModeEconomie>(MODE_ECONOMIE_PAR_DEFAUT);
   // Relu à chaque changement de connexion : passer du Wi-Fi aux données
@@ -456,6 +478,9 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
       setPlaybackRateState(rate);
       setEnginePlaybackRate(rate);
     }
+    if (localStorage.getItem(VOLUME_EGAL_KEY) === "0") setVolumeEgalState(false);
+    const fonduGarde = Number(localStorage.getItem(FONDU_KEY));
+    if (estDureeFondu(fonduGarde)) setFonduState(fonduGarde);
     getOfflineSettings()
       .then((s) => {
         setAudioQualityState(s.audioQuality);
@@ -497,6 +522,16 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
     setPlaybackRateState(rate);
     setEnginePlaybackRate(rate);
     localStorage.setItem(PLAYBACK_RATE_KEY, String(rate));
+  }
+
+  function setVolumeEgal(actif: boolean) {
+    setVolumeEgalState(actif);
+    localStorage.setItem(VOLUME_EGAL_KEY, actif ? "1" : "0");
+  }
+
+  function setFondu(secondes: DureeFondu) {
+    setFonduState(secondes);
+    localStorage.setItem(FONDU_KEY, String(secondes));
   }
 
   // Support calculé après montage : `window` n'existe pas au rendu serveur.
@@ -846,6 +881,25 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentSong?._id]);
+
+  // Volume égal : le gain du titre, posé à chaque changement de titre ou de
+  // réglage. Le moteur le retient s'il n'a pas encore de graphe audio.
+  const gainDuTitre = volumeEgal ? gainNormalisation(currentSong?.loudness) : 1;
+  useEffect(() => {
+    regleGainPiste(gainDuTitre);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- le moteur est stable
+  }, [gainDuTitre]);
+
+  useFonduEnchaine({
+    moteur: { audioRef, brancherAnnexe, contexteAudio, couperPiste, entrerEnFondu },
+    dureeS: fondu,
+    // Seulement vers un titre déjà dans la file : la suite cherchée en fin
+    // de file arrive trop tard pour un fondu. Jamais en répétition d'un
+    // titre ni avec le minuteur « fin du morceau ».
+    peutEnchainer: () => repeatMode !== "one" && !sleepAfterTrackRef.current && position < order.length - 1,
+    enchainer: () => playNext(),
+    gainCourant: () => gainDuTitre,
+  });
 
   useEffect(() => {
     if (progress >= PLAY_RECORD_THRESHOLD_SECONDS && !hasRecordedPlay.current && currentSong) {
@@ -1598,6 +1652,10 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
         setBassBoost,
         playbackRate,
         setPlaybackRate,
+        volumeEgal,
+        setVolumeEgal,
+        fondu,
+        setFondu,
         audioQuality,
         setAudioQuality,
         economieDonnees,

@@ -36,6 +36,7 @@ import {
   Volume2,
   VolumeX,
   X,
+  Blend,
 } from "lucide-react";
 import { SafeImage } from "@/components/ui/SafeImage";
 import { usePlayer } from "@/context/PlayerProvider";
@@ -48,7 +49,7 @@ import { analyserParoles, parolesEnTexte } from "@/lib/lyrics";
 import { InfoPanel } from "@/components/player/panels/InfoPanel";
 import { CreditsPanel } from "@/components/player/panels/CreditsPanel";
 import { SimilarPanel } from "@/components/player/panels/SimilarPanel";
-import { BassBoostMenu, QualityMenu, SleepMenu, SpeedMenu } from "@/components/player/panels/AudioMenus";
+import { BassBoostMenu, QualityMenu, SleepMenu, SpeedMenu, TransitionsMenu } from "@/components/player/panels/AudioMenus";
 import { useSongDetails } from "@/components/player/hooks/useSongDetails";
 import { usePlayerShortcuts } from "@/components/player/hooks/usePlayerShortcuts";
 import { CommentsSection } from "@/components/music/CommentsSection";
@@ -130,6 +131,8 @@ function ContenuLecteur({ song }: { song: PlayableSong }) {
     playSource,
     bassBoost,
     playbackRate,
+    volumeEgal,
+    fondu,
     audioQuality,
     sleepRemainingMs,
     sleepAfterTrack,
@@ -198,7 +201,7 @@ function ContenuLecteur({ song }: { song: PlayableSong }) {
   const [showAddToPlaylist, setShowAddToPlaylist] = useState(false);
   const [showShareModal, setShowShareModal] = useState(false);
   const [showQueueSheet, setShowQueueSheet] = useState(false);
-  const [reglage, setReglage] = useState<{ type: "bass" | "vitesse" | "qualite" | "veille"; anchor: MenuAnchor } | null>(
+  const [reglage, setReglage] = useState<{ type: "bass" | "vitesse" | "transitions" | "qualite" | "veille"; anchor: MenuAnchor } | null>(
     null
   );
   const [plein, setPlein] = useState(false);
@@ -350,7 +353,7 @@ function ContenuLecteur({ song }: { song: PlayableSong }) {
       ? `${Math.ceil(sleepRemainingMs / 60000)} min`
       : "Minuteur";
 
-  function ouvrirReglage(type: "bass" | "vitesse" | "qualite" | "veille", e: React.MouseEvent) {
+  function ouvrirReglage(type: "bass" | "vitesse" | "transitions" | "qualite" | "veille", e: React.MouseEvent) {
     const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
     setReglage({ type, anchor: { x: rect.left, y: rect.top } });
   }
@@ -532,6 +535,13 @@ function ContenuLecteur({ song }: { song: PlayableSong }) {
         label="Vitesse"
         valeur={`${playbackRate}×`}
         onClick={(e) => ouvrirReglage("vitesse", e)}
+      />
+      <BoutonReglage
+        icon={Blend}
+        actif={fondu > 0}
+        label="Transitions"
+        valeur={fondu > 0 ? `Fondu ${fondu} s` : volumeEgal ? "Volume égal" : "Off"}
+        onClick={(e) => ouvrirReglage("transitions", e)}
       />
       <BoutonReglage
         icon={SignalHigh}
@@ -880,6 +890,7 @@ function ContenuLecteur({ song }: { song: PlayableSong }) {
       )}
       {reglage?.type === "bass" && <BassBoostMenu anchor={reglage.anchor} onClose={() => setReglage(null)} />}
       {reglage?.type === "vitesse" && <SpeedMenu anchor={reglage.anchor} onClose={() => setReglage(null)} />}
+      {reglage?.type === "transitions" && <TransitionsMenu anchor={reglage.anchor} onClose={() => setReglage(null)} />}
       {reglage?.type === "qualite" && <QualityMenu anchor={reglage.anchor} onClose={() => setReglage(null)} />}
       {reglage?.type === "veille" && <SleepMenu anchor={reglage.anchor} onClose={() => setReglage(null)} />}
 

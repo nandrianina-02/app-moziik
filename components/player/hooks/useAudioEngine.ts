@@ -26,6 +26,7 @@ import {
  * Chaîne du signal :
  *
  *   source
+ *     -> gain de piste         (volume égal, fondus d'entrée et de sortie)
  *     -> cloche 75 Hz          (le poids)
  *     -> cloche 45 Hz          (la profondeur)
  *     -> cloche 300 Hz, gain<0 (dégage la voix)
@@ -51,6 +52,17 @@ export function useAudioEngine() {
   const preGainRef = useRef<GainNode | null>(null);
   const limiteurRef = useRef<DynamicsCompressorNode | null>(null);
   const sourceRef = useRef<MediaElementAudioSourceNode | null>(null);
+  const gainPisteRef = useRef<GainNode | null>(null);
+
+  // Gain voulu pour le titre en cours (volume égal), mémorisé comme le
+  // niveau de basses : il peut être demandé avant que le graphe existe.
+  const gainPisteCibleRef = useRef(1);
+  // Fin du fondu d'entrée en cours (fondu enchaîné), sur l'horloge du
+  // graphe ; 0 = aucun fondu en cours.
+  const finFonduRef = useRef(0);
+  // Les éléments audio annexes déjà branchés sur le graphe : un élément ne
+  // peut avoir qu'une seule source Web Audio de toute sa vie.
+  const annexesRef = useRef(new WeakMap<HTMLAudioElement, GainNode>());
 
   // Niveau demandé, mémorisé hors du graphe : il est restauré depuis
   // localStorage au montage, donc avant la première lecture — donc avant
@@ -94,6 +106,9 @@ export function useAudioEngine() {
     const ctx = new AudioContext();
     const source = ctx.createMediaElementSource(audioRef.current);
 
+    const gainPiste = ctx.createGain();
+    gainPiste.gain.value = gainPisteCibleRef.current;
+
     const poids = ctx.createBiquadFilter();
     poids.type = "peaking";
     poids.frequency.value = FREQ_POIDS;
@@ -125,7 +140,8 @@ export function useAudioEngine() {
     limiteur.attack.value = 0.003;
     limiteur.release.value = 0.18;
 
-    source.connect(poids);
+    source.connect(gainPiste);
+    gainPiste.connect(poids);
     poids.connect(profondeur);
     profondeur.connect(clarte);
     clarte.connect(preGain);
@@ -139,6 +155,7 @@ export function useAudioEngine() {
     preGainRef.current = preGain;
     limiteurRef.current = limiteur;
     sourceRef.current = source;
+    gainPisteRef.current = gainPiste;
 
     // Réglages demandés avant l'existence du graphe.
     appliquerNiveau(niveauRef.current, /* immediat */ true);
@@ -191,6 +208,77 @@ export function useAudioEngine() {
     }
   }
 
+  /**
+   * Le gain du titre en cours : le volume égal (1 = tel quel). Pendant un
+   * fondu d'entrée, la montée est réorientée vers la nouvelle cible sans
+   * changer son terme : le réglage du titre suivant arrive en général en
+   * plein fondu, et le poser d'un coup casserait la transition.
+   */
+  function regleGainPiste(cible: number) {
+    gainPisteCibleRef.current = cible;
+    const ctx = audioContextRef.current;
+    const param = gainPisteRef.current?.gain;
+    if (!ctx || !param) return;
+    const t = ctx.currentTime;
+    param.cancelScheduledValues(t);
+    if (t < finFonduRef.current) {
+      param.setValueAtTime(param.value, t);
+      param.linearRampToValueAtTime(cible, finFonduRef.current);
+    } else {
+      param.setTargetAtTime(cible, t, LISSAGE_S);
+    }
+  }
+
+  /** Le titre qui commence monte depuis le silence jusqu'à son gain, en `secondes` : l'entrée du fondu enchaîné. */
+  function entrerEnFondu(secondes: number) {
+    const ctx = audioContextRef.current;
+    const param = gainPisteRef.current?.gain;
+    if (!ctx || !param) return;
+    const t = ctx.currentTime;
+    finFonduRef.current = t + secondes;
+    param.cancelScheduledValues(t);
+    param.setValueAtTime(0, t);
+    param.linearRampToValueAtTime(gainPisteCibleRef.current, t + secondes);
+  }
+
+  /** Coupe le titre en cours en `secondes` (le relais d'un fondu enchaîné). */
+  function couperPiste(secondes: number) {
+    const ctx = audioContextRef.current;
+    const param = gainPisteRef.current?.gain;
+    if (!ctx || !param) return;
+    const t = ctx.currentTime;
+    finFonduRef.current = 0;
+    param.cancelScheduledValues(t);
+    param.setValueAtTime(param.value, t);
+    param.linearRampToValueAtTime(0, t + secondes);
+  }
+
+  /**
+   * Branche un autre élément audio sur la même chaîne (basses, limiteur,
+   * sortie choisie) et rend le gain qui lui est propre. Sert au fondu
+   * enchaîné : la fin du titre qui s'en va y est jouée pendant que
+   * l'élément principal passe au suivant. `null` tant que le graphe n'existe pas.
+   */
+  function brancherAnnexe(element: HTMLAudioElement): GainNode | null {
+    const ctx = audioContextRef.current;
+    const entree = poidsRef.current;
+    if (!ctx || !entree) return null;
+    const deja = annexesRef.current.get(element);
+    if (deja) return deja;
+    const source = ctx.createMediaElementSource(element);
+    const gain = ctx.createGain();
+    gain.gain.value = 0;
+    source.connect(gain);
+    gain.connect(entree);
+    annexesRef.current.set(element, gain);
+    return gain;
+  }
+
+  /** L'horloge du graphe, pour programmer des fondus ; `null` avant la première lecture. */
+  function contexteAudio(): AudioContext | null {
+    return audioContextRef.current;
+  }
+
   /** Change le niveau de Bass Boost. Sans effet audible tant que rien ne joue. */
   function setBassBoost(niveau: NiveauBass) {
     niveauRef.current = niveau;
@@ -235,6 +323,11 @@ export function useAudioEngine() {
     audioRef,
     ensureAudioGraph,
     reprendreContexte,
+    regleGainPiste,
+    entrerEnFondu,
+    couperPiste,
+    brancherAnnexe,
+    contexteAudio,
     setBassBoost,
     setPlaybackRate,
     setOutputDevice,

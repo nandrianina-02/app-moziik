@@ -1,6 +1,7 @@
 "use client";
 
-import { Check, Flame, Gauge, Leaf, Moon, SignalHigh } from "lucide-react";
+import { Blend, Check, Flame, Gauge, Leaf, Moon, SignalHigh } from "lucide-react";
+import { DUREES_FONDU } from "@/lib/normalisation";
 import { ContextMenuShell } from "@/components/ui/ContextMenuShell";
 import type { MenuAnchor } from "@/components/ui/useClampedMenuPosition";
 import { NIVEAUX_BASS } from "@/components/player/constants/bassBoost";
@@ -81,6 +82,44 @@ export function BassBoostMenu({ anchor, onClose }: { anchor: MenuAnchor; onClose
       <p className="border-t border-border px-4 pb-1.5 pt-2 text-[10px] leading-snug text-ink-muted">
         Traitement Web Audio réel&nbsp;: le grave est renforcé et le bas médium
         dégagé, sans monter le volume général.
+      </p>
+    </ContextMenuShell>
+  );
+}
+
+/**
+ * Les transitions entre deux titres : le volume égal (même sonie d'un titre
+ * à l'autre) et le fondu enchaîné (la fin d'un titre se croise avec le
+ * début du suivant).
+ */
+export function TransitionsMenu({ anchor, onClose }: { anchor: MenuAnchor; onClose: () => void }) {
+  const { volumeEgal, setVolumeEgal, fondu, setFondu } = usePlayer();
+  return (
+    <ContextMenuShell anchor={anchor} onClose={onClose} width={276}>
+      <EnTete icon={Blend} titre="Volume égal" />
+      <Option
+        actif={volumeEgal}
+        titre="Activé"
+        detail="Chaque titre est ramené à la même intensité : plus besoin de toucher au volume d'un morceau à l'autre."
+        onClick={() => setVolumeEgal(true)}
+      />
+      <Option actif={!volumeEgal} titre="Désactivé" detail="Chaque titre garde le niveau de son enregistrement." onClick={() => setVolumeEgal(false)} />
+      <div className="mt-1 border-t border-border pt-1.5">
+        <EnTete icon={Blend} titre="Fondu enchaîné" />
+      </div>
+      {DUREES_FONDU.map((secondes) => (
+        <Option
+          key={secondes}
+          actif={fondu === secondes}
+          titre={secondes === 0 ? "Désactivé" : `${secondes} secondes`}
+          onClick={() => {
+            setFondu(secondes);
+            onClose();
+          }}
+        />
+      ))}
+      <p className="border-t border-border px-4 pb-1.5 pt-2 text-[10px] leading-snug text-ink-muted">
+        La fin d&apos;un titre s&apos;efface pendant que le suivant monte, sans silence entre les deux.
       </p>
     </ContextMenuShell>
   );

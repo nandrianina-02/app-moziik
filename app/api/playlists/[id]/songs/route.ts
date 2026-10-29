@@ -12,10 +12,11 @@ import { requireAuthUser, type AuthUser } from "@/lib/mobileAuth";
 import { recalculerUniversPlaylist } from "@/lib/universClassify";
 
 /**
- * Charge une playlist que l'utilisateur a le droit de modifier.
+ * Charge une playlist dont l'utilisateur a le droit de modifier le contenu.
  * L'admin est inclus, par cohérence avec PATCH /api/playlists/[id] :
  * il peut déjà renommer une playlist, il serait incohérent qu'il ne
- * puisse pas en modifier le contenu.
+ * puisse pas en modifier le contenu. Les collaborateurs aussi, tant que
+ * la playlist est collaborative.
  */
 async function loadManagedPlaylist(id: string, user: AuthUser) {
   if (!mongoose.Types.ObjectId.isValid(id)) {
@@ -23,7 +24,9 @@ async function loadManagedPlaylist(id: string, user: AuthUser) {
   }
   const playlist = await Playlist.findById(id);
   if (!playlist) throw new ApiError("Playlist introuvable.", 404);
-  if (playlist.owner.toString() !== user.id && user.role !== "admin") {
+  const collaborateur =
+    playlist.collaborative && playlist.collaborateurs.some((c) => c.toString() === user.id);
+  if (playlist.owner.toString() !== user.id && user.role !== "admin" && !collaborateur) {
     throw new ApiError("Tu ne peux modifier que tes propres playlists.", 403);
   }
   return playlist;
@@ -54,7 +57,8 @@ async function respondWithPopulated(playlist: { _id: unknown }) {
         { path: "album", select: "title" },
       ],
     })
-    .populate("owner", "name avatarUrl");
+    .populate("owner", "name avatarUrl")
+    .populate("collaborateurs", "name username avatarUrl");
   return NextResponse.json({ playlist: populated });
 }
 

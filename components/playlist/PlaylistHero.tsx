@@ -14,6 +14,7 @@ import {
   ListMusic,
   Check,
   X,
+  UserPlus,
 } from "lucide-react";
 import { SafeImage } from "@/components/ui/SafeImage";
 import { TagInput } from "@/components/ui/TagInput";
@@ -38,6 +39,8 @@ export function PlaylistHero({
   downloading,
   downloadProgress,
   canManage,
+  peutEditerTitres,
+  onCollaboration,
   editMode,
   savingMeta,
   onTogglePlayAll,
@@ -56,6 +59,10 @@ export function PlaylistHero({
   downloading: boolean;
   downloadProgress: { done: number; total: number };
   canManage: boolean;
+  /** Propriétaire, admin ou collaborateur : ouvre le mode édition des titres. */
+  peutEditerTitres: boolean;
+  /** Présent pour le propriétaire et les collaborateurs. */
+  onCollaboration?: () => void;
   editMode: boolean;
   savingMeta: boolean;
   onTogglePlayAll: () => void;
@@ -100,7 +107,7 @@ export function PlaylistHero({
     <EnteteMedia
       fond={{ couleurDe: playlist.coverUrl }}
       coinHaut={
-        canManage && (
+        peutEditerTitres && (
           <button
             onClick={onToggleEditMode}
             className={`flex items-center gap-1.5 rounded-full px-3.5 py-2 text-xs font-medium backdrop-blur transition-colors ${
@@ -202,6 +209,16 @@ export function PlaylistHero({
       infos={
         <>
           <span className="font-semibold text-ink">{playlist.owner?.name ?? "Utilisateur supprimé"}</span>
+          {!!playlist.collaborateurs?.length && (
+            <span className="flex items-center gap-1.5">
+              <span className="flex -space-x-1.5">
+                {playlist.collaborateurs.slice(0, 3).map((c) => (
+                  <SafeImage key={c._id} src={c.avatarUrl} alt={c.name} width={20} height={20} className="h-5 w-5 rounded-full object-cover ring-2 ring-base" />
+                ))}
+              </span>
+              et {playlist.collaborateurs.length} collaborateur{playlist.collaborateurs.length > 1 ? "s" : ""}
+            </span>
+          )}
           <Point />
           <span>
             {playlist.songs.length} titre{playlist.songs.length > 1 ? "s" : ""}
@@ -238,6 +255,11 @@ export function PlaylistHero({
       {(playlist.isPublic || canManage) && (
         <BoutonActionMedia libelle="Partager" onClick={onShare}>
           <Share2 size={20} />
+        </BoutonActionMedia>
+      )}
+      {onCollaboration && (
+        <BoutonActionMedia libelle="Playlist collaborative" onClick={onCollaboration}>
+          <UserPlus size={20} />
         </BoutonActionMedia>
       )}
       <BoutonActionMedia libelle="Plus d'options" onClick={(e) => onOpenMore(e.clientX, e.clientY)}>

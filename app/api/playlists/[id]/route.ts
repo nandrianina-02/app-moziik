@@ -23,7 +23,8 @@ export const GET = withApiErrors(async (req: Request, { params }: { params: { id
         { path: "album", select: "title" },
       ],
     })
-    .populate("owner", "name avatarUrl");
+    .populate("owner", "name avatarUrl")
+    .populate("collaborateurs", "name username avatarUrl");
   if (!playlist) throw new ApiError("Playlist introuvable.", 404);
 
   // Une playlist privée n'était consultable par personne d'autre que son
@@ -33,7 +34,11 @@ export const GET = withApiErrors(async (req: Request, { params }: { params: { id
   if (!playlist.isPublic) {
     const authUser = await getAuthUser(req);
     const proprietaire = authUser && playlist.owner?._id?.toString() === authUser.id;
-    if (!proprietaire && authUser?.role !== "admin") {
+    // Un collaborateur voit la playlist privée à laquelle il contribue,
+    // même si la collaboration est suspendue : il en garde la lecture.
+    const collaborateur =
+      authUser && playlist.collaborateurs.some((c) => String((c as { _id?: unknown })._id ?? c) === authUser.id);
+    if (!proprietaire && !collaborateur && authUser?.role !== "admin") {
       throw new ApiError("Playlist introuvable.", 404);
     }
   }

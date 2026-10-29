@@ -1,5 +1,7 @@
 import type { PlayableSong } from "@/context/PlayerProvider";
 
+export type Collaborateur = { _id: string; name: string; username?: string; avatarUrl?: string };
+
 export type PlaylistDetail = {
   _id: string;
   title: string;
@@ -13,6 +15,8 @@ export type PlaylistDetail = {
   owner: { _id: string; name?: string; avatarUrl?: string } | null;
   songs: PlayableSong[];
   followers?: string[];
+  collaborative?: boolean;
+  collaborateurs?: Collaborateur[];
   createdAt?: string;
 };
 

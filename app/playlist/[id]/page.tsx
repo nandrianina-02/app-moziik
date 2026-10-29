@@ -17,6 +17,7 @@ import { PlaylistTabs } from "@/components/playlist/PlaylistTabs";
 import { PlaylistSidebar } from "@/components/playlist/PlaylistSidebar";
 import { PlaylistDetailSkeleton } from "@/components/playlist/PlaylistDetailSkeleton";
 import { AddSongsModal } from "@/components/playlist/AddSongsModal";
+import { FenetreCollaboration } from "@/components/playlist/FenetreCollaboration";
 import type { PlaylistDetail, PlaylistSummaryLite } from "@/components/playlist/types";
 import type { PlayableSong } from "@/context/PlayerProvider";
 
@@ -50,6 +51,7 @@ export default function PlaylistDetailPage() {
   const [showShareModal, setShowShareModal] = useState(false);
   const [menuPosition, setMenuPosition] = useState<{ x: number; y: number } | null>(null);
   const [otherPlaylists, setOtherPlaylists] = useState<PlaylistSummaryLite[]>([]);
+  const [fenetreCollab, setFenetreCollab] = useState(false);
 
   async function load() {
     try {
@@ -87,6 +89,11 @@ export default function PlaylistDetailPage() {
 
   const isOwner = !!playlist?.owner && session?.user?.id === playlist.owner._id;
   const canManage = isOwner || session?.user?.role === "admin";
+  const monId = session?.user?.id;
+  const estCollaborateur = !!monId && !!playlist?.collaborateurs?.some((c) => c._id === monId);
+  // Les titres : propriétaire, admin, ou collaborateur d'une playlist
+  // collaborative. Le reste (titre, pochette, visibilité) : `canManage`.
+  const peutEditerTitres = canManage || (estCollaborateur && !!playlist?.collaborative);
 
   // Sortir du mode édition sans laisser une sélection fantôme derrière.
   useEffect(() => {
@@ -96,8 +103,8 @@ export default function PlaylistDetailPage() {
   // Si les droits tombent (déconnexion pendant la visite), le mode
   // édition ne doit pas rester ouvert.
   useEffect(() => {
-    if (!canManage) setEditMode(false);
-  }, [canManage]);
+    if (!peutEditerTitres) setEditMode(false);
+  }, [peutEditerTitres]);
 
   async function handleDownloadPlaylist() {
     if (!playlist) return;
@@ -262,6 +269,8 @@ export default function PlaylistDetailPage() {
         downloading={downloading}
         downloadProgress={downloadProgress}
         canManage={canManage}
+        peutEditerTitres={peutEditerTitres}
+        onCollaboration={isOwner || estCollaborateur ? () => setFenetreCollab(true) : undefined}
         editMode={editMode}
         savingMeta={savingMeta}
         // La playlist déjà en cours (même en pause) reprend là où elle en était.
@@ -286,7 +295,7 @@ export default function PlaylistDetailPage() {
             <PlaylistTabs
               playlist={playlist}
               otherPlaylists={otherPlaylists}
-              canManage={canManage}
+              canManage={peutEditerTitres}
               editMode={editMode}
               selection={selection}
               onToggleSelected={(songId) =>
@@ -352,7 +361,23 @@ export default function PlaylistDetailPage() {
         />
       )}
 
-      {canManage && showAddSongs && (
+      {fenetreCollab && playlist && (
+        <FenetreCollaboration
+          playlistId={playlist._id}
+          estProprietaire={isOwner}
+          collaborateurs={playlist.collaborateurs ?? []}
+          onChange={(c) => setPlaylist((prev) => (prev ? { ...prev, ...c } : prev))}
+          onQuitte={() => {
+            setFenetreCollab(false);
+            setPlaylist((prev) =>
+              prev ? { ...prev, collaborateurs: (prev.collaborateurs ?? []).filter((c) => c._id !== session?.user?.id) } : prev
+            );
+          }}
+          onClose={() => setFenetreCollab(false)}
+        />
+      )}
+
+      {peutEditerTitres && showAddSongs && (
         <AddSongsModal
           playlistId={playlist._id}
           existingIds={playlist.songs.map((s) => s._id)}

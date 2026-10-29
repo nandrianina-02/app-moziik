@@ -51,6 +51,22 @@ export interface IPlaylist {
    */
   univers: Univers;
   followers: Types.ObjectId[]; // Users qui suivent la playlist publique
+  /**
+   * Playlist collaborative : les membres de `collaborateurs` peuvent en
+   * ajouter, retirer et réordonner les titres. Le titre, la pochette, la
+   * visibilité et la suppression restent au propriétaire.
+   *
+   * Désactiver la collaboration ne vide pas la liste : les collaborateurs
+   * perdent la main, et la retrouvent si elle est réactivée.
+   */
+  collaborative: boolean;
+  collaborateurs: Types.ObjectId[];
+  /**
+   * Jeton du lien d'invitation. Jamais renvoyé avec la playlist
+   * (`select: false`) : qui le connaît peut devenir collaborateur, il ne
+   * doit circuler que par le propriétaire.
+   */
+  jetonInvitation?: string;
   /** Absent sur toute playlist créée par un membre. */
   auto?: IPlaylistAuto;
   createdAt: Date;
@@ -66,6 +82,10 @@ const PlaylistSchema = new Schema<IPlaylist>({
   isPublic: { type: Boolean, default: false },
   univers: { type: String, enum: UNIVERS, default: UNIVERS_PAR_DEFAUT, index: true },
   followers: [{ type: Schema.Types.ObjectId, ref: "User" }],
+  collaborative: { type: Boolean, default: false },
+  // Indexé : la bibliothèque d'un membre liste aussi les playlists où il collabore.
+  collaborateurs: { type: [{ type: Schema.Types.ObjectId, ref: "User" }], default: [], index: true },
+  jetonInvitation: { type: String, select: false },
   auto: {
     type: new Schema<IPlaylistAuto>(
       {

@@ -79,7 +79,11 @@ export function LoginForm() {
       return;
     }
     pushToast("success", "Connecté avec succès.");
-    router.push("/");
+    // Retour à la page qui a demandé la connexion (lien d'invitation, par
+    // exemple). Seul un chemin interne est suivi : « //site » ou une URL
+    // complète feraient de cette page un tremplin vers un autre site.
+    const retour = new URLSearchParams(window.location.search).get("retour");
+    router.push(retour && retour.startsWith("/") && !retour.startsWith("//") ? retour : "/");
     router.refresh();
   }
 

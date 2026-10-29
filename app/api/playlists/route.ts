@@ -9,12 +9,20 @@ import { recalculerUniversPlaylist } from "@/lib/universClassify";
 
 export const GET = withApiErrors(async (req: Request) => {
   const { searchParams } = new URL(req.url);
-  let owner = searchParams.get("owner");
+  const owner = searchParams.get("owner");
   const publicOnly = searchParams.get("public") === "true";
 
   if (owner === "me") {
     const authUser = await requireAuthUser(req);
-    owner = authUser.id;
+    await connectDB();
+    // « Mes playlists » comprend celles où je collabore : on y ajoute des
+    // titres depuis les mêmes menus que les siennes.
+    const playlists = await Playlist.find({
+      $or: [{ owner: authUser.id }, { collaborative: true, collaborateurs: authUser.id }],
+    })
+      .populate("owner", "name avatarUrl")
+      .sort({ createdAt: -1 });
+    return NextResponse.json({ playlists });
   }
 
   await connectDB();

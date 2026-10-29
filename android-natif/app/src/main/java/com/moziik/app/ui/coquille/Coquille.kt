@@ -384,7 +384,7 @@ fun Coquille(sombre: Boolean, onBasculerMode: () -> Unit) {
                         }
                         .nestedScroll(tiroir.defilement),
                 ) {
-                    LecteurPleinEcran(lecture, onFermer = tiroir::fermer, poignee = Modifier.glissementDuTiroir(tiroir))
+                    LecteurPleinEcran(lecture, tiroir)
                 }
             }
             }
@@ -398,7 +398,7 @@ fun Coquille(sombre: Boolean, onBasculerMode: () -> Unit) {
     }
 
     // Retour : le lecteur plein écran se ferme avant toute navigation.
-    BackHandler(enabled = tiroir.ouvert) { tiroir.fermer() }
+    BackHandler(enabled = tiroir.ouvert) { tiroir.retour() }
 
     if (alerte == AlerteLecture.Quota) {
         MurQuota(

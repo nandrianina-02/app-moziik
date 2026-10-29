@@ -105,25 +105,35 @@ import com.moziik.app.ui.composants.BoutonPrincipal
 import com.moziik.app.ui.composants.ChampTexte
 import com.moziik.app.ui.partager
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.foundation.gestures.Orientation
+import androidx.compose.foundation.gestures.draggable
+import androidx.compose.foundation.gestures.rememberDraggableState
+import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.rememberPagerState
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.ui.input.nestedscroll.nestedScroll
+import androidx.compose.ui.platform.LocalConfiguration
 
 /**
- * Le lecteur plein écran (FullPlayerPage.tsx, mise en page téléphone) :
- * pochette, titre, j'aime, progression, transport, puis deux onglets,
- * les paroles et la suite de la file. Le titre et l'artiste ouvrent leur
- * fiche.
+ * Le lecteur plein écran, en deux étages (FullPlayerPage.tsx, mise en page
+ * téléphone).
+ *
+ * Le premier tient sur l'écran sans défiler : pochette, titre, j'aime,
+ * progression, commandes. Glissé vers le bas, il rend le mini-lecteur ;
+ * glissé vers le haut, il ouvre le second étage, une pleine page où
+ * paroles, file d'attente et avis se suivent et se changent en glissant
+ * de côté. Le titre et l'artiste ouvrent leur fiche.
  */
 @Composable
-fun LecteurPleinEcran(etat: EtatLecteur, onFermer: () -> Unit, poignee: Modifier = Modifier) {
+fun LecteurPleinEcran(etat: EtatLecteur, tiroir: EtatTiroir) {
     val c = conteneur()
     val lecteur = c.lecteur
     val p = LocalPalette.current
     val courant = etat.courant ?: return
     val avancement by rememberAvancement(lecteur, courant.id)
     val nav = navigation()
-    val aSuivre = remember(etat.file, etat.suivants) {
-        etat.suivants.mapNotNull { i -> etat.file.getOrNull(i)?.let { IndexedValue(i, it) } }
-    }
-    var onglet by rememberSaveable { mutableStateOf(OngletLecteur.PAROLES) }
+    val portee = rememberCoroutineScope()
     // Le fond prend la teinte de la pochette, en haut, et rejoint le fond du thème : chaque titre a son ambiance.
     val teinte = rememberTeintePochette(courant.pochette)
     val haut by animateColorAsState(teinte?.copy(alpha = if (p.sombre) 0.75f else 0.22f) ?: p.base.compose, tween(400), label = "teinte")
@@ -131,136 +141,110 @@ fun LecteurPleinEcran(etat: EtatLecteur, onFermer: () -> Unit, poignee: Modifier
     var vitesseOuverte by remember { mutableStateOf(false) }
     var bassesOuvert by remember { mutableStateOf(false) }
     var ensembleOuvert by remember { mutableStateOf(false) }
-    // Le titre de la file qu'on déplace (son rang dans « À suivre ») et le chemin parcouru par le doigt.
-    var glisse by remember { mutableStateOf<Int?>(null) }
-    var decalage by remember { mutableFloatStateOf(0f) }
 
-    Column(
-        Modifier
-            .fillMaxSize()
-            .background(p.base.compose)
-            .background(Brush.verticalGradient(0f to haut, 0.55f to p.base.compose)),
-    ) {
-        // L'en-tête sert de poignée : le glisser vers le bas ramène le lecteur au mini-lecteur.
-        Row(Modifier.fillMaxWidth().then(poignee).padding(horizontal = 12.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
-            Box(
-                Modifier.size(40.dp).clip(CircleShape).clickable(role = Role.Button, onClick = onFermer),
-                contentAlignment = Alignment.Center,
+    // Le second étage est un tiroir dans le tiroir : il suit le doigt de la même façon.
+    val hauteur = with(LocalDensity.current) { LocalConfiguration.current.screenHeightDp.dp.toPx() }
+    val panneau = remember(hauteur) { EtatTiroir(portee, 0f, hauteur) }
+    DisposableEffect(panneau) {
+        tiroir.interieur = panneau
+        onDispose { if (tiroir.interieur === panneau) tiroir.interieur = null }
+    }
+    var pageVoulue by rememberSaveable { mutableStateOf(OngletLecteur.PAROLES.ordinal) }
+
+    // Un seul geste vertical pour le premier étage : vers le bas il referme le lecteur, vers le haut il ouvre les pages.
+    val geste = rememberDraggableState { d ->
+        if (panneau.ouverture > 0f || (d < 0f && tiroir.ouverture >= 1f)) panneau.glisser(d) else tiroir.glisser(d)
+    }
+
+    Box(Modifier.fillMaxSize()) {
+        // Couvert entièrement, le premier étage n'a plus à être dessiné ni à recevoir les touchers.
+        if (panneau.ouverture < 1f) {
+            Column(
+                Modifier
+                    .fillMaxSize()
+                    .background(p.base.compose)
+                    .background(Brush.verticalGradient(0f to haut, 0.55f to p.base.compose))
+                    .draggable(
+                        geste,
+                        Orientation.Vertical,
+                        onDragStopped = { v -> if (panneau.ouverture > 0f) panneau.relacher(v) else tiroir.relacher(v) },
+                    ),
             ) {
-                Icone(R.drawable.lucide_chevron_down, description = "Fermer le lecteur", teinte = p.encreAttenuee.compose, taille = 22.dp)
-            }
-            Column(Modifier.weight(1f), horizontalAlignment = Alignment.CenterHorizontally) {
-                Text("EN COURS DE LECTURE", style = Texte.surtitre, color = p.encreAttenuee.compose)
-                courant.source?.let {
-                    Text(it, style = Texte.secondaire.copy(fontSize = 11.sp), color = p.encreAttenuee.compose, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                }
-            }
-            Spacer(Modifier.width(40.dp))
-        }
-
-        LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(start = 24.dp, end = 24.dp, top = 12.dp, bottom = 32.dp)) {
-            item(key = "pochette") {
-                // Grande pochette ; la glisser change de titre, comme le mini-lecteur.
-                Box(Modifier.fillMaxWidth().glissementDeTitre(courant.id, lecteur), contentAlignment = Alignment.Center) {
-                    Pochette(courant.pochette, Modifier.widthIn(max = 420.dp).fillMaxWidth().aspectRatio(1f), description = "Pochette de ${courant.titre}")
-                }
-            }
-            item(key = "titre") {
-                Row(Modifier.fillMaxWidth().padding(top = 24.dp), verticalAlignment = Alignment.CenterVertically) {
-                    Column(Modifier.weight(1f)) {
-                        Text(
-                            courant.titre,
-                            style = Texte.titreLecteur,
-                            color = p.encre.compose,
-                            maxLines = 2,
-                            overflow = TextOverflow.Ellipsis,
-                            modifier = Modifier.clip(RoundedCornerShape(6.dp)).clickable(role = Role.Button, onClickLabel = "Voir la fiche du titre") { nav.titre(courant.id) },
-                        )
-                        Spacer(Modifier.height(2.dp))
-                        NomArtiste(
-                            courant.artiste, courant.verifie, taille = 14.dp,
-                            modifier = courant.artisteId?.let { a ->
-                                Modifier.clip(RoundedCornerShape(6.dp)).clickable(role = Role.Button, onClickLabel = "Voir l'artiste") { nav.artiste(a) }
-                            } ?: Modifier,
-                        )
+                Row(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Box(
+                        Modifier.size(40.dp).clip(CircleShape).clickable(role = Role.Button, onClick = tiroir::fermer),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Icone(R.drawable.lucide_chevron_down, description = "Fermer le lecteur", teinte = p.encreAttenuee.compose, taille = 22.dp)
                     }
-                    PastilleTelechargement(courant.versTitre(), taille = 34.dp)
-                    Spacer(Modifier.width(4.dp))
-                    BoutonAime(courant)
-                }
-            }
-            item(key = "progression") {
-                Column(Modifier.padding(top = 16.dp)) {
-                    BarreProgression(avancement, lecteur::deplacer)
-                    Row(Modifier.fillMaxWidth()) {
-                        Text(temps(avancement.positionMs), style = Texte.secondaire.copy(fontFeatureSettings = "tnum"), color = p.encreAttenuee.compose)
-                        Spacer(Modifier.weight(1f))
-                        Text(temps(avancement.dureeMs), style = Texte.secondaire.copy(fontFeatureSettings = "tnum"), color = p.encreAttenuee.compose)
-                    }
-                }
-            }
-            item(key = "transport") { Transport(etat) }
-            item(key = "options") { Column { OptionsLecture(onVeille = { veilleOuverte = true }, onVitesse = { vitesseOuverte = true }, onBasses = { bassesOuvert = true }, onEnsemble = { ensembleOuvert = true }) } }
-            // Les onglets restent visibles en parcourant la file ou les paroles.
-            stickyHeader(key = "onglets") { Box(Modifier.fillMaxWidth().background(p.base.compose)) { Onglets(onglet) { onglet = it } } }
-            when (onglet) {
-                OngletLecteur.PAROLES -> item(key = "paroles") {
-                    PanneauParoles(courant, avancement, lecteur::deplacer, hauteur = 420.dp)
-                }
-                // Pas d'animation d'entrée ici : le lecteur est en lecture.
-                OngletLecteur.AVIS -> item(key = "avis-${courant.id}") {
-                    BlocCommentaires(
-                        courant.id,
-                        position = { lecteur.position() / 1000.0 },
-                        onAllerA = { s -> lecteur.deplacer((s * 1000).toLong()) },
-                    )
-                }
-                OngletLecteur.FILE -> if (aSuivre.isEmpty()) {
-                    item(key = "file-vide") {
-                        Text(
-                            "Rien après ce titre : la suite se compose seule, avec des titres proches.",
-                            style = Texte.corps, color = p.encreAttenuee.compose, modifier = Modifier.padding(vertical = 16.dp),
-                        )
-                    }
-                } else {
-                    item(key = "file-entete") {
-                        Row(Modifier.fillMaxWidth().padding(top = 4.dp, bottom = 6.dp), verticalAlignment = Alignment.CenterVertically) {
-                            Text(
-                                if (etat.aleatoire) "À suivre, en aléatoire" else "À suivre",
-                                style = Texte.secondaire.copy(fontWeight = FontWeight.Medium), color = p.encreAttenuee.compose, modifier = Modifier.weight(1f),
-                            )
-                            Text(
-                                "Vider",
-                                style = Texte.secondaire.copy(fontWeight = FontWeight.Medium),
-                                color = p.accent.compose,
-                                modifier = Modifier.clip(CircleShape).clickable(role = Role.Button) { lecteur.viderLaSuite() }.padding(horizontal = 10.dp, vertical = 6.dp),
-                            )
+                    Column(Modifier.weight(1f), horizontalAlignment = Alignment.CenterHorizontally) {
+                        Text("EN COURS DE LECTURE", style = Texte.surtitre, color = p.encreAttenuee.compose)
+                        courant.source?.let {
+                            Text(it, style = Texte.secondaire.copy(fontSize = 11.sp), color = p.encreAttenuee.compose, maxLines = 1, overflow = TextOverflow.Ellipsis)
                         }
                     }
-                    // En aléatoire, l'ordre affiché n'est pas celui de la file : on retire, on ne déplace pas.
-                    val reordonnable = !etat.aleatoire
-                    itemsIndexed(aSuivre, key = { _, e -> "suivant-${e.index}-${e.value.id}" }) { rang, element ->
-                        LigneFileModifiable(
-                            titre = element.value,
-                            rang = rang,
-                            total = aSuivre.size,
-                            glisse = glisse,
-                            decalage = decalage,
-                            reordonnable = reordonnable,
-                            onClick = { lecteur.allerA(element.index) },
-                            onRetirer = { lecteur.retirerDeLaFile(element.index) },
-                            onDebut = { glisse = rang; decalage = 0f },
-                            onGlisser = { decalage += it },
-                            onFin = { cible ->
-                                if (cible != rang) lecteur.deplacerDansLaFile(element.index, aSuivre[cible].index)
-                                glisse = null
-                                decalage = 0f
-                            },
-                            onMonter = { if (rang > 0) lecteur.deplacerDansLaFile(element.index, aSuivre[rang - 1].index) },
-                            onDescendre = { if (rang < aSuivre.lastIndex) lecteur.deplacerDansLaFile(element.index, aSuivre[rang + 1].index) },
-                        )
-                    }
+                    Spacer(Modifier.width(40.dp))
                 }
+
+                // La pochette prend la place qui reste : sur un petit écran elle rétrécit, rien ne défile.
+                Box(
+                    Modifier.weight(1f).fillMaxWidth().padding(horizontal = 24.dp, vertical = 8.dp).glissementDeTitre(courant.id, lecteur),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Pochette(courant.pochette, Modifier.widthIn(max = 420.dp).aspectRatio(1f), description = "Pochette de ${courant.titre}")
+                }
+
+                Column(Modifier.padding(horizontal = 24.dp)) {
+                    Row(Modifier.fillMaxWidth().padding(top = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Column(Modifier.weight(1f)) {
+                            Text(
+                                courant.titre,
+                                style = Texte.titreLecteur,
+                                color = p.encre.compose,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                                modifier = Modifier.clip(RoundedCornerShape(6.dp)).clickable(role = Role.Button, onClickLabel = "Voir la fiche du titre") { nav.titre(courant.id) },
+                            )
+                            Spacer(Modifier.height(2.dp))
+                            NomArtiste(
+                                courant.artiste, courant.verifie, taille = 14.dp,
+                                modifier = courant.artisteId?.let { a ->
+                                    Modifier.clip(RoundedCornerShape(6.dp)).clickable(role = Role.Button, onClickLabel = "Voir l'artiste") { nav.artiste(a) }
+                                } ?: Modifier,
+                            )
+                        }
+                        PastilleTelechargement(courant.versTitre(), taille = 34.dp)
+                        Spacer(Modifier.width(4.dp))
+                        BoutonAime(courant)
+                    }
+                    Column(Modifier.padding(top = 12.dp)) {
+                        BarreProgression(avancement, lecteur::deplacer)
+                        Row(Modifier.fillMaxWidth()) {
+                            Text(temps(avancement.positionMs), style = Texte.secondaire.copy(fontFeatureSettings = "tnum"), color = p.encreAttenuee.compose)
+                            Spacer(Modifier.weight(1f))
+                            Text(temps(avancement.dureeMs), style = Texte.secondaire.copy(fontFeatureSettings = "tnum"), color = p.encreAttenuee.compose)
+                        }
+                    }
+                    Transport(etat)
+                    OptionsLecture(onVeille = { veilleOuverte = true }, onVitesse = { vitesseOuverte = true }, onBasses = { bassesOuvert = true }, onEnsemble = { ensembleOuvert = true })
+                }
+
+                SeuilPages { o ->
+                    pageVoulue = o.ordinal
+                    panneau.ouvrir()
+                }
+            }
+        }
+
+        if (panneau.ouvert) {
+            Box(
+                Modifier
+                    .fillMaxSize()
+                    .graphicsLayer { translationY = (1f - panneau.ouverture) * size.height }
+                    .background(p.base.compose)
+                    .nestedScroll(panneau.defilement),
+            ) {
+                PagesLecteur(etat, courant, avancement, panneau, pageVoulue) { pageVoulue = it }
             }
         }
     }
@@ -268,6 +252,160 @@ fun LecteurPleinEcran(etat: EtatLecteur, onFermer: () -> Unit, poignee: Modifier
     if (vitesseOuverte) ChoixVitesse { vitesseOuverte = false }
     if (bassesOuvert) ChoixBasses { bassesOuvert = false }
     if (ensembleOuvert) ChoixEnsemble { ensembleOuvert = false }
+}
+
+/**
+ * Le bas du premier étage : une poignée qui dit qu'on peut monter, et les
+ * trois pages, à toucher pour ouvrir directement la bonne.
+ */
+@Composable
+private fun SeuilPages(onOuvrir: (OngletLecteur) -> Unit) {
+    val p = LocalPalette.current
+    Column(Modifier.fillMaxWidth().padding(top = 4.dp, bottom = 10.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+        Box(Modifier.size(width = 36.dp, height = 4.dp).clip(CircleShape).background(p.bordure.compose))
+        Row(Modifier.fillMaxWidth().padding(top = 6.dp, start = 12.dp, end = 12.dp), horizontalArrangement = Arrangement.SpaceEvenly) {
+            OngletLecteur.entries.forEach { o ->
+                Row(
+                    Modifier.clip(CircleShape).clickable(role = Role.Button, onClickLabel = "Ouvrir ${o.libelle}") { onOuvrir(o) }.padding(horizontal = 12.dp, vertical = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Icone(o.icone, description = null, teinte = p.encreAttenuee.compose, taille = 15.dp)
+                    Spacer(Modifier.width(6.dp))
+                    Text(o.libelle, style = Texte.secondaire.copy(fontWeight = FontWeight.Medium), color = p.encreAttenuee.compose)
+                }
+            }
+        }
+    }
+}
+
+/**
+ * Le second étage : un en-tête compact qui garde le titre et la lecture
+ * sous la main, les onglets, et les trois pages côte à côte, qu'on change
+ * en glissant de côté. Tirer l'en-tête vers le bas, ou une liste déjà en
+ * haut, ramène au premier étage.
+ */
+@Composable
+private fun PagesLecteur(
+    etat: EtatLecteur,
+    courant: TitreLu,
+    avancement: Avancement,
+    panneau: EtatTiroir,
+    pageVoulue: Int,
+    onPage: (Int) -> Unit,
+) {
+    val c = conteneur()
+    val lecteur = c.lecteur
+    val p = LocalPalette.current
+    val portee = rememberCoroutineScope()
+    val pages = OngletLecteur.entries
+    val pager = rememberPagerState(initialPage = pageVoulue) { pages.size }
+    // L'onglet touché depuis le premier étage, ou dans la barre : la page suit.
+    LaunchedEffect(pageVoulue) { if (pager.currentPage != pageVoulue) pager.animateScrollToPage(pageVoulue) }
+    LaunchedEffect(pager.currentPage) { onPage(pager.currentPage) }
+    val aSuivre = remember(etat.file, etat.suivants) {
+        etat.suivants.mapNotNull { i -> etat.file.getOrNull(i)?.let { IndexedValue(i, it) } }
+    }
+    // Le titre de la file qu'on déplace (son rang dans « À suivre ») et le chemin parcouru par le doigt.
+    var glisse by remember { mutableStateOf<Int?>(null) }
+    var decalage by remember { mutableFloatStateOf(0f) }
+
+    Column(Modifier.fillMaxSize()) {
+        Column(
+            Modifier
+                .fillMaxWidth()
+                .draggable(
+                    rememberDraggableState { panneau.glisser(it) },
+                    Orientation.Vertical,
+                    onDragStopped = { v -> panneau.relacher(v) },
+                )
+                .padding(top = 8.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+        ) {
+            Box(Modifier.size(width = 36.dp, height = 4.dp).clip(CircleShape).background(p.bordure.compose))
+            Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
+                Pochette(courant.pochette, Modifier.size(44.dp), RoundedCornerShape(6.dp))
+                Column(Modifier.weight(1f).padding(horizontal = 12.dp)) {
+                    Text(courant.titre, style = Texte.corpsFort, color = p.encre.compose, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    courant.artiste?.let { Text(it, style = Texte.secondaire, color = p.encreAttenuee.compose, maxLines = 1, overflow = TextOverflow.Ellipsis) }
+                }
+                BoutonLecture(etat, lecteur, taille = 44)
+                Box(
+                    Modifier.size(40.dp).clip(CircleShape).clickable(role = Role.Button, onClick = panneau::fermer),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Icone(R.drawable.lucide_chevron_down, description = "Revenir au lecteur", teinte = p.encreAttenuee.compose, taille = 22.dp)
+                }
+            }
+            BarreProgression(avancement, lecteur::deplacer, Modifier.padding(horizontal = 16.dp), epaisseur = 2.dp)
+        }
+        Onglets(pages[pager.currentPage]) { o -> portee.launch { pager.animateScrollToPage(o.ordinal) } }
+
+        HorizontalPager(pager, Modifier.weight(1f).fillMaxWidth(), key = { pages[it].name }) { i ->
+            when (pages[i]) {
+                OngletLecteur.PAROLES -> BoxWithConstraints(Modifier.fillMaxSize().padding(horizontal = 20.dp, vertical = 12.dp)) {
+                    PanneauParoles(courant, avancement, lecteur::deplacer, hauteur = maxHeight)
+                }
+                // Pas d'animation d'entrée ici : le lecteur est en lecture.
+                OngletLecteur.AVIS -> LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(start = 20.dp, end = 20.dp, top = 12.dp, bottom = 24.dp)) {
+                    item(key = "avis-${courant.id}") {
+                        BlocCommentaires(
+                            courant.id,
+                            position = { lecteur.position() / 1000.0 },
+                            onAllerA = { s -> lecteur.deplacer((s * 1000).toLong()) },
+                        )
+                    }
+                }
+                OngletLecteur.FILE -> LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(start = 20.dp, end = 20.dp, top = 8.dp, bottom = 24.dp)) {
+                    if (aSuivre.isEmpty()) {
+                        item(key = "file-vide") {
+                            Text(
+                                "Rien après ce titre : la suite se compose seule, avec des titres proches.",
+                                style = Texte.corps, color = p.encreAttenuee.compose, modifier = Modifier.padding(vertical = 16.dp),
+                            )
+                        }
+                    } else {
+                        item(key = "file-entete") {
+                            Row(Modifier.fillMaxWidth().padding(top = 4.dp, bottom = 6.dp), verticalAlignment = Alignment.CenterVertically) {
+                                Text(
+                                    if (etat.aleatoire) "À suivre, en aléatoire" else "À suivre",
+                                    style = Texte.secondaire.copy(fontWeight = FontWeight.Medium), color = p.encreAttenuee.compose, modifier = Modifier.weight(1f),
+                                )
+                                Text(
+                                    "Vider",
+                                    style = Texte.secondaire.copy(fontWeight = FontWeight.Medium),
+                                    color = p.accent.compose,
+                                    modifier = Modifier.clip(CircleShape).clickable(role = Role.Button) { lecteur.viderLaSuite() }.padding(horizontal = 10.dp, vertical = 6.dp),
+                                )
+                            }
+                        }
+                        // En aléatoire, l'ordre affiché n'est pas celui de la file : on retire, on ne déplace pas.
+                        val reordonnable = !etat.aleatoire
+                        itemsIndexed(aSuivre, key = { _, e -> "suivant-${e.index}-${e.value.id}" }) { rang, element ->
+                            LigneFileModifiable(
+                                titre = element.value,
+                                rang = rang,
+                                total = aSuivre.size,
+                                glisse = glisse,
+                                decalage = decalage,
+                                reordonnable = reordonnable,
+                                onClick = { lecteur.allerA(element.index) },
+                                onRetirer = { lecteur.retirerDeLaFile(element.index) },
+                                onDebut = { glisse = rang; decalage = 0f },
+                                onGlisser = { decalage += it },
+                                onFin = { cible ->
+                                    if (cible != rang) lecteur.deplacerDansLaFile(element.index, aSuivre[cible].index)
+                                    glisse = null
+                                    decalage = 0f
+                                },
+                                onMonter = { if (rang > 0) lecteur.deplacerDansLaFile(element.index, aSuivre[rang - 1].index) },
+                                onDescendre = { if (rang < aSuivre.lastIndex) lecteur.deplacerDansLaFile(element.index, aSuivre[rang + 1].index) },
+                            )
+                        }
+                    }
+                }
+            }
+        }
+    }
 }
 
 /** Minuterie de veille et vitesse, sous les commandes : deux pastilles qui disent l'état en cours. */
@@ -577,7 +715,7 @@ private fun Onglets(actif: OngletLecteur, onChoisir: (OngletLecteur) -> Unit) {
     Row(
         Modifier
             .fillMaxWidth()
-            .padding(top = 28.dp, bottom = 12.dp)
+            .padding(horizontal = 12.dp)
             .drawBehind { drawLine(filet, Offset(0f, size.height), Offset(size.width, size.height), 1.dp.toPx()) },
     ) {
         OngletLecteur.entries.forEach { o ->

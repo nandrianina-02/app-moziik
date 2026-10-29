@@ -64,6 +64,17 @@ class EtatTiroir internal constructor(private val portee: CoroutineScope, initia
     fun ouvrir() = poser(1f)
     fun fermer() = poser(0f)
 
+    /**
+     * Le tiroir posé dans celui-ci (les pages du lecteur plein écran) :
+     * Retour le referme d'abord, avant de refermer le lecteur.
+     */
+    var interieur: EtatTiroir? = null
+
+    fun retour() {
+        val i = interieur
+        if (i != null && i.ouvert) i.fermer() else fermer()
+    }
+
     private fun poser(cible: Float) {
         pose?.cancel()
         if (ouverture == cible) return

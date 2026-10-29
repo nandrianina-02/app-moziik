@@ -153,6 +153,8 @@ export default function LibraryPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ albumId }),
       });
+      // La bibliothèque de la barre latérale se met à jour.
+      window.dispatchEvent(new Event("moziik-bibliotheque-change"));
       if (!res.ok) throw new Error();
       pushToast("success", "Album retiré de ta bibliothèque.");
     } catch {
@@ -164,6 +166,8 @@ export default function LibraryPage() {
     setFollowedArtists((prev) => prev.filter((a) => a._id !== artistId));
     try {
       const res = await fetch(`/api/artists/${artistId}/follow`, { method: "POST" });
+      // La bibliothèque de la barre latérale se met à jour.
+      window.dispatchEvent(new Event("moziik-bibliotheque-change"));
       if (!res.ok) throw new Error();
       pushToast("success", "Tu ne suis plus cet artiste.");
     } catch {

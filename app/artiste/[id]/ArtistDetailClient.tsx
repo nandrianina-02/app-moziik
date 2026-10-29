@@ -215,6 +215,8 @@ export function ArtistDetailClient() {
       return;
     }
     const res = await fetch(`/api/artists/${id}/follow`, { method: "POST" });
+    // La bibliothèque de la barre latérale se met à jour.
+    window.dispatchEvent(new Event("moziik-bibliotheque-change"));
     if (!res.ok) {
       pushToast("error", "Une erreur est survenue.");
       return;

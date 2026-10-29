@@ -184,6 +184,8 @@ function PageRadio() {
   async function toggleFollow(artistId: string) {
     try {
       const res = await fetch(`/api/artists/${artistId}/follow`, { method: "POST" });
+      // La bibliothèque de la barre latérale se met à jour.
+      window.dispatchEvent(new Event("moziik-bibliotheque-change"));
       if (!res.ok) throw new Error();
       const result = await res.json();
       setFollowing((prev) => ({ ...prev, [artistId]: result.following }));

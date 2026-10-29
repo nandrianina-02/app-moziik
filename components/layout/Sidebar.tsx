@@ -8,7 +8,7 @@ import { useSidebar } from "@/context/SidebarProvider";
 import { IconeMarque } from "@/components/layout/Marque";
 import { ThemeToggle } from "@/components/ui/ThemeToggle";
 import { Tooltip } from "@/components/layout/Tooltip";
-import { SidebarPlaylists } from "@/components/layout/SidebarPlaylists";
+import { SidebarBibliotheque } from "@/components/layout/SidebarBibliotheque";
 import { primaryLinks, accountLinks, useRoleLinks, isLinkActive, type NavLink } from "@/components/layout/navLinks";
 import { useMessagesNonLus } from "@/context/MessagesProvider";
 
@@ -110,7 +110,7 @@ export function Sidebar() {
       <div className="flex min-h-0 flex-1 flex-col overflow-y-auto">
         <nav className="flex shrink-0 flex-col gap-1">{primaryLinks.map(renderLink)}</nav>
 
-        <SidebarPlaylists collapsed={collapsed} />
+        <SidebarBibliotheque collapsed={collapsed} />
 
         <div className={`my-4 h-px shrink-0 bg-border ${collapsed ? "mx-1" : ""}`} />
         <nav className="flex shrink-0 flex-col gap-1">{accountLinks.map(renderLink)}</nav>

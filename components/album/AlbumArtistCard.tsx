@@ -65,6 +65,8 @@ export function AlbumArtistCard({ album, albumsCount }: { album: AlbumDetail; al
     setFollowing(optimiste);
     try {
       const res = await fetch(`/api/artists/${artist!._id}/follow`, { method: "POST" });
+      // La bibliothèque de la barre latérale se met à jour.
+      window.dispatchEvent(new Event("moziik-bibliotheque-change"));
       if (!res.ok) throw new Error();
       const data = await res.json();
       setFollowing(data.following);

@@ -120,6 +120,8 @@ export function AlbumDetailClient() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ albumId: id }),
       });
+      // La bibliothèque de la barre latérale se met à jour.
+      window.dispatchEvent(new Event("moziik-bibliotheque-change"));
       if (!res.ok) throw new Error();
       const data = await res.json();
       setSaved(data.saved);

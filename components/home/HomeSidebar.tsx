@@ -49,6 +49,8 @@ export function FeaturedArtists({ artists }: { artists: FeaturedArtist[] }) {
 
   async function toggleFollow(artistId: string, baseCount: number) {
     const res = await fetch(`/api/artists/${artistId}/follow`, { method: "POST" });
+    // La bibliothèque de la barre latérale se met à jour.
+    window.dispatchEvent(new Event("moziik-bibliotheque-change"));
     if (!res.ok) return;
     const data = await res.json();
     setFollowState((prev) => ({ ...prev, [artistId]: { following: data.following, count: data.followersCount } }));

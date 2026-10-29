@@ -23,6 +23,8 @@ const nextConfig = {
     remotePatterns: [
       { protocol: "https", hostname: "res.cloudinary.com" },
       { protocol: "https", hostname: "lh3.googleusercontent.com" },
+      // Photos d'artistes sous licence libre, tirées de Wikimedia Commons.
+      { protocol: "https", hostname: "upload.wikimedia.org" },
     ],
     // AVIF d'abord, WebP en repli. Next ne propose que le WebP par
     // défaut ; l'AVIF retire encore un quart à un tiers du poids sur une

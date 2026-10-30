@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { CalendarDays, ChevronLeft, ChevronRight, MapPin, Play } from "lucide-react";
 import { SafeImage } from "@/components/ui/SafeImage";
+import { BanniereTexte } from "@/components/layout/Illustrations";
 import { usePlayer, type PlayableSong } from "@/context/PlayerProvider";
 import { useFuseauHoraire } from "@/context/SiteConfigProvider";
 import { heure, jourLong } from "@/components/events/eventPresentation";
@@ -263,14 +264,12 @@ function Diapositive({
       className="relative w-full shrink-0 select-none overflow-hidden"
     >
       <div className="absolute inset-0">
-        <SafeImage
-          src={cover}
-          alt=""
-          width={1600}
-          height={640}
-          priority={actif}
-          className="h-full w-full object-cover"
-        />
+        {/* Un contenu mis en avant sans image : son titre en affiche, pas le pictogramme « image manquante ». */}
+        {cover ? (
+          <SafeImage src={cover} alt="" width={1600} height={640} priority={actif} className="h-full w-full object-cover" />
+        ) : (
+          <BanniereTexte texte={titre} icones={slide.event ? [CalendarDays, MapPin] : undefined} />
+        )}
         {/* Dégradé plus large en bas qu'à droite : sur mobile le texte
             passe sous l'image, sur grand écran il reste à sa gauche. */}
         <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/60 to-black/20 md:bg-gradient-to-r md:from-black/90 md:via-black/55 md:to-transparent" />

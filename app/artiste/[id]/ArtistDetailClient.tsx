@@ -25,6 +25,7 @@ import {
 import { usePlayer, type PlayableSong } from "@/context/PlayerProvider";
 import { BoutonLectureMedia, BoutonActionMedia } from "@/components/music/EnteteMedia";
 import { SafeImage } from "@/components/ui/SafeImage";
+import { BanniereTexte } from "@/components/layout/Illustrations";
 import { useToast } from "@/context/ToastProvider";
 import { idbGet, idbPut, STORES } from "@/lib/offlineDb";
 import { useLongPress } from "@/components/music/useLongPress";
@@ -40,7 +41,6 @@ import { envoyerFichier } from "@/lib/envoiFichier";
 import type { AlbumType } from "@/lib/albums";
 import { ArtistVideos } from "@/components/artist/ArtistVideos";
 
-const DEFAULT_BANNER = "/images/default-artist-banner.png";
 
 type SocialLink = { platform: string; url: string };
 
@@ -296,14 +296,12 @@ export function ArtistDetailClient() {
       {/* Comme sur Spotify : une grande bannière, le nom de l'artiste en très
           grand dessus, puis une barre d'actions au grand bouton rond. */}
       <div className="group relative h-60 w-full overflow-hidden sm:h-72 md:h-80">
-        <SafeImage
-          src={artist.bannerUrl || DEFAULT_BANNER}
-          alt=""
-          width={1600}
-          height={500}
-          className="h-full w-full object-cover"
-          priority
-        />
+        {/* Sans bannière choisie, le nom de l'artiste en affiche plutôt qu'une photo générique. */}
+        {artist.bannerUrl ? (
+          <SafeImage src={artist.bannerUrl} alt="" width={1600} height={500} className="h-full w-full object-cover" priority />
+        ) : (
+          <BanniereTexte texte={artist.stageName} />
+        )}
         <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/25 to-black/10" />
 
         {isOwnProfile && (

@@ -1,7 +1,7 @@
 "use client";
 
-import Image from "next/image";
 import { IconeMarque } from "@/components/layout/Marque";
+import { AfficheConnexion } from "@/components/layout/Illustrations";
 import { useSiteConfig } from "@/context/SiteConfigProvider";
 
 export default function AuthLayout({ children }: { children: React.ReactNode }) {
@@ -9,33 +9,15 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
 
   return (
     <div className="min-h-screen lg:grid lg:grid-cols-2">
-      {/* Panneau gauche : image + accroche — masqué sur mobile pour laisser toute la place au formulaire */}
-      <div className="relative hidden lg:flex lg:flex-col lg:justify-between overflow-hidden bg-base px-12 py-10">
+      {/* Panneau gauche : ce que fait Moziik, en texte et en pictogrammes plutôt qu'en photo.
+          Masqué sur mobile pour laisser toute la place au formulaire. */}
+      <div className="relative hidden gap-10 overflow-hidden border-r border-border bg-base px-12 py-10 lg:flex lg:flex-col">
         <div className="flex items-center gap-2">
           <IconeMarque taille={30} />
           <span className="font-display text-lg">{siteConfig.siteName}</span>
         </div>
 
-        <div className="relative z-10 max-w-md">
-          <h1 className="font-display text-4xl leading-tight mb-3">
-            Toute ta musique.
-            <br />
-            <span className="text-accent">Partout. À tout moment.</span>
-          </h1>
-          <p className="text-ink-muted">
-            Retrouve tes playlists, tes artistes préférés et bien plus encore.
-          </p>
-        </div>
-
-        <div className="relative mt-10 flex-1 min-h-0">
-          <Image
-            src="/marketing/auth-hero.png"
-            alt=""
-            fill
-            className="object-cover object-center rounded-xl2"
-            priority
-          />
-        </div>
+        <AfficheConnexion />
       </div>
 
       {/* Panneau droit : formulaire */}

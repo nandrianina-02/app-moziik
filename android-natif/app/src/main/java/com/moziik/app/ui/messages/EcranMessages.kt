@@ -1,5 +1,7 @@
 package com.moziik.app.ui.messages
 
+import androidx.compose.foundation.lazy.itemsIndexed
+import com.moziik.app.ui.composants.entree
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -147,7 +149,10 @@ fun EcranMessages(onConnexion: () -> Unit, onOuvrir: (String) -> Unit) {
             }
             liste != null -> LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = 24.dp)) {
                 if (avecAssistant) item(key = ASSISTANT) { LigneAssistant { onOuvrir(ASSISTANT) } }
-                items(liste, key = { it.id }) { conv -> LigneConversation(conv) { onOuvrir(conv.id) } }
+                // Une conversation qui reçoit un message remonte en tête en glissant, sans saut.
+                itemsIndexed(liste, key = { _, it -> it.id }) { i, conv ->
+                    Box(Modifier.animateItem().entree(i)) { LigneConversation(conv) { onOuvrir(conv.id) } }
+                }
             }
         }
     }

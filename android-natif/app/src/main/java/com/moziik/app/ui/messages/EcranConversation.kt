@@ -348,6 +348,8 @@ fun EcranConversation(id: String, onRetour: () -> Unit) {
                             }
                         }
                         items(inverses, key = { it.id }) { m ->
+                          // Un message qui arrive glisse en place ; ceux d'avant remontent sans saut.
+                          Box(Modifier.animateItem()) {
                             val i = messages.indexOf(m)
                             val precedent = messages.getOrNull(i - 1)
                             val aMoi = m.auteur?.id == moi
@@ -358,6 +360,7 @@ fun EcranConversation(id: String, onRetour: () -> Unit) {
                                 statut = if (m.id == dernierMien?.id) (if (lu) "Lu" else "Envoyé") else null,
                                 onAppuiLong = { if (!m.supprime) menu = m },
                             )
+                          }
                         }
                         if (chargementAnciens) item(key = "anciens") { Box(Modifier.fillMaxWidth().padding(8.dp), contentAlignment = Alignment.Center) { Egaliseur(hauteur = 14.dp) } }
                     }

@@ -1,5 +1,6 @@
 package com.moziik.app.ui.social
 
+import com.moziik.app.ui.composants.entree
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -274,7 +275,7 @@ fun EcranAmis(onRetour: () -> Unit) {
                 Vide("Suis des membres depuis leur profil (la recherche les trouve) : leurs écoutes des deux dernières semaines apparaîtront ici, s'ils les partagent.")
             }
             else -> items(activite!!, key = { "ami-" + it.ami.id }) { a ->
-                LigneActivite(a, a.titre.id == lecture.courant?.id && lecture.enLecture)
+                Box(Modifier.animateItem().entree(activite!!.indexOf(a))) { LigneActivite(a, a.titre.id == lecture.courant?.id && lecture.enLecture) }
             }
         }
         social?.abonnements?.takeIf { it.isNotEmpty() }?.let { suivis ->
@@ -413,7 +414,7 @@ private fun CorpsBlend(blend: Blend, onRetour: () -> Unit) {
         }
         if (titres.isNotEmpty()) item(key = "titres") { SectionFiche("Titres") {} }
         itemsIndexed(blend.titres, key = { i, l -> "blend-$i-${l.titre.id}" }) { i, ligne ->
-            Row(Modifier.padding(start = 12.dp), verticalAlignment = Alignment.CenterVertically) {
+            Row(Modifier.padding(start = 12.dp).entree(i), verticalAlignment = Alignment.CenterVertically) {
                 // De qui vient le titre : un avatar, ou les deux superposés.
                 Box(Modifier.width(34.dp)) {
                     if (ligne.pour != "b") Avatar(blend.moi.name, blend.moi.avatarUrl, taille = 20.dp)

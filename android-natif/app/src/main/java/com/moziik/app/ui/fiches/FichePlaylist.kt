@@ -2,6 +2,7 @@
 
 package com.moziik.app.ui.fiches
 
+import com.moziik.app.ui.composants.entree
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -214,7 +215,7 @@ private fun CorpsPlaylist(playlist: PlaylistDetail, onRetour: () -> Unit, onRech
             LigneTitre(
                 titre, i + 1, titre.id == lecture.courant?.id, lecture.enLecture,
                 onClick = { c.lecteur.lire(titres, i, playlist.title) },
-                modifier = Modifier.padding(horizontal = 12.dp),
+                modifier = Modifier.animateItem().padding(horizontal = 12.dp).entree(i),
                 onAppuiLong = { menus.titre(titre, playlist.title, extras) },
             )
         }

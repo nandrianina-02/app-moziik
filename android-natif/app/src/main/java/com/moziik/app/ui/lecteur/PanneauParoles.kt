@@ -1,5 +1,11 @@
 package com.moziik.app.ui.lecteur
 
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
+import androidx.compose.ui.graphics.TransformOrigin
+import androidx.compose.ui.graphics.graphicsLayer
+import com.moziik.app.theme.Mouvement
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -121,7 +127,8 @@ fun PanneauParoles(courant: TitreLu, avancement: Avancement, onDeplacer: (Long) 
     }
 
     Box(Modifier.fillMaxWidth().height(hauteur)) {
-        when (val e = etat) {
+        // Le chargement cède la place aux paroles par un fondu, une fois par titre.
+        androidx.compose.animation.Crossfade(etat, animationSpec = tween(Mouvement.VOILE), label = "paroles") { e -> when (e) {
             EtatParoles.Chargement -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { Egaliseur(hauteur = 18.dp) }
             is EtatParoles.Erreur -> Indisponibles(e.message)
             is EtatParoles.Pretes -> if (e.paroles.vides) {
@@ -129,7 +136,7 @@ fun PanneauParoles(courant: TitreLu, avancement: Avancement, onDeplacer: (Long) 
             } else {
                 ListeParoles(e.paroles, avancement, onDeplacer, courant)
             }
-        }
+        } }
     }
 }
 
@@ -308,6 +315,7 @@ private fun ListeParoles(paroles: Paroles, avancement: Avancement, onDeplacer: (
                         if (traduction != null) ligne.copy(texte = traduction, mots = null) else ligne,
                         i == active,
                         if (i == active && traduction == null) motActif(ligne.mots, seconde) else -1,
+                        passee = active >= 0 && i < active,
                         paroles.synchronisees && choix.isEmpty(),
                         onDeplacer,
                         choisie = i in choix,
@@ -378,6 +386,7 @@ private fun LigneChantee(
     ligne: LigneParoles,
     active: Boolean,
     indexMot: Int,
+    passee: Boolean,
     cliquable: Boolean,
     onDeplacer: (Long) -> Unit,
     choisie: Boolean = false,
@@ -385,8 +394,17 @@ private fun LigneChantee(
     onChoisir: () -> Unit = {},
 ) {
     val p = LocalPalette.current
-    val style = if (active) Texte.titreSection.copy(fontWeight = FontWeight.SemiBold) else Texte.corps.copy(fontSize = 15.sp, lineHeight = 22.sp)
-    val couleur = if (active) p.accent.compose else p.encreAttenuee.compose
+    // Une seule taille de texte pour toutes les lignes : la ligne chantée grandit par échelle, sans
+    // changer la mise en page, et la liste ne saute pas à chaque changement de ligne.
+    val style = Texte.corps.copy(fontSize = 16.sp, lineHeight = 24.sp, fontWeight = FontWeight.SemiBold)
+    val cible = when {
+        active -> p.accent.compose
+        // Déjà chantée : lisible, mais en retrait de celle qui vient.
+        passee -> p.encre.compose.copy(alpha = 0.45f)
+        else -> p.encreAttenuee.compose
+    }
+    val couleur by animateColorAsState(cible, tween(Mouvement.VOILE), label = "couleur-ligne")
+    val echelle by animateFloatAsState(if (active) 1.08f else 1f, tween(Mouvement.TIROIR, easing = Mouvement.sortieDouce), label = "echelle-ligne")
     val mots = ligne.mots
     // Le mot à mot ne s'affiche que sur la ligne chantée : les mots à venir restent estompés.
     val texte = if (active && mots != null && indexMot >= 0) {
@@ -405,7 +423,13 @@ private fun LigneChantee(
         style = style,
         color = couleur,
         modifier = Modifier
+            .graphicsLayer {
+                scaleX = echelle
+                scaleY = echelle
+                transformOrigin = TransformOrigin(0f, 0.5f)
+            }
             .fillMaxWidth()
+            .padding(end = 12.dp)
             .clip(RoundedCornerShape(8.dp))
             .background(if (choisie) p.accent.compose.copy(alpha = 0.14f) else androidx.compose.ui.graphics.Color.Transparent)
             // Appui long : choisir des lignes à partager ; pendant le choix, un toucher ajoute ou retire.

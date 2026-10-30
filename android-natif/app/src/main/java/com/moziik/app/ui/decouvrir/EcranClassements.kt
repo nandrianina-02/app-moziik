@@ -2,6 +2,7 @@
 
 package com.moziik.app.ui.decouvrir
 
+import com.moziik.app.ui.composants.entree
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -197,8 +198,10 @@ fun EcranClassements(type: String?, periode: String?, onRetour: () -> Unit) {
                 item(key = "podium") { Podium(places.take(3), typeChoisi, lecture.courant?.id, ouvrir) }
                 item(key = "tendance") { Tendance(classement.trendPct, classement.totalPlays) }
                 val maxEcoutes = places.maxOfOrNull { it.plays } ?: 0
-                itemsIndexed(places.drop(3), key = { _, e -> "place-${e.id}" }) { _, e ->
-                    LignePlace(e, typeChoisi, maxEcoutes, periodeChoisie != Periode.TOUT, e.id == lecture.courant?.id) { ouvrir(e) }
+                itemsIndexed(places.drop(3), key = { _, e -> "place-${e.id}" }) { i, e ->
+                    Box(Modifier.entree(i + 1)) {
+                        LignePlace(e, typeChoisi, maxEcoutes, periodeChoisie != Periode.TOUT, e.id == lecture.courant?.id) { ouvrir(e) }
+                    }
                 }
             }
         }

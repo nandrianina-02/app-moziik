@@ -2,6 +2,7 @@
 
 package com.moziik.app.ui.fiches
 
+import com.moziik.app.ui.composants.entree
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -175,7 +176,7 @@ private fun CorpsArtiste(donnees: DonneesArtiste, onRetour: () -> Unit) {
                 titre, i + 1, titre.id == lecture.courant?.id, lecture.enLecture,
                 // Lancée d'ici, la suite reste avec l'artiste (jusqu'à cinq titres) avant de s'ouvrir.
                 onClick = { c.lecteur.lire(tous, i, artiste.stageName, origine = ORIGINE_ARTISTE + artiste.id) },
-                modifier = Modifier.padding(horizontal = 12.dp),
+                modifier = Modifier.padding(horizontal = 12.dp).entree(i),
                 onAppuiLong = { menus.titre(titre) },
             )
         }

@@ -212,7 +212,7 @@ fun EcranNotifications(onRetour: () -> Unit) {
                         items(avis, key = { it.id }) { a ->
                             LigneAvis(
                                 a,
-                                Modifier.apparitionUneFois(a.id, minOf(rangs[a.id] ?: 0, 6), vus),
+                                Modifier.animateItem().apparitionUneFois(a.id, minOf(rangs[a.id] ?: 0, 6), vus),
                                 onClick = { ouvrir(a) },
                                 onAppuiLong = { aSupprimer = a },
                             )

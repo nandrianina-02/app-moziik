@@ -1,5 +1,6 @@
 package com.moziik.app.ui.selections
 
+import com.moziik.app.ui.composants.entree
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -251,7 +252,7 @@ private fun CorpsSelection(detail: DetailSelection, onRetour: () -> Unit) {
             LigneTitre(
                 titre, i + 1, titre.id == lecture.courant?.id, lecture.enLecture,
                 onClick = { c.lecteur.lire(titres, i, s.titre) },
-                modifier = Modifier.padding(horizontal = 12.dp),
+                modifier = Modifier.padding(horizontal = 12.dp).entree(i),
                 onAppuiLong = { menus.titre(titre, s.titre) },
             )
         }

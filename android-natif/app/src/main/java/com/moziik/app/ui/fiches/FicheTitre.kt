@@ -2,6 +2,7 @@
 
 package com.moziik.app.ui.fiches
 
+import com.moziik.app.ui.composants.entree
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -225,7 +226,7 @@ private fun CorpsTitre(donnees: DonneesTitre, onRetour: () -> Unit) {
                 LigneTitre(
                     t, null, t.id == lecture.courant?.id, lecture.enLecture,
                     onClick = { c.lecteur.lire(donnees.similaires, i, "Proche de « ${titre.title} »") },
-                    modifier = Modifier.padding(horizontal = 12.dp),
+                    modifier = Modifier.padding(horizontal = 12.dp).entree(i),
                     onAppuiLong = { menus.titre(t) },
                 )
             }

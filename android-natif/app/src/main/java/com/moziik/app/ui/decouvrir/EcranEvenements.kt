@@ -2,6 +2,9 @@
 
 package com.moziik.app.ui.decouvrir
 
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.lazy.itemsIndexed
+import com.moziik.app.ui.composants.entree
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -150,8 +153,10 @@ private fun CorpsEvenements(liste: ListeEvenements, onRetour: () -> Unit) {
         }
         if (prochains.isNotEmpty()) {
             item(key = "prochains") { EnTeteSection("À venir", modifier = Modifier.padding(top = 8.dp)) }
-            items(prochains, key = { it.first.id }) { (e, d) ->
-                CarteEvenement(e, momentDe(d, maintenant), d, interets[e.id] == true, nombres[e.id] ?: e.interestedCount) { basculer(e) }
+            itemsIndexed(prochains, key = { _, it -> it.first.id }) { i, (e, d) ->
+                Box(Modifier.entree(i)) {
+                    CarteEvenement(e, momentDe(d, maintenant), d, interets[e.id] == true, nombres[e.id] ?: e.interestedCount) { basculer(e) }
+                }
             }
         }
         if (passes.isNotEmpty()) {

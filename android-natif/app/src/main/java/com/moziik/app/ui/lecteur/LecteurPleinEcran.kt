@@ -720,14 +720,15 @@ private fun Onglets(actif: OngletLecteur, onChoisir: (OngletLecteur) -> Unit) {
     ) {
         OngletLecteur.entries.forEach { o ->
             val choisi = o == actif
-            val couleur = if (choisi) p.accent.compose else p.encreAttenuee.compose
+            val couleur by animateColorAsState(if (choisi) p.accent.compose else p.encreAttenuee.compose, tween(com.moziik.app.theme.Mouvement.VOILE), label = "onglet")
+            val trait by animateFloatAsState(if (choisi) 1f else 0f, tween(com.moziik.app.theme.Mouvement.VOILE), label = "trait")
             val accent = p.accent.compose
             Row(
                 Modifier
                     .clickable(role = Role.Tab) { onChoisir(o) }
                     .semantics { selected = choisi }
                     .drawBehind {
-                        if (choisi) drawLine(accent, Offset(0f, size.height), Offset(size.width, size.height), 2.dp.toPx())
+                        if (trait > 0f) drawLine(accent.copy(alpha = trait), Offset(0f, size.height), Offset(size.width, size.height), 2.dp.toPx())
                     }
                     .padding(horizontal = 12.dp, vertical = 10.dp),
                 verticalAlignment = Alignment.CenterVertically,
@@ -828,12 +829,15 @@ internal fun BoutonAime(courant: TitreLu, taille: Dp = 44.dp, icone: Dp = 22.dp)
             .semantics { contentDescription = if (aime) "Ne plus aimer" else "J'aime" },
         contentAlignment = Alignment.Center,
     ) {
-        Icone(
-            if (aime) R.drawable.lucide_heart_plein else R.drawable.lucide_heart,
-            description = null,
-            teinte = if (aime) p.accent.compose else p.encreAttenuee.compose,
-            taille = icone,
-        )
+        // Un fondu entre les deux cœurs, sans rebond : le j'aime se confirme, il ne fait pas de numéro.
+        androidx.compose.animation.Crossfade(aime, animationSpec = tween(com.moziik.app.theme.Mouvement.VOILE), label = "aime") { a ->
+            Icone(
+                if (a) R.drawable.lucide_heart_plein else R.drawable.lucide_heart,
+                description = null,
+                teinte = if (a) p.accent.compose else p.encreAttenuee.compose,
+                taille = icone,
+            )
+        }
     }
 }
 

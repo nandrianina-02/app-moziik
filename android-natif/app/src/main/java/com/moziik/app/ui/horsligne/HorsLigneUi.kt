@@ -1,5 +1,6 @@
 package com.moziik.app.ui.horsligne
 
+import com.moziik.app.ui.composants.entree
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -152,6 +153,7 @@ fun LazyListScope.listeTelechargements(titres: List<Titre>, lecture: EtatLecteur
         LigneTitre(
             t, null, t.id == lecture.courant?.id, lecture.enLecture,
             onClick = { c.lecteur.lire(titres, i, "Téléchargements") },
+            modifier = Modifier.animateItem().entree(i),
             onAppuiLong = { menus.titre(t, "Téléchargements") },
         )
     }

@@ -1,5 +1,6 @@
 package com.moziik.app.ui.decouvrir
 
+import com.moziik.app.ui.composants.entree
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -162,11 +163,13 @@ fun EcranTitres(genre: String?, onRetour: () -> Unit) {
             Text("Tous les titres publiés sur Moziik.", style = Texte.corps, color = p.encreAttenuee.compose)
         }
         itemsIndexed(etat.titres, key = { _, t -> t.id }) { i, titre ->
-            CarteTitre(
-                titre, titre.id == lecture.courant?.id, lecture.enLecture,
-                onClick = { c.lecteur.lire(etat.titres, i, source) },
-                onAppuiLong = { menus.titre(titre) },
-            )
+            Box(Modifier.entree(i)) {
+                CarteTitre(
+                    titre, titre.id == lecture.courant?.id, lecture.enLecture,
+                    onClick = { c.lecteur.lire(etat.titres, i, source) },
+                    onAppuiLong = { menus.titre(titre) },
+                )
+            }
         }
         item(key = "pied", span = { GridItemSpan(maxLineSpan) }) {
             Box(Modifier.fillMaxWidth().padding(vertical = 16.dp), contentAlignment = Alignment.Center) {

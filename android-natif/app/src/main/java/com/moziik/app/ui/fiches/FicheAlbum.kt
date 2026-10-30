@@ -2,6 +2,7 @@
 
 package com.moziik.app.ui.fiches
 
+import com.moziik.app.ui.composants.entree
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
@@ -142,7 +143,7 @@ private fun CorpsAlbum(donnees: DonneesAlbum, onRetour: () -> Unit) {
             LigneTitre(
                 titre, i + 1, titre.id == lecture.courant?.id, lecture.enLecture,
                 onClick = { c.lecteur.lire(titres, i, album.title) },
-                modifier = Modifier.padding(horizontal = 12.dp),
+                modifier = Modifier.padding(horizontal = 12.dp).entree(i),
                 onAppuiLong = { menus.titre(titre) },
             )
         }

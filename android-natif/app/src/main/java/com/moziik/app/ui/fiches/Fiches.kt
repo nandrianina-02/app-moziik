@@ -39,6 +39,9 @@ import androidx.lifecycle.viewModelScope
 import com.moziik.app.R
 import com.moziik.app.donnees.reseau.messageErreur
 import com.moziik.app.theme.LocalPalette
+import com.moziik.app.ui.composants.entree
+import androidx.compose.animation.togetherWith
+import com.moziik.app.theme.Mouvement
 import com.moziik.app.theme.Texte
 import com.moziik.app.theme.compose
 import com.moziik.app.ui.composants.BoutonPrincipal
@@ -141,9 +144,26 @@ fun BarreRetour(onRetour: () -> Unit) {
     }
 }
 
-/** Chargement, erreur avec nouvel essai, ou le contenu. */
+/**
+ * Chargement, erreur avec nouvel essai, ou le contenu. Le passage de l'un
+ * à l'autre est un fondu : le squelette ne cède pas la place d'un coup.
+ */
 @Composable
 fun <T> ContenuFiche(etat: EtatFiche<T>, onReessayer: () -> Unit, contenu: @Composable (T) -> Unit) {
+    androidx.compose.animation.AnimatedContent(
+        targetState = etat,
+        // Une même fiche rechargée garde son contenu à l'écran : seul le changement d'état anime.
+        contentKey = { it::class },
+        transitionSpec = {
+            androidx.compose.animation.fadeIn(androidx.compose.animation.core.tween(Mouvement.ENTREE_PAGE)) togetherWith
+                androidx.compose.animation.fadeOut(androidx.compose.animation.core.tween(Mouvement.ENTREE_PAGE / 2))
+        },
+        label = "fiche",
+    ) { e -> EtatDeFiche(e, onReessayer, contenu) }
+}
+
+@Composable
+private fun <T> EtatDeFiche(etat: EtatFiche<T>, onReessayer: () -> Unit, contenu: @Composable (T) -> Unit) {
     val p = LocalPalette.current
     when (etat) {
         EtatFiche.Chargement -> SqueletteFiche()
@@ -186,7 +206,7 @@ fun EnTeteFiche(
     Column(modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
         // La pochette chevauche le bas de la bannière : posées dans la même boîte, sans décalage
         // qui laisserait un vide sous elles.
-        Box(Modifier.fillMaxWidth()) {
+        Box(Modifier.fillMaxWidth().entree(0)) {
             Box(Modifier.fillMaxWidth().height(150.dp)) {
                 if (banniere != null) {
                     Pochette(banniere, Modifier.fillMaxSize(), RoundedCornerShape(0.dp))
@@ -209,7 +229,7 @@ fun EnTeteFiche(
             }
         }
         Column(
-            Modifier.padding(start = 24.dp, end = 24.dp, top = 14.dp),
+            Modifier.padding(start = 24.dp, end = 24.dp, top = 14.dp).entree(1),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
             Text(
@@ -231,7 +251,7 @@ fun EnTeteFiche(
                 }
             }
             Spacer(Modifier.height(18.dp))
-            Row(horizontalArrangement = Arrangement.spacedBy(10.dp, Alignment.CenterHorizontally), verticalAlignment = Alignment.CenterVertically, content = actions)
+            Row(Modifier.entree(2), horizontalArrangement = Arrangement.spacedBy(10.dp, Alignment.CenterHorizontally), verticalAlignment = Alignment.CenterVertically, content = actions)
         }
     }
 }

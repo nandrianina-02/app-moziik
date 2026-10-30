@@ -2,6 +2,7 @@
 
 package com.moziik.app.ui.bibliotheque
 
+import com.moziik.app.ui.composants.entree
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -292,6 +293,7 @@ private fun LazyListScope.titresAimes(aimes: Liste<Titre>, lecture: EtatLecteur,
         LigneTitre(
             t, null, t.id == lecture.courant?.id, lecture.enLecture,
             onClick = { c.lecteur.lire(titres.orEmpty(), i, "Titres likés") },
+            modifier = Modifier.animateItem().entree(i),
             onAppuiLong = { menus.titre(t, "Titres likés") },
         )
     }

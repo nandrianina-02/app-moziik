@@ -1,8 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { useSession } from "next-auth/react";
+import { useToast } from "@/context/ToastProvider";
 import { CalendarDays, Radio, BadgeCheck, Heart, Users, Share2, UserRound } from "lucide-react";
 import { SafeImage } from "@/components/ui/SafeImage";
 import { useLongPress } from "@/components/music/useLongPress";
@@ -45,16 +47,47 @@ export function RadioCard() {
 type FeaturedArtist = { _id: string; stageName: string; verified?: boolean; coverUrl?: string; followersCount: number };
 
 export function FeaturedArtists({ artists }: { artists: FeaturedArtist[] }) {
+  const { status } = useSession();
+  const pushToast = useToast();
   const [followState, setFollowState] = useState<Record<string, { following: boolean; count: number }>>({});
+  // Artistes déjà suivis. La liste de l'accueil est commune à tous les
+  // visiteurs (mise en cache) : elle ne peut pas dire qui suit qui, on le lit
+  // donc à part, comme AlbumArtistCard. Sans cela, le bouton affichait
+  // « Suivre » même pour un artiste déjà suivi.
+  const [suivis, setSuivis] = useState<Set<string>>(new Set());
 
-  async function toggleFollow(artistId: string, baseCount: number) {
+  useEffect(() => {
+    if (status !== "authenticated") {
+      setSuivis(new Set());
+      return;
+    }
+    const lire = () =>
+      fetch("/api/me/followed-artists")
+        .then((res) => (res.ok ? res.json() : null))
+        .then((data) => {
+          if (data) setSuivis(new Set((data.artists ?? []).map((a: { _id: string }) => a._id)));
+        })
+        .catch(() => {});
+    void lire();
+    // Un artiste suivi ailleurs (fiche, album) se reflète ici aussi.
+    window.addEventListener("moziik-bibliotheque-change", lire);
+    return () => window.removeEventListener("moziik-bibliotheque-change", lire);
+  }, [status]);
+
+  async function toggleFollow(artistId: string) {
+    if (status !== "authenticated") {
+      pushToast("error", "Connecte-toi pour suivre cet artiste.");
+      return;
+    }
     const res = await fetch(`/api/artists/${artistId}/follow`, { method: "POST" });
-    // La bibliothèque de la barre latérale se met à jour.
-    window.dispatchEvent(new Event("moziik-bibliotheque-change"));
-    if (!res.ok) return;
+    if (!res.ok) {
+      pushToast("error", "Le suivi n'a pas pu être enregistré. Réessaie.");
+      return;
+    }
     const data = await res.json();
     setFollowState((prev) => ({ ...prev, [artistId]: { following: data.following, count: data.followersCount } }));
-    void baseCount;
+    // La bibliothèque de la barre latérale se met à jour.
+    window.dispatchEvent(new Event("moziik-bibliotheque-change"));
   }
 
   return (
@@ -70,7 +103,7 @@ export function FeaturedArtists({ artists }: { artists: FeaturedArtist[] }) {
       <div className="space-y-3">
         {artists.map((artist) => {
           const state = followState[artist._id];
-          const following = state?.following ?? false;
+          const following = state?.following ?? suivis.has(artist._id);
           const count = state?.count ?? artist.followersCount;
           return (
             <FeaturedArtistRow
@@ -78,7 +111,7 @@ export function FeaturedArtists({ artists }: { artists: FeaturedArtist[] }) {
               artist={artist}
               following={following}
               count={count}
-              onToggleFollow={() => toggleFollow(artist._id, artist.followersCount)}
+              onToggleFollow={() => toggleFollow(artist._id)}
             />
           );
         })}
@@ -124,7 +157,10 @@ function FeaturedArtistRow({
           alt={artist.stageName}
           width={36}
           height={36}
-          className="shrink-0 rounded-full object-cover"
+          // Taille fixée en CSS : les attributs seuls ne suffisent pas, la
+          // base de Tailwind remet `height: auto` et une photo non carrée
+          // sortait ovale ou aplatie.
+          className="h-9 w-9 shrink-0 rounded-full object-cover"
         />
         <span className="min-w-0">
           <span className="flex items-center gap-1 truncate text-sm text-ink">

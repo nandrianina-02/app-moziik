@@ -6,6 +6,11 @@ export interface IArtist {
   stageName: string;
   bio?: string;
   coverUrl?: string; // photo de profil (avatar)
+  /**
+   * Photo reprise d'une pochette faute de vraie photo (lib/photoArtiste.ts).
+   * Elle cède la place dès que l'artiste ou un admin en pose une.
+   */
+  photoAuto?: boolean;
   bannerUrl?: string; // bannière de couverture en haut du profil ; par défaut si absente
   genres: string[];
   socialLinks: { platform: string; url: string }[];
@@ -35,6 +40,7 @@ const ArtistSchema = new Schema<IArtist>({
   stageName: { type: String, required: true },
   bio: { type: String },
   coverUrl: { type: String },
+  photoAuto: { type: Boolean },
   bannerUrl: { type: String },
   genres: { type: [String], default: [] },
   socialLinks: [{ platform: String, url: String }],

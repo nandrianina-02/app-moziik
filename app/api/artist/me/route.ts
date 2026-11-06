@@ -25,7 +25,11 @@ export const PATCH = withApiErrors(async (req: Request) => {
   const { bio, coverUrl, bannerUrl, genres, socialLinks } = parseOrThrow(patchArtistMeSchema, await req.json());
 
   if (typeof bio === "string") artist.bio = bio;
-  if (typeof coverUrl === "string") artist.coverUrl = coverUrl;
+  if (typeof coverUrl === "string") {
+    artist.coverUrl = coverUrl;
+    // Une vraie photo remplace celle reprise d'une pochette.
+    artist.photoAuto = undefined;
+  }
   if (typeof bannerUrl === "string") artist.bannerUrl = bannerUrl;
   if (Array.isArray(genres)) artist.genres = genres;
   if (Array.isArray(socialLinks)) artist.socialLinks = socialLinks;

@@ -4,6 +4,7 @@ import mongoose from "mongoose";
 import { connectDB } from "@/lib/db";
 import Song from "@/models/Song";
 import Artist from "@/models/Artist";
+import { photoDepuisPochette } from "@/lib/photoArtiste";
 import { notify } from "@/lib/notify";
 import { ApiError, withApiErrors } from "@/lib/apiError";
 import { parseOrThrow, createSongSchema } from "@/lib/validation";
@@ -204,6 +205,9 @@ export const POST = withApiErrors(async (req: Request) => {
     releaseDate: release,
     publishedBy: authUser.id,
   });
+
+  // Un brouillon reste privé : sa pochette ne devient pas la photo de l'artiste avant sa sortie.
+  if (status !== "draft") await photoDepuisPochette(artistProfile._id, coverUrl);
 
   // L'accueil sert ses sections depuis un cache partagé : sans cet
   // oubli, l'artiste qui vient de publier ne verrait pas son titre

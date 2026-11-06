@@ -29,7 +29,11 @@ export const PATCH = withApiErrors(
 
     if (typeof donnees.stageName === "string") artist.stageName = donnees.stageName;
     if (typeof donnees.bio === "string") artist.bio = donnees.bio;
-    if (typeof donnees.coverUrl === "string") artist.coverUrl = donnees.coverUrl;
+    if (typeof donnees.coverUrl === "string") {
+      artist.coverUrl = donnees.coverUrl;
+      // Une vraie photo remplace celle reprise d'une pochette.
+      artist.photoAuto = undefined;
+    }
     if (typeof donnees.bannerUrl === "string") artist.bannerUrl = donnees.bannerUrl;
     if (Array.isArray(donnees.genres)) artist.genres = donnees.genres;
     if (Array.isArray(donnees.socialLinks)) artist.socialLinks = donnees.socialLinks;

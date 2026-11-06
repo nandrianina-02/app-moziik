@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { connectDB } from "@/lib/db";
 import Album from "@/models/Album";
 import Artist from "@/models/Artist";
+import { photoDepuisPochette } from "@/lib/photoArtiste";
 import { ApiError, withApiErrors } from "@/lib/apiError";
 import { parseOrThrow, createAlbumSchema } from "@/lib/validation";
 import { requireAuthUser } from "@/lib/mobileAuth";
@@ -39,6 +40,8 @@ export const POST = withApiErrors(async (req: Request) => {
     // sans exception (lib/universClassify.ts).
     univers: artistProfile.univers,
   });
+
+  await photoDepuisPochette(artistProfile._id, coverUrl);
 
   return NextResponse.json({ album }, { status: 201 });
 });

@@ -74,6 +74,13 @@ export function SafeImage({
       alt={alt}
       width={width}
       height={height}
+      // Les proportions demandées par l'appelant tiennent à l'affichage.
+      // Sans cela, la base de Tailwind (`height: auto`) rendait à l'image
+      // ses proportions d'origine partout où la hauteur n'était pas aussi
+      // fixée en classe : un avatar rond sortait ovale ou aplati. Les appels
+      // recadrent tous (`object-cover`) : l'image remplit la forme sans être
+      // déformée. Une hauteur fixée en classe garde la priorité.
+      style={{ aspectRatio: `${width} / ${height}` }}
       className={`${className ?? ""} ${loaded ? "" : "animate-shimmer bg-surface"}`}
       priority={priority}
       quality={quality ?? qualiteParDefaut(width)}

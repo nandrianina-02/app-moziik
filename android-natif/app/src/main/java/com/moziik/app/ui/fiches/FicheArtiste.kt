@@ -166,7 +166,10 @@ private fun CorpsArtiste(donnees: DonneesArtiste, onRetour: () -> Unit) {
         }
         if (tous.isEmpty()) {
             item(key = "vide") {
-                Text("Aucun titre publié pour le moment.", style = Texte.corps, color = p.encreAttenuee.compose, modifier = Modifier.padding(16.dp))
+                Text(
+                    if (r.featuredOn.isEmpty()) "Aucun titre publié pour le moment." else "Aucun titre publié en son nom pour le moment.",
+                    style = Texte.corps, color = p.encreAttenuee.compose, modifier = Modifier.padding(16.dp),
+                )
             }
         } else {
             item(key = "titres") { SectionFiche(if (deplie) "Tous les titres" else "Titres populaires") {} }
@@ -194,6 +197,18 @@ private fun CorpsArtiste(donnees: DonneesArtiste, onRetour: () -> Unit) {
                             .padding(horizontal = 18.dp, vertical = 8.dp),
                     )
                 }
+            }
+        }
+        // Les titres où il est invité : un artiste qui n'existe qu'en featuring aurait sinon une fiche sans musique.
+        if (r.featuredOn.isNotEmpty()) {
+            item(key = "apparait") { SectionFiche("Apparaît sur") {} }
+            itemsIndexed(r.featuredOn, key = { _, t -> "feat-${t.id}" }) { i, titre ->
+                LigneTitre(
+                    titre, i + 1, titre.id == lecture.courant?.id, lecture.enLecture,
+                    onClick = { c.lecteur.lire(r.featuredOn, i, "Avec ${artiste.stageName}") },
+                    modifier = Modifier.padding(horizontal = 12.dp).entree(i),
+                    onAppuiLong = { menus.titre(titre) },
+                )
             }
         }
         if (r.albums.isNotEmpty()) item(key = "albums") { SectionFiche("Albums") { RangeeAlbums(r.albums) { nav.album(it) } } }

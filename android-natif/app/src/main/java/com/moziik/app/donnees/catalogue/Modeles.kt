@@ -411,6 +411,8 @@ data class ReponseArtiste(
     val singles: List<AlbumCourt> = emptyList(),
     val playlistsFeaturing: List<PlaylistCourte> = emptyList(),
     val similarArtists: List<ArtisteCarte> = emptyList(),
+    /** Titres d'autres artistes où il est invité ; absent des réponses du site antérieures à novembre 2026. */
+    val featuredOn: List<Titre> = emptyList(),
 )
 
 @Serializable

@@ -90,7 +90,10 @@ export const GET = withApiErrors(async (req: Request, { params }: { params: { id
       followersCount: artist.followers.length,
       songsCount: songs.length,
       albumsCount: albums.length,
-      totalPlays: artist.totalPlays,
+      // Le compteur du profil n'est jamais incrémenté par les écoutes, qui
+      // ne sont comptées que titre par titre : il affichait 0 sous des titres
+      // écoutés des dizaines de fois. La somme des titres fait foi.
+      totalPlays: Math.max(artist.totalPlays ?? 0, songs.reduce((sum, s) => sum + (s.playsCount ?? 0), 0)),
       totalLikes,
     },
     songs,

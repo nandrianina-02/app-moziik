@@ -278,6 +278,10 @@ export function ArtistDetailClient() {
   if (loading || !data) return <ArtistDetailSkeleton />;
 
   const { artist, songs, topSongs, albums, singles, recentReleases, featuredOn = [], playlistsFeaturing, similarArtists, recentComments } = data;
+  // Sans album, biographie ni commentaire, la colonne principale est vide et
+  // les cartes de droite laissaient deux tiers de blanc : elles prennent
+  // alors toute la largeur, une par colonne.
+  const colonneGaucheVide = albums.length === 0 && !artist.bio && recentComments.length === 0;
   const isCurrentArtistPlaying = isPlaying && !!currentSong && songs.some((s) => s._id === currentSong._id);
 
   function handleMainPlay() {
@@ -471,7 +475,8 @@ export function ArtistDetailClient() {
                 </section>
               )}
 
-              <div className="grid gap-8 lg:grid-cols-3">
+              <div className={colonneGaucheVide ? "grid gap-4 md:grid-cols-3" : "grid gap-8 lg:grid-cols-3"}>
+                {!colonneGaucheVide && (
                 <div className="space-y-8 lg:col-span-2">
                   {albums.length > 0 && (
                     <section>
@@ -546,8 +551,9 @@ export function ArtistDetailClient() {
                     </section>
                   )}
                 </div>
+                )}
 
-                <div className="space-y-8">
+                <div className={colonneGaucheVide ? "contents" : "space-y-8"}>
                   {recentReleases.length > 0 && (
                     <section className="rounded-xl2 border border-border bg-surface p-4">
                       <h2 className="mb-3 text-sm font-medium">Dernières sorties</h2>
@@ -635,7 +641,10 @@ export function ArtistDetailClient() {
 
               {similarArtists.length > 0 && (
                 <section>
-                  <h2 className="mb-3 text-base text-ink font-display">Vous aimerez aussi</h2>
+                  {/* « Artistes similaires », pas « Vous aimerez aussi » : les sections de l'admin
+                      affichées sous la page portent déjà ce titre, et deux fois de suite ça se lit
+                      comme un doublon. */}
+                  <h2 className="mb-3 text-base text-ink font-display">Artistes similaires</h2>
                   <div className="-mx-1 flex gap-5 overflow-x-auto px-1 pb-2">
                     {similarArtists.map((a) => (
                       <Link key={a._id} href={`/artiste/${a._id}`} className="w-24 shrink-0 text-center sm:w-28">

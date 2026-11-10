@@ -7,7 +7,8 @@
 
 /** `top_tracks` n'y figure pas : il est rendu à part, en classement numéroté dans la colonne latérale. */
 export const SECTION_SEE_ALL: Record<string, string> = {
-  new_releases: "/titres",
+  // La page Découvrir, déjà triée par date : l'accueil n'en montre qu'un extrait.
+  new_releases: "/titres?tri=nouveautes",
   playlists: "/bibliotheque",
   albums: "/classements",
   recommendations: "/titres",

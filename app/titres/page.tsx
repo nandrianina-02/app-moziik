@@ -12,6 +12,16 @@ import { useSiteConfig } from "@/context/SiteConfigProvider";
 import type { PlayableSong } from "@/context/PlayerProvider";
 import { useUnivers } from "@/context/UniversProvider";
 
+type Tri = "hasard" | "nouveautes" | "populaires";
+
+const TRIS: Record<Tri, { libelle: string; titre: string; sousTitre: string }> = {
+  hasard: { libelle: "Au hasard", titre: "Découvrir", sousTitre: "Tous les titres publiés sur Moziik, dans un ordre mélangé." },
+  nouveautes: { libelle: "Nouveautés", titre: "Nouveautés", sousTitre: "Les dernières sorties, de la plus récente à la plus ancienne." },
+  populaires: { libelle: "Populaires", titre: "Les plus écoutés", sousTitre: "Les titres les plus écoutés sur Moziik." },
+};
+
+const estTri = (v: string | null): v is Tri => v !== null && v in TRIS;
+
 /**
  * Parcourt tous les titres publiés, page par page, en préchargeant la
  * suite avant que l'utilisateur n'atteigne le bas (scroll infini, voir
@@ -26,6 +36,10 @@ function BrowseSongsPageContent() {
   // inconnu se traduit simplement par "Aucun titre pour ce genre"
   // ci-dessous, sans état incohérent.
   const [genre, setGenre] = useState(searchParams.get("genre") || "Tous");
+  // Trois ordres : mélangé pour découvrir, par date pour suivre les sorties
+  // (« Voir tout » des Nouveautés de l'accueil arrive ici avec ?tri=), par
+  // écoutes pour les valeurs sûres.
+  const [tri, setTri] = useState<Tri>(estTri(searchParams.get("tri")) ? (searchParams.get("tri") as Tri) : "hasard");
   const { univers } = useUnivers();
   // Les titres arrivent mélangés, sans blocs par album ni par artiste. La
   // graine, tirée à l'ouverture, garde le même ordre pendant le défilement ;
@@ -34,27 +48,49 @@ function BrowseSongsPageContent() {
 
   const fetchPage = useCallback(
     async (page: number) => {
-      const params = new URLSearchParams({ page: String(page), limit: "24", sort: "random", seed: String(graine) });
+      const params = new URLSearchParams({ page: String(page), limit: "24" });
+      if (tri === "hasard") {
+        params.set("sort", "random");
+        params.set("seed", String(graine));
+      } else if (tri === "populaires") {
+        params.set("sort", "popular");
+      }
       if (genre !== "Tous") params.set("genre", genre);
       const res = await fetch(`/api/songs?${params}`);
       if (!res.ok) throw new Error("Échec du chargement.");
       const data = await res.json();
       return { items: data.songs as PlayableSong[], hasMore: data.hasMore as boolean };
     },
-    [genre, graine]
+    [genre, graine, tri]
   );
 
-  // La clé de la liste porte l'univers : la changer remet la pagination à
-  // zéro et repart du bon catalogue, comme un changement de genre.
+  // La clé de la liste porte l'univers et le tri : les changer remet la
+  // pagination à zéro et repart du bon catalogue, comme un changement de genre.
   const { items: songs, loading, initialLoading, hasMore, sentinelRef } = useInfiniteList(
     fetchPage,
-    `${genre}:${univers}`
+    `${genre}:${univers}:${tri}`
   );
 
   return (
     <div className="mx-auto w-full max-w-[1600px] px-6 py-8 md:px-10 md:py-10">
-      <h1 className="mb-1 font-display text-2xl font-bold md:text-3xl">Découvrir</h1>
-      <p className="mb-6 text-sm text-ink-muted">Tous les titres publiés sur Moziik.</p>
+      <h1 className="mb-1 font-display text-2xl font-bold md:text-3xl">{TRIS[tri].titre}</h1>
+      <p className="mb-6 text-sm text-ink-muted">{TRIS[tri].sousTitre}</p>
+
+      <div className="mb-3 flex flex-wrap gap-2" role="tablist" aria-label="Ordre des titres">
+        {(Object.keys(TRIS) as Tri[]).map((t) => (
+          <button
+            key={t}
+            role="tab"
+            aria-selected={tri === t}
+            onClick={() => setTri(t)}
+            className={`rounded-full px-3.5 py-1.5 text-sm font-medium transition-colors duration-200 ${
+              tri === t ? "bg-ink text-base" : "bg-ink/[0.08] text-ink hover:bg-ink/[0.14]"
+            }`}
+          >
+            {TRIS[t].libelle}
+          </button>
+        ))}
+      </div>
 
       <div className="mb-6 flex flex-wrap gap-2">
         {GENRES.map((g) => (

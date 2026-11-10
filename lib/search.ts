@@ -1,3 +1,4 @@
+import { filtreArtistesActifs, idsArtistesActifs } from "@/lib/artistesActifs";
 import Album from "@/models/Album";
 import Artist from "@/models/Artist";
 import Event from "@/models/Event";
@@ -296,7 +297,7 @@ export async function rechercheGlobale(opts: OptionsRecherche): Promise<Resultat
 
   /* --- 1. Artistes d'abord : leurs identifiants servent à tout le reste - */
 
-  const artistsBrut = await Artist.find(filtreOu({}, conditionsTexte(mots, ["stageName", "genres", "bio"])))
+  const artistsBrut = await Artist.find(filtreOu(await filtreArtistesActifs(), conditionsTexte(mots, ["stageName", "genres", "bio"])))
     .select(CHAMPS_ARTIST)
     .sort({ totalPlays: -1 })
     .limit(VIVIER.artists)
@@ -536,7 +537,7 @@ export async function rechercheGlobale(opts: OptionsRecherche): Promise<Resultat
   let approximatif = false;
   if (songs.length === 0 && artists.length === 0 && albums.length === 0 && playlists.length === 0) {
     const [artistesPop, titresPop] = await Promise.all([
-      Artist.find({}).select(CHAMPS_ARTIST).sort({ totalPlays: -1 }).limit(RATTRAPAGE.artists).lean(),
+      Artist.find(await filtreArtistesActifs()).select(CHAMPS_ARTIST).sort({ totalPlays: -1 }).limit(RATTRAPAGE.artists).lean(),
       Song.find({ status: "published" })
         .populate("artist", "stageName verified coverUrl")
         .populate("album", "title coverUrl type")
@@ -805,7 +806,7 @@ export async function suggestionsRapides(q: string, limite = 8, univers?: Univer
       .sort({ playsCount: -1 })
       .limit(30)
       .lean(),
-    Artist.find(filtreOu({}, conditionsTexte(mots, ["stageName"])))
+    Artist.find(filtreOu(await filtreArtistesActifs(), conditionsTexte(mots, ["stageName"])))
       .select("stageName verified coverUrl totalPlays univers")
       .sort({ totalPlays: -1 })
       .limit(20)
@@ -954,7 +955,7 @@ async function sectionsLiees(ctx: ContexteRelations): Promise<Section[]> {
         .lean(),
 
       artiste?.genres?.length
-        ? Artist.find({ _id: { $ne: artisteId }, genres: { $in: artiste.genres } })
+        ? Artist.find({ _id: { $ne: artisteId, $in: await idsArtistesActifs() }, genres: { $in: artiste.genres } })
             .select("stageName verified coverUrl genres totalPlays")
             .sort({ totalPlays: -1 })
             .limit(12)

@@ -1,3 +1,4 @@
+import { filtreArtistesActifs } from "@/lib/artistesActifs";
 import { connectDB, isDatabaseUnavailableError } from "@/lib/db";
 import Song from "@/models/Song";
 import Album from "@/models/Album";
@@ -169,7 +170,7 @@ async function getPopularAlbums(limit: number, univers: Univers) {
  * sorties (30 derniers jours).
  */
 async function getTrendingArtists(limit: number, verifiedOnly: boolean, univers: Univers) {
-  const query: Record<string, unknown> = verifiedOnly ? { verified: true, univers } : { univers };
+  const query: Record<string, unknown> = { ...(verifiedOnly ? { verified: true } : {}), univers, ...(await filtreArtistesActifs()) };
   const artists = await Artist.find(query).limit(80);
   if (artists.length === 0) return [];
 

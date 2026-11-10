@@ -1,3 +1,4 @@
+import { idsArtistesActifs } from "@/lib/artistesActifs";
 import { NextResponse } from "next/server";
 import { connectDB } from "@/lib/db";
 import Artist from "@/models/Artist";
@@ -32,11 +33,17 @@ export const GET = withApiErrors(async (req: Request, { params }: { params: { id
   const artist = await Artist.findById(params.id);
   if (!artist) throw new ApiError("Artiste introuvable.", 404);
 
-  const [songs, albumDocs] = await Promise.all([
+  const [songs, albumDocs, featuredOn] = await Promise.all([
     Song.find({ artist: artist._id, status: "published" })
       .populate("artist", "stageName verified")
       .sort({ releaseDate: -1 }),
     Album.find({ artist: artist._id }).sort({ releaseDate: -1 }),
+    // Les titres d'autres artistes où il est invité : ils font partie de sa
+    // page, sinon un artiste qui n'a que des featurings paraît sans musique.
+    Song.find({ "featuring.artist": artist._id, status: "published" })
+      .populate("artist", "stageName verified")
+      .sort({ releaseDate: -1 })
+      .limit(60),
   ]);
 
   const songIds = songs.map((s) => s._id);
@@ -55,7 +62,7 @@ export const GET = withApiErrors(async (req: Request, { params }: { params: { id
           .limit(6)
       : [],
     Artist.find({
-      _id: { $ne: artist._id },
+      _id: { $ne: artist._id, $in: await idsArtistesActifs() },
       ...(artist.genres.length > 0 ? { genres: { $in: artist.genres } } : {}),
     })
       .select("stageName coverUrl verified followers")
@@ -91,6 +98,7 @@ export const GET = withApiErrors(async (req: Request, { params }: { params: { id
     albums,
     singles,
     recentReleases,
+    featuredOn,
     playlistsFeaturing: playlistsFeaturing.map((p) => ({
       _id: p._id,
       title: p.title,

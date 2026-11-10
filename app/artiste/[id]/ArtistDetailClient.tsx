@@ -72,6 +72,8 @@ type ArtistPageData = {
   albums: AlbumSummary[];
   singles: AlbumSummary[];
   recentReleases: PlayableSong[];
+  /** Titres d'autres artistes où il est invité. Absent d'une copie hors connexion ancienne. */
+  featuredOn?: PlayableSong[];
   playlistsFeaturing: PlaylistSummary[];
   similarArtists: SimilarArtist[];
   recentComments: RecentComment[];
@@ -275,7 +277,7 @@ export function ArtistDetailClient() {
 
   if (loading || !data) return <ArtistDetailSkeleton />;
 
-  const { artist, songs, topSongs, albums, singles, recentReleases, playlistsFeaturing, similarArtists, recentComments } = data;
+  const { artist, songs, topSongs, albums, singles, recentReleases, featuredOn = [], playlistsFeaturing, similarArtists, recentComments } = data;
   const isCurrentArtistPlaying = isPlaying && !!currentSong && songs.some((s) => s._id === currentSong._id);
 
   function handleMainPlay() {
@@ -444,7 +446,7 @@ export function ArtistDetailClient() {
                   )}
                 </div>
                 {topSongs.length === 0 ? (
-                  <p className="text-sm text-ink-muted">Pas encore de son publié.</p>
+                  <p className="text-sm text-ink-muted">{featuredOn.length > 0 ? "Pas encore de son publié en son nom." : "Pas encore de son publié."}</p>
                 ) : (
                   <ArtistSongList
                     songs={topSongs}
@@ -454,6 +456,20 @@ export function ArtistDetailClient() {
                   />
                 )}
               </section>
+
+              {featuredOn.length > 0 && (
+                <section>
+                  <div className="mb-3 flex items-center justify-between">
+                    <h2 className="text-base text-ink font-display">Apparaît sur</h2>
+                    {featuredOn.length > 5 && (
+                      <button onClick={() => setTab("morceaux")} className="text-xs font-medium text-accent hover:underline">
+                        Voir tout
+                      </button>
+                    )}
+                  </div>
+                  <ArtistSongList songs={featuredOn.slice(0, 5)} source={{ type: "artist", label: artist.stageName }} onDeleted={load} />
+                </section>
+              )}
 
               <div className="grid gap-8 lg:grid-cols-3">
                 <div className="space-y-8 lg:col-span-2">
@@ -638,9 +654,9 @@ export function ArtistDetailClient() {
           )}
 
           {tab === "morceaux" && (
-            <div>
+            <div className="space-y-10">
               {songs.length === 0 ? (
-                <p className="text-sm text-ink-muted">Pas encore de son publié.</p>
+                <p className="text-sm text-ink-muted">{featuredOn.length > 0 ? "Pas encore de son publié en son nom." : "Pas encore de son publié."}</p>
               ) : (
                 <ArtistSongList
                   songs={songs}
@@ -649,6 +665,12 @@ export function ArtistDetailClient() {
                   source={{ type: "artist", label: artist.stageName }}
                   onDeleted={load}
                 />
+              )}
+              {featuredOn.length > 0 && (
+                <section>
+                  <h2 className="mb-3 text-base text-ink font-display">Apparaît sur</h2>
+                  <ArtistSongList songs={featuredOn} initialCount={10} source={{ type: "artist", label: artist.stageName }} onDeleted={load} />
+                </section>
               )}
             </div>
           )}

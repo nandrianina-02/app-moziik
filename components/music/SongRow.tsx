@@ -83,11 +83,13 @@ export function SongRow({
           <span className="flex items-center gap-1 text-xs text-ink-muted truncate">
             {song.artist?.stageName ?? "Artiste supprimé"}
             {song.artist?.verified && <BadgeCheck size={12} className="text-verified shrink-0" />}
-            {song.featuring && song.featuring.length > 0 && (
-              <span className="truncate">
-                {" "}ft. {song.featuring.map((f) => f.artist.stageName).join(", ")}
-              </span>
-            )}
+            {(() => {
+              // Un invité dont le nom n'a pas été chargé (liste issue d'un
+              // aggregate, artiste supprimé) n'est pas affiché : mieux vaut
+              // un nom de moins qu'un « ft. , , ».
+              const invites = (song.featuring ?? []).map((f) => f.artist?.stageName).filter((nom): nom is string => Boolean(nom));
+              return invites.length > 0 && <span className="truncate"> ft. {invites.join(", ")}</span>;
+            })()}
           </span>
         </span>
       </button>

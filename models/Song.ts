@@ -195,4 +195,18 @@ SongSchema.index({ status: 1, univers: 1, releaseDate: -1 });
 SongSchema.index({ status: 1, univers: 1, playsCount: -1 });
 SongSchema.index({ status: 1, univers: 1, genre: 1 });
 
+/**
+ * Les invités sont toujours chargés avec leur nom.
+ *
+ * Une quarantaine de requêtes peuplent `artist` sans penser à
+ * `featuring.artist` : les listes affichaient alors « ft. , , » faute de
+ * nom. Plutôt que de corriger chaque appel, et d'en oublier au prochain,
+ * le modèle s'en charge. Une requête qui ne sélectionne pas `featuring`
+ * n'a rien à peupler et ne coûte rien de plus ; les autres paient une
+ * seule requête groupée sur les artistes.
+ */
+SongSchema.pre(/^find/, function (this: { populate: (path: string, select: string) => unknown }) {
+  this.populate("featuring.artist", "stageName verified");
+});
+
 export default (models.Song as Model<ISong>) || model<ISong>("Song", SongSchema);

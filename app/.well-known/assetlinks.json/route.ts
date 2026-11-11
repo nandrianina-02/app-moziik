@@ -30,24 +30,28 @@ import { NextResponse } from "next/server";
  * parallèle de la version du Store.
  */
 
+/**
+ * Le certificat qui signe l'application native publiée par GitHub Actions
+ * (clé moziik-release.jks, tâche « version-publiee »). Lu dans l'APK publiée
+ * du 10 novembre 2026 ; il ne change pas tant que cette clé sert. Toujours
+ * présent, quelle que soit la variable : une variable mal réglée faisait
+ * échouer la vérification sans aucun message, et un lien partagé depuis
+ * l'application n'ouvrait plus que le navigateur.
+ */
+const EMPREINTE_PUBLICATION = "6A:47:03:FB:B0:EF:BA:59:A4:D4:75:57:FD:22:85:47:17:91:ED:67:E0:6C:94:9A:96:2E:2F:A5:BD:9F:29:19";
+
 // Servi tel quel à chaque appel : le fichier dépend d'une variable
 // d'environnement, qui peut changer sans redéploiement du code.
 export const dynamic = "force-dynamic";
 
 export async function GET() {
-  const empreintes = (process.env.ANDROID_CERT_SHA256 ?? "")
-    .split(",")
-    .map((s) => s.trim().toUpperCase())
-    .filter(Boolean);
-
-  if (empreintes.length === 0) {
-    // Tableau vide plutôt qu'un 404 : Android accepte les deux, mais un
-    // JSON valide permet de vérifier d'un coup d'œil que la route est bien
-    // déployée et que seule l'empreinte manque.
-    return NextResponse.json([], {
-      headers: { "cache-control": "no-store" },
-    });
-  }
+  const empreintes = [
+    EMPREINTE_PUBLICATION,
+    ...(process.env.ANDROID_CERT_SHA256 ?? "")
+      .split(",")
+      .map((s) => s.trim().toUpperCase())
+      .filter((s) => s && s !== EMPREINTE_PUBLICATION),
+  ];
 
   return NextResponse.json(
     [

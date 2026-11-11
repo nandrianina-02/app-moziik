@@ -1,0 +1,12 @@
+[
+  {
+    "relation": ["delegate_permission/common.handle_all_urls"],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "com.moziik.app",
+      "sha256_cert_fingerprints": [
+        "6A:47:03:FB:B0:EF:BA:59:A4:D4:75:57:FD:22:85:47:17:91:ED:67:E0:6C:94:9A:96:2E:2F:A5:BD:9F:29:19"
+      ]
+    }
+  }
+]

@@ -19,6 +19,14 @@ const nextConfig = {
     // des icônes de lucide-react.
     optimizePackageImports: ["lucide-react", "react-icons", "framer-motion"],
   },
+  // Les liens partagés depuis l'application Android sont sous /app/ :
+  // chez qui l'a, Android ouvre l'application (lien vérifié par
+  // /.well-known/assetlinks.json) ; chez les autres, le navigateur arrive
+  // ici et la page se charge sans le préfixe. Un lien partagé depuis le
+  // site, sans /app/, reste au site même quand l'application est installée.
+  async redirects() {
+    return [{ source: "/app/:chemin*", destination: "/:chemin*", permanent: false }];
+  },
   images: {
     // Images servies telles quelles, sans le service d'optimisation de
     // Vercel : son quota gratuit épuisé, il répondait 402 et plus aucune

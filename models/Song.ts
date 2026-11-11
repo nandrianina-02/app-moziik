@@ -194,6 +194,10 @@ SongSchema.index({ status: 1, genre: 1 });
 SongSchema.index({ status: 1, univers: 1, releaseDate: -1 });
 SongSchema.index({ status: 1, univers: 1, playsCount: -1 });
 SongSchema.index({ status: 1, univers: 1, genre: 1 });
+// Les titres d'un album (page album) et ceux où un artiste est invité
+// (« Apparaît sur ») : lus par chaque fiche, sans index jusqu'ici.
+SongSchema.index({ album: 1 });
+SongSchema.index({ "featuring.artist": 1, status: 1 });
 
 /**
  * Les invités sont toujours chargés avec leur nom.

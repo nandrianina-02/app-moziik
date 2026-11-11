@@ -118,5 +118,9 @@ PlaylistSchema.index(
   { "auto.statut": 1, "auto.genereeLe": -1 },
   { partialFilterExpression: { "auto.statut": { $exists: true } } }
 );
+// « Playlists contenant cet artiste » (page artiste) : publiques et
+// contenant l'un de ses titres. Sans index, chaque fiche lisait toutes
+// les playlists.
+PlaylistSchema.index({ isPublic: 1, songs: 1 });
 
 export default (models.Playlist as Model<IPlaylist>) || model<IPlaylist>("Playlist", PlaylistSchema);

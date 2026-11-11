@@ -56,7 +56,16 @@ async function connecterAvecEssais(): Promise<typeof mongoose> {
   let derniere: unknown;
   for (let essai = 0; essai < ESSAIS_CONNEXION; essai++) {
     try {
-      return await mongoose.connect(getMongoUri(), { bufferCommands: false, serverSelectionTimeoutMS: DELAI_SELECTION_MS });
+      return await mongoose.connect(getMongoUri(), {
+        bufferCommands: false,
+        serverSelectionTimeoutMS: DELAI_SELECTION_MS,
+        // Le pilote en ouvre jusqu'à cent par défaut. Chaque fonction
+        // Vercel a son propre pool, et l'offre gratuite d'Atlas plafonne à
+        // cinq cents connexions : dix instances à cent épuiseraient tout
+        // et refuseraient les suivantes. Une fonction ne traite que
+        // quelques requêtes à la fois : cinq suffisent.
+        maxPoolSize: 5,
+      });
     } catch (err) {
       derniere = err;
       if (!isDatabaseUnavailableError(err) || essai === ESSAIS_CONNEXION - 1) break;

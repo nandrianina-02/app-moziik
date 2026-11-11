@@ -1,4 +1,5 @@
 import { idsArtistesActifs } from "@/lib/artistesActifs";
+import { cachePublic } from "@/lib/cachePublic";
 import { NextResponse } from "next/server";
 import { connectDB } from "@/lib/db";
 import Artist from "@/models/Artist";
@@ -77,7 +78,8 @@ export const GET = withApiErrors(async (req: Request, { params }: { params: { id
       : [],
   ]);
 
-  return NextResponse.json({
+  // Rien ici ne dépend du visiteur (le suivi se lit à part) : la fiche se partage.
+  return cachePublic(NextResponse.json({
     artist: {
       _id: artist._id,
       stageName: artist.stageName,
@@ -124,5 +126,5 @@ export const GET = withApiErrors(async (req: Request, { params }: { params: { id
         user: { name: c.user.name, avatarUrl: c.user.avatarUrl },
         songTitle: c.song.title,
       })),
-  });
+  }));
 });

@@ -99,9 +99,18 @@ fun navigation(): Navigation = LocalNavigation.current
 /**
  * Partage par la feuille du système. L'adresse est celle du site, pour
  * garder l'aperçu (titre, pochette) dans les messageries (D10).
+ *
+ * Sous /app/ : un lien partagé depuis l'application ouvre l'application
+ * chez qui l'a (lien vérifié, voir le manifeste), et le site chez les
+ * autres, qui le redirige vers la page. Un lien partagé depuis le site,
+ * sans /app/, reste au site.
  */
+const val PREFIXE_LIEN_APP = "app/"
+
+fun lienPartage(chemin: String): String = "${BuildConfig.SITE}$PREFIXE_LIEN_APP$chemin"
+
 fun partager(contexte: Context, chemin: String, titre: String) {
-    val texte = "$titre\n${BuildConfig.SITE}$chemin"
+    val texte = "$titre\n${lienPartage(chemin)}"
     val envoi = Intent(Intent.ACTION_SEND).setType("text/plain").putExtra(Intent.EXTRA_TEXT, texte)
     runCatching { contexte.startActivity(Intent.createChooser(envoi, "Partager").addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) }
 }

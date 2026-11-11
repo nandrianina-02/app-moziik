@@ -2,6 +2,7 @@ package com.moziik.app
 
 import android.content.Intent
 import android.graphics.Color
+import android.net.Uri
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.SystemBarStyle
@@ -42,6 +43,7 @@ class MainActivity : ComponentActivity() {
         // Retour de la connexion Google alors que l'app avait été fermée entre-temps.
         if (savedInstanceState == null) {
             recevoirRelais(intent)
+            recevoirLienWeb(intent)
             recevoirLien(intent)
         }
         setContent {
@@ -106,6 +108,7 @@ class MainActivity : ComponentActivity() {
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         recevoirRelais(intent)
+        recevoirLienWeb(intent)
         recevoirLien(intent)
     }
 
@@ -114,6 +117,22 @@ class MainActivity : ComponentActivity() {
         val lien = intent?.getStringExtra(EXTRA_LIEN) ?: return
         (application as MoziikApplication).conteneur.lienEntrant.value = lien.ifBlank { "/notifications" }
         intent.removeExtra(EXTRA_LIEN)
+    }
+
+    /**
+     * Un lien https://…/app/son/<id> touché dans une messagerie : Android
+     * ouvre l'application (lien vérifié, voir le manifeste) et la coquille
+     * va à la page, comme pour une notification. Le préfixe /app/ ne sert
+     * qu'à distinguer ces liens de ceux du site ; la page est la même.
+     */
+    private fun recevoirLienWeb(intent: Intent?) {
+        val lien = intent?.data ?: return
+        if (lien.scheme != "https" || lien.host != Uri.parse(BuildConfig.SITE).host) return
+        val chemin = lien.path.orEmpty().removePrefix("/app").ifEmpty { "/" }
+        val requete = lien.encodedQuery?.let { "?$it" }.orEmpty()
+        (application as MoziikApplication).conteneur.lienEntrant.value = chemin + requete
+        // Consommé : une rotation ne doit pas rouvrir la page.
+        setIntent(Intent(intent).setData(null))
     }
 
     /** <schéma>://auth?code=… : le site rend la main après la connexion Google (app/api/mobile-auth/relais). */

@@ -53,6 +53,16 @@
                 <category android:name="android.intent.category.BROWSABLE" />
                 <data android:scheme="${schemaRelais}" android:host="auth" />
             </intent-filter>
+            <!-- Liens partagés depuis l'application : https://app-moziik.vercel.app/app/… s'ouvrent ici
+                 quand l'app est installée (vérifié par /.well-known/assetlinks.json du site), dans le
+                 navigateur sinon (le site les redirige vers la page). Les liens partagés depuis le
+                 site, sans /app/, restent au site. -->
+            <intent-filter android:autoVerify="true">
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="https" android:host="app-moziik.vercel.app" android:pathPrefix="/app/" />
+            </intent-filter>
         </activity>
 
         <service

@@ -81,7 +81,7 @@ fun couperEnLignes(texte: String, max: Int, largeur: Float, mesure: (String) -> 
 suspend fun partagerEnImage(contexte: Context, titre: Titre, accent: Color) {
     val pochette = chargerImage(contexte, titre.coverUrl)
     val image = withContext(Dispatchers.Default) { dessinerCarte(contexte, titre, pochette, accent) }
-    envoyer(contexte, image, "moziik-${titre.id}.png", "${titre.title}\n${BuildConfig.SITE}son/${titre.id}")
+    envoyer(contexte, image, "moziik-${titre.id}.png", "${titre.title}\n${lienPartage("son/${titre.id}")}")
 }
 
 /**

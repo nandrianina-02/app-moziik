@@ -1,0 +1,71 @@
+# Logiciel d'administration Windows : construit ici, jamais sur un poste local.
+# Chaque envoi qui touche admin-bureau/ vérifie les types et produit
+# l'installeur, téléchargeable dans les artefacts. Lancé à la main
+# (workflow_dispatch), il publie en plus une version GitHub « admin-vX.Y.Z »,
+# sans la marquer comme dernière version : l'application Android lit
+# releases/latest pour ses propres mises à jour.
+name: Moziik Admin (Windows)
+
+on:
+  push:
+    paths:
+      - "admin-bureau/**"
+      - ".github/workflows/admin-bureau.yml"
+  workflow_dispatch:
+
+concurrency:
+  group: admin-bureau-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  installeur:
+    runs-on: windows-latest
+    defaults:
+      run:
+        working-directory: admin-bureau
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: admin-bureau/package-lock.json
+
+      - name: Dépendances
+        run: npm ci
+
+      - name: Types
+        run: npm run typecheck
+
+      - name: Installeur
+        run: npm run installeur
+        env:
+          # electron-builder ne publie rien ici (--publish never) ; le jeton ne sert qu'à éviter les limites de l'API.
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Installeur (artefact)
+        uses: actions/upload-artifact@v4
+        with:
+          name: moziik-admin-installeur
+          path: admin-bureau/dist/*.exe
+          if-no-files-found: error
+
+      - name: Version GitHub
+        if: github.event_name == 'workflow_dispatch'
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          VERSION=$(node -p "require('./package.json').version")
+          EXE=$(ls dist/*.exe | head -1)
+          cp "$EXE" "$RUNNER_TEMP/moziik-admin-setup.exe"
+          git log -1 --format=%B | grep -v "^Co-Authored-By" > "$RUNNER_TEMP/notes.md"
+          if gh release view "admin-v$VERSION" > /dev/null 2>&1; then
+            gh release upload "admin-v$VERSION" "$RUNNER_TEMP/moziik-admin-setup.exe" --clobber
+          else
+            gh release create "admin-v$VERSION" "$RUNNER_TEMP/moziik-admin-setup.exe" --target "$GITHUB_SHA" \
+              --title "Moziik Admin $VERSION" --notes-file "$RUNNER_TEMP/notes.md" --latest=false
+          fi
+          echo "Installeur : https://github.com/${GITHUB_REPOSITORY}/releases/download/admin-v$VERSION/moziik-admin-setup.exe" >> "$GITHUB_STEP_SUMMARY"

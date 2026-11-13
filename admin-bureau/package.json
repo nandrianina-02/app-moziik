@@ -1,0 +1,55 @@
+{
+  "name": "moziik-admin",
+  "productName": "Moziik Admin",
+  "version": "0.1.0",
+  "description": "Administration de Moziik depuis un PC : import de musique, catalogue, modération, tableau de bord.",
+  "private": true,
+  "main": "./out/main/index.js",
+  "author": "Moziik",
+  "scripts": {
+    "dev": "electron-vite dev",
+    "typecheck": "tsc --noEmit -p tsconfig.node.json && tsc --noEmit -p tsconfig.web.json",
+    "build": "electron-vite build",
+    "installeur": "electron-vite build && electron-builder --win --publish never",
+    "check": "npm run typecheck"
+  },
+  "dependencies": {
+    "@breezystack/lamejs": "^1.2.7",
+    "electron-updater": "^6.6.2",
+    "lucide-react": "^0.552.0",
+    "music-metadata": "^11.7.0",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1"
+  },
+  "devDependencies": {
+    "@tailwindcss/vite": "^4.1.13",
+    "@types/node": "^22.17.1",
+    "@types/react": "^18.3.23",
+    "@types/react-dom": "^18.3.7",
+    "@vitejs/plugin-react": "^4.7.0",
+    "electron": "^38.1.0",
+    "electron-builder": "^26.0.12",
+    "electron-vite": "^4.0.0",
+    "tailwindcss": "^4.1.13",
+    "typescript": "^5.9.2",
+    "vite": "^7.1.5"
+  },
+  "build": {
+    "appId": "com.moziik.admin",
+    "productName": "Moziik Admin",
+    "directories": { "output": "dist", "buildResources": "ressources" },
+    "files": ["out/**", "package.json"],
+    "win": {
+      "target": [{ "target": "nsis", "arch": ["x64"] }],
+      "artifactName": "moziik-admin-${version}.${ext}"
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true,
+      "language": "1036",
+      "shortcutName": "Moziik Admin"
+    },
+    "publish": [{ "provider": "github", "owner": "nandrianina-02", "repo": "app-moziik", "releaseType": "release" }]
+  }
+}

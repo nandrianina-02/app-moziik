@@ -1,4 +1,4 @@
-import { app, BrowserWindow, dialog, ipcMain, safeStorage, shell, nativeTheme } from "electron";
+import { app, BrowserWindow, dialog, ipcMain, safeStorage, session, shell } from "electron";
 import { join } from "node:path";
 import { readFile, writeFile, readdir, stat } from "node:fs/promises";
 import { parseFile } from "music-metadata";
@@ -78,7 +78,8 @@ function creerFenetre() {
     minWidth: 960,
     minHeight: 600,
     show: false,
-    backgroundColor: nativeTheme.shouldUseDarkColors ? "#121417" : "#f7f7f5",
+    // Le fond du thème sombre, celui par défaut : pas d'éclair blanc à l'ouverture.
+    backgroundColor: "#0d0f1a",
     autoHideMenuBar: true,
     webPreferences: {
       preload: join(__dirname, "../preload/index.js"),
@@ -131,7 +132,80 @@ ipcMain.handle(CANAUX.coffreEcrire, async (_e, valeur: string | null) => {
 ipcMain.handle(CANAUX.ouvrirExterne, (_e, url: string) => (/^https?:\/\//.test(url) ? shell.openExternal(url) : undefined));
 ipcMain.handle(CANAUX.version, () => app.getVersion());
 
+/**
+ * La fenêtre est une page locale (file://) : pour Chromium, chaque appel au
+ * site ou à Karaks Storage est un appel d'une autre origine, et ni l'un ni
+ * l'autre ne déclare cette origine (le site n'envoie aucun en-tête CORS, le
+ * stockage ne connaît que les adresses du site). Sans ce relais, aucune
+ * réponse ne serait lisible, connexion comprise.
+ *
+ * On complète donc les réponses des appels faits par la fenêtre, et
+ * seulement ceux-là, plutôt que de couper la sécurité web
+ * (webSecurity: false), qui ouvrirait aussi les scripts et les cadres.
+ */
+function autoriserAppelsDeLaFenetre() {
+  session.defaultSession.webRequest.onHeadersReceived({ urls: ["https://*/*"] }, (details, rappel) => {
+    // Seulement ce que demande une fenêtre du logiciel. Le type de ressource
+    // ne suffit pas : la requête de vérification préalable (OPTIONS) n'est
+    // pas classée « xhr » par toutes les versions d'Electron.
+    if (details.webContentsId === undefined) return rappel({});
+    const entetes: Record<string, string[]> = {};
+    for (const [cle, valeur] of Object.entries(details.responseHeaders ?? {})) if (!cle.toLowerCase().startsWith("access-control-")) entetes[cle] = valeur;
+    entetes["Access-Control-Allow-Origin"] = ["*"];
+    entetes["Access-Control-Allow-Methods"] = ["GET, POST, PUT, PATCH, DELETE, OPTIONS"];
+    entetes["Access-Control-Allow-Headers"] = ["Authorization, Content-Type, Content-Range"];
+    entetes["Access-Control-Expose-Headers"] = ["*"];
+    rappel({ responseHeaders: entetes });
+  });
+}
+
+/**
+ * Mode d'essai de l'intégration continue (MOZIIK_ESSAI_RESEAU=1) : une page
+ * locale, comme la vraie fenêtre, appelle le site et le stockage avec les
+ * en-têtes que le logiciel envoie. Un appel illisible fait sortir en échec.
+ * Les statuts d'erreur (401, 404) sont attendus : seul compte le fait que
+ * la réponse arrive jusqu'à la page.
+ */
+async function essaiReseau() {
+  const page = join(app.getPath("temp"), "moziik-admin-essai-reseau.html");
+  await writeFile(
+    page,
+    `<!doctype html><meta charset="utf-8"><title>attente</title><script>
+(async () => {
+  const essais = [
+    ["site", ${JSON.stringify(`${SITE_PAR_DEFAUT}/api/site-config`)}, {}],
+    ["site avec jeton", ${JSON.stringify(`${SITE_PAR_DEFAUT}/api/admin/stats`)}, { headers: { Authorization: "Bearer essai" } }],
+    ["connexion", ${JSON.stringify(`${SITE_PAR_DEFAUT}/api/mobile-auth/login`)}, { method: "POST", headers: { "Content-Type": "application/json" }, body: "{}" }],
+    ["stockage", "https://karaks-storage.vercel.app/u/essai?t=essai", { method: "PUT", headers: { "Content-Range": "bytes 0-0/1" }, body: "a" }],
+  ];
+  const lignes = [];
+  let ok = true;
+  for (const [nom, url, init] of essais) {
+    try { const r = await fetch(url, init); lignes.push(nom + " : lisible (" + r.status + ")"); }
+    catch { ok = false; lignes.push(nom + " : BLOQUE"); }
+  }
+  document.title = (ok ? "OK|" : "ECHEC|") + lignes.join("|");
+})();
+</script>`,
+  );
+  const fenetre = new BrowserWindow({ show: false });
+  const delai = setTimeout(() => {
+    console.error("Essai réseau : délai dépassé.");
+    app.exit(1);
+  }, 60_000);
+  fenetre.on("page-title-updated", (_e, titre) => {
+    if (titre === "attente") return;
+    clearTimeout(delai);
+    const [etat, ...lignes] = titre.split("|");
+    for (const l of lignes) console.log(`Essai réseau : ${l}`);
+    app.exit(etat === "OK" ? 0 : 1);
+  });
+  void fenetre.loadFile(page);
+}
+
 app.whenReady().then(() => {
+  autoriserAppelsDeLaFenetre();
+  if (process.env.MOZIIK_ESSAI_RESEAU === "1") return void essaiReseau();
   creerFenetre();
   app.on("activate", () => {
     if (BrowserWindow.getAllWindows().length === 0) creerFenetre();

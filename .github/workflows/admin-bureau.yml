@@ -48,6 +48,14 @@ jobs:
           # electron-builder ne publie rien ici (--publish never) ; le jeton ne sert qu'à éviter les limites de l'API.
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
+      # Le logiciel construit, lancé dans Electron en mode d'essai : depuis sa
+      # page locale, il appelle le site et Karaks Storage. Si un appel reste
+      # bloqué par le navigateur (CORS), l'installeur n'est pas publié.
+      - name: Appels réseau depuis la fenêtre
+        run: npx electron .
+        env:
+          MOZIIK_ESSAI_RESEAU: "1"
+
       - name: Installeur (artefact)
         uses: actions/upload-artifact@v4
         with:

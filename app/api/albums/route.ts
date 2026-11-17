@@ -24,10 +24,13 @@ export const POST = withApiErrors(async (req: Request) => {
     throw new ApiError("Seuls les artistes peuvent créer un album.", 403);
   }
 
-  const { title, coverUrl, type, releaseDate } = parseOrThrow(createAlbumSchema, await req.json());
+  const { title, coverUrl, type, releaseDate, artistId } = parseOrThrow(createAlbumSchema, await req.json());
 
   await connectDB();
-  const artistProfile = await Artist.findOne({ user: authUser.id });
+  // Un artiste crée ses propres albums ; l'administration, qui n'a pas de
+  // profil artiste, désigne l'artiste (import en masse, logiciel de bureau).
+  // Comme pour les titres, un artistId venant d'un artiste est ignoré.
+  const artistProfile = authUser.role === "admin" && artistId ? await Artist.findById(artistId) : await Artist.findOne({ user: authUser.id });
   if (!artistProfile) throw new ApiError("Profil artiste introuvable.", 404);
 
   const album = await Album.create({

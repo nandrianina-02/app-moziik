@@ -31,11 +31,11 @@ const STATUTS: Record<Titre["status"], { libelle: string; ton: "neutre" | "succe
  * artiste, et corrigés en place (titre, genre, date, explicite). Les
  * titres en attente se valident ou se refusent d'ici.
  */
-export function Catalogue() {
+export function Catalogue({ rechercheInitiale = "", statutInitial = "" }: { rechercheInitiale?: string; statutInitial?: "" | "draft" }) {
   const [titres, setTitres] = useState<Titre[] | null>(null);
   const [genres, setGenres] = useState<string[]>([]);
-  const [statut, setStatut] = useState<"" | Titre["status"]>("");
-  const [recherche, setRecherche] = useState("");
+  const [statut, setStatut] = useState<"" | Titre["status"]>(statutInitial);
+  const [recherche, setRecherche] = useState(rechercheInitiale);
   const [erreur, setErreur] = useState<string | null>(null);
   const [ouvert, setOuvert] = useState<Titre | null>(null);
 
@@ -59,30 +59,30 @@ export function Catalogue() {
   return (
     <>
       <EnTete
-        titre="Catalogue"
-        texte={titres ? `${visibles.length} titre${visibles.length > 1 ? "s" : ""}` : undefined}
+        titre="Musiques"
+        texte={titres ? `${visibles.length} titre${visibles.length > 1 ? "s" : ""}${recherche.trim() ? ` pour « ${recherche.trim()} »` : ""}` : undefined}
         action={
           <Bouton variante="trait" onClick={charger}>
             <RefreshCw size={14} /> Actualiser
           </Bouton>
         }
       />
-      <div className="mb-4 flex flex-wrap items-end gap-3">
-        <div className="relative w-72">
-          <Search size={14} className="pointer-events-none absolute top-2.5 left-2.5 text-texte-3" />
+      <div className="animate-monter decale-1 mb-5 flex flex-wrap items-center gap-3">
+        <div className="relative w-80">
+          <Search size={15} className="pointer-events-none absolute top-1/2 left-3 -translate-y-1/2 text-texte-3" />
           <input
             value={recherche}
             onChange={(e) => setRecherche(e.target.value)}
             placeholder="Titre ou artiste"
-            className="h-8 w-full rounded-md border border-filet bg-surface pr-2.5 pl-8 text-[13px] outline-none placeholder:text-texte-3 focus:border-accent"
+            className="h-9 w-full rounded-lg border border-filet bg-surface pr-3 pl-9 text-[13px] outline-none placeholder:text-texte-3 focus:border-accent"
           />
         </div>
-        <div className="flex gap-1">
+        <div className="flex rounded-lg border border-filet bg-surface p-0.5">
           {([["", "Tous"], ["published", "Publiés"], ["draft", "En attente"], ["scheduled", "Programmés"], ["rejected", "Refusés"]] as const).map(([v, l]) => (
             <button
               key={v}
               onClick={() => setStatut(v)}
-              className={`h-8 rounded-md px-3 text-[13px] ${statut === v ? "bg-surface-2 font-medium" : "text-texte-2 hover:bg-surface-2"}`}
+              className={`rounded-md px-3 py-1.5 text-[12.5px] font-medium transition-colors ${statut === v ? "bg-accent text-sur-accent" : "text-texte-2 hover:text-texte"}`}
             >
               {l}
             </button>

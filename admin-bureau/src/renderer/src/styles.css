@@ -1,40 +1,61 @@
 @import "tailwindcss";
+@import "@fontsource-variable/sora";
+@import "@fontsource-variable/plus-jakarta-sans";
 
 /*
- * Un logiciel de bureau, pas une page web : police du système, fond uni,
- * filets nets, un seul accent (celui du logo de Moziik), et le mode sombre
- * qui suit Windows.
+ * Le thème par défaut de Moziik (app/globals.css du site) : fond nuit,
+ * accent orange de l'icône, Sora pour les titres et Plus Jakarta Sans pour
+ * le texte. Sombre par défaut comme le site ; la classe `clair` sur <html>
+ * bascule vers la variante claire du site.
+ *
+ * Les teintes servent aux cartes de chiffres et à la répartition par genre :
+ * toujours dans le même ordre, pour qu'une teinte désigne la même chose
+ * d'un écran à l'autre.
  */
 :root {
-  --fond: #f7f7f5;
-  --surface: #ffffff;
-  --surface-2: #efefec;
-  --filet: #dcdcd7;
-  --texte: #1c1c1a;
-  --texte-2: #5d5d58;
-  --texte-3: #8d8d87;
-  --accent: #f84925;
+  --fond: #0d0f1a;
+  --surface: #161927;
+  --surface-2: #1d2133;
+  --filet: #242838;
+  --texte: #f2f0e9;
+  --texte-2: #a3a7ba;
+  --texte-3: #6e7389;
+  --accent: #f84a26;
+  --accent-fort: #fa684a;
   --sur-accent: #ffffff;
-  --succes: #1f8a5b;
-  --attention: #b7791f;
-  --danger: #c73c2a;
+  --succes: #3ddc97;
+  --attention: #fbbf24;
+  --danger: #f87171;
+  --teinte-1: #a78bfa;
+  --teinte-2: #22d3ee;
+  --teinte-3: #34d399;
+  --teinte-4: #fbbf24;
+  --teinte-5: #f472b6;
+  --teinte-6: #60a5fa;
+  color-scheme: dark;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --fond: #121417;
-    --surface: #1a1d21;
-    --surface-2: #23272c;
-    --filet: #2f343a;
-    --texte: #ecedea;
-    --texte-2: #a8aba5;
-    --texte-3: #767a74;
-    --accent: #ff6a48;
-    --sur-accent: #1a0d08;
-    --succes: #3fae7c;
-    --attention: #d7a24a;
-    --danger: #e0604f;
-  }
+:root.clair {
+  --fond: #fbf9f4;
+  --surface: #ffffff;
+  --surface-2: #f4f1e8;
+  --filet: #e7e3d8;
+  --texte: #171a24;
+  --texte-2: #5b6076;
+  --texte-3: #8a8ea0;
+  --accent: #e5421f;
+  --accent-fort: #b23a19;
+  --sur-accent: #ffffff;
+  --succes: #065f46;
+  --attention: #92400e;
+  --danger: #b91c1c;
+  --teinte-1: #6d28d9;
+  --teinte-2: #0e7490;
+  --teinte-3: #047857;
+  --teinte-4: #b45309;
+  --teinte-5: #be185d;
+  --teinte-6: #1d4ed8;
+  color-scheme: light;
 }
 
 @theme inline {
@@ -46,11 +67,19 @@
   --color-texte-2: var(--texte-2);
   --color-texte-3: var(--texte-3);
   --color-accent: var(--accent);
+  --color-accent-fort: var(--accent-fort);
   --color-sur-accent: var(--sur-accent);
   --color-succes: var(--succes);
   --color-attention: var(--attention);
   --color-danger: var(--danger);
-  --font-sans: "Segoe UI", "Segoe UI Variable Text", system-ui, sans-serif;
+  --color-teinte-1: var(--teinte-1);
+  --color-teinte-2: var(--teinte-2);
+  --color-teinte-3: var(--teinte-3);
+  --color-teinte-4: var(--teinte-4);
+  --color-teinte-5: var(--teinte-5);
+  --color-teinte-6: var(--teinte-6);
+  --font-sans: "Plus Jakarta Sans Variable", "Segoe UI", system-ui, sans-serif;
+  --font-titre: "Sora Variable", "Segoe UI", system-ui, sans-serif;
 }
 
 html,
@@ -73,11 +102,16 @@ select,
   user-select: text;
 }
 
+select option {
+  background: var(--surface);
+  color: var(--texte);
+}
+
 /* Entrées discrètes : quelques pixels et de l'opacité, une seule fois. */
 @keyframes monter {
   from {
     opacity: 0;
-    transform: translateY(4px);
+    transform: translateY(6px);
   }
   to {
     opacity: 1;
@@ -92,15 +126,63 @@ select,
     opacity: 1;
   }
 }
+@keyframes ouvrir {
+  from {
+    opacity: 0;
+    transform: translateY(-4px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+/* Les barres du logo, au chargement : elles montent l'une après l'autre. */
+@keyframes barre {
+  0%,
+  100% {
+    transform: scaleY(0.35);
+  }
+  50% {
+    transform: scaleY(1);
+  }
+}
 .animate-monter {
-  animation: monter 220ms cubic-bezier(0.2, 0.7, 0.2, 1) both;
+  animation: monter 260ms cubic-bezier(0.2, 0.7, 0.2, 1) both;
 }
 .animate-paraitre {
   animation: paraitre 180ms ease-out both;
 }
+.animate-ouvrir {
+  animation: ouvrir 160ms cubic-bezier(0.2, 0.7, 0.2, 1) both;
+  transform-origin: top right;
+}
+.animate-barre {
+  animation: barre 900ms ease-in-out infinite;
+  transform-origin: bottom;
+}
+.decale-1 {
+  animation-delay: 40ms;
+}
+.decale-2 {
+  animation-delay: 80ms;
+}
+.decale-3 {
+  animation-delay: 120ms;
+}
+.decale-4 {
+  animation-delay: 160ms;
+}
+.decale-5 {
+  animation-delay: 200ms;
+}
+.decale-6 {
+  animation-delay: 240ms;
+}
 @media (prefers-reduced-motion: reduce) {
   .animate-monter,
-  .animate-paraitre {
+  .animate-paraitre,
+  .animate-ouvrir,
+  .animate-barre {
     animation: none;
   }
 }

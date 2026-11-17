@@ -14,7 +14,7 @@ export function Reglages() {
 
   return (
     <>
-      <EnTete titre="Réglages" />
+      <EnTete titre="Paramètres" />
       <div className="grid max-w-[720px] gap-4">
         <Carte titre="Site administré">
           <p className="mb-3 text-[13px] text-texte-2">

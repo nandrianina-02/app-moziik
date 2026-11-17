@@ -35,12 +35,12 @@ export function Moderation() {
   return (
     <>
       <EnTete titre="Modération" />
-      <div className="mb-4 flex gap-1 border-b border-filet">
+      <div className="animate-monter decale-1 mb-5 flex w-fit rounded-lg border border-filet bg-surface p-0.5">
         {(["commentaires", "evenements"] as const).map((o) => (
           <button
             key={o}
             onClick={() => setOnglet(o)}
-            className={`-mb-px border-b-2 px-3 py-2 text-[13px] ${onglet === o ? "border-accent font-medium text-texte" : "border-transparent text-texte-2 hover:text-texte"}`}
+            className={`rounded-md px-3.5 py-1.5 text-[12.5px] font-medium transition-colors ${onglet === o ? "bg-accent text-sur-accent" : "text-texte-2 hover:text-texte"}`}
           >
             {o === "commentaires" ? "Commentaires signalés" : "Évènements à valider"}
           </button>

@@ -219,7 +219,7 @@ export function Import() {
   return (
     <>
       <EnTete
-        titre="Importer de la musique"
+        titre="Téléversements"
         texte={dossier ?? "Choisissez un dossier : ses fichiers audio sont lus, rapprochés du catalogue, puis publiés."}
         action={
           <>
@@ -347,7 +347,7 @@ function FicheLigne({ ligne, genres, verrouillee, onChange, onFermer }: { ligne:
         </div>
         {ligne.erreur && <Erreur message={ligne.erreur} />}
         {ligne.doublon && (
-          <p className="mb-3 rounded-md border border-attention/40 bg-attention/10 px-3 py-2 text-[13px]">
+          <p className="mb-3 rounded-lg border border-attention/40 bg-attention/10 px-3 py-2 text-[13px]">
             {ligne.doublon.certain ? "Ce titre existe déjà chez cet artiste" : `Un titre du même nom existe chez ${ligne.doublon.artistName}`} : « {ligne.doublon.title} ».
             {ligne.doublon.certain && (
               <label className="mt-1 flex items-center gap-2">
@@ -360,12 +360,12 @@ function FicheLigne({ ligne, genres, verrouillee, onChange, onFermer }: { ligne:
         <div className="space-y-3">
           <label className="block">
             <span className="mb-1 block text-[12px] font-medium text-texte-2">Titre</span>
-            <input value={ligne.titre} disabled={verrouillee} onChange={(e) => onChange({ titre: e.target.value })} className="h-8 w-full rounded-md border border-filet bg-surface px-2.5 text-[13px] outline-none focus:border-accent" />
+            <input value={ligne.titre} disabled={verrouillee} onChange={(e) => onChange({ titre: e.target.value })} className="h-9 w-full rounded-lg border border-filet bg-surface-2 px-3 text-[13px] outline-none focus:border-accent" />
           </label>
           <div>
             <span className="mb-1 block text-[12px] font-medium text-texte-2">Artiste</span>
             {ligne.artiste ? (
-              <div className="flex items-center justify-between rounded-md border border-filet px-2.5 py-1.5 text-[13px]">
+              <div className="flex items-center justify-between rounded-lg border border-filet px-3 py-2 text-[13px]">
                 <span>
                   {ligne.artiste.stageName} {ligne.artiste.verified && <Pastille texte="vérifié" ton="succes" />}
                 </span>
@@ -377,8 +377,8 @@ function FicheLigne({ ligne, genres, verrouillee, onChange, onFermer }: { ligne:
               </div>
             ) : (
               <>
-                <input value={recherche} disabled={verrouillee} onChange={(e) => setRecherche(e.target.value)} placeholder="Nom d'artiste" className="h-8 w-full rounded-md border border-filet bg-surface px-2.5 text-[13px] outline-none focus:border-accent" />
-                <ul className="mt-1 divide-y divide-filet rounded-md border border-filet">
+                <input value={recherche} disabled={verrouillee} onChange={(e) => setRecherche(e.target.value)} placeholder="Nom d'artiste" className="h-9 w-full rounded-lg border border-filet bg-surface-2 px-3 text-[13px] outline-none focus:border-accent" />
+                <ul className="mt-1 divide-y divide-filet rounded-lg border border-filet">
                   {propositions.map((a) => (
                     <li key={a._id}>
                       <button onClick={() => onChange({ artiste: a, artisteNom: a.stageName })} className="flex w-full items-center gap-2 px-2.5 py-1.5 text-left text-[13px] hover:bg-surface-2">
@@ -409,11 +409,11 @@ function FicheLigne({ ligne, genres, verrouillee, onChange, onFermer }: { ligne:
           <div className="grid grid-cols-2 gap-3">
             <label className="block">
               <span className="mb-1 block text-[12px] font-medium text-texte-2">Album (existant)</span>
-              <input value={ligne.album} disabled={verrouillee} onChange={(e) => onChange({ album: e.target.value })} placeholder="Single si vide" className="h-8 w-full rounded-md border border-filet bg-surface px-2.5 text-[13px] outline-none focus:border-accent" />
+              <input value={ligne.album} disabled={verrouillee} onChange={(e) => onChange({ album: e.target.value })} placeholder="Single si vide" className="h-9 w-full rounded-lg border border-filet bg-surface-2 px-3 text-[13px] outline-none focus:border-accent" />
             </label>
             <label className="block">
               <span className="mb-1 block text-[12px] font-medium text-texte-2">Année de sortie</span>
-              <input value={ligne.annee} disabled={verrouillee} onChange={(e) => onChange({ annee: e.target.value.replace(/\D/g, "").slice(0, 4) })} placeholder="Sans : aujourd'hui" className="h-8 w-full rounded-md border border-filet bg-surface px-2.5 text-[13px] outline-none focus:border-accent" />
+              <input value={ligne.annee} disabled={verrouillee} onChange={(e) => onChange({ annee: e.target.value.replace(/\D/g, "").slice(0, 4) })} placeholder="Sans : aujourd'hui" className="h-9 w-full rounded-lg border border-filet bg-surface-2 px-3 text-[13px] outline-none focus:border-accent" />
             </label>
           </div>
           {!ligne.etiquettes?.pochette && !ligne.artiste?.coverUrl && <p className="text-[12px] text-attention">Aucune pochette dans le fichier et l'artiste n'a pas de photo : le titre ne peut pas être publié sans image.</p>}

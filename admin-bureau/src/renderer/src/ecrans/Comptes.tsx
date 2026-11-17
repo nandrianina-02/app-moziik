@@ -68,7 +68,7 @@ export function Comptes() {
   return (
     <>
       <EnTete
-        titre="Comptes"
+        titre="Utilisateurs"
         texte={reponse?.stats ? `${formatNombre(reponse.stats.total)} comptes · ${formatNombre(reponse.stats.artists)} artistes · ${formatNombre(reponse.stats.newThisMonth)} nouveaux ce mois` : undefined}
         action={
           <Bouton variante="trait" onClick={charger}>
@@ -77,13 +77,13 @@ export function Comptes() {
         }
       />
       <div className="mb-4 flex items-center justify-between gap-3">
-        <div className="relative w-72">
-          <Search size={14} className="pointer-events-none absolute top-2.5 left-2.5 text-texte-3" />
+        <div className="relative w-80">
+          <Search size={14} className="pointer-events-none absolute top-1/2 left-3 -translate-y-1/2 text-texte-3" />
           <input
             value={recherche}
             onChange={(e) => setRecherche(e.target.value)}
             placeholder="Nom ou e-mail (page affichée)"
-            className="h-8 w-full rounded-md border border-filet bg-surface pr-2.5 pl-8 text-[13px] outline-none placeholder:text-texte-3 focus:border-accent"
+            className="h-9 w-full rounded-lg border border-filet bg-surface pr-3 pl-9 text-[13px] outline-none placeholder:text-texte-3 focus:border-accent"
           />
         </div>
         {reponse && reponse.pages > 1 && (

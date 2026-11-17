@@ -94,6 +94,21 @@ function creerFenetre() {
     if (/^https?:\/\//.test(url)) void shell.openExternal(url);
     return { action: "deny" };
   });
+  // La fenêtre retient sa fermeture pendant un téléversement (beforeunload) :
+  // Electron ne demande rien de lui-même, on pose donc la question ici.
+  fenetre.webContents.on("will-prevent-unload", (evenement) => {
+    const choix = dialog.showMessageBoxSync(fenetre, {
+      type: "warning",
+      buttons: ["Fermer quand même", "Continuer le téléversement"],
+      defaultId: 1,
+      cancelId: 1,
+      title: "Téléversement en cours",
+      message: "Un téléversement est en cours.",
+      detail: "Fermer Moziik Admin l'interrompt : le titre en cours d'envoi ne sera pas publié. Ceux déjà publiés le restent.",
+    });
+    // preventDefault ici annule la retenue : la fenêtre se ferme.
+    if (choix === 0) evenement.preventDefault();
+  });
   if (process.env.ELECTRON_RENDERER_URL) void fenetre.loadURL(process.env.ELECTRON_RENDERER_URL);
   else void fenetre.loadFile(join(__dirname, "../renderer/index.html"));
   return fenetre;

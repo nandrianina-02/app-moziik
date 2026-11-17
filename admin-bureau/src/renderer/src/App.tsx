@@ -37,6 +37,7 @@ import { Moderation } from "./ecrans/Moderation";
 import { Comptes } from "./ecrans/Comptes";
 import { Reglages } from "./ecrans/Reglages";
 import { appliquerTheme, themeEnregistre, type Theme } from "./theme";
+import { FournisseurTeleversements, useTeleversements } from "./televersements";
 import logo from "./assets/icon-mark.png";
 import clsx from "./clsx";
 
@@ -114,7 +115,13 @@ function Racine() {
   const { etat } = useSession();
   if (etat.phase === "demarrage") return <EcranOuverture />;
   if (etat.phase === "deconnecte") return <Connexion message={etat.message} />;
-  return <Coquille />;
+  // Les téléversements vivent au-dessus des pages : ils continuent quand on
+  // en change, et ne s'arrêtent qu'à la déconnexion.
+  return (
+    <FournisseurTeleversements>
+      <Coquille />
+    </FournisseurTeleversements>
+  );
 }
 
 /** Le lancement : le logo et ses barres, le temps de rouvrir la session. */
@@ -252,6 +259,7 @@ function Coquille() {
   const [erreurStats, setErreurStats] = useState<string | null>(null);
   const [aTraiter, setATraiter] = useState<ATraiter>({});
   const utilisateur = etat.phase === "connecte" ? etat.utilisateur : null;
+  const { avancement } = useTeleversements();
 
   useEffect(() => {
     void window.bureau.version().then(setVersion);
@@ -317,6 +325,7 @@ function Coquille() {
                 replie={replie}
                 actif={page === p.cle}
                 compteur={p.cle === "moderation" ? stats?.pendingEvents : p.cle === "catalogue" ? stats?.pendingSongs : undefined}
+                activite={p.cle === "import" && avancement.phase !== "repos" ? `${avancement.faits}/${avancement.aFaire}` : undefined}
                 onClick={() => aller(p.cle)}
               />
             ))}
@@ -361,6 +370,26 @@ function Coquille() {
               {replie ? <PanelLeftOpen size={19} /> : <PanelLeftClose size={19} />}
             </button>
             <RechercheGlobale onChercher={(q) => aller("catalogue", q)} />
+            {avancement.phase !== "repos" && page !== "import" && (
+              <button
+                onClick={() => aller("import")}
+                title="Voir les téléversements"
+                className="animate-paraitre flex shrink-0 items-center gap-2.5 rounded-xl border border-filet bg-surface-2 py-1.5 pr-3 pl-2.5 text-[12.5px] hover:border-accent"
+              >
+                <Barres taille={14} />
+                <span className="font-semibold whitespace-nowrap tabular-nums">
+                  {avancement.phase === "analyse" ? `Lecture ${avancement.faits}/${avancement.aFaire}` : `Envoi ${avancement.faits}/${avancement.aFaire}`}
+                </span>
+                {avancement.phase === "envoi" && (
+                  <span className="h-1.5 w-16 overflow-hidden rounded-full bg-filet">
+                    <span
+                      className="block h-full rounded-full bg-accent transition-[width] duration-300"
+                      style={{ width: `${avancement.aFaire ? Math.round(((avancement.faits + avancement.enCours / 100) / avancement.aFaire) * 100) : 0}%` }}
+                    />
+                  </span>
+                )}
+              </button>
+            )}
             <div className="ml-auto flex items-center gap-1.5">
               <button
                 onClick={basculerTheme}
@@ -371,7 +400,19 @@ function Coquille() {
               </button>
               <Cloche taches={taches} />
               <span className="mx-2 h-7 w-px bg-filet" />
-              {utilisateur && <MenuCompte nom={utilisateur.name} email={utilisateur.email} image={utilisateur.avatarUrl} aller={aller} fermer={() => void fermer()} />}
+              {utilisateur && (
+                <MenuCompte
+                  nom={utilisateur.name}
+                  email={utilisateur.email}
+                  image={utilisateur.avatarUrl}
+                  aller={aller}
+                  fermer={() => {
+                    // Se déconnecter couperait l'envoi en cours au milieu d'un fichier.
+                    if (avancement.phase !== "repos" && !window.confirm("Un téléversement est en cours. Se déconnecter l'interrompt. Continuer ?")) return;
+                    void fermer();
+                  }}
+                />
+              )}
             </div>
           </header>
 
@@ -404,6 +445,7 @@ function EntreeNav({
   actif,
   externe,
   compteur,
+  activite,
   onClick,
 }: {
   icone: LucideIcon;
@@ -412,6 +454,8 @@ function EntreeNav({
   actif?: boolean;
   externe?: boolean;
   compteur?: number;
+  /** Un travail en cours sur cette page (« 3/40 ») : il reste visible d'ailleurs. */
+  activite?: string;
   onClick: () => void;
 }) {
   return (
@@ -428,6 +472,15 @@ function EntreeNav({
       <Icone size={18} className="shrink-0" />
       {!replie && <span className="flex-1 truncate">{libelle}</span>}
       {!replie && externe && !compteur && <ExternalLink size={13} className="text-texte-3 opacity-0 group-hover:opacity-100" />}
+      {activite !== undefined &&
+        (replie ? (
+          <span className="absolute top-1 right-2 h-2.5 w-2.5 animate-pulse rounded-full bg-accent ring-2 ring-surface" />
+        ) : (
+          <span className={clsx("flex items-center gap-1.5 text-[11.5px] font-semibold tabular-nums", actif ? "text-sur-accent" : "text-accent")}>
+            <span className={clsx("h-1.5 w-1.5 animate-pulse rounded-full", actif ? "bg-sur-accent" : "bg-accent")} />
+            {activite}
+          </span>
+        ))}
       {compteur ? (
         <span
           className={clsx(

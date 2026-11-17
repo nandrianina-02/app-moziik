@@ -173,8 +173,11 @@ export function Avatar({ nom, image, taille = 36 }: { nom: string; image?: strin
 /** Les teintes, dans l'ordre fixe : une même position désigne toujours la même série. */
 export const TEINTES = ["teinte-1", "teinte-2", "teinte-3", "teinte-4", "teinte-5", "teinte-6"] as const;
 
-export const formatNombre = (n: number) => n.toLocaleString("fr-FR");
-export const formatCompact = (n: number) => (n >= 10000 ? n.toLocaleString("fr-FR", { notation: "compact", maximumFractionDigits: 1 }) : formatNombre(n));
+// Un nombre absent d'une réponse (site plus ancien, champ renommé) s'affiche
+// « — » plutôt que de faire tomber la page entière.
+export const formatNombre = (n: number | null | undefined) => (typeof n === "number" && Number.isFinite(n) ? n.toLocaleString("fr-FR") : "—");
+export const formatCompact = (n: number | null | undefined) =>
+  typeof n === "number" && n >= 10000 ? n.toLocaleString("fr-FR", { notation: "compact", maximumFractionDigits: 1 }) : formatNombre(n);
 export const formatDuree = (s: number) => `${Math.floor(s / 60)}:${String(Math.round(s % 60)).padStart(2, "0")}`;
 export const formatDate = (iso: string | number | Date | null | undefined) => (iso ? new Date(iso).toLocaleDateString("fr-FR", { day: "numeric", month: "short", year: "numeric" }) : "—");
 

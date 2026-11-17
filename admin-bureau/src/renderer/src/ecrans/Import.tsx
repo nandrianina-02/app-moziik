@@ -1,214 +1,19 @@
-import { useEffect, useMemo, useRef, useState } from "react";
-import { FolderOpen, Play, Square } from "lucide-react";
-import { api, ErreurApi } from "../api";
-import { Bouton, Chargement, EnTete, Erreur, Pagination, Pastille, Selection, Table, Vide, formatDuree, usePages } from "../composants";
+import { useEffect, useMemo, useState } from "react";
+import { FolderOpen, Play, Square, X } from "lucide-react";
+import { api } from "../api";
+import { Barres, Bouton, Chargement, EnTete, Erreur, Pagination, Pastille, Selection, Table, Vide, formatDuree, usePages } from "../composants";
 import { adresseImage } from "../session";
-import { televerser } from "../envoi";
-import type { Etiquettes, FichierAudio } from "../../../partage/types";
+import { STATUTS, useTeleversements, type ArtisteOption, type Ligne, type Statut } from "../televersements";
 
 /*
- * L'import d'un dossier de musique, en quatre temps : lire les balises de
- * chaque fichier, demander au site qui est l'artiste et si le titre existe
- * déjà, laisser l'administration corriger, puis envoyer et publier. Les
- * mêmes routes que l'import du site (inspect, fichiers/envoi, songs) : rien
- * n'entre au catalogue par une autre porte.
+ * La vue des téléversements. L'état et les envois vivent dans
+ * televersements.tsx, au niveau de la coquille : quitter cette page ne les
+ * interrompt pas, et y revenir montre où ils en sont.
  */
 
-type Statut = "lecture" | "inspection" | "pret" | "incomplet" | "doublon" | "envoi" | "termine" | "erreur";
-
-interface ArtisteOption {
-  _id: string;
-  stageName: string;
-  verified?: boolean;
-  coverUrl?: string | null;
-}
-
-interface Ligne {
-  id: string;
-  fichier: FichierAudio;
-  etiquettes: Etiquettes | null;
-  statut: Statut;
-  erreur?: string;
-  titre: string;
-  artisteNom: string;
-  artiste: ArtisteOption | null;
-  album: string;
-  genre: string;
-  annee: string;
-  doublon: { title: string; artistName: string; certain: boolean } | null;
-  importerQuandMeme: boolean;
-  progression: number;
-  songId?: string;
-}
-
-const STATUTS: Record<Statut, { libelle: string; ton: "neutre" | "succes" | "attention" | "danger" | "accent" }> = {
-  lecture: { libelle: "Lecture", ton: "neutre" },
-  inspection: { libelle: "Rapprochement", ton: "neutre" },
-  pret: { libelle: "Prêt", ton: "succes" },
-  incomplet: { libelle: "À compléter", ton: "attention" },
-  doublon: { libelle: "Doublon", ton: "attention" },
-  envoi: { libelle: "Envoi", ton: "accent" },
-  termine: { libelle: "Publié", ton: "succes" },
-  erreur: { libelle: "Erreur", ton: "danger" },
-};
-
-const GENRE_PAR_DEFAUT = "Afrobeat";
-
-/** Le titre d'après le nom du fichier quand la balise manque : « Artiste - Titre (Clip officiel).mp3 ». */
-function titreDuNom(nom: string): { artiste: string | null; titre: string } {
-  const base = nom
-    .replace(/\.[a-z0-9]{2,5}$/i, "")
-    .replace(/\((MP3|M4A)_\d+K\)(_\d+)?$/i, "")
-    .replace(/\((?:[^()]*)\)|\[(?:[^\][]*)\]/g, " ")
-    .replace(/\s+/g, " ")
-    .trim();
-  const m = /^(.*?)\s+-\s+(.*)$/.exec(base);
-  return m ? { artiste: m[1].trim(), titre: m[2].trim() } : { artiste: null, titre: base };
-}
-
-const complet = (l: Ligne): Statut => {
-  if (l.doublon && l.doublon.certain && !l.importerQuandMeme) return "doublon";
-  return l.titre.trim() && l.artiste && l.genre && (l.etiquettes?.pochette || l.artiste.coverUrl) && l.etiquettes?.duree ? "pret" : "incomplet";
-};
-
 export function Import() {
-  const [dossier, setDossier] = useState<string | null>(null);
-  const [lignes, setLignes] = useState<Ligne[]>([]);
-  const [genres, setGenres] = useState<string[]>([]);
-  const [phase, setPhase] = useState<"repos" | "analyse" | "envoi">("repos");
-  const [erreur, setErreur] = useState<string | null>(null);
+  const { dossier, lignes, genres, phase, erreur, avancement, choisir, envoyerTout, arreter, modifier, vider } = useTeleversements();
   const [selection, setSelection] = useState<string | null>(null);
-  const arret = useRef(false);
-
-  useEffect(() => {
-    api<{ genres?: string[] }>("/api/site-config").then((c) => setGenres(c.genres ?? [])).catch(() => undefined);
-  }, []);
-
-  const maj = (id: string, patch: Partial<Ligne>) =>
-    setLignes((liste) => liste.map((l) => (l.id === id ? recalculer({ ...l, ...patch }) : l)));
-  const recalculer = (l: Ligne): Ligne => (["pret", "incomplet", "doublon"].includes(l.statut) ? { ...l, statut: complet(l) } : l);
-
-  async function choisir() {
-    const choisi = await window.bureau.choisirDossier();
-    if (!choisi) return;
-    setDossier(choisi);
-    setErreur(null);
-    setPhase("analyse");
-    const fichiers = await window.bureau.listerAudio(choisi);
-    const initiales: Ligne[] = fichiers.map((f, i) => ({
-      id: `${i}-${f.chemin}`,
-      fichier: f,
-      etiquettes: null,
-      statut: "lecture",
-      titre: "",
-      artisteNom: "",
-      artiste: null,
-      album: "",
-      genre: GENRE_PAR_DEFAUT,
-      annee: "",
-      doublon: null,
-      importerQuandMeme: false,
-      progression: 0,
-    }));
-    setLignes(initiales);
-    // 1. Les balises, fichier par fichier.
-    const lues: Ligne[] = [];
-    for (const l of initiales) {
-      let ligne: Ligne;
-      try {
-        const e = await window.bureau.lireEtiquettes(l.fichier.chemin);
-        const duNom = titreDuNom(l.fichier.nom);
-        ligne = {
-          ...l,
-          etiquettes: e,
-          titre: (e.titre && !/ - /.test(e.titre) ? e.titre : duNom.titre).trim(),
-          artisteNom: (duNom.artiste ?? e.artiste ?? "").trim(),
-          album: e.album ?? "",
-          annee: e.annee ? String(e.annee) : "",
-          genre: e.genre && genres.includes(e.genre) ? e.genre : GENRE_PAR_DEFAUT,
-          statut: "inspection",
-        };
-      } catch (err) {
-        ligne = { ...l, statut: "erreur", erreur: err instanceof Error ? err.message : "Fichier illisible." };
-      }
-      lues.push(ligne);
-      setLignes((liste) => liste.map((x) => (x.id === ligne.id ? ligne : x)));
-    }
-    // 2. Le rapprochement, par lots de cent.
-    const aInspecter = lues.filter((l) => l.statut === "inspection");
-    for (let i = 0; i < aInspecter.length; i += 100) {
-      const lot = aInspecter.slice(i, i + 100);
-      try {
-        const { resultats } = await api<{ resultats: { artiste: ArtisteOption | null; doublon: Ligne["doublon"] }[] }>("/api/import/inspect", {
-          corps: { items: lot.map((l) => ({ titre: l.titre || l.fichier.nom, artiste: l.artisteNom || undefined })) },
-        });
-        setLignes((liste) =>
-          liste.map((l) => {
-            const k = lot.findIndex((x) => x.id === l.id);
-            if (k < 0) return l;
-            const r = resultats[k];
-            const avec: Ligne = { ...l, artiste: r.artiste, doublon: r.doublon, statut: "pret" };
-            return { ...avec, statut: complet(avec) };
-          }),
-        );
-      } catch (err) {
-        setErreur(err instanceof Error ? err.message : "Le rapprochement a échoué.");
-        setLignes((liste) => liste.map((l) => (lot.some((x) => x.id === l.id) ? { ...l, statut: complet(l) } : l)));
-      }
-    }
-    setPhase("repos");
-  }
-
-  async function envoyerTout() {
-    arret.current = false;
-    setPhase("envoi");
-    setErreur(null);
-    for (const l of lignes) {
-      if (arret.current) break;
-      if (l.statut !== "pret") continue;
-      await envoyerLigne(l);
-    }
-    setPhase("repos");
-  }
-
-  async function envoyerLigne(l: Ligne) {
-    maj(l.id, { statut: "envoi", progression: 0 });
-    try {
-      const e = l.etiquettes!;
-      // La pochette : celle du fichier, sinon la photo de l'artiste.
-      let coverUrl = l.artiste!.coverUrl ?? "";
-      if (e.pochette) {
-        const octets = Uint8Array.from(atob(e.pochette.base64), (c) => c.charCodeAt(0));
-        const id = await televerser(new Blob([octets], { type: e.pochette.mime }), `${l.artiste!.stageName} - ${l.titre}.${e.pochette.mime.includes("png") ? "png" : "jpg"}`, e.pochette.mime, "covers", undefined, () => undefined);
-        coverUrl = `/media/${id}`;
-      }
-      const audio = await window.bureau.lireFichier(l.fichier.chemin);
-      const type = /\.m4a$|\.aac$/i.test(l.fichier.nom) ? "audio/mp4" : /\.flac$/i.test(l.fichier.nom) ? "audio/flac" : /\.wav$/i.test(l.fichier.nom) ? "audio/wav" : /\.ogg$|\.opus$/i.test(l.fichier.nom) ? "audio/ogg" : "audio/mpeg";
-      const ext = type === "audio/mpeg" ? "mp3" : l.fichier.nom.slice(l.fichier.nom.lastIndexOf(".") + 1).toLowerCase();
-      const fichierId = await televerser(new Blob([audio], { type }), `${l.artiste!.stageName} - ${l.titre}.${ext}`, type, "songs", e.duree ?? undefined, (p) => maj(l.id, { progression: p }));
-      const albumId = await albumExistant(l.artiste!._id, l.album);
-      const annee = Number(l.annee);
-      const releaseDate = annee >= 1950 && annee <= new Date().getFullYear() + 1 ? `${annee}-01-01T00:00:00+03:00` : new Date().toISOString();
-      const { song } = await api<{ song: { _id: string } }>("/api/songs", {
-        corps: {
-          title: l.titre.trim(),
-          audioUrl: `ks:${fichierId}`,
-          coverUrl,
-          duration: e.duree,
-          genre: l.genre,
-          releaseDate,
-          artistId: l.artiste!._id,
-          featuringIds: [],
-          ...(albumId ? { albumId } : {}),
-          ...(e.compositeur ? { composer: e.compositeur } : {}),
-          ...(e.bpm ? { bpm: e.bpm, bpmSource: "balise" } : {}),
-        },
-      });
-      maj(l.id, { statut: "termine", progression: 100, songId: song._id });
-    } catch (err) {
-      maj(l.id, { statut: "erreur", erreur: err instanceof ErreurApi ? err.message : err instanceof Error ? err.message : "Envoi impossible." });
-    }
-  }
 
   const compte = useMemo(() => {
     const c: Partial<Record<Statut, number>> = {};
@@ -220,6 +25,7 @@ export function Import() {
   // page ne bouge pas pendant l'envoi (les statuts changent, pas la liste).
   const pages = usePages(lignes, 50, dossier ?? "");
   const pagination = <Pagination page={pages.page} pages={pages.pages} total={pages.total} taille={pages.taille} onPage={pages.setPage} />;
+  const global = avancement.aFaire > 0 ? Math.round(((avancement.faits + avancement.enCours / 100) / avancement.aFaire) * 100) : 0;
 
   return (
     <>
@@ -228,12 +34,17 @@ export function Import() {
         texte={dossier ?? "Choisissez un dossier : ses fichiers audio sont lus, rapprochés du catalogue, puis publiés."}
         action={
           <>
+            {dossier && phase === "repos" && (
+              <Bouton variante="discret" onClick={vider} title="Fermer ce dossier">
+                <X size={14} /> Fermer
+              </Bouton>
+            )}
             <Bouton variante="trait" disabled={phase !== "repos"} onClick={() => void choisir()}>
               <FolderOpen size={14} /> Choisir un dossier
             </Bouton>
             {phase === "envoi" ? (
-              <Bouton variante="danger" onClick={() => (arret.current = true)}>
-                <Square size={14} /> Arrêter
+              <Bouton variante="danger" onClick={arreter}>
+                <Square size={14} /> Arrêter après ce titre
               </Bouton>
             ) : (
               <Bouton disabled={!compte.pret || phase !== "repos"} onClick={() => void envoyerTout()}>
@@ -244,13 +55,39 @@ export function Import() {
         }
       />
       <Erreur message={erreur} />
+
+      {phase !== "repos" && (
+        <div className="animate-monter mb-5 rounded-2xl border border-filet bg-surface p-5">
+          <div className="flex items-center justify-between gap-4">
+            <div className="flex min-w-0 items-center gap-3">
+              <Barres />
+              <div className="min-w-0">
+                <div className="font-titre text-[15px] font-semibold">
+                  {phase === "analyse" ? `Lecture du dossier : ${avancement.faits} / ${avancement.aFaire} fichiers` : `Envoi : ${avancement.faits} / ${avancement.aFaire} titres`}
+                </div>
+                <div className="truncate text-[12.5px] text-texte-3">
+                  {phase === "envoi" && avancement.titreEnCours ? `En cours : ${avancement.titreEnCours} (${avancement.enCours} %)` : "Vous pouvez changer de page : le travail continue."}
+                </div>
+              </div>
+            </div>
+            <span className="font-titre text-[22px] font-semibold tabular-nums">{phase === "envoi" ? `${global} %` : ""}</span>
+          </div>
+          <div className="mt-3 h-2 overflow-hidden rounded-full bg-surface-2">
+            <div
+              className="h-full rounded-full bg-accent transition-[width] duration-300"
+              style={{ width: `${phase === "envoi" ? global : avancement.aFaire ? (avancement.faits / avancement.aFaire) * 100 : 0}%` }}
+            />
+          </div>
+        </div>
+      )}
+
       {lignes.length > 0 && (
         <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
-        <p className="text-[13px] text-texte-2">
-          {lignes.length} fichiers · {compte.pret ?? 0} prêts · {compte.incomplet ?? 0} à compléter · {compte.doublon ?? 0} doublons · {compte.termine ?? 0} publiés
-          {compte.erreur ? ` · ${compte.erreur} en erreur` : ""}
-        </p>
-        {pagination}
+          <p className="text-[13px] text-texte-2">
+            {lignes.length} fichiers · {compte.pret ?? 0} prêts · {compte.incomplet ?? 0} à compléter · {compte.doublon ?? 0} doublons · {compte.termine ?? 0} publiés
+            {compte.erreur ? ` · ${compte.erreur} en erreur` : ""}
+          </p>
+          {pagination}
         </div>
       )}
       {phase === "analyse" && lignes.length === 0 ? (
@@ -258,39 +95,46 @@ export function Import() {
       ) : lignes.length === 0 ? (
         <Vide texte="Aucun dossier choisi." />
       ) : (
-        <Table entetes={["", "Fichier", "Titre", "Artiste", "Album", { libelle: "Année", largeur: "70px" }, { libelle: "Durée", droite: true, largeur: "70px" }, { libelle: "État", largeur: "130px" }]}>
+        <Table entetes={["", "Fichier", "Titre", "Artiste", "Album", { libelle: "Année", largeur: "70px" }, { libelle: "Durée", droite: true, largeur: "70px" }, { libelle: "État", largeur: "140px" }]}>
           {pages.tranche.map((l) => (
             <tr key={l.id} onClick={() => setSelection(l.id)} className={`cursor-pointer hover:bg-surface-2 ${selection === l.id ? "bg-surface-2" : ""}`}>
-              <td className="w-10 px-2 py-1.5">
+              <td className="w-10">
                 {l.etiquettes?.pochette ? (
-                  <img src={`data:${l.etiquettes.pochette.mime};base64,${l.etiquettes.pochette.base64}`} alt="" className="h-8 w-8 rounded object-cover" />
+                  <img src={`data:${l.etiquettes.pochette.mime};base64,${l.etiquettes.pochette.base64}`} alt="" className="h-9 w-9 rounded-md object-cover" />
                 ) : l.artiste?.coverUrl ? (
-                  <img src={adresseImage(l.artiste.coverUrl) ?? undefined} alt="" className="h-8 w-8 rounded-full object-cover" />
+                  <img src={adresseImage(l.artiste.coverUrl) ?? undefined} alt="" className="h-9 w-9 rounded-full object-cover" />
                 ) : (
-                  <div className="h-8 w-8 rounded bg-surface-2" />
+                  <div className="h-9 w-9 rounded-md bg-surface-2" />
                 )}
               </td>
-              <td className="max-w-[220px] truncate px-3 py-1.5 text-texte-3" title={l.fichier.nom}>
+              <td className="max-w-[220px] truncate text-texte-3" title={l.fichier.nom}>
                 {l.fichier.nom}
               </td>
-              <td className="px-3 py-1.5 font-medium">{l.titre || "—"}</td>
-              <td className="px-3 py-1.5">
+              <td className="font-medium">{l.titre || "—"}</td>
+              <td>
                 {l.artiste ? (
                   <span>{l.artiste.stageName}</span>
                 ) : (
-                  <span className="text-attention">{l.artisteNom || "inconnu"} <span className="text-texte-3">(à rapprocher)</span></span>
+                  <span className="text-attention">
+                    {l.artisteNom || "inconnu"} <span className="text-texte-3">(à rapprocher)</span>
+                  </span>
                 )}
               </td>
-              <td className="px-3 py-1.5 text-texte-2">{l.album || "—"}</td>
-              <td className="px-3 py-1.5 text-texte-2 tabular-nums">{l.annee || "—"}</td>
-              <td className="px-3 py-1.5 text-right text-texte-2 tabular-nums">{l.etiquettes?.duree ? formatDuree(l.etiquettes.duree) : "—"}</td>
-              <td className="px-3 py-1.5">
+              <td className="text-texte-2">{l.album || "—"}</td>
+              <td className="text-texte-2 tabular-nums">{l.annee || "—"}</td>
+              <td className="text-right text-texte-2 tabular-nums">{l.etiquettes?.duree ? formatDuree(l.etiquettes.duree) : "—"}</td>
+              <td>
                 {l.statut === "envoi" ? (
-                  <div className="h-1.5 w-24 overflow-hidden rounded bg-surface-2">
-                    <div className="h-full bg-accent transition-[width]" style={{ width: `${l.progression}%` }} />
+                  <div className="flex items-center gap-2">
+                    <div className="h-1.5 w-20 overflow-hidden rounded-full bg-surface-2">
+                      <div className="h-full bg-accent transition-[width]" style={{ width: `${l.progression}%` }} />
+                    </div>
+                    <span className="text-[11.5px] text-texte-3 tabular-nums">{l.progression} %</span>
                   </div>
                 ) : (
-                  <Pastille texte={STATUTS[l.statut].libelle} ton={STATUTS[l.statut].ton} />
+                  <span title={l.erreur}>
+                    <Pastille texte={STATUTS[l.statut].libelle} ton={STATUTS[l.statut].ton} />
+                  </span>
                 )}
               </td>
             </tr>
@@ -298,15 +142,7 @@ export function Import() {
         </Table>
       )}
       {lignes.length > 0 && <div className="mt-4">{pagination}</div>}
-      {ligneOuverte && (
-        <FicheLigne
-          ligne={ligneOuverte}
-          genres={genres}
-          verrouillee={phase === "envoi"}
-          onChange={(patch) => maj(ligneOuverte.id, patch)}
-          onFermer={() => setSelection(null)}
-        />
-      )}
+      {ligneOuverte && <FicheLigne ligne={ligneOuverte} genres={genres} verrouillee={phase === "envoi"} onChange={(patch) => modifier(ligneOuverte.id, patch)} onFermer={() => setSelection(null)} />}
     </>
   );
 }
@@ -442,13 +278,3 @@ function FicheLigne({ ligne, genres, verrouillee, onChange, onFermer }: { ligne:
 }
 
 /** Un album déjà présent chez l'artiste, retrouvé par son titre ; sinon aucun (le titre sera un single). */
-async function albumExistant(artisteId: string, titre: string): Promise<string | null> {
-  if (!titre.trim()) return null;
-  try {
-    const { albums } = await api<{ albums: { _id: string; title: string }[] }>(`/api/albums?artist=${artisteId}`);
-    const cle = (s: string) => s.trim().toLowerCase();
-    return albums.find((a) => cle(a.title) === cle(titre))?._id ?? null;
-  } catch {
-    return null;
-  }
-}

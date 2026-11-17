@@ -215,6 +215,8 @@ export const createAlbumSchema = z.object({
   coverUrl: champFichier("URL de pochette invalide."),
   type: z.enum(["album", "ep", "single", "podcast"]).optional().default("album"),
   releaseDate: z.coerce.date(),
+  /** Réservé à l'administration, qui crée l'album d'un artiste (import en masse). */
+  artistId: z.string().regex(/^[a-f0-9]{24}$/, "Identifiant d'artiste invalide.").optional(),
 });
 
 export const patchAlbumSchema = z.object({

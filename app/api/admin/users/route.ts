@@ -85,7 +85,7 @@ export const GET = withApiErrors(async (req: Request) => {
   // Profils artistes et volumes publiés, pour les seuls comptes affichés.
   const idsArtistes = utilisateurs.filter((u) => u.role === "artist").map((u) => u._id);
   const profils = idsArtistes.length
-    ? await Artist.find({ user: { $in: idsArtistes } }).select("user eventPublishingAuthorized").lean()
+    ? await Artist.find({ user: { $in: idsArtistes } }).select("user eventPublishingAuthorized stageName coverUrl").lean()
     : [];
   const profilParUtilisateur = new Map(profils.map((a) => [a.user.toString(), a]));
   const idsProfils = profils.map((a) => a._id);
@@ -127,6 +127,11 @@ export const GET = withApiErrors(async (req: Request) => {
     return {
       ...u,
       artistId: profil?._id ?? null,
+      // Le nom de scène et la photo du profil, distincts du nom et de
+      // l'avatar du compte : la grille des artistes du logiciel de bureau
+      // montre ce que le public voit.
+      stageName: profil?.stageName ?? null,
+      artistCoverUrl: profil?.coverUrl || null,
       eventPublishingAuthorized: profil?.eventPublishingAuthorized ?? false,
       songsCount: idProfil ? morceauxParArtiste.get(idProfil) ?? 0 : 0,
       albumsCount: idProfil ? albumsParArtiste.get(idProfil) ?? 0 : 0,

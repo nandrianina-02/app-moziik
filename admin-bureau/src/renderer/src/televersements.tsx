@@ -1,6 +1,7 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { api, ErreurApi } from "./api";
 import { televerser } from "./envoi";
+import { decoder, encoderVersions, type Qualite } from "./encodage";
 import type { Etiquettes, FichierAudio } from "../../partage/types";
 
 /*
@@ -37,8 +38,37 @@ export interface Ligne {
   doublon: { title: string; artistName: string; certain: boolean } | null;
   importerQuandMeme: boolean;
   progression: number;
+  /** Ce que fait l'envoi en ce moment : source, encodage, qualités, publication. */
+  etape?: string;
+  /** Publié, mais avec une réserve (sans album, sans qualités d'écoute). */
+  note?: string;
   songId?: string;
 }
+
+const CLE_QUALITES = "moziik-admin:qualites";
+/** Préparer les qualités 64, 128 et 320 kb/s à l'envoi (oui par défaut, comme le site). */
+export function qualitesActives(): boolean {
+  try {
+    return localStorage.getItem(CLE_QUALITES) !== "non";
+  } catch {
+    return true;
+  }
+}
+export function reglerQualites(actives: boolean) {
+  try {
+    localStorage.setItem(CLE_QUALITES, actives ? "oui" : "non");
+  } catch {
+    // Stockage indisponible : le réglage vaut pour la session.
+  }
+}
+
+const TYPES_AUDIO: [RegExp, string][] = [
+  [/\.(m4a|aac)$/i, "audio/mp4"],
+  [/\.flac$/i, "audio/flac"],
+  [/\.wav$/i, "audio/wav"],
+  [/\.(ogg|opus)$/i, "audio/ogg"],
+];
+const typeAudio = (nom: string) => TYPES_AUDIO.find(([re]) => re.test(nom))?.[1] ?? "audio/mpeg";
 
 export type Phase = "repos" | "analyse" | "envoi";
 
@@ -95,6 +125,8 @@ export interface Avancement {
   enCours: number;
   /** Titre du fichier en cours d'envoi. */
   titreEnCours: string | null;
+  /** Étape du fichier en cours : source, encodage, qualités, publication. */
+  etape?: string;
 }
 
 interface Televersements {
@@ -231,46 +263,112 @@ export function FournisseurTeleversements({ children }: { children: ReactNode })
     setPhase("repos");
   }, [genres, setLignes]);
 
+  /**
+   * L'album d'un titre : celui de l'artiste qui porte ce nom, sinon un album
+   * créé ici, une seule fois même si dix titres du dossier y appartiennent.
+   * Un site trop ancien pour créer l'album d'un artiste (route sans
+   * artistId) laisse le titre en single, avec une note.
+   */
+  const albumsConnus = useRef(new Map<string, string>());
+  const albumPour = useCallback(async (l: Ligne, coverUrl: string, releaseDate: string): Promise<{ id: string | null; note?: string }> => {
+    const titre = l.album.trim();
+    if (!titre) return { id: null };
+    const cle = `${l.artiste!._id}|${titre.toLowerCase()}`;
+    const connu = albumsConnus.current.get(cle);
+    if (connu) return { id: connu };
+    const existant = await albumExistant(l.artiste!._id, titre);
+    if (existant) {
+      albumsConnus.current.set(cle, existant);
+      return { id: existant };
+    }
+    try {
+      const { album } = await api<{ album: { _id: string } }>("/api/albums", {
+        corps: { title: titre, coverUrl, type: "album", releaseDate, artistId: l.artiste!._id },
+      });
+      albumsConnus.current.set(cle, album._id);
+      return { id: album._id };
+    } catch (err) {
+      return { id: null, note: `Publié sans album : ${err instanceof Error ? err.message : "création refusée"}.` };
+    }
+  }, []);
+
   const envoyerLigne = useCallback(
     async (l: Ligne) => {
-      modifier(l.id, { statut: "envoi", progression: 0 });
+      modifier(l.id, { statut: "envoi", progression: 0, etape: "Pochette", note: undefined, erreur: undefined });
       try {
         const e = l.etiquettes!;
+        const nom = `${l.artiste!.stageName} - ${l.titre}`;
         // La pochette : celle du fichier, sinon la photo de l'artiste.
         let coverUrl = l.artiste!.coverUrl ?? "";
         if (e.pochette) {
           const octets = Uint8Array.from(atob(e.pochette.base64), (c) => c.charCodeAt(0));
-          const id = await televerser(new Blob([octets], { type: e.pochette.mime }), `${l.artiste!.stageName} - ${l.titre}.${e.pochette.mime.includes("png") ? "png" : "jpg"}`, e.pochette.mime, "covers", undefined, () => undefined);
+          const id = await televerser(new Blob([octets], { type: e.pochette.mime }), `${nom}.${e.pochette.mime.includes("png") ? "png" : "jpg"}`, e.pochette.mime, "covers", undefined, () => undefined);
           coverUrl = `/media/${id}`;
         }
-        const audio = await window.bureau.lireFichier(l.fichier.chemin);
-        const type = /\.m4a$|\.aac$/i.test(l.fichier.nom) ? "audio/mp4" : /\.flac$/i.test(l.fichier.nom) ? "audio/flac" : /\.wav$/i.test(l.fichier.nom) ? "audio/wav" : /\.ogg$|\.opus$/i.test(l.fichier.nom) ? "audio/ogg" : "audio/mpeg";
+
+        // La source, telle quelle : c'est d'elle que le site repart pour
+        // refaire les qualités ou changer la découpe.
+        const qualites = qualitesActives();
+        const partSource = qualites ? 30 : 95;
+        modifier(l.id, { etape: "Source" });
+        const brut = await window.bureau.lireFichier(l.fichier.chemin);
+        const type = typeAudio(l.fichier.nom);
         const ext = type === "audio/mpeg" ? "mp3" : l.fichier.nom.slice(l.fichier.nom.lastIndexOf(".") + 1).toLowerCase();
-        const fichierId = await televerser(new Blob([audio], { type }), `${l.artiste!.stageName} - ${l.titre}.${ext}`, type, "songs", e.duree ?? undefined, (p) => modifier(l.id, { progression: p }));
-        const albumId = await albumExistant(l.artiste!._id, l.album);
+        const source = new Blob([brut], { type });
+        const sourceId = await televerser(source, `${nom}.${ext}`, type, "songs", e.duree ?? undefined, (p) => modifier(l.id, { progression: Math.round((p * partSource) / 100) }));
+
+        // Les trois qualités d'écoute. Un format que le moteur ne sait pas
+        // décoder n'empêche pas la publication : le site lit alors la source.
+        let audioVariantes: Record<Qualite, string> | undefined;
+        let note: string | undefined;
+        if (qualites) {
+          try {
+            modifier(l.id, { etape: "Encodage", progression: partSource });
+            const canaux = await decoder(source);
+            const versions = await encoderVersions(canaux, (v) => modifier(l.id, { progression: partSource + Math.round(v * 35) }));
+            modifier(l.id, { etape: "Qualités" });
+            const tailles = Object.values(versions).reduce((s, b) => s + b.size, 0);
+            let envoye = 0;
+            const ids = {} as Record<Qualite, string>;
+            for (const [qualite, blob] of Object.entries(versions) as [Qualite, Blob][]) {
+              ids[qualite] = await televerser(blob, `${nom}-${qualite}.mp3`, "audio/mpeg", "songs", e.duree ?? undefined, (p) =>
+                modifier(l.id, { progression: partSource + 35 + Math.round(((envoye + (blob.size * p) / 100) / tailles) * 30) }),
+              );
+              envoye += blob.size;
+            }
+            audioVariantes = ids;
+          } catch (err) {
+            note = `Publié sans qualités d'écoute : ${err instanceof Error ? err.message : "encodage impossible"}.`;
+          }
+        }
+
+        modifier(l.id, { etape: "Publication", progression: 96 });
         const annee = Number(l.annee);
         const releaseDate = annee >= 1950 && annee <= new Date().getFullYear() + 1 ? `${annee}-01-01T00:00:00+03:00` : new Date().toISOString();
+        const album = await albumPour(l, coverUrl, releaseDate);
         const { song } = await api<{ song: { _id: string } }>("/api/songs", {
           corps: {
             title: l.titre.trim(),
-            audioUrl: `ks:${fichierId}`,
+            audioUrl: `ks:${sourceId}`,
+            ...(audioVariantes ? { audioVariantes } : {}),
             coverUrl,
             duration: e.duree,
             genre: l.genre,
             releaseDate,
             artistId: l.artiste!._id,
             featuringIds: [],
-            ...(albumId ? { albumId } : {}),
+            ...(album.id ? { albumId: album.id } : {}),
             ...(e.compositeur ? { composer: e.compositeur } : {}),
             ...(e.bpm ? { bpm: e.bpm, bpmSource: "balise" } : {}),
           },
         });
-        modifier(l.id, { statut: "termine", progression: 100, songId: song._id });
+        const notes = [note, album.note].filter(Boolean).join(" ");
+        modifier(l.id, { statut: "termine", progression: 100, etape: undefined, songId: song._id, note: notes || undefined });
       } catch (err) {
-        modifier(l.id, { statut: "erreur", erreur: err instanceof ErreurApi ? err.message : err instanceof Error ? err.message : "Envoi impossible." });
+        modifier(l.id, { statut: "erreur", etape: undefined, erreur: err instanceof ErreurApi ? err.message : err instanceof Error ? err.message : "Envoi impossible." });
       }
     },
-    [modifier],
+    [modifier, albumPour],
   );
 
   const envoyerTout = useCallback(async () => {
@@ -326,6 +424,7 @@ export function FournisseurTeleversements({ children }: { children: ReactNode })
       aFaire: duLot.length,
       enCours: enCours?.progression ?? 0,
       titreEnCours: enCours ? enCours.titre || enCours.fichier.nom : null,
+      etape: enCours?.etape,
     };
   }, [phase, lignes, lot]);
 

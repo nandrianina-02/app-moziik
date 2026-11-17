@@ -203,19 +203,37 @@ async function essaiReseau() {
 })();
 </script>`,
   );
-  const fenetre = new BrowserWindow({ show: false });
-  const delai = setTimeout(() => {
-    console.error("Essai réseau : délai dépassé.");
-    app.exit(1);
-  }, 60_000);
-  fenetre.on("page-title-updated", (_e, titre) => {
-    if (titre === "attente") return;
-    clearTimeout(delai);
-    const [etat, ...lignes] = titre.split("|");
-    for (const l of lignes) console.log(`Essai réseau : ${l}`);
-    app.exit(etat === "OK" ? 0 : 1);
+  const reseau = await attendreResultat("Essai réseau", (f) => f.loadFile(page));
+  // Le vrai logiciel construit, chargé depuis le disque comme chez
+  // l'utilisateur : son encodeur MP3 tourne dans un worker, que Chromium
+  // pourrait refuser de démarrer depuis une page file://.
+  const encodage = await attendreResultat("Essai encodage", (f) => f.loadFile(join(__dirname, "../renderer/index.html"), { query: { essai: "encodage" } }));
+  app.exit(reseau && encodage ? 0 : 1);
+}
+
+/** Charge une page d'essai et attend son verdict, écrit dans le titre : « OK|… » ou « ECHEC|… ». */
+function attendreResultat(nom: string, charger: (f: BrowserWindow) => Promise<void>): Promise<boolean> {
+  return new Promise((resoudre) => {
+    const fenetre = new BrowserWindow({ show: false });
+    const delai = setTimeout(() => {
+      console.error(`${nom} : délai dépassé.`);
+      fenetre.destroy();
+      resoudre(false);
+    }, 120_000);
+    fenetre.on("page-title-updated", (_e, titre) => {
+      if (!titre.includes("|")) return;
+      clearTimeout(delai);
+      const [etat, ...lignes] = titre.split("|");
+      for (const l of lignes) console.log(`${nom} : ${l}`);
+      fenetre.destroy();
+      resoudre(etat === "OK");
+    });
+    charger(fenetre).catch((e) => {
+      clearTimeout(delai);
+      console.error(`${nom} : chargement impossible (${e instanceof Error ? e.message : e}).`);
+      resoudre(false);
+    });
   });
-  void fenetre.loadFile(page);
 }
 
 app.whenReady().then(() => {

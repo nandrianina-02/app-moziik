@@ -1,7 +1,8 @@
 import { useEffect, useState } from "react";
 import { ExternalLink } from "lucide-react";
 import { useSession } from "../session";
-import { Bouton, Carte, Champ, EnTete } from "../composants";
+import { Bascule, Bouton, Carte, Champ, EnTete } from "../composants";
+import { qualitesActives, reglerQualites } from "../televersements";
 
 export function Reglages() {
   const { site, changerSite, etat } = useSession();
@@ -11,6 +12,7 @@ export function Reglages() {
     void window.bureau.version().then(setVersion);
   }, []);
   const utilisateur = etat.phase === "connecte" ? etat.utilisateur : null;
+  const [qualites, setQualites] = useState(qualitesActives);
 
   return (
     <>
@@ -26,6 +28,17 @@ export function Reglages() {
               Enregistrer
             </Bouton>
           </div>
+        </Carte>
+        <Carte titre="Téléversements">
+          <Bascule
+            libelle="Préparer les qualités d'écoute"
+            aide="Chaque titre est encodé en 64 kb/s (mono), 128 et 320 kb/s avant publication, comme sur le site : les auditeurs aux forfaits limités écoutent la version légère. Plus long, mais sans cela tout le monde reçoit le fichier d'origine."
+            valeur={qualites}
+            onChange={(v) => {
+              reglerQualites(v);
+              setQualites(v);
+            }}
+          />
         </Carte>
         <Carte titre="Compte">
           <p className="text-[13px]">

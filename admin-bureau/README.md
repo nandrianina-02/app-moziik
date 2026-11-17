@@ -43,7 +43,21 @@ l'application ; le jeton d'accès ne vit qu'en mémoire.
 2. Rapprochement par le site (`/api/import/inspect`) : artiste reconnu, doublon.
 3. Corrections dans le panneau de droite ; création d'un artiste absent
    (`/api/admin/users`, rôle artiste, adresse `@moziik.app`).
-4. Envoi vers Karaks Storage par `/api/fichiers/envoi`, puis `/api/songs`.
+4. Envoi vers Karaks Storage par `/api/fichiers/envoi` : la source telle
+   quelle, puis les trois qualités d'écoute (64 kb/s mono, 128 et 320 kb/s)
+   encodées dans un worker, comme le site (`encodage.ts`, copie de
+   `lib/encodageAudio.ts`). Désactivable dans Paramètres.
+5. Album retrouvé chez l'artiste, ou créé (`/api/albums` avec `artistId`,
+   réservé à l'administration), puis publication par `/api/songs`.
 
-Pas encore : les qualités d'écoute 64 et 128 kb/s (le site les encode dans
-le navigateur ; ici, la source sert à toutes), la création d'albums.
+Les envois vivent au niveau de la coquille (`televersements.tsx`) : ils
+continuent quand on change de page. Un titre publié sans album ou sans
+qualités (format que le décodeur ne lit pas) est marqué « Publié* », la
+raison en infobulle.
+
+## Essais
+
+L'intégration continue lance le logiciel construit dans Electron
+(`MOZIIK_ESSAI_RESEAU=1`) : appels au site et au stockage depuis une page
+locale, puis encodage d'un son d'essai par le vrai worker. Un échec bloque
+la publication de l'installeur.

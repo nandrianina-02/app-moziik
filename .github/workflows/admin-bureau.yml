@@ -49,9 +49,10 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       # Le logiciel construit, lancé dans Electron en mode d'essai : depuis sa
-      # page locale, il appelle le site et Karaks Storage. Si un appel reste
-      # bloqué par le navigateur (CORS), l'installeur n'est pas publié.
-      - name: Appels réseau depuis la fenêtre
+      # page locale, il appelle le site et Karaks Storage, puis encode un son
+      # d'essai dans les trois qualités d'écoute. Si un appel reste bloqué
+      # (CORS) ou si l'encodeur ne démarre pas, l'installeur n'est pas publié.
+      - name: Essais dans Electron (réseau, encodage)
         run: npx electron .
         env:
           MOZIIK_ESSAI_RESEAU: "1"

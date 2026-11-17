@@ -66,7 +66,9 @@ export function Import() {
                   {phase === "analyse" ? `Lecture du dossier : ${avancement.faits} / ${avancement.aFaire} fichiers` : `Envoi : ${avancement.faits} / ${avancement.aFaire} titres`}
                 </div>
                 <div className="truncate text-[12.5px] text-texte-3">
-                  {phase === "envoi" && avancement.titreEnCours ? `En cours : ${avancement.titreEnCours} (${avancement.enCours} %)` : "Vous pouvez changer de page : le travail continue."}
+                  {phase === "envoi" && avancement.titreEnCours
+                    ? `En cours : ${avancement.titreEnCours}${avancement.etape ? `, ${avancement.etape.toLowerCase()}` : ""} (${avancement.enCours} %)`
+                    : "Vous pouvez changer de page : le travail continue."}
                 </div>
               </div>
             </div>
@@ -125,15 +127,21 @@ export function Import() {
               <td className="text-right text-texte-2 tabular-nums">{l.etiquettes?.duree ? formatDuree(l.etiquettes.duree) : "—"}</td>
               <td>
                 {l.statut === "envoi" ? (
-                  <div className="flex items-center gap-2">
-                    <div className="h-1.5 w-20 overflow-hidden rounded-full bg-surface-2">
+                  <div>
+                    <div className="mb-1 flex justify-between text-[11px] text-texte-3">
+                      <span>{l.etape ?? "Envoi"}</span>
+                      <span className="tabular-nums">{l.progression} %</span>
+                    </div>
+                    <div className="h-1.5 w-28 overflow-hidden rounded-full bg-surface-2">
                       <div className="h-full bg-accent transition-[width]" style={{ width: `${l.progression}%` }} />
                     </div>
-                    <span className="text-[11.5px] text-texte-3 tabular-nums">{l.progression} %</span>
                   </div>
                 ) : (
-                  <span title={l.erreur}>
-                    <Pastille texte={STATUTS[l.statut].libelle} ton={STATUTS[l.statut].ton} />
+                  <span title={l.erreur ?? l.note}>
+                    <Pastille
+                      texte={l.statut === "termine" && l.note ? "Publié*" : STATUTS[l.statut].libelle}
+                      ton={l.statut === "termine" && l.note ? "attention" : STATUTS[l.statut].ton}
+                    />
                   </span>
                 )}
               </td>

@@ -20,6 +20,10 @@ concurrency:
 jobs:
   installeur:
     runs-on: windows-latest
+    # Le jeton du workflow est en lecture seule par défaut sur ce dépôt :
+    # sans ce droit, la création de la version GitHub est refusée (403).
+    permissions:
+      contents: write
     defaults:
       run:
         working-directory: admin-bureau

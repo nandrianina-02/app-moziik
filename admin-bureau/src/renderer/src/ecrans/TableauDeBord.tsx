@@ -1,4 +1,4 @@
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useState } from "react";
 import {
   ArrowRight,
   BarChart3,
@@ -15,12 +15,11 @@ import {
   Upload,
   UserPlus,
   Users,
-  X,
   type LucideIcon,
 } from "lucide-react";
 import { api, adresseSite, ErreurApi } from "../api";
 import { useSession, adresseImage } from "../session";
-import { Avatar, Bouton, Carte, Champ, Erreur, Pastille, TEINTES, formatCompact, formatNombre, formatRelatif } from "../composants";
+import { Avatar, Bouton, Carte, Champ, Dialogue, Erreur, Pastille, TEINTES, formatCompact, formatNombre, formatRelatif } from "../composants";
 import { Anneau, CourbeAire, MiniCourbe } from "../graphiques";
 import { Egaliseur, useCoquille, type Page } from "../App";
 import clsx from "../clsx";
@@ -89,8 +88,8 @@ export function TableauDeBord() {
             <h1 className="font-titre text-[28px] font-semibold tracking-tight">Bonjour, {prenom} !</h1>
             <p className="mt-1.5 text-[14px] text-texte-2">Bienvenue sur votre espace d'administration Moziik.</p>
             <div className="mt-5 flex gap-2.5">
-              <Bouton onClick={() => aller("classements")} className="h-10 px-4">
-                <BarChart3 size={16} /> Voir les classements
+              <Bouton onClick={() => aller("statistiques")} className="h-10 px-4">
+                <BarChart3 size={16} /> Voir les statistiques détaillées
               </Bouton>
               <Bouton variante="trait" onClick={() => aller("import")} className="h-10 px-4">
                 <Upload size={16} /> Téléverser
@@ -140,9 +139,9 @@ export function TableauDeBord() {
           valeur={e30?.total}
           tendance={e30?.trendPct ?? undefined}
           contexte="vs 30 j avant"
-          serie={e30?.series.slice(-14).map((p) => p.plays)}
+          serie={e30?.series?.slice(-14).map((p) => p.plays)}
           absent={ecoutes30 === "absent"}
-          onClick={() => aller("classements")}
+          onClick={() => aller("statistiques")}
         />
         <CarteChiffre
           className="decale-4"
@@ -153,7 +152,7 @@ export function TableauDeBord() {
           tendance={stats?.trends?.artists}
           contexte="ce mois"
           serie={stats?.sparklines?.artists}
-          onClick={() => aller("classements")}
+          onClick={() => aller("artistes")}
         />
       </div>
 
@@ -165,7 +164,7 @@ export function TableauDeBord() {
           <div className="grid grid-cols-2 gap-3">
             <TuileAction icone={Upload} teinte={TEINTES[0]} libelle="Téléverser des musiques" onClick={() => aller("import")} />
             <TuileAction icone={UserPlus} teinte={TEINTES[1]} libelle="Ajouter un artiste" onClick={() => setCreerArtiste(true)} />
-            <TuileAction icone={Megaphone} teinte={TEINTES[4]} libelle="Créer une annonce" onClick={() => void window.bureau.ouvrirExterne(`${adresseSite()}/admin/annonces`)} />
+            <TuileAction icone={Megaphone} teinte={TEINTES[4]} libelle="Créer une annonce" onClick={() => aller("annonces")} />
             <TuileAction icone={Settings} teinte={TEINTES[3]} libelle="Gérer les paramètres" onClick={() => aller("reglages")} />
           </div>
         </Carte>
@@ -322,7 +321,7 @@ function TopMusiques({ className, aller }: { className?: string; aller: (p: Page
       .catch((e: Error) => setErreur(e.message));
   }, [univers]);
 
-  const top = donnees?.ranking.slice(0, 5) ?? [];
+  const top = donnees?.ranking?.slice(0, 5) ?? [];
   const max = Math.max(1, ...top.map((t) => t.plays));
 
   return (
@@ -394,7 +393,7 @@ function RepartitionGenres({ className }: { className?: string }) {
     setGenres(null);
     setErreur(null);
     api<{ genres: { genre: string; count: number }[] }>(`/api/genres?univers=${univers}`)
-      .then((r) => setGenres(r.genres))
+      .then((r) => setGenres(r.genres ?? []))
       .catch((e: Error) => setErreur(e.message));
   }, [univers]);
 
@@ -442,7 +441,7 @@ function UtilisateursRecents({ className, aller }: { className?: string; aller: 
   const [erreur, setErreur] = useState<string | null>(null);
   useEffect(() => {
     api<{ users: CompteRecent[] }>("/api/admin/users?page=1&limit=5")
-      .then((r) => setComptes(r.users))
+      .then((r) => setComptes(r.users ?? []))
       .catch((e: Error) => setErreur(e.message));
   }, []);
 
@@ -468,7 +467,7 @@ function UtilisateursRecents({ className, aller }: { className?: string; aller: 
                 <div className="truncate text-[13px] font-semibold">{u.name}</div>
                 <div className="truncate text-[12px] text-texte-3">{formatRelatif(u.createdAt)}</div>
               </div>
-              <Pastille texte={ROLES[u.role].libelle} ton={ROLES[u.role].ton} />
+              <Pastille texte={(ROLES[u.role] ?? ROLES.member).libelle} ton={(ROLES[u.role] ?? ROLES.member).ton} />
             </li>
           ))}
         </ul>
@@ -634,27 +633,6 @@ function DialogueArtiste({ onFermer }: { onFermer: () => void }) {
         </div>
       </form>
     </Dialogue>
-  );
-}
-
-export function Dialogue({ titre, children, onFermer }: { titre: string; children: ReactNode; onFermer: () => void }) {
-  useEffect(() => {
-    const touche = (e: KeyboardEvent) => e.key === "Escape" && onFermer();
-    document.addEventListener("keydown", touche);
-    return () => document.removeEventListener("keydown", touche);
-  }, [onFermer]);
-  return (
-    <div className="animate-paraitre fixed inset-0 z-40 grid place-items-center bg-black/50 p-6" onMouseDown={onFermer}>
-      <div className="animate-monter w-[440px] rounded-2xl border border-filet bg-surface p-6 shadow-2xl shadow-black/40" onMouseDown={(e) => e.stopPropagation()}>
-        <div className="mb-3 flex items-center justify-between">
-          <h2 className="font-titre text-[18px] font-semibold">{titre}</h2>
-          <button onClick={onFermer} className="grid h-8 w-8 place-items-center rounded-lg text-texte-3 hover:bg-surface-2 hover:text-texte" title="Fermer">
-            <X size={17} />
-          </button>
-        </div>
-        {children}
-      </div>
-    </div>
   );
 }
 

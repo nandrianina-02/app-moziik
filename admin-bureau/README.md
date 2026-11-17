@@ -1,9 +1,24 @@
 # Moziik Admin (Windows)
 
-Logiciel de bureau pour administrer Moziik : import de dossiers de musique,
-catalogue, modération, comptes et tableau de bord. C'est un client de l'API
-du site, avec le même compte administrateur et les mêmes routes que
-l'administration web : rien n'entre au catalogue par une autre porte.
+Logiciel de bureau pour administrer Moziik : tableau de bord, musiques,
+artistes, classements, statistiques, utilisateurs, import de dossiers de
+musique, modération et annonces. C'est un client de l'API du site, avec le
+même compte administrateur et les mêmes routes que l'administration web :
+rien n'entre au catalogue par une autre porte.
+
+Le thème est celui du site (sombre par défaut, clair au choix), avec les
+polices Sora et Plus Jakarta Sans embarquées : le logiciel n'a besoin
+d'aucune ressource en ligne pour s'afficher.
+
+## Routes du site propres au logiciel
+
+- `/api/admin/stats/ecoutes?days=N` : écoutes jour par jour, pour les
+  courbes du tableau de bord et des statistiques.
+- `/api/admin/users` rend aussi `stageName` et `artistCoverUrl` pour les
+  comptes d'artistes : la grille des artistes montre le profil public.
+
+Tant que le site déployé ne les a pas, les écrans concernés l'indiquent au
+lieu d'afficher des zéros.
 
 ## Construire
 

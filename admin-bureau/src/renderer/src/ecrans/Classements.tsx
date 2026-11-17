@@ -57,7 +57,7 @@ export function Classements() {
     setReponse(null);
     setErreur(null);
     api<Reponse>(`/api/charts?type=${type}&period=${periode}&univers=${univers}`)
-      .then(setReponse)
+      .then((r) => setReponse({ ...r, ranking: r.ranking ?? [], trendPct: r.trendPct ?? null }))
       .catch((e: Error) => setErreur(e.message));
   }, [type, periode, univers]);
 

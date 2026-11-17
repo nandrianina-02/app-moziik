@@ -1,6 +1,7 @@
 import clsx from "./clsx";
-import { Loader2 } from "lucide-react";
-import type { ButtonHTMLAttributes, InputHTMLAttributes, ReactNode, SelectHTMLAttributes } from "react";
+import { Loader2, X } from "lucide-react";
+import { useEffect } from "react";
+import type { ButtonHTMLAttributes, InputHTMLAttributes, ReactNode, SelectHTMLAttributes, TextareaHTMLAttributes } from "react";
 import { adresseImage } from "./session";
 
 /** Les briques communes : boutons, champs, panneaux, états. */
@@ -191,4 +192,85 @@ export function formatRelatif(iso: string | number | Date) {
   ];
   for (const [unite, duree] of pas) if (Math.abs(s) >= duree) return relatif.format(Math.round(s / duree), unite);
   return "à l'instant";
+}
+
+/** Une fenêtre modale : Échap ou un clic à côté la ferment. */
+export function Dialogue({ titre, children, onFermer }: { titre: string; children: ReactNode; onFermer: () => void }) {
+  useEffect(() => {
+    const touche = (e: KeyboardEvent) => e.key === "Escape" && onFermer();
+    document.addEventListener("keydown", touche);
+    return () => document.removeEventListener("keydown", touche);
+  }, [onFermer]);
+  return (
+    <div className="animate-paraitre fixed inset-0 z-40 grid place-items-center bg-black/50 p-6" onMouseDown={onFermer}>
+      <div className="animate-monter w-[440px] rounded-2xl border border-filet bg-surface p-6 shadow-2xl shadow-black/40" onMouseDown={(e) => e.stopPropagation()}>
+        <div className="mb-3 flex items-center justify-between">
+          <h2 className="font-titre text-[18px] font-semibold">{titre}</h2>
+          <button onClick={onFermer} className="grid h-8 w-8 place-items-center rounded-lg text-texte-3 hover:bg-surface-2 hover:text-texte" title="Fermer">
+            <X size={17} />
+          </button>
+        </div>
+        {children}
+      </div>
+    </div>
+  );
+}
+
+
+/** Un panneau latéral, pour éditer une fiche sans quitter la liste. */
+export function Tiroir({ titre, sousTitre, children, pied, onFermer, largeur = 460 }: { titre: string; sousTitre?: string; children: ReactNode; pied?: ReactNode; onFermer: () => void; largeur?: number }) {
+  useEffect(() => {
+    const touche = (e: KeyboardEvent) => e.key === "Escape" && onFermer();
+    document.addEventListener("keydown", touche);
+    return () => document.removeEventListener("keydown", touche);
+  }, [onFermer]);
+  return (
+    <div className="animate-paraitre fixed inset-0 z-40 flex justify-end bg-black/45" onMouseDown={onFermer}>
+      <aside className="animate-monter flex h-full flex-col border-l border-filet bg-surface" style={{ width: largeur }} onMouseDown={(e) => e.stopPropagation()}>
+        <div className="flex items-start justify-between gap-3 border-b border-filet px-6 py-4">
+          <div className="min-w-0">
+            <h2 className="truncate font-titre text-[18px] font-semibold">{titre}</h2>
+            {sousTitre && <p className="mt-0.5 truncate text-[12px] text-texte-3">{sousTitre}</p>}
+          </div>
+          <button onClick={onFermer} className="grid h-8 w-8 shrink-0 place-items-center rounded-lg text-texte-3 hover:bg-surface-2 hover:text-texte" title="Fermer">
+            <X size={17} />
+          </button>
+        </div>
+        <div className="min-h-0 flex-1 overflow-y-auto px-6 py-5">{children}</div>
+        {pied && <div className="flex justify-end gap-2 border-t border-filet px-6 py-3">{pied}</div>}
+      </aside>
+    </div>
+  );
+}
+
+/** Un interrupteur : un réglage qui vaut oui ou non, avec son explication. */
+export function Bascule({ libelle, aide, valeur, onChange, disabled }: { libelle: string; aide?: string; valeur: boolean; onChange: (v: boolean) => void; disabled?: boolean }) {
+  return (
+    <label className={clsx("flex cursor-pointer items-start justify-between gap-4 py-2.5", disabled && "cursor-not-allowed opacity-60")}>
+      <span className="min-w-0">
+        <span className="block text-[13px] font-medium">{libelle}</span>
+        {aide && <span className="mt-0.5 block text-[12px] text-texte-3">{aide}</span>}
+      </span>
+      <button
+        type="button"
+        role="switch"
+        aria-checked={valeur}
+        disabled={disabled}
+        onClick={() => onChange(!valeur)}
+        className={clsx("relative mt-0.5 h-6 w-11 shrink-0 rounded-full transition-colors", valeur ? "bg-accent" : "bg-filet")}
+      >
+        <span className={clsx("absolute top-0.5 left-0.5 h-5 w-5 rounded-full bg-white shadow transition-transform duration-150", valeur && "translate-x-5")} />
+      </button>
+    </label>
+  );
+}
+
+/** Une zone de texte sur plusieurs lignes, au style des champs. */
+export function ZoneTexte({ libelle, className, ...reste }: TextareaHTMLAttributes<HTMLTextAreaElement> & { libelle?: string }) {
+  return (
+    <label className={clsx("block", className)}>
+      {libelle && <span className="mb-1.5 block text-[12px] font-medium text-texte-2">{libelle}</span>}
+      <textarea className="min-h-[96px] w-full resize-y rounded-lg border border-filet bg-surface-2 px-3 py-2 text-[13px] leading-relaxed text-texte outline-none placeholder:text-texte-3 focus:border-accent" {...reste} />
+    </label>
+  );
 }

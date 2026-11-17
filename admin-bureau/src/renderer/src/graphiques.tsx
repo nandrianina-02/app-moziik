@@ -1,4 +1,4 @@
-import { useEffect, useId, useRef, useState, type MouseEvent } from "react";
+import { useId, useLayoutEffect, useRef, useState, type MouseEvent } from "react";
 import { formatNombre } from "./composants";
 
 /*
@@ -41,11 +41,21 @@ function plafond(max: number) {
 function useLargeur<T extends HTMLElement>() {
   const ref = useRef<T>(null);
   const [largeur, setLargeur] = useState(0);
-  useEffect(() => {
-    if (!ref.current) return;
-    const o = new ResizeObserver(([e]) => setLargeur(e.contentRect.width));
-    o.observe(ref.current);
-    return () => o.disconnect();
+  // Mesure synchrone avant le premier affichage, puis à chaque
+  // redimensionnement : l'observateur seul peut livrer une première
+  // largeur prise en cours de mise en page, plus étroite que la vraie.
+  useLayoutEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const mesurer = () => setLargeur(el.getBoundingClientRect().width);
+    mesurer();
+    const o = new ResizeObserver(mesurer);
+    o.observe(el);
+    window.addEventListener("resize", mesurer);
+    return () => {
+      o.disconnect();
+      window.removeEventListener("resize", mesurer);
+    };
   }, []);
   return [ref, largeur] as const;
 }

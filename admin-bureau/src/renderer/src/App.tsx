@@ -1,4 +1,4 @@
-import { createContext, useCallback, useContext, useEffect, useRef, useState, type FormEvent, type ReactNode } from "react";
+import { Component, createContext, useCallback, useContext, useEffect, useRef, useState, type FormEvent, type ReactNode } from "react";
 import {
   Bell,
   ChevronDown,
@@ -9,6 +9,8 @@ import {
   LifeBuoy,
   LogOut,
   Megaphone,
+  Mic2,
+  ChartLine,
   Moon,
   Music,
   PanelLeftClose,
@@ -28,6 +30,9 @@ import { TableauDeBord } from "./ecrans/TableauDeBord";
 import { Import } from "./ecrans/Import";
 import { Catalogue } from "./ecrans/Catalogue";
 import { Classements } from "./ecrans/Classements";
+import { Artistes } from "./ecrans/Artistes";
+import { Statistiques } from "./ecrans/Statistiques";
+import { Annonces } from "./ecrans/Annonces";
 import { Moderation } from "./ecrans/Moderation";
 import { Comptes } from "./ecrans/Comptes";
 import { Reglages } from "./ecrans/Reglages";
@@ -35,7 +40,7 @@ import { appliquerTheme, themeEnregistre, type Theme } from "./theme";
 import logo from "./assets/icon-mark.png";
 import clsx from "./clsx";
 
-export type Page = "tableau" | "catalogue" | "classements" | "comptes" | "import" | "moderation" | "reglages";
+export type Page = "tableau" | "catalogue" | "artistes" | "classements" | "statistiques" | "comptes" | "import" | "moderation" | "annonces" | "reglages";
 
 /** Ce que l'API d'administration renvoie sur l'ensemble de la plateforme. */
 export interface Stats {
@@ -81,16 +86,18 @@ const ouvrirSurLeSite = (chemin: string) => void window.bureau.ouvrirExterne(`${
 const NAVIGATION: { cle: Page; libelle: string; icone: LucideIcon }[] = [
   { cle: "tableau", libelle: "Tableau de bord", icone: LayoutDashboard },
   { cle: "catalogue", libelle: "Musiques", icone: Music },
+  { cle: "artistes", libelle: "Artistes", icone: Mic2 },
   { cle: "classements", libelle: "Classements", icone: Trophy },
+  { cle: "statistiques", libelle: "Statistiques", icone: ChartLine },
   { cle: "comptes", libelle: "Utilisateurs", icone: Users },
   { cle: "import", libelle: "Téléversements", icone: FolderInput },
   { cle: "moderation", libelle: "Modération", icone: ShieldCheck },
+  { cle: "annonces", libelle: "Annonces", icone: Megaphone },
   { cle: "reglages", libelle: "Paramètres", icone: Settings },
 ];
 
 /** Ce qui ne vit que dans l'administration web : on l'ouvre dans le navigateur. */
 const SUR_LE_SITE: { chemin: string; libelle: string; icone: LucideIcon; compteur?: keyof ATraiter }[] = [
-  { chemin: "/admin/annonces", libelle: "Annonces", icone: Megaphone },
   { chemin: "/admin/messages", libelle: "Assistance", icone: LifeBuoy, compteur: "/admin/messages" },
   { chemin: "/admin/selections", libelle: "Sélections", icone: LibraryBig, compteur: "/admin/selections" },
 ];
@@ -369,15 +376,20 @@ function Coquille() {
           </header>
 
           <main className="min-h-0 flex-1 overflow-auto px-7 py-6" key={page}>
+            <GardeFou>
             <div className="animate-paraitre mx-auto max-w-[1360px]">
               {page === "tableau" && <TableauDeBord />}
               {page === "catalogue" && <Catalogue key={recherche.n} rechercheInitiale={recherche.q} statutInitial={recherche.statut} />}
+              {page === "artistes" && <Artistes />}
               {page === "classements" && <Classements />}
+              {page === "statistiques" && <Statistiques />}
+              {page === "annonces" && <Annonces />}
               {page === "comptes" && <Comptes />}
               {page === "import" && <Import />}
               {page === "moderation" && <Moderation />}
               {page === "reglages" && <Reglages />}
             </div>
+            </GardeFou>
           </main>
         </div>
       </div>
@@ -546,4 +558,28 @@ function ElementMenu({ icone: Icone, children, onClick, danger }: { icone: Lucid
       <Icone size={15} /> {children}
     </button>
   );
+}
+
+/**
+ * Une page qui plante (réponse inattendue du site, par exemple) ne doit pas
+ * emporter toute la fenêtre : la barre latérale reste utilisable et on
+ * peut réessayer.
+ */
+class GardeFou extends Component<{ children: ReactNode }, { erreur: Error | null }> {
+  state = { erreur: null as Error | null };
+  static getDerivedStateFromError(erreur: Error) {
+    return { erreur };
+  }
+  render() {
+    if (!this.state.erreur) return this.props.children;
+    return (
+      <div className="mx-auto mt-16 max-w-[460px] rounded-2xl border border-filet bg-surface p-6 text-center">
+        <div className="font-titre text-[17px] font-semibold">Cette page n'a pas pu s'afficher</div>
+        <p className="mt-2 text-[13px] text-texte-2">Le site a peut-être renvoyé une réponse inattendue. Détail : {this.state.erreur.message}</p>
+        <Bouton className="mt-4" onClick={() => this.setState({ erreur: null })}>
+          Réessayer
+        </Bouton>
+      </div>
+    );
+  }
 }

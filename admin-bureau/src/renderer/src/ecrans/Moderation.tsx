@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { ExternalLink, RefreshCw } from "lucide-react";
 import { adresseSite, api } from "../api";
-import { Bouton, Chargement, EnTete, Erreur, Pastille, Table, Vide, formatDate } from "../composants";
+import { Bouton, Chargement, EnTete, Erreur, Pagination, Pastille, Table, Vide, formatDate, usePages } from "../composants";
 
 interface Commentaire {
   _id: string;
@@ -62,12 +62,13 @@ function Commentaires() {
     setListe(null);
     api<{ comments: Commentaire[]; enAttente: number; totalSignales: number }>(`/api/admin/comments${tous ? "" : "?flagged=1"}`)
       .then((r) => {
-        setListe(r.comments);
+        setListe(r.comments ?? []);
         setCompteurs({ enAttente: r.enAttente, totalSignales: r.totalSignales });
       })
       .catch((e) => setErreur(e.message));
   };
   useEffect(charger, [tous]);
+  const pages = usePages(liste, 20, String(tous));
 
   async function supprimer(id: string) {
     setEnCours(id);
@@ -103,7 +104,7 @@ function Commentaires() {
         <Vide texte={tous ? "Aucun commentaire." : "Aucun commentaire signalé."} />
       ) : (
         <Table entetes={["Commentaire", { libelle: "Auteur", largeur: "160px" }, { libelle: "Titre", largeur: "200px" }, { libelle: "Date", largeur: "110px" }, { libelle: "", largeur: "110px" }]}>
-          {liste.map((c) => (
+          {pages.tranche.map((c) => (
             <tr key={c._id} className="align-top">
               <td className="px-3 py-2" data-selectionnable>
                 {c.flagged && <Pastille texte="signalé" ton="danger" />} <span className="whitespace-pre-line">{c.text}</span>
@@ -127,6 +128,7 @@ function Commentaires() {
           ))}
         </Table>
       )}
+      {liste && <Pagination className="mt-4" page={pages.page} pages={pages.pages} total={pages.total} taille={pages.taille} onPage={pages.setPage} />}
     </>
   );
 }
@@ -139,10 +141,11 @@ function Evenements() {
   const charger = () => {
     setListe(null);
     api<{ events: Evenement[] }>("/api/admin/events?status=pending&limit=100")
-      .then((r) => setListe(r.events))
+      .then((r) => setListe(r.events ?? []))
       .catch((e) => setErreur(e.message));
   };
   useEffect(charger, []);
+  const pages = usePages(liste, 20);
 
   async function decider(id: string, decision: "approve" | "reject") {
     setEnCours(`${id}:${decision}`);
@@ -167,7 +170,7 @@ function Evenements() {
         <Vide texte="Aucun évènement en attente." />
       ) : (
         <Table entetes={["Évènement", { libelle: "Organisateur", largeur: "180px" }, { libelle: "Date", largeur: "110px" }, { libelle: "Lieu", largeur: "160px" }, { libelle: "", largeur: "190px" }]}>
-          {liste.map((e) => (
+          {pages.tranche.map((e) => (
             <tr key={e._id}>
               <td className="px-3 py-2 font-medium">
                 {e.title}
@@ -192,6 +195,7 @@ function Evenements() {
           ))}
         </Table>
       )}
+      {liste && <Pagination className="mt-4" page={pages.page} pages={pages.pages} total={pages.total} taille={pages.taille} onPage={pages.setPage} />}
     </>
   );
 }

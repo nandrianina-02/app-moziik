@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { FolderOpen, Play, Square } from "lucide-react";
 import { api, ErreurApi } from "../api";
-import { Bouton, Chargement, EnTete, Erreur, Pastille, Selection, Table, Vide, formatDuree } from "../composants";
+import { Bouton, Chargement, EnTete, Erreur, Pagination, Pastille, Selection, Table, Vide, formatDuree, usePages } from "../composants";
 import { adresseImage } from "../session";
 import { televerser } from "../envoi";
 import type { Etiquettes, FichierAudio } from "../../../partage/types";
@@ -216,6 +216,10 @@ export function Import() {
     return c;
   }, [lignes]);
   const ligneOuverte = lignes.find((l) => l.id === selection) ?? null;
+  // Un dossier peut compter des centaines de fichiers : 50 par page, et la
+  // page ne bouge pas pendant l'envoi (les statuts changent, pas la liste).
+  const pages = usePages(lignes, 50, dossier ?? "");
+  const pagination = <Pagination page={pages.page} pages={pages.pages} total={pages.total} taille={pages.taille} onPage={pages.setPage} />;
 
   return (
     <>
@@ -241,10 +245,13 @@ export function Import() {
       />
       <Erreur message={erreur} />
       {lignes.length > 0 && (
-        <p className="mb-3 text-[13px] text-texte-2">
+        <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
+        <p className="text-[13px] text-texte-2">
           {lignes.length} fichiers · {compte.pret ?? 0} prêts · {compte.incomplet ?? 0} à compléter · {compte.doublon ?? 0} doublons · {compte.termine ?? 0} publiés
           {compte.erreur ? ` · ${compte.erreur} en erreur` : ""}
         </p>
+        {pagination}
+        </div>
       )}
       {phase === "analyse" && lignes.length === 0 ? (
         <Chargement texte="Lecture du dossier" />
@@ -252,7 +259,7 @@ export function Import() {
         <Vide texte="Aucun dossier choisi." />
       ) : (
         <Table entetes={["", "Fichier", "Titre", "Artiste", "Album", { libelle: "Année", largeur: "70px" }, { libelle: "Durée", droite: true, largeur: "70px" }, { libelle: "État", largeur: "130px" }]}>
-          {lignes.map((l) => (
+          {pages.tranche.map((l) => (
             <tr key={l.id} onClick={() => setSelection(l.id)} className={`cursor-pointer hover:bg-surface-2 ${selection === l.id ? "bg-surface-2" : ""}`}>
               <td className="w-10 px-2 py-1.5">
                 {l.etiquettes?.pochette ? (
@@ -290,6 +297,7 @@ export function Import() {
           ))}
         </Table>
       )}
+      {lignes.length > 0 && <div className="mt-4">{pagination}</div>}
       {ligneOuverte && (
         <FicheLigne
           ligne={ligneOuverte}

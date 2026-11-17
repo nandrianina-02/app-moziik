@@ -3,7 +3,7 @@ import { BadgeCheck, Camera, Disc3, ExternalLink, Headphones, Heart, Music, Refr
 import { api, adresseSite } from "../api";
 import { adresseImage } from "../session";
 import { televerser } from "../envoi";
-import { Bascule, Bouton, Champ, Chargement, EnTete, Erreur, Tiroir, Vide, ZoneTexte, formatCompact, formatNombre } from "../composants";
+import { Bascule, Bouton, Champ, Chargement, EnTete, Erreur, Pagination, Tiroir, Vide, ZoneTexte, formatCompact, formatNombre } from "../composants";
 import clsx from "../clsx";
 
 interface CompteArtiste {
@@ -124,7 +124,7 @@ export function Artistes() {
             </button>
           ))}
         </div>
-        {reponse && reponse.pages > 1 && <Pagination page={reponse.page} pages={reponse.pages} onPage={setPage} />}
+        {reponse && <Pagination className="ml-auto" page={reponse.page} pages={reponse.pages} total={reponse.total} taille={TAILLE} onPage={setPage} />}
       </div>
 
       <Erreur message={erreur} />
@@ -171,11 +171,7 @@ export function Artistes() {
         </div>
       ) : null}
 
-      {reponse && reponse.pages > 1 && (
-        <div className="mt-6 flex justify-center">
-          <Pagination page={reponse.page} pages={reponse.pages} onPage={setPage} />
-        </div>
-      )}
+      {reponse && reponse.users.length > 0 && <Pagination className="mt-6" page={reponse.page} pages={reponse.pages} total={reponse.total} taille={TAILLE} onPage={setPage} />}
 
       {ouvert?.artistId && (
         <FicheArtiste
@@ -194,22 +190,6 @@ export function Artistes() {
         />
       )}
     </>
-  );
-}
-
-function Pagination({ page, pages, onPage }: { page: number; pages: number; onPage: (p: number) => void }) {
-  return (
-    <div className="ml-auto flex items-center gap-2 text-[12.5px] text-texte-2">
-      <Bouton variante="trait" className="h-8" disabled={page <= 1} onClick={() => onPage(page - 1)}>
-        Précédente
-      </Bouton>
-      <span className="tabular-nums">
-        {page} / {pages}
-      </span>
-      <Bouton variante="trait" className="h-8" disabled={page >= pages} onClick={() => onPage(page + 1)}>
-        Suivante
-      </Bouton>
-    </div>
   );
 }
 

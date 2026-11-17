@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { BadgeCheck, Crown, Link2, Megaphone, Send, Users } from "lucide-react";
 import { api } from "../api";
-import { Bouton, Carte, Champ, Chargement, Dialogue, EnTete, Erreur, Vide, ZoneTexte, formatNombre, formatRelatif } from "../composants";
+import { Bouton, Carte, Champ, Chargement, Dialogue, EnTete, Erreur, Pagination, Vide, ZoneTexte, formatNombre, formatRelatif, usePages } from "../composants";
 import clsx from "../clsx";
 
 type Public = "tous" | "artistes" | "premium";
@@ -53,6 +53,7 @@ export function Annonces() {
   }, []);
 
   const pret = titre.trim().length > 0 && message.trim().length > 0;
+  const pages = usePages(annonces, 10);
 
   async function envoyer() {
     setEnCours(true);
@@ -141,7 +142,7 @@ export function Annonces() {
             <Vide texte="Aucune annonce envoyée pour l'instant." />
           ) : (
             <ul className="divide-y divide-filet">
-              {annonces.map((a) => {
+              {pages.tranche.map((a) => {
                 const p = PUBLICS.find((x) => x.cle === a.public) ?? PUBLICS[0];
                 return (
                   <li key={a._id} className="flex gap-4 py-3.5">
@@ -164,6 +165,7 @@ export function Annonces() {
               })}
             </ul>
           )}
+          {annonces && <Pagination className="mt-4" page={pages.page} pages={pages.pages} total={pages.total} taille={pages.taille} onPage={pages.setPage} />}
         </Carte>
       </div>
 

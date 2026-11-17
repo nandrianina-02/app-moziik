@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { ExternalLink, RefreshCw, Search } from "lucide-react";
 import { adresseSite, api } from "../api";
-import { Bouton, Champ, Chargement, EnTete, Erreur, Pastille, Selection, Table, Vide, formatDate, formatDuree } from "../composants";
+import { Bouton, Champ, Chargement, EnTete, Erreur, Pagination, Pastille, Selection, Table, Vide, formatDate, formatDuree, usePages } from "../composants";
 import { adresseImage } from "../session";
 
 interface Titre {
@@ -55,6 +55,10 @@ export function Catalogue({ rechercheInitiale = "", statutInitial = "" }: { rech
     if (!q) return titres ?? [];
     return (titres ?? []).filter((t) => t.title.toLowerCase().includes(q) || t.artist?.stageName.toLowerCase().includes(q));
   }, [titres, recherche]);
+  // Le site rend tout le catalogue d'un coup ; l'afficher en entier ferait
+  // une table de plusieurs milliers de lignes.
+  const pages = usePages(visibles, 50, `${statut}|${recherche}`);
+  const pagination = <Pagination page={pages.page} pages={pages.pages} total={pages.total} taille={pages.taille} onPage={pages.setPage} />;
 
   return (
     <>
@@ -88,6 +92,7 @@ export function Catalogue({ rechercheInitiale = "", statutInitial = "" }: { rech
             </button>
           ))}
         </div>
+        {titres && <div className="ml-auto">{pagination}</div>}
       </div>
       <Erreur message={erreur} />
       {!titres ? (
@@ -96,7 +101,7 @@ export function Catalogue({ rechercheInitiale = "", statutInitial = "" }: { rech
         <Vide texte="Aucun titre." />
       ) : (
         <Table entetes={["", "Titre", "Artiste", "Genre", { libelle: "Sortie", largeur: "110px" }, { libelle: "Durée", droite: true, largeur: "70px" }, { libelle: "Écoutes", droite: true, largeur: "80px" }, { libelle: "État", largeur: "100px" }]}>
-          {visibles.map((t) => (
+          {pages.tranche.map((t) => (
             <tr key={t._id} onClick={() => setOuvert(t)} className="cursor-pointer hover:bg-surface-2">
               <td className="w-10 px-2 py-1.5">
                 {t.coverUrl ? <img src={adresseImage(t.coverUrl) ?? undefined} alt="" className="h-8 w-8 rounded object-cover" /> : <div className="h-8 w-8 rounded bg-surface-2" />}
@@ -120,6 +125,7 @@ export function Catalogue({ rechercheInitiale = "", statutInitial = "" }: { rech
           ))}
         </Table>
       )}
+      {titres && visibles.length > 0 && <div className="mt-4">{pagination}</div>}
       {ouvert && (
         <FicheTitre
           titre={ouvert}

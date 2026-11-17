@@ -1,6 +1,6 @@
 import clsx from "./clsx";
-import { Loader2, X } from "lucide-react";
-import { useEffect } from "react";
+import { ChevronLeft, ChevronRight, Loader2, X } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
 import type { ButtonHTMLAttributes, InputHTMLAttributes, ReactNode, SelectHTMLAttributes, TextareaHTMLAttributes } from "react";
 import { adresseImage } from "./session";
 
@@ -19,7 +19,7 @@ export function Bouton({
       type="button"
       disabled={disabled || enCours}
       className={clsx(
-        "inline-flex h-9 items-center gap-1.5 rounded-lg px-3.5 text-[13px] font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-50",
+        "inline-flex h-9 shrink-0 items-center gap-1.5 rounded-lg px-3.5 text-[13px] font-semibold whitespace-nowrap transition-colors disabled:cursor-not-allowed disabled:opacity-50",
         variante === "plein" && "bg-accent text-sur-accent hover:bg-accent-fort",
         variante === "trait" && "border border-filet bg-surface text-texte hover:bg-surface-2",
         variante === "danger" && "border border-danger/40 text-danger hover:bg-danger/10",
@@ -273,4 +273,88 @@ export function ZoneTexte({ libelle, className, ...reste }: TextareaHTMLAttribut
       <textarea className="min-h-[96px] w-full resize-y rounded-lg border border-filet bg-surface-2 px-3 py-2 text-[13px] leading-relaxed text-texte outline-none placeholder:text-texte-3 focus:border-accent" {...reste} />
     </label>
   );
+}
+
+/**
+ * Les numéros à montrer : la première, la dernière, et deux de part et
+ * d'autre de la page courante ; « … » pour les trous. Au-delà, une barre
+ * de pagination devient une liste à parcourir.
+ */
+function numerosAffiches(page: number, pages: number): (number | "…")[] {
+  const garder = new Set([1, pages, page - 2, page - 1, page, page + 1, page + 2].filter((n) => n >= 1 && n <= pages));
+  const tries = [...garder].sort((a, b) => a - b);
+  const sortie: (number | "…")[] = [];
+  tries.forEach((n, i) => {
+    if (i > 0 && n - tries[i - 1] > 1) sortie.push("…");
+    sortie.push(n);
+  });
+  return sortie;
+}
+
+/** La barre de pagination : position dans la liste, pages voisines, précédente et suivante. */
+export function Pagination({ page, pages, total, taille, onPage, className }: { page: number; pages: number; total: number; taille: number; onPage: (p: number) => void; className?: string }) {
+  if (total === 0) return null;
+  const debut = (page - 1) * taille + 1;
+  const fin = Math.min(total, page * taille);
+  return (
+    <div className={clsx("flex flex-wrap items-center justify-between gap-3 text-[12.5px]", className)}>
+      <span className="text-texte-3 tabular-nums">
+        {formatNombre(debut)}–{formatNombre(fin)} sur {formatNombre(total)}
+      </span>
+      {pages > 1 && (
+        <nav className="flex items-center gap-1" aria-label="Pagination">
+          <button
+            onClick={() => onPage(page - 1)}
+            disabled={page <= 1}
+            className="grid h-8 w-8 place-items-center rounded-lg border border-filet bg-surface text-texte-2 hover:text-texte disabled:opacity-40"
+            title="Page précédente"
+          >
+            <ChevronLeft size={15} />
+          </button>
+          {numerosAffiches(page, pages).map((n, i) =>
+            n === "…" ? (
+              <span key={`t${i}`} className="w-6 text-center text-texte-3">
+                …
+              </span>
+            ) : (
+              <button
+                key={n}
+                onClick={() => onPage(n)}
+                aria-current={n === page ? "page" : undefined}
+                className={clsx(
+                  "h-8 min-w-8 rounded-lg px-2 font-semibold tabular-nums transition-colors",
+                  n === page ? "bg-accent text-sur-accent" : "border border-filet bg-surface text-texte-2 hover:text-texte",
+                )}
+              >
+                {n}
+              </button>
+            ),
+          )}
+          <button
+            onClick={() => onPage(page + 1)}
+            disabled={page >= pages}
+            className="grid h-8 w-8 place-items-center rounded-lg border border-filet bg-surface text-texte-2 hover:text-texte disabled:opacity-40"
+            title="Page suivante"
+          >
+            <ChevronRight size={15} />
+          </button>
+        </nav>
+      )}
+    </div>
+  );
+}
+
+/**
+ * Découpe en pages une liste déjà chargée. La page revient à la première
+ * quand `cle` change (un filtre, une recherche) ; une suppression, elle,
+ * laisse sur la même page, ramenée à la dernière si celle-ci disparaît.
+ */
+export function usePages<T>(liste: T[] | null | undefined, taille: number, cle?: string) {
+  const [page, setPage] = useState(1);
+  const total = liste?.length ?? 0;
+  const pages = Math.max(1, Math.ceil(total / taille));
+  useEffect(() => setPage(1), [cle]);
+  const courante = Math.min(page, pages);
+  const tranche = useMemo(() => (liste ?? []).slice((courante - 1) * taille, courante * taille), [liste, courante, taille]);
+  return { page: courante, pages, total, taille, tranche, setPage };
 }

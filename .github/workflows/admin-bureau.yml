@@ -52,10 +52,19 @@ jobs:
       # page locale, il appelle le site et Karaks Storage, puis encode un son
       # d'essai dans les trois qualités d'écoute. Si un appel reste bloqué
       # (CORS) ou si l'encodeur ne démarre pas, l'installeur n'est pas publié.
+      # Le verdict est relu dans un fichier : le code de sortie d'Electron ne
+      # remonte pas de façon fiable jusqu'ici. Pas de fichier, pas de « OK » :
+      # l'étape échoue.
       - name: Essais dans Electron (réseau, encodage)
-        run: npx electron .
+        shell: bash
+        run: |
+          npx electron . || true
+          verdict="$(cat "$MOZIIK_ESSAI_SORTIE" 2>/dev/null || echo "aucun verdict")"
+          echo "Verdict : $verdict"
+          [ "$verdict" = "OK" ]
         env:
           MOZIIK_ESSAI_RESEAU: "1"
+          MOZIIK_ESSAI_SORTIE: ${{ runner.temp }}/moziik-essai.txt
 
       - name: Installeur (artefact)
         uses: actions/upload-artifact@v4

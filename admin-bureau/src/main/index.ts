@@ -208,7 +208,12 @@ async function essaiReseau() {
   // l'utilisateur : son encodeur MP3 tourne dans un worker, que Chromium
   // pourrait refuser de démarrer depuis une page file://.
   const encodage = await attendreResultat("Essai encodage", (f) => f.loadFile(join(__dirname, "../renderer/index.html"), { query: { essai: "encodage" } }));
-  app.exit(reseau && encodage ? 0 : 1);
+  const verdict = reseau && encodage ? "OK" : "ECHEC";
+  // Le verdict est aussi écrit dans un fichier, que l'intégration continue
+  // relit : le code de sortie d'Electron ne lui parvient pas toujours.
+  if (process.env.MOZIIK_ESSAI_SORTIE) await writeFile(process.env.MOZIIK_ESSAI_SORTIE, verdict);
+  console.log(`Essais : ${verdict}`);
+  app.exit(verdict === "OK" ? 0 : 1);
 }
 
 /** Charge une page d'essai et attend son verdict, écrit dans le titre : « OK|… » ou « ECHEC|… ». */
@@ -228,9 +233,11 @@ function attendreResultat(nom: string, charger: (f: BrowserWindow) => Promise<vo
       fenetre.destroy();
       resoudre(etat === "OK");
     });
+    fenetre.webContents.on("console-message", (_e, _niveau, message) => console.log(`${nom} (console) : ${message}`));
     charger(fenetre).catch((e) => {
       clearTimeout(delai);
       console.error(`${nom} : chargement impossible (${e instanceof Error ? e.message : e}).`);
+      if (!fenetre.isDestroyed()) fenetre.destroy();
       resoudre(false);
     });
   });
@@ -245,4 +252,9 @@ app.whenReady().then(() => {
   });
 });
 
-app.on("window-all-closed", () => app.quit());
+// En mode d'essai, les fenêtres se succèdent : fermer la première ne doit pas
+// quitter le logiciel avant que la suivante ait rendu son verdict (c'est ce
+// qui interrompait l'essai d'encodage et le faisait passer pour réussi).
+app.on("window-all-closed", () => {
+  if (process.env.MOZIIK_ESSAI_RESEAU !== "1") app.quit();
+});

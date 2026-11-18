@@ -23,6 +23,22 @@ import {
   Trophy,
   Users,
   WifiOff,
+  ChartNoAxesCombined,
+  Timer,
+  Disc3,
+  ListMusic,
+  Split,
+  CopyCheck,
+  CalendarClock,
+  Tags,
+  Award,
+  MessageCircleWarning,
+  BookOpen,
+  Globe,
+  Sparkles,
+  TextQuote,
+  Gauge,
+  PanelsTopLeft,
   type LucideIcon,
 } from "lucide-react";
 import { FournisseurSession, useSession } from "./session";
@@ -36,6 +52,23 @@ import { Artistes } from "./ecrans/Artistes";
 import { Statistiques } from "./ecrans/Statistiques";
 import { Annonces } from "./ecrans/Annonces";
 import { Assistance } from "./ecrans/Assistance";
+import { Paroles } from "./ecrans/Paroles";
+import { Accueil } from "./ecrans/Accueil";
+import { Aide } from "./ecrans/Aide";
+import { ParametresSite } from "./ecrans/ParametresSite";
+import { Selections } from "./ecrans/Selections";
+import { Taches } from "./ecrans/Taches";
+import { IA } from "./ecrans/IA";
+import { Analyses } from "./ecrans/Analyses";
+import { Univers } from "./ecrans/Univers";
+import { Albums } from "./ecrans/Albums";
+import { Playlists } from "./ecrans/Playlists";
+import { Badges } from "./ecrans/Badges";
+import { Escalades } from "./ecrans/Escalades";
+import { Doublons } from "./ecrans/Doublons";
+import { Annees } from "./ecrans/Annees";
+import { Genres } from "./ecrans/Genres";
+import { Bpm } from "./ecrans/Bpm";
 import { Moderation } from "./ecrans/Moderation";
 import { Comptes } from "./ecrans/Comptes";
 import { Reglages } from "./ecrans/Reglages";
@@ -48,7 +81,35 @@ import { FournisseurTeleversements, useTeleversements } from "./televersements";
 import logo from "./assets/icon-mark.png";
 import clsx from "./clsx";
 
-export type Page = "tableau" | "catalogue" | "artistes" | "classements" | "statistiques" | "comptes" | "import" | "moderation" | "annonces" | "assistance" | "reglages";
+export type Page =
+  | "tableau"
+  | "statistiques"
+  | "analyses"
+  | "classements"
+  | "taches"
+  | "catalogue"
+  | "artistes"
+  | "albums"
+  | "playlists"
+  | "import"
+  | "univers"
+  | "selections"
+  | "paroles"
+  | "bpm"
+  | "accueil"
+  | "moderation"
+  | "doublons"
+  | "annees"
+  | "genres"
+  | "comptes"
+  | "badges"
+  | "annonces"
+  | "assistance"
+  | "escalades"
+  | "aide"
+  | "site"
+  | "ia"
+  | "reglages";
 
 /** Ce que l'API d'administration renvoie sur l'ensemble de la plateforme. */
 export interface Stats {
@@ -91,24 +152,72 @@ export function useCoquille() {
 
 const ouvrirSurLeSite = (chemin: string) => void window.bureau.ouvrirExterne(`${adresseSite()}${chemin}`);
 
-const NAVIGATION: { cle: Page; libelle: string; icone: LucideIcon }[] = [
-  { cle: "tableau", libelle: "Tableau de bord", icone: LayoutDashboard },
-  { cle: "catalogue", libelle: "Musiques", icone: Music },
-  { cle: "artistes", libelle: "Artistes", icone: Mic2 },
-  { cle: "classements", libelle: "Classements", icone: Trophy },
-  { cle: "statistiques", libelle: "Statistiques", icone: ChartLine },
-  { cle: "comptes", libelle: "Utilisateurs", icone: Users },
-  { cle: "import", libelle: "Téléversements", icone: FolderInput },
-  { cle: "moderation", libelle: "Modération", icone: ShieldCheck },
-  { cle: "annonces", libelle: "Annonces", icone: Megaphone },
-  { cle: "assistance", libelle: "Assistance", icone: LifeBuoy },
-  { cle: "reglages", libelle: "Paramètres", icone: Settings },
+/**
+ * La navigation, en cinq sections comme l'administration du site : tout
+ * ce que le site permet d'administrer se fait ici, sans navigateur.
+ */
+const SECTIONS: { titre: string; court: string; pages: { cle: Page; libelle: string; icone: LucideIcon }[] }[] = [
+  {
+    titre: "Pilotage",
+    court: "Pilot.",
+    pages: [
+      { cle: "tableau", libelle: "Tableau de bord", icone: LayoutDashboard },
+      { cle: "statistiques", libelle: "Statistiques", icone: ChartLine },
+      { cle: "analyses", libelle: "Analyses", icone: ChartNoAxesCombined },
+      { cle: "classements", libelle: "Classements", icone: Trophy },
+      { cle: "taches", libelle: "Tâches planifiées", icone: Timer },
+    ],
+  },
+  {
+    titre: "Catalogue",
+    court: "Catal.",
+    pages: [
+      { cle: "catalogue", libelle: "Musiques", icone: Music },
+      { cle: "artistes", libelle: "Artistes", icone: Mic2 },
+      { cle: "albums", libelle: "Albums", icone: Disc3 },
+      { cle: "playlists", libelle: "Playlists", icone: ListMusic },
+      { cle: "import", libelle: "Téléversements", icone: FolderInput },
+      { cle: "univers", libelle: "Univers", icone: Split },
+      { cle: "selections", libelle: "Sélections", icone: LibraryBig },
+      { cle: "paroles", libelle: "Paroles", icone: TextQuote },
+      { cle: "bpm", libelle: "Tempo (BPM)", icone: Gauge },
+    ],
+  },
+  {
+    titre: "Qualité",
+    court: "Qual.",
+    pages: [
+      { cle: "moderation", libelle: "Modération", icone: ShieldCheck },
+      { cle: "doublons", libelle: "Doublons", icone: CopyCheck },
+      { cle: "annees", libelle: "Années de sortie", icone: CalendarClock },
+      { cle: "genres", libelle: "Genres", icone: Tags },
+    ],
+  },
+  {
+    titre: "Communauté",
+    court: "Comm.",
+    pages: [
+      { cle: "comptes", libelle: "Utilisateurs", icone: Users },
+      { cle: "badges", libelle: "Badges", icone: Award },
+      { cle: "annonces", libelle: "Annonces", icone: Megaphone },
+      { cle: "assistance", libelle: "Assistance", icone: LifeBuoy },
+      { cle: "escalades", libelle: "Escalades", icone: MessageCircleWarning },
+      { cle: "aide", libelle: "Centre d'aide", icone: BookOpen },
+    ],
+  },
+  {
+    titre: "Site",
+    court: "Site",
+    pages: [
+      { cle: "accueil", libelle: "Pages du site", icone: PanelsTopLeft },
+      { cle: "site", libelle: "Paramètres du site", icone: Globe },
+      { cle: "ia", libelle: "Intelligence artificielle", icone: Sparkles },
+      { cle: "reglages", libelle: "Préférences", icone: Settings },
+    ],
+  },
 ];
+export const NAVIGATION = SECTIONS.flatMap((s) => s.pages);
 
-/** Ce qui ne vit que dans l'administration web : on l'ouvre dans le navigateur. */
-const SUR_LE_SITE: { chemin: string; libelle: string; icone: LucideIcon; compteur?: keyof ATraiter }[] = [
-  { chemin: "/admin/selections", libelle: "Sélections", icone: LibraryBig, compteur: "/admin/selections" },
-];
 
 export function App() {
   return (
@@ -268,6 +377,17 @@ function Coquille() {
   const [aTraiter, setATraiter] = useState<ATraiter>({});
   const utilisateur = etat.phase === "connecte" ? etat.utilisateur : null;
   const { avancement, choisir } = useTeleversements();
+  // Ce qui attend sur chaque page, à côté de son entrée dans la barre latérale.
+  const compteurDe = (cle: Page): number | undefined =>
+    ({
+      catalogue: stats?.pendingSongs,
+      moderation: stats?.pendingEvents,
+      assistance: aTraiter["/admin/messages"],
+      doublons: aTraiter["/admin/doublons"],
+      annees: aTraiter["/admin/annees"],
+      genres: aTraiter["/admin/genres"],
+      selections: aTraiter["/admin/selections"],
+    })[cle as string];
   const [palette, setPalette] = useState(false);
 
   // Une nouvelle version se signale en bas de la barre latérale : vérifiée au
@@ -380,10 +500,10 @@ function Coquille() {
     { libelle: "Titres en attente de validation", nombre: stats?.pendingSongs ?? 0, ouvrir: () => aller("catalogue", "", "draft") },
     { libelle: "Évènements en attente", nombre: stats?.pendingEvents ?? 0, ouvrir: () => aller("moderation") },
     { libelle: "Messages d'assistance non lus", nombre: aTraiter["/admin/messages"] ?? 0, ouvrir: () => aller("assistance") },
-    { libelle: "Doublons à trancher", nombre: aTraiter["/admin/doublons"] ?? 0, ouvrir: () => ouvrirSurLeSite("/admin/doublons") },
-    { libelle: "Années de sortie douteuses", nombre: aTraiter["/admin/annees"] ?? 0, ouvrir: () => ouvrirSurLeSite("/admin/annees") },
-    { libelle: "Genres proposés", nombre: aTraiter["/admin/genres"] ?? 0, ouvrir: () => ouvrirSurLeSite("/admin/genres") },
-    { libelle: "Sélections à valider", nombre: aTraiter["/admin/selections"] ?? 0, ouvrir: () => ouvrirSurLeSite("/admin/selections") },
+    { libelle: "Doublons à trancher", nombre: aTraiter["/admin/doublons"] ?? 0, ouvrir: () => aller("doublons") },
+    { libelle: "Années de sortie douteuses", nombre: aTraiter["/admin/annees"] ?? 0, ouvrir: () => aller("annees") },
+    { libelle: "Genres proposés", nombre: aTraiter["/admin/genres"] ?? 0, ouvrir: () => aller("genres") },
+    { libelle: "Sélections à valider", nombre: aTraiter["/admin/selections"] ?? 0, ouvrir: () => aller("selections") },
   ];
 
   // Le bouton de l'en-tête choisit explicitement l'autre thème, même si
@@ -406,30 +526,24 @@ function Coquille() {
           </div>
 
           <nav className="flex-1 overflow-y-auto px-3 py-2">
-            {NAVIGATION.map((p) => (
-              <EntreeNav
-                key={p.cle}
-                icone={p.icone}
-                libelle={p.libelle}
-                replie={replie}
-                actif={page === p.cle}
-                compteur={p.cle === "moderation" ? stats?.pendingEvents : p.cle === "catalogue" ? stats?.pendingSongs : p.cle === "assistance" ? aTraiter["/admin/messages"] : undefined}
-                activite={p.cle === "import" && avancement.phase !== "repos" ? `${avancement.faits}/${avancement.aFaire}` : undefined}
-                onClick={() => aller(p.cle)}
-              />
-            ))}
-
-            <div className={clsx("mt-5 mb-1.5 text-[11px] font-semibold tracking-wider text-texte-3 uppercase", replie ? "text-center" : "px-3")}>{replie ? "Site" : "Sur le site"}</div>
-            {SUR_LE_SITE.map((l) => (
-              <EntreeNav
-                key={l.chemin}
-                icone={l.icone}
-                libelle={l.libelle}
-                replie={replie}
-                externe
-                compteur={l.compteur ? aTraiter[l.compteur] : undefined}
-                onClick={() => ouvrirSurLeSite(l.chemin)}
-              />
+            {SECTIONS.map((section, i) => (
+              <div key={section.titre} className={clsx(i > 0 && "mt-4")}>
+                <div className={clsx("mb-1.5 text-[11px] font-semibold tracking-wider text-texte-3 uppercase", replie ? "text-center text-[9.5px]" : "px-3")}>
+                  {replie ? section.court : section.titre}
+                </div>
+                {section.pages.map((p) => (
+                  <EntreeNav
+                    key={p.cle}
+                    icone={p.icone}
+                    libelle={p.libelle}
+                    replie={replie}
+                    actif={page === p.cle}
+                    compteur={compteurDe(p.cle)}
+                    activite={p.cle === "import" && avancement.phase !== "repos" ? `${avancement.faits}/${avancement.aFaire}` : undefined}
+                    onClick={() => aller(p.cle)}
+                  />
+                ))}
+              </div>
             ))}
           </nav>
 
@@ -545,6 +659,23 @@ function Coquille() {
               {page === "statistiques" && <Statistiques />}
               {page === "annonces" && <Annonces />}
               {page === "assistance" && <Assistance />}
+              {page === "paroles" && <Paroles />}
+              {page === "accueil" && <Accueil />}
+              {page === "aide" && <Aide />}
+              {page === "site" && <ParametresSite />}
+              {page === "selections" && <Selections />}
+              {page === "taches" && <Taches />}
+              {page === "ia" && <IA />}
+              {page === "analyses" && <Analyses />}
+              {page === "univers" && <Univers />}
+              {page === "albums" && <Albums />}
+              {page === "playlists" && <Playlists />}
+              {page === "badges" && <Badges />}
+              {page === "escalades" && <Escalades />}
+              {page === "doublons" && <Doublons />}
+              {page === "annees" && <Annees />}
+              {page === "genres" && <Genres />}
+              {page === "bpm" && <Bpm />}
               {page === "comptes" && <Comptes key={recherche.n} rechercheInitiale={recherche.q} />}
               {page === "import" && <Import />}
               {page === "moderation" && <Moderation />}

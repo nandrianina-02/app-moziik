@@ -65,7 +65,7 @@ export function TableauDeBord() {
 
   useEffect(() => {
     api<Ecoutes>("/api/admin/stats/ecoutes?days=30")
-      .then(setEcoutes30)
+      .then((r) => setEcoutes30({ ...r, total: r.total ?? 0, trendPct: r.trendPct ?? null, series: r.series ?? [] }))
       .catch((e) => {
         // Site pas encore mis à jour : on retombe sur le total par pays,
         // qui existe depuis plus longtemps, sans courbe.
@@ -255,7 +255,8 @@ function EvolutionEcoutes({ className }: { className?: string }) {
     setDonnees(null);
     setMessage(null);
     api<Ecoutes>(`/api/admin/stats/ecoutes?days=${jours}`)
-      .then(setDonnees)
+      // Une réponse incomplète (site plus ancien) ne doit pas faire tomber le tableau de bord.
+      .then((r) => setDonnees({ ...r, total: r.total ?? 0, trendPct: r.trendPct ?? null, series: r.series ?? [] }))
       .catch((e) =>
         setMessage(e instanceof ErreurApi && e.statut === 404 ? "La courbe jour par jour arrive avec la prochaine mise à jour du site." : e instanceof Error ? e.message : "Données indisponibles."),
       );
@@ -317,7 +318,7 @@ function TopMusiques({ className, aller }: { className?: string; aller: (p: Page
     setDonnees(null);
     setErreur(null);
     api<Classement>(`/api/charts?type=songs&period=month&univers=${univers}`)
-      .then(setDonnees)
+      .then((r) => setDonnees({ ...r, ranking: r.ranking ?? [] }))
       .catch((e: Error) => setErreur(e.message));
   }, [univers]);
 

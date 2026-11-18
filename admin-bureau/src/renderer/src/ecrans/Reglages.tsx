@@ -8,20 +8,13 @@ import { reinitialiserVues } from "../vues";
 import { useTeleversements } from "../televersements";
 import { confirmer } from "../interactions";
 import { derniereVersion, plusRecente } from "../miseajour";
+import { NAVIGATION } from "../App";
 import clsx from "../clsx";
 
-const PAGES_DEMARRAGE: [string, string][] = [
-  ["tableau", "Tableau de bord"],
-  ["catalogue", "Musiques"],
-  ["artistes", "Artistes"],
-  ["classements", "Classements"],
-  ["statistiques", "Statistiques"],
-  ["comptes", "Utilisateurs"],
-  ["import", "Téléversements"],
-  ["moderation", "Modération"],
-  ["annonces", "Annonces"],
-  ["assistance", "Assistance"],
-];
+// Toutes les pages de la barre latérale, sauf celle-ci : la liste suit la navigation.
+// Calculée à l'affichage : App importe ce fichier, et NAVIGATION n'existe pas encore
+// quand ce module se charge.
+const pagesDemarrage = (): [string, string][] => NAVIGATION.filter((p) => p.cle !== "reglages").map((p) => [p.cle, p.libelle]);
 
 const ACTUALISATIONS: [number, string][] = [
   [60, "Toutes les minutes"],
@@ -136,7 +129,7 @@ export function Reglages() {
         <Carte titre="Démarrage et actualisation" className="animate-monter decale-2">
           <Ligne libelle="Page d'ouverture" aide="Celle qui s'affiche au lancement du logiciel.">
             <Selection value={prefs.pageDemarrage} onChange={(e) => reglerPreferences({ pageDemarrage: e.target.value })} className="w-52">
-              {PAGES_DEMARRAGE.map(([cle, libelle]) => (
+              {pagesDemarrage().map(([cle, libelle]) => (
                 <option key={cle} value={cle}>
                   {libelle}
                 </option>

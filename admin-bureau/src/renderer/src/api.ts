@@ -118,3 +118,26 @@ export async function deconnecter(): Promise<void> {
 
 /** Une route réservée à l'administration, légère : 401 si le jeton est mort, 403 si le compte n'est pas admin. */
 export const verifierAdmin = () => api<Record<string, number>>("/api/admin/a-traiter");
+
+/**
+ * Un fichier du site lu avec le jeton (l'audio de /api/stream, par exemple).
+ * Un <audio src> ne peut pas porter d'en-tête Authorization : sans jeton,
+ * le site compterait l'écoute comme anonyme et refuserait les titres non
+ * publiés. On télécharge donc ici, redirection comprise, et on rend le
+ * contenu.
+ */
+export async function telechargerAuthentifie(chemin: string): Promise<Blob> {
+  const executer = (jeton: string | null) => fetch(`${site}${chemin}`, { headers: jeton ? { Authorization: `Bearer ${jeton}` } : {} });
+  let reponse: Response;
+  try {
+    reponse = await executer(jetonAcces ?? (await renouveler()));
+    if (reponse.status === 401 && jetonRenouvellement) {
+      const neuf = await renouveler();
+      if (neuf) reponse = await executer(neuf);
+    }
+  } catch {
+    throw new ErreurApi("Le site ne répond pas. Vérifiez la connexion.", 0);
+  }
+  if (!reponse.ok) throw new ErreurApi(`Lecture impossible (${reponse.status}).`, reponse.status);
+  return reponse.blob();
+}

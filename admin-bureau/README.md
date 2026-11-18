@@ -1,8 +1,12 @@
 # Moziik Admin (Windows)
 
-Logiciel de bureau pour administrer Moziik : tableau de bord, musiques,
-artistes, classements, statistiques, utilisateurs, import de dossiers de
-musique, modération et annonces. C'est un client de l'API du site, avec le
+Logiciel de bureau pour administrer Moziik : toute l'administration du
+site, sans navigateur. Pilotage (tableau de bord, statistiques, analyses,
+classements, tâches planifiées), catalogue (musiques, artistes, albums,
+playlists, téléversements, univers, sélections, paroles, tempo), qualité
+(modération, doublons, années de sortie, genres), communauté
+(utilisateurs, badges, annonces, assistance, escalades, centre d'aide) et
+site (pages du site, paramètres du site, intelligence artificielle). C'est un client de l'API du site, avec le
 même compte administrateur et les mêmes routes que l'administration web :
 rien n'entre au catalogue par une autre porte.
 
@@ -108,3 +112,16 @@ Comme dans l'Explorateur Windows (`interactions.tsx`) :
 Dans les champs, le clic droit ouvre le menu d'édition (processus
 principal) : correcteur orthographique en français, couper, copier,
 coller, tout sélectionner.
+
+## Pages reprises de l'administration web
+
+Chaque page du site `app/admin/*` a son écran dans `ecrans/`, sur les mêmes
+routes d'API. Les listes reprises telles quelles du site (catégories
+d'aide, modes d'écoute, préréglages de thème, réseaux sociaux, analyse du
+tempo `bpm.ts`, paroles `paroles.ts`) portent un commentaire : une
+correction d'un côté se reporte de l'autre.
+
+L'audio (extraits, atelier des paroles, mesure du tempo) est téléchargé avec
+le jeton (`telechargerAuthentifie`, `lecture.tsx`) : un `<audio src>` ne
+peut pas porter d'en-tête, et le site compterait l'écoute comme anonyme ou
+refuserait les brouillons.

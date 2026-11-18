@@ -305,7 +305,6 @@ export function SongDetailClient() {
 
         <SongSidebar
           song={song}
-          album={album}
           similarSongs={similarSongs}
           artistSongs={artistSongs}
           artistAlbums={artistAlbums}

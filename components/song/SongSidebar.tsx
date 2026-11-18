@@ -1,5 +1,4 @@
 import { Music2, Disc3, Mic2, ListMusic } from "lucide-react";
-import { SongInfoCard } from "@/components/song/SongInfoCard";
 import { SidebarSection } from "@/components/song/SidebarSection";
 import { CompactSongRow } from "@/components/song/CompactSongRow";
 import { CompactAlbumRow } from "@/components/song/CompactAlbumRow";
@@ -10,9 +9,11 @@ import type {
 } from "@/components/song/types";
 import type { PlayableSong } from "@/context/PlayerProvider";
 
+const LIMITE_TITRES = 6;
+const LIMITE_ALBUMS = 4;
+
 export function SongSidebar({
   song,
-  album,
   similarSongs,
   artistSongs,
   artistAlbums,
@@ -20,16 +21,21 @@ export function SongSidebar({
   isAuthenticated,
 }: {
   song: SongDetail;
-  album: AlbumSummary | null;
   similarSongs: PlayableSong[];
   artistSongs: PlayableSong[];
   artistAlbums: AlbumSummary[];
   playlists: PlaylistSummary[];
   isAuthenticated: boolean;
 }) {
+  // La colonne accompagne la page, elle ne la double pas : les informations
+  // du titre sont dans l'onglet « Informations », et chaque liste est
+  // bornée. Toute la discographie d'un artiste prolifique étirait la colonne
+  // sur des écrans entiers, à côté d'un contenu principal resté court ; les
+  // listes complètes sont dans les onglets « Artiste » et « Similaires ».
+  const similaires = similarSongs.slice(0, LIMITE_TITRES);
+  const duMemeArtiste = artistSongs.slice(0, LIMITE_TITRES);
   return (
     <div className="space-y-4">
-      <SongInfoCard song={song} album={album} />
 
       <SidebarSection
         icon={Music2}
@@ -37,7 +43,7 @@ export function SongSidebar({
         isEmpty={similarSongs.length === 0}
         emptyLabel="Aucun autre titre dans ce genre pour le moment."
       >
-        {similarSongs.map((s) => (
+        {similaires.map((s) => (
           <CompactSongRow key={s._id} song={s} queue={similarSongs} />
         ))}
       </SidebarSection>
@@ -50,7 +56,7 @@ export function SongSidebar({
           isEmpty={artistSongs.length === 0}
           emptyLabel="Aucun autre titre publié pour l'instant."
         >
-          {artistSongs.map((s) => (
+          {duMemeArtiste.map((s) => (
             <CompactSongRow key={s._id} song={s} queue={artistSongs} />
           ))}
         </SidebarSection>
@@ -62,7 +68,7 @@ export function SongSidebar({
           title="Albums de l'artiste"
           viewAllHref={`/artiste/${song.artist._id}`}
         >
-          {artistAlbums.map((a) => (
+          {artistAlbums.slice(0, LIMITE_ALBUMS).map((a) => (
             <CompactAlbumRow key={a._id} album={a} />
           ))}
         </SidebarSection>

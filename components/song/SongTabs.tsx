@@ -117,7 +117,11 @@ function InfoTab({
 }) {
   return (
     <div className="grid gap-4 sm:grid-cols-2">
-      <SongInfoCard song={song} album={album} />
+      {/* Sans featuring à côté, la carte prend toute la ligne : seule sur une
+          demi-largeur, elle laissait un grand vide à droite. */}
+      <div className={song.featuring && song.featuring.length > 0 ? undefined : "sm:col-span-2"}>
+        <SongInfoCard song={song} album={album} large={!(song.featuring && song.featuring.length > 0)} />
+      </div>
       {song.featuring && song.featuring.length > 0 && (
         <div className="rounded-xl2 border border-border bg-surface p-4">
           <h3 className="mb-3 text-sm font-medium">En featuring</h3>

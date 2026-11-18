@@ -53,4 +53,9 @@ export const CANAUX = {
   coffreEcrire: "coffre:ecrire",
   ouvrirExterne: "systeme:ouvrir",
   version: "systeme:version",
+  installerMiseAJour: "maj:installer",
+  progressionMiseAJour: "maj:progression",
 } as const;
+
+/** Seules les versions du logiciel publiées sur le dépôt du projet s'installent depuis le logiciel. */
+export const PREFIXE_MISE_A_JOUR = "https://github.com/nandrianina-02/app-moziik/releases/download/admin-v";

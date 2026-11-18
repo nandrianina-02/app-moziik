@@ -17,6 +17,16 @@ const bureau = {
   },
   ouvrirExterne: (url: string): Promise<void> => ipcRenderer.invoke(CANAUX.ouvrirExterne, url),
   version: (): Promise<string> => ipcRenderer.invoke(CANAUX.version),
+  miseAJour: {
+    /** Télécharge l'installeur puis le lance ; le logiciel se ferme pour lui laisser la place. */
+    installer: (url: string): Promise<void> => ipcRenderer.invoke(CANAUX.installerMiseAJour, url),
+    /** Avancement du téléchargement, en pour cent ; rend de quoi se désabonner. */
+    surProgression: (rappel: (pourcent: number) => void) => {
+      const ecouteur = (_e: unknown, p: number) => rappel(p);
+      ipcRenderer.on(CANAUX.progressionMiseAJour, ecouteur);
+      return () => void ipcRenderer.removeListener(CANAUX.progressionMiseAJour, ecouteur);
+    },
+  },
 };
 
 export type Bureau = typeof bureau;

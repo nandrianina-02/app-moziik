@@ -2,6 +2,7 @@ import { Component, createContext, useCallback, useContext, useEffect, useRef, u
 import {
   Bell,
   ChevronDown,
+  Download,
   ExternalLink,
   FolderInput,
   LayoutDashboard,
@@ -33,16 +34,18 @@ import { Classements } from "./ecrans/Classements";
 import { Artistes } from "./ecrans/Artistes";
 import { Statistiques } from "./ecrans/Statistiques";
 import { Annonces } from "./ecrans/Annonces";
+import { Assistance } from "./ecrans/Assistance";
 import { Moderation } from "./ecrans/Moderation";
 import { Comptes } from "./ecrans/Comptes";
 import { Reglages } from "./ecrans/Reglages";
 import { preferences, reglerPreferences, themeEffectif, usePreferences, zoomVoisin } from "./preferences";
 import { libelleVue, raccourciVue } from "./vues";
+import { derniereVersion, plusRecente } from "./miseajour";
 import { FournisseurTeleversements, useTeleversements } from "./televersements";
 import logo from "./assets/icon-mark.png";
 import clsx from "./clsx";
 
-export type Page = "tableau" | "catalogue" | "artistes" | "classements" | "statistiques" | "comptes" | "import" | "moderation" | "annonces" | "reglages";
+export type Page = "tableau" | "catalogue" | "artistes" | "classements" | "statistiques" | "comptes" | "import" | "moderation" | "annonces" | "assistance" | "reglages";
 
 /** Ce que l'API d'administration renvoie sur l'ensemble de la plateforme. */
 export interface Stats {
@@ -95,12 +98,12 @@ const NAVIGATION: { cle: Page; libelle: string; icone: LucideIcon }[] = [
   { cle: "import", libelle: "Téléversements", icone: FolderInput },
   { cle: "moderation", libelle: "Modération", icone: ShieldCheck },
   { cle: "annonces", libelle: "Annonces", icone: Megaphone },
+  { cle: "assistance", libelle: "Assistance", icone: LifeBuoy },
   { cle: "reglages", libelle: "Paramètres", icone: Settings },
 ];
 
 /** Ce qui ne vit que dans l'administration web : on l'ouvre dans le navigateur. */
 const SUR_LE_SITE: { chemin: string; libelle: string; icone: LucideIcon; compteur?: keyof ATraiter }[] = [
-  { chemin: "/admin/messages", libelle: "Assistance", icone: LifeBuoy, compteur: "/admin/messages" },
   { chemin: "/admin/selections", libelle: "Sélections", icone: LibraryBig, compteur: "/admin/selections" },
 ];
 
@@ -263,8 +266,22 @@ function Coquille() {
   const utilisateur = etat.phase === "connecte" ? etat.utilisateur : null;
   const { avancement } = useTeleversements();
 
+  // Une nouvelle version se signale en bas de la barre latérale : vérifiée au
+  // lancement, puis toutes les six heures pour un logiciel resté ouvert.
+  const [majDisponible, setMajDisponible] = useState<string | null>(null);
   useEffect(() => {
-    void window.bureau.version().then(setVersion);
+    let installee = "";
+    const verifier = () =>
+      derniereVersion()
+        .then((d) => setMajDisponible(installee && plusRecente(d.version, installee) ? d.version : null))
+        .catch(() => undefined);
+    void window.bureau.version().then((v) => {
+      installee = v;
+      setVersion(v);
+      void verifier();
+    });
+    const minuterie = setInterval(verifier, 6 * 3600_000);
+    return () => clearInterval(minuterie);
   }, []);
 
   const aller = useCallback((p: Page, q?: string, statut?: "draft") => {
@@ -334,7 +351,7 @@ function Coquille() {
   const taches: Tache[] = [
     { libelle: "Titres en attente de validation", nombre: stats?.pendingSongs ?? 0, ouvrir: () => aller("catalogue", "", "draft") },
     { libelle: "Évènements en attente", nombre: stats?.pendingEvents ?? 0, ouvrir: () => aller("moderation") },
-    { libelle: "Messages d'assistance non lus", nombre: aTraiter["/admin/messages"] ?? 0, ouvrir: () => ouvrirSurLeSite("/admin/messages") },
+    { libelle: "Messages d'assistance non lus", nombre: aTraiter["/admin/messages"] ?? 0, ouvrir: () => aller("assistance") },
     { libelle: "Doublons à trancher", nombre: aTraiter["/admin/doublons"] ?? 0, ouvrir: () => ouvrirSurLeSite("/admin/doublons") },
     { libelle: "Années de sortie douteuses", nombre: aTraiter["/admin/annees"] ?? 0, ouvrir: () => ouvrirSurLeSite("/admin/annees") },
     { libelle: "Genres proposés", nombre: aTraiter["/admin/genres"] ?? 0, ouvrir: () => ouvrirSurLeSite("/admin/genres") },
@@ -368,7 +385,7 @@ function Coquille() {
                 libelle={p.libelle}
                 replie={replie}
                 actif={page === p.cle}
-                compteur={p.cle === "moderation" ? stats?.pendingEvents : p.cle === "catalogue" ? stats?.pendingSongs : undefined}
+                compteur={p.cle === "moderation" ? stats?.pendingEvents : p.cle === "catalogue" ? stats?.pendingSongs : p.cle === "assistance" ? aTraiter["/admin/messages"] : undefined}
                 activite={p.cle === "import" && avancement.phase !== "repos" ? `${avancement.faits}/${avancement.aFaire}` : undefined}
                 onClick={() => aller(p.cle)}
               />
@@ -399,8 +416,17 @@ function Coquille() {
               </Bouton>
             </div>
           )}
-          <div className={clsx("border-t border-filet py-3 text-[11px] text-texte-3", replie ? "text-center" : "px-5")}>
-            {replie ? `v${version}` : `Moziik Admin v${version}`}
+          <div className={clsx("border-t border-filet py-3 text-[11px] text-texte-3", replie ? "text-center" : "flex items-center justify-between gap-2 px-5")}>
+            <span>{replie ? `v${version}` : `Moziik Admin v${version}`}</span>
+            {majDisponible && (
+              <button
+                onClick={() => aller("reglages")}
+                title={`Version ${majDisponible} disponible : l'installer depuis les Paramètres`}
+                className={clsx("inline-flex items-center gap-1 font-semibold text-accent hover:underline", replie && "mt-1")}
+              >
+                <Download size={12} /> {replie ? "" : `v${majDisponible}`}
+              </button>
+            )}
           </div>
         </aside>
 
@@ -469,6 +495,7 @@ function Coquille() {
               {page === "classements" && <Classements />}
               {page === "statistiques" && <Statistiques />}
               {page === "annonces" && <Annonces />}
+              {page === "assistance" && <Assistance />}
               {page === "comptes" && <Comptes />}
               {page === "import" && <Import />}
               {page === "moderation" && <Moderation />}

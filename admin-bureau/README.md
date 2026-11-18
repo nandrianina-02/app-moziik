@@ -78,3 +78,15 @@ Le menu d'Electron est retiré : ses propres raccourcis de zoom doublaient
 ceux-ci. Les préférences du poste (`preferences.ts`) : thème (dont
 « Système »), taille, animations, page d'ouverture, actualisation des
 compteurs, qualités d'écoute, genre par défaut, notification de fin.
+
+## Assistance et mises à jour
+
+La page Assistance reprend `/api/admin/support` : conversations (demandes
+d'un humain et non-lus en tête), fil relu toutes les 8 secondes avec
+`after`, réponse (Ctrl + Entrée), brouillon de l'assistant du site
+(`/suggest`), clore ou rouvrir.
+
+Les mises à jour s'installent depuis les Paramètres : le processus
+principal télécharge l'installeur de la version choisie, le lance et se
+ferme. Seule une adresse `releases/download/admin-v…` du dépôt est
+acceptée. Une nouvelle version se signale en bas de la barre latérale.

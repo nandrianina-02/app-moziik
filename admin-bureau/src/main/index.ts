@@ -1,8 +1,10 @@
 import { app, BrowserWindow, dialog, ipcMain, Menu, safeStorage, session, shell } from "electron";
 import { join } from "node:path";
 import { readFile, writeFile, readdir, stat } from "node:fs/promises";
+import { createWriteStream } from "node:fs";
+import { spawn } from "node:child_process";
 import { parseFile } from "music-metadata";
-import { CANAUX, SITE_PAR_DEFAUT, type Etiquettes, type FichierAudio, type Reglages } from "../partage/types";
+import { CANAUX, PREFIXE_MISE_A_JOUR, SITE_PAR_DEFAUT, type Etiquettes, type FichierAudio, type Reglages } from "../partage/types";
 
 /*
  * Processus principal : la fenêtre, et ce que la fenêtre ne peut pas faire
@@ -113,6 +115,36 @@ function creerFenetre() {
   else void fenetre.loadFile(join(__dirname, "../renderer/index.html"));
   return fenetre;
 }
+
+/**
+ * Mise à jour depuis le logiciel : l'installeur de la version choisie est
+ * téléchargé dans le dossier temporaire, lancé, et le logiciel se ferme
+ * pour lui laisser remplacer ses fichiers. Seule une adresse de version du
+ * dépôt du projet est acceptée : la fenêtre ne peut pas faire exécuter
+ * n'importe quel programme.
+ */
+ipcMain.handle(CANAUX.installerMiseAJour, async (evenement, url: string) => {
+  if (typeof url !== "string" || !url.startsWith(PREFIXE_MISE_A_JOUR) || !url.endsWith(".exe")) throw new Error("Adresse de mise à jour refusée.");
+  const reponse = await fetch(url);
+  if (!reponse.ok || !reponse.body) throw new Error(`Téléchargement impossible (${reponse.status}).`);
+  const total = Number(reponse.headers.get("content-length")) || 0;
+  const chemin = join(app.getPath("temp"), "moziik-admin-setup.exe");
+  const fichier = createWriteStream(chemin);
+  let recu = 0;
+  let dernier = -1;
+  for await (const morceau of reponse.body as unknown as AsyncIterable<Uint8Array>) {
+    if (!fichier.write(morceau)) await new Promise<void>((r) => fichier.once("drain", () => r()));
+    recu += morceau.length;
+    const pourcent = total ? Math.floor((recu / total) * 100) : 0;
+    if (pourcent !== dernier) {
+      dernier = pourcent;
+      evenement.sender.send(CANAUX.progressionMiseAJour, pourcent);
+    }
+  }
+  await new Promise<void>((resoudre, rejeter) => fichier.end((e?: Error | null) => (e ? rejeter(e) : resoudre())));
+  spawn(chemin, [], { detached: true, stdio: "ignore" }).unref();
+  setTimeout(() => app.quit(), 400);
+});
 
 ipcMain.handle(CANAUX.choisirDossier, async () => {
   const r = await dialog.showOpenDialog({ properties: ["openDirectory"], title: "Choisir un dossier de musique" });

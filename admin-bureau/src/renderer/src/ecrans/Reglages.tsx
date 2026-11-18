@@ -5,6 +5,8 @@ import { useSession } from "../session";
 import { Bascule, Bouton, Carte, Champ, EnTete, Selection } from "../composants";
 import { PAR_DEFAUT, ZOOMS, reglerPreferences, reinitialiserPreferences, usePreferences, type ChoixTheme } from "../preferences";
 import { reinitialiserVues } from "../vues";
+import { useTeleversements } from "../televersements";
+import { derniereVersion, plusRecente } from "../miseajour";
 import clsx from "../clsx";
 
 const PAGES_DEMARRAGE: [string, string][] = [
@@ -17,6 +19,7 @@ const PAGES_DEMARRAGE: [string, string][] = [
   ["import", "Téléversements"],
   ["moderation", "Modération"],
   ["annonces", "Annonces"],
+  ["assistance", "Assistance"],
 ];
 
 const ACTUALISATIONS: [number, string][] = [
@@ -212,36 +215,21 @@ function Ligne({ libelle, aide, children }: { libelle: string; aide?: string; ch
   );
 }
 
-const DEPOT = "nandrianina-02/app-moziik";
-
-/** Compare deux versions « 1.2.3 ». */
-function plusRecente(a: string, b: string) {
-  const pa = a.split(".").map(Number);
-  const pb = b.split(".").map(Number);
-  for (let i = 0; i < 3; i++) if ((pa[i] ?? 0) !== (pb[i] ?? 0)) return (pa[i] ?? 0) > (pb[i] ?? 0);
-  return false;
-}
-
 /**
  * La dernière version publiée du logiciel. Les versions du logiciel portent
  * l'étiquette admin-vX.Y.Z et ne sont jamais « latest » (l'application
  * Android lit celle-là) : on parcourt donc la liste des versions.
  */
 function MisesAJour({ version }: { version: string }) {
+  const { phase: phaseEnvoi } = useTeleversements();
+  const [installation, setInstallation] = useState<{ pourcent: number } | { erreur: string } | null>(null);
   const [etat, setEtat] = useState<{ phase: "attente" } | { phase: "erreur" } | { phase: "pret"; derniere: string; lien: string } | null>(null);
 
   async function verifier() {
     setEtat({ phase: "attente" });
     try {
-      const r = await fetch(`https://api.github.com/repos/${DEPOT}/releases?per_page=30`, { headers: { Accept: "application/vnd.github+json" } });
-      if (!r.ok) throw new Error();
-      const versions = ((await r.json()) as { tag_name: string; draft: boolean }[])
-        .filter((v) => !v.draft && /^admin-v\d+\.\d+\.\d+$/.test(v.tag_name))
-        .map((v) => v.tag_name.slice("admin-v".length))
-        .sort((a, b) => (plusRecente(a, b) ? -1 : 1));
-      const derniere = versions[0];
-      if (!derniere) throw new Error();
-      setEtat({ phase: "pret", derniere, lien: `https://github.com/${DEPOT}/releases/download/admin-v${derniere}/moziik-admin-setup.exe` });
+      const { version: derniere, lien } = await derniereVersion();
+      setEtat({ phase: "pret", derniere, lien });
     } catch {
       setEtat({ phase: "erreur" });
     }
@@ -250,6 +238,20 @@ function MisesAJour({ version }: { version: string }) {
   useEffect(() => {
     if (version) void verifier();
   }, [version]);
+
+  async function installer(lien: string) {
+    // Fermer le logiciel couperait un envoi en cours au milieu d'un fichier.
+    if (phaseEnvoi !== "repos" && !window.confirm("Un téléversement est en cours : l'installation fermera le logiciel et l'interrompra. Continuer ?")) return;
+    setInstallation({ pourcent: 0 });
+    const desabonner = window.bureau.miseAJour.surProgression((pourcent) => setInstallation({ pourcent }));
+    try {
+      await window.bureau.miseAJour.installer(lien);
+    } catch (e) {
+      setInstallation({ erreur: e instanceof Error ? e.message.replace(/^Error invoking remote method '[^']+': (Error: )?/, "") : "Installation impossible." });
+    } finally {
+      desabonner();
+    }
+  }
 
   const nouvelle = etat?.phase === "pret" && plusRecente(etat.derniere, version);
   return (
@@ -277,12 +279,20 @@ function MisesAJour({ version }: { version: string }) {
           <div className="text-[12px] text-texte-3">Version installée : {version || "…"}</div>
         </div>
         {nouvelle && etat?.phase === "pret" && (
-          <Bouton onClick={() => void window.bureau.ouvrirExterne(etat.lien)}>
-            <Download size={14} /> Télécharger
+          <Bouton enCours={installation !== null && "pourcent" in installation} onClick={() => void installer(etat.lien)}>
+            <Download size={14} /> {installation && "pourcent" in installation ? `${installation.pourcent} %` : "Installer"}
           </Bouton>
         )}
       </div>
-      <p className="mt-3 text-[12px] text-texte-3">L'installeur se lance par-dessus la version actuelle : réglages et session sont conservés.</p>
+      {installation && "pourcent" in installation && (
+        <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-surface-2">
+          <div className="h-full rounded-full bg-accent transition-[width]" style={{ width: `${installation.pourcent}%` }} />
+        </div>
+      )}
+      {installation && "erreur" in installation && <p className="mt-3 text-[12.5px] text-danger">{installation.erreur}</p>}
+      <p className="mt-3 text-[12px] text-texte-3">
+        Le logiciel télécharge l'installeur, le lance et se ferme pour lui laisser la place. Réglages et session sont conservés.
+      </p>
     </Carte>
   );
 }

@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
-import { ArrowDown, ArrowUp, BadgeCheck, Disc3, Headphones, Mic2, Minus, Music, Sparkles, TrendingDown, TrendingUp, type LucideIcon } from "lucide-react";
-import { api } from "../api";
+import { ArrowDown, ArrowUp, BadgeCheck, Copy, Disc3, ExternalLink, Headphones, Link2, Mic2, Minus, Music, Sparkles, TrendingDown, TrendingUp, type LucideIcon } from "lucide-react";
+import { api, adresseSite } from "../api";
+import { annoncer, copier, ouvrirMenu } from "../interactions";
 import { adresseImage } from "../session";
 import { Chargement, EnTete, Erreur, Table, Vide, formatNombre , BarreCollante } from "../composants";
 import { SelecteurVue, coteVignette, largeurCarte, nomTransition, useRaccourciVue, useVue } from "../vues";
@@ -55,6 +56,22 @@ export function Classements() {
   const [erreur, setErreur] = useState<string | null>(null);
   const [vue, changerVue] = useVue("classements", { mode: "liste", taille: "moyenne" });
   useRaccourciVue(vue, changerVue);
+
+  // Double-clic : ouvrir sur le site ; clic droit : ouvrir ou copier le lien.
+  const lien = (l: Ligne) => `${adresseSite()}/${type === "songs" ? "son" : type === "artists" ? "artiste" : "album"}/${l._id}`;
+  const ouvrirSurSite = (l: Ligne) => void window.bureau.ouvrirExterne(lien(l));
+  function menuLigne(e: React.MouseEvent, l: Ligne) {
+    ouvrirMenu(
+      e,
+      [
+        { libelle: "Ouvrir sur le site", icone: ExternalLink, action: () => ouvrirSurSite(l) },
+        "separateur",
+        { libelle: "Copier le lien", icone: Link2, action: () => void copier(lien(l)).then(() => annoncer("Lien copié")) },
+        { libelle: "Copier le nom", icone: Copy, action: () => void copier(l.title ?? l.stageName ?? "").then(() => annoncer("Nom copié")) },
+      ],
+      `n° ${l.rank} · ${l.title ?? l.stageName ?? ""}`,
+    );
+  }
 
   useEffect(() => {
     setReponse(null);
@@ -132,7 +149,7 @@ export function Classements() {
             vue.mode === "grille" ? (
               <div className="grid gap-4" style={{ gridTemplateColumns: `repeat(auto-fill, minmax(${largeurCarte[vue.taille]}px, 1fr))` }}>
                 {reponse.ranking.map((l, rang) => (
-                  <div key={l._id} className="rounded-2xl border border-filet bg-surface p-2.5">
+                  <div key={l._id} onDoubleClick={() => ouvrirSurSite(l)} onContextMenu={(e) => menuLigne(e, l)} className="rounded-2xl border border-filet bg-surface p-2.5">
                     <div className={clsx("relative aspect-square overflow-hidden bg-surface-2", type === "artists" ? "rounded-full" : "rounded-xl")} style={nomTransition("c", l._id, rang)}>
                       {l.coverUrl ? (
                         <img src={adresseImage(l.coverUrl) ?? undefined} alt="" loading="lazy" className="h-full w-full object-cover" />
@@ -166,7 +183,7 @@ export function Classements() {
             ) : (
             <Table densite={vue.taille} entetes={[{ libelle: "Rang", largeur: "80px" }, { libelle: "Évolution", largeur: "110px" }, type === "artists" ? "Artiste" : type === "albums" ? "Album" : "Titre", { libelle: "Écoutes", droite: true, largeur: "140px" }]}>
               {reponse.ranking.map((l, rang) => (
-                <tr key={l._id}>
+                <tr key={l._id} onDoubleClick={() => ouvrirSurSite(l)} onContextMenu={(e) => menuLigne(e, l)}>
                   <td className={clsx("font-titre text-[16px] font-semibold tabular-nums", l.rank <= 3 ? "text-accent" : "text-texte-3")}>{l.rank}</td>
                   <td>
                     <Evolution valeur={l.evolution} />

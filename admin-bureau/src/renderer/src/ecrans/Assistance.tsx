@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Bot, CheckCircle2, Hand, Lock, LockOpen, MessageSquareText, RefreshCw, Search, Send, Sparkles } from "lucide-react";
+import { Bot, CheckCircle2, Hand, Lock, LockOpen, Mail, MessageSquareText, RefreshCw, Search, Send, Sparkles } from "lucide-react";
 import { api } from "../api";
 import { Avatar, Bouton, Chargement, EnTete, Erreur, Pastille, formatRelatif } from "../composants";
 import clsx from "../clsx";
+import { annoncer, copier, ouvrirMenu } from "../interactions";
 
 interface Fil {
   _id: string;
@@ -69,6 +70,30 @@ export function Assistance() {
 
   const filOuvert = fils?.find((f) => f._id === ouvert) ?? null;
 
+  async function basculer(f: Fil) {
+    const suivant = f.status === "open" ? "closed" : "open";
+    try {
+      await api(`/api/admin/support/${f._id}`, { methode: "PATCH", corps: { status: suivant } });
+      annoncer(suivant === "closed" ? "Conversation close" : "Conversation rouverte");
+      charger(true);
+    } catch (e) {
+      setErreur(e instanceof Error ? e.message : "Changement refusé.");
+    }
+  }
+
+  function menuFil(e: React.MouseEvent, f: Fil) {
+    ouvrirMenu(
+      e,
+      [
+        { libelle: "Ouvrir", icone: MessageSquareText, action: () => setOuvert(f._id) },
+        f.status === "open" ? { libelle: "Clore", icone: Lock, action: () => void basculer(f) } : { libelle: "Rouvrir", icone: LockOpen, action: () => void basculer(f) },
+        "separateur",
+        { libelle: "Copier l'e-mail", icone: Mail, action: () => void copier(f.userEmail || f.user?.email || "").then(() => annoncer("E-mail copié")) },
+      ],
+      f.userName || f.user?.name,
+    );
+  }
+
   return (
     <>
       <EnTete
@@ -122,6 +147,7 @@ export function Assistance() {
                   <li key={f._id}>
                     <button
                       onClick={() => setOuvert(f._id)}
+                      onContextMenu={(e) => menuFil(e, f)}
                       className={clsx("flex w-full gap-3 border-b border-filet px-3.5 py-3 text-left transition-colors", ouvert === f._id ? "bg-surface-2" : "hover:bg-surface-2/60")}
                     >
                       <Avatar nom={f.userName || f.user?.name || "?"} image={f.user?.avatarUrl} taille={38} />

@@ -1,11 +1,12 @@
 import { useEffect, useRef, useState } from "react";
-import { BadgeCheck, Camera, Disc3, ExternalLink, Headphones, Heart, Music, RefreshCw, Search, Sparkles } from "lucide-react";
+import { BadgeCheck, BadgeX, Camera, Disc3, ExternalLink, FolderOpen, Headphones, Heart, Link2, Mail, Music, RefreshCw, Search, Sparkles } from "lucide-react";
 import { api, adresseSite } from "../api";
 import { adresseImage } from "../session";
 import { televerser } from "../envoi";
 import { Bascule, Bouton, Champ, Chargement, EnTete, Erreur, Pagination, Pastille, Table, Tiroir, Vide, ZoneTexte, formatCompact, formatDate, formatNombre , BarreCollante } from "../composants";
 import { SelecteurVue, coteVignette, largeurCarte, nomTransition, useRaccourciVue, useVue } from "../vues";
 import clsx from "../clsx";
+import { BarreSelection, annoncer, classeChoisi, copier, ouvrirMenu, useSelection } from "../interactions";
 
 interface CompteArtiste {
   _id: string;
@@ -64,6 +65,69 @@ export function Artistes() {
   const [version, setVersion] = useState(0);
   const [vue, changerVue] = useVue("artistes", { mode: "grille", taille: "moyenne" });
   useRaccourciVue(vue, changerVue);
+
+  // Clic : sélectionner ; double-clic ou Entrée : ouvrir la fiche ; clic droit : actions.
+  const comptes = reponse?.users ?? [];
+  const sel = useSelection(
+    comptes.map((a) => a._id),
+    (id) => {
+      const a = comptes.find((x) => x._id === id);
+      if (a?.artistId) setOuvert(a);
+    },
+  );
+  const lienArtiste = (a: CompteArtiste) => `${adresseSite()}/artiste/${a.artistId}`;
+
+  /** Le badge vérifié, pour un ou plusieurs artistes : la même route que la fiche. */
+  async function badge(ids: string[], verifie: boolean) {
+    const cibles = comptes.filter((a) => ids.includes(a._id) && a.artistId && Boolean(a.verifiedArtist) !== verifie);
+    if (cibles.length === 0) return;
+    if (cibles.length > 1 && !window.confirm(`${verifie ? "Vérifier" : "Retirer le badge de"} ${cibles.length} artistes ?`)) return;
+    let faits = 0;
+    for (const a of cibles) {
+      try {
+        await api(`/api/admin/artists/${a.artistId}`, { methode: "PATCH", corps: { verified: verifie } });
+        setReponse((r) => (r ? { ...r, users: r.users.map((u) => (u._id === a._id ? { ...u, verifiedArtist: verifie } : u)) } : r));
+        faits++;
+      } catch (e) {
+        setErreur(e instanceof Error ? e.message : "Modification refusée.");
+      }
+    }
+    annoncer(`${faits} artiste${faits > 1 ? "s" : ""} ${verifie ? "vérifié" : "sans badge"}${faits > 1 && verifie ? "s" : ""}`);
+  }
+
+  function menuArtiste(e: React.MouseEvent, rang: number) {
+    const ids = sel.surMenu(rang);
+    const cibles = comptes.filter((a) => ids.includes(a._id));
+    if (cibles.length === 0) return;
+    if (cibles.length === 1) {
+      const a = cibles[0];
+      return ouvrirMenu(
+        e,
+        [
+          { libelle: "Ouvrir la fiche", icone: FolderOpen, raccourci: "Entrée", desactive: !a.artistId, action: () => setOuvert(a) },
+          { libelle: "Voir sur le site", icone: ExternalLink, desactive: !a.artistId, action: () => void window.bureau.ouvrirExterne(lienArtiste(a)) },
+          "separateur",
+          a.verifiedArtist
+            ? { libelle: "Retirer le badge", icone: BadgeX, desactive: !a.artistId, action: () => void badge([a._id], false) }
+            : { libelle: "Vérifier l'artiste", icone: BadgeCheck, desactive: !a.artistId, action: () => void badge([a._id], true) },
+          "separateur",
+          { libelle: "Copier le lien", icone: Link2, desactive: !a.artistId, action: () => void copier(lienArtiste(a)).then(() => annoncer("Lien copié")) },
+          { libelle: "Copier l'e-mail", icone: Mail, action: () => void copier(a.email).then(() => annoncer("E-mail copié")) },
+        ],
+        a.stageName ?? a.name,
+      );
+    }
+    ouvrirMenu(
+      e,
+      [
+        { libelle: `Vérifier (${cibles.length})`, icone: BadgeCheck, action: () => void badge(ids, true) },
+        { libelle: `Retirer le badge (${cibles.length})`, icone: BadgeX, action: () => void badge(ids, false) },
+        "separateur",
+        { libelle: `Copier les ${cibles.length} liens`, icone: Link2, action: () => void copier(cibles.filter((a) => a.artistId).map(lienArtiste).join("\n")).then(() => annoncer("Liens copiés")) },
+      ],
+      `${cibles.length} artistes sélectionnés`,
+    );
+  }
 
   // La recherche part au site après une courte pause de frappe, pas à chaque touche.
   useEffect(() => {
@@ -144,11 +208,13 @@ export function Artistes() {
             {reponse.users.map((a, rang) => (
               <button
                 key={a._id}
-                onClick={() => a.artistId && setOuvert(a)}
-                disabled={!a.artistId}
+                onClick={(e) => sel.surClic(e, rang)}
+                onDoubleClick={(e) => sel.surDoubleClic(e, rang)}
+                onContextMenu={(e) => menuArtiste(e, rang)}
                 className={clsx(
-                  "group rounded-2xl border border-filet bg-surface p-3 text-left transition-colors hover:border-texte-3/40 disabled:cursor-not-allowed disabled:opacity-60",
-                  a.suspended && "opacity-60",
+                  "group rounded-2xl border border-filet bg-surface p-3 text-left transition-colors hover:border-texte-3/40",
+                  (a.suspended || !a.artistId) && "opacity-60",
+                  classeChoisi(sel.estChoisi(a._id), "carte"),
                 )}
               >
                 <div className="relative aspect-square overflow-hidden rounded-xl bg-surface-2" style={nomTransition("c", a._id, rang)}>
@@ -176,7 +242,13 @@ export function Artistes() {
         ) : (
           <Table densite={vue.taille} entetes={["", "Artiste", "Compte", { libelle: "Titres", droite: true, largeur: "90px" }, { libelle: "Albums", droite: true, largeur: "90px" }, { libelle: "Inscrit", largeur: "120px" }, { libelle: "État", largeur: "110px" }]}>
             {reponse.users.map((a, rang) => (
-              <tr key={a._id} onClick={() => a.artistId && setOuvert(a)} className={clsx(a.artistId ? "cursor-pointer" : "cursor-not-allowed", a.suspended && "opacity-60")}>
+              <tr
+                key={a._id}
+                onClick={(e) => sel.surClic(e, rang)}
+                onDoubleClick={(e) => sel.surDoubleClic(e, rang)}
+                onContextMenu={(e) => menuArtiste(e, rang)}
+                className={clsx("cursor-default", a.suspended && "opacity-60", classeChoisi(sel.estChoisi(a._id), "ligne"))}
+              >
                 <td style={{ width: coteVignette[vue.taille] + 24 }}>
                   <div className="overflow-hidden rounded-full bg-surface-2" style={{ width: coteVignette[vue.taille], height: coteVignette[vue.taille], ...nomTransition("c", a._id, rang) }}>
                     <PhotoArtiste a={a} grande={false} />
@@ -203,6 +275,14 @@ export function Artistes() {
 
       {reponse && reponse.users.length > 0 && <Pagination className="mt-6" page={reponse.page} pages={reponse.pages} total={reponse.total} taille={TAILLE} onPage={setPage} />}
 
+      <BarreSelection nombre={sel.nombre} libelle={(n) => `${n} artistes sélectionnés`} onVider={sel.vider}>
+        <Bouton className="h-9" onClick={() => void badge([...sel.choisis], true)}>
+          <BadgeCheck size={14} /> Vérifier
+        </Bouton>
+        <Bouton variante="trait" className="h-9" onClick={() => void badge([...sel.choisis], false)}>
+          <BadgeX size={14} /> Retirer le badge
+        </Bouton>
+      </BarreSelection>
       {ouvert?.artistId && (
         <FicheArtiste
           artistId={ouvert.artistId}

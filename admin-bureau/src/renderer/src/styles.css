@@ -200,16 +200,22 @@ select option {
 /*
  * Transitions de vue (liste <-> grille, changement de taille) : les
  * pochettes du haut de la page glissent vers leur nouvelle place, le reste
- * se fond. Court, sans rebond. Les textes ne glissent pas : une capture de
+ * change d'un coup. Court, sans rebond. Les textes ne glissent pas : une capture de
  * texte agrandie devient floue.
  */
 ::view-transition-group(.pochette) {
   animation-duration: 300ms;
   animation-timing-function: cubic-bezier(0.2, 0.7, 0.2, 1);
 }
+/*
+ * Pas de fondu de la page entière : toute la fenêtre (barre latérale et
+ * en-tête compris) passait de l'ancienne image à la nouvelle, et cela se
+ * voyait comme un rafraîchissement. Le contenu change d'un coup ; seules
+ * les pochettes glissent.
+ */
 ::view-transition-old(root),
 ::view-transition-new(root) {
-  animation-duration: 180ms;
+  animation: none;
 }
 /* Une vignette qui change de taille garde ses proportions en glissant. */
 ::view-transition-old(.pochette),

@@ -40,6 +40,7 @@ import { Comptes } from "./ecrans/Comptes";
 import { Reglages } from "./ecrans/Reglages";
 import { preferences, reglerPreferences, themeEffectif, usePreferences, zoomVoisin } from "./preferences";
 import { libelleVue, raccourciVue } from "./vues";
+import { HoteMenu, brancherAnnonces } from "./interactions";
 import { derniereVersion, plusRecente } from "./miseajour";
 import { FournisseurTeleversements, useTeleversements } from "./televersements";
 import logo from "./assets/icon-mark.png";
@@ -306,6 +307,8 @@ function Coquille() {
   useEffect(() => {
     let dernier = 0;
     const montrer = (texte: string) => setAnnonce((a) => ({ texte, n: (a?.n ?? 0) + 1 }));
+    // Les pages annoncent aussi par là (« Lien copié », « 3 titres validés »).
+    brancherAnnonces(montrer);
     const zoom = (sens: 1 | -1 | 0) => montrer(`Taille de l'interface : ${Math.round(zoomVoisin(sens) * 100)} %`);
     const molette = (e: WheelEvent) => {
       if (!e.ctrlKey) return;
@@ -328,8 +331,10 @@ function Coquille() {
       e.preventDefault();
     };
     window.addEventListener("wheel", molette, { passive: false });
+    const debrancher = () => brancherAnnonces(null);
     window.addEventListener("keydown", touche);
     return () => {
+      debrancher();
       window.removeEventListener("wheel", molette);
       window.removeEventListener("keydown", touche);
     };
@@ -506,6 +511,7 @@ function Coquille() {
           </main>
         </div>
       </div>
+      <HoteMenu />
       {annonce && (
         <div className="pointer-events-none fixed inset-x-0 bottom-6 z-50 flex justify-center" aria-live="polite">
           <div key={annonce.n} className="animate-monter rounded-xl border border-filet bg-surface px-4 py-2 text-[13px] font-semibold shadow-2xl shadow-black/30 first-letter:uppercase">

@@ -1,9 +1,10 @@
 import { useEffect, useMemo, useState } from "react";
-import { FolderOpen, Play, Square, X } from "lucide-react";
+import { FolderOpen, Pencil, Play, RotateCcw, Square, Tag, Trash2, Upload, X } from "lucide-react";
 import { api } from "../api";
 import { Barres, Bouton, Chargement, EnTete, Erreur, Pagination, Pastille, Selection, Table, Vide, formatDuree, usePages , BarreCollante } from "../composants";
 import { SelecteurVue, coteVignette, largeurCarte, nomTransition, useRaccourciVue, useVue } from "../vues";
 import clsx from "../clsx";
+import { BarreSelection, annoncer, classeChoisi, ouvrirMenu, useSelection } from "../interactions";
 import { adresseImage } from "../session";
 import { STATUTS, useTeleversements, type ArtisteOption, type Ligne, type Statut } from "../televersements";
 
@@ -14,7 +15,7 @@ import { STATUTS, useTeleversements, type ArtisteOption, type Ligne, type Statut
  */
 
 export function Import() {
-  const { dossier, lignes, genres, phase, erreur, avancement, choisir, envoyerTout, arreter, modifier, vider } = useTeleversements();
+  const { dossier, lignes, genres, phase, erreur, avancement, choisir, envoyerTout, arreter, modifier, retirer, vider } = useTeleversements();
   const [selection, setSelection] = useState<string | null>(null);
 
   const compte = useMemo(() => {
@@ -28,6 +29,54 @@ export function Import() {
   const pages = usePages(lignes, 50, dossier ?? "");
   const [vue, changerVue] = useVue("import", { mode: "liste", taille: "moyenne" });
   useRaccourciVue(vue, changerVue);
+
+  // Clic : sélectionner ; double-clic ou Entrée : corriger la ligne ; clic droit : actions.
+  const sel = useSelection(
+    pages.tranche.map((l) => l.id),
+    (id) => setSelection(id),
+  );
+  const verrou = phase === "envoi";
+
+  function changerGenre(ids: string[], genre: string) {
+    for (const id of ids) modifier(id, { genre });
+    annoncer(`Genre « ${genre} » donné à ${ids.length} ligne${ids.length > 1 ? "s" : ""}`);
+  }
+  function reessayer(ids: string[]) {
+    // Une ligne en erreur repart « prête » ; le recalcul la remet « à compléter » s'il lui manque quelque chose.
+    const cibles = lignes.filter((l) => ids.includes(l.id) && l.statut === "erreur");
+    for (const l of cibles) modifier(l.id, { statut: "pret", erreur: undefined, progression: 0 });
+    annoncer(`${cibles.length} ligne${cibles.length > 1 ? "s" : ""} à renvoyer`);
+  }
+  function importerQuandMeme(ids: string[]) {
+    for (const l of lignes.filter((x) => ids.includes(x.id) && x.statut === "doublon")) modifier(l.id, { importerQuandMeme: true });
+  }
+  function enlever(ids: string[]) {
+    retirer(ids);
+    sel.vider();
+    annoncer(`${ids.length} ligne${ids.length > 1 ? "s" : ""} retirée${ids.length > 1 ? "s" : ""} de la liste`);
+  }
+
+  function menuLigne(e: React.MouseEvent, rang: number) {
+    const ids = sel.surMenu(rang);
+    const cibles = lignes.filter((l) => ids.includes(l.id));
+    if (cibles.length === 0) return;
+    const erreurs = cibles.filter((l) => l.statut === "erreur").length;
+    const doublons = cibles.filter((l) => l.statut === "doublon").length;
+    const genresMenu = genres.slice(0, 8).map((g) => ({ libelle: `Genre : ${g}`, icone: Tag, desactive: verrou, action: () => changerGenre(ids, g) }));
+    ouvrirMenu(
+      e,
+      [
+        cibles.length === 1 && { libelle: "Corriger", icone: Pencil, raccourci: "Entrée", action: () => setSelection(cibles[0].id) },
+        doublons > 0 && { libelle: `Importer quand même${cibles.length > 1 ? ` (${doublons})` : ""}`, icone: Upload, desactive: verrou, action: () => importerQuandMeme(ids) },
+        erreurs > 0 && { libelle: `Réessayer${cibles.length > 1 ? ` (${erreurs})` : ""}`, icone: RotateCcw, desactive: verrou, action: () => reessayer(ids) },
+        "separateur",
+        ...genresMenu,
+        "separateur",
+        { libelle: cibles.length > 1 ? `Retirer de la liste (${cibles.length})` : "Retirer de la liste", icone: Trash2, danger: true, desactive: verrou, action: () => enlever(ids) },
+      ],
+      cibles.length > 1 ? `${cibles.length} lignes sélectionnées` : cibles[0].titre || cibles[0].fichier.nom,
+    );
+  }
   const pagination = <Pagination page={pages.page} pages={pages.pages} total={pages.total} taille={pages.taille} onPage={pages.setPage} />;
   const global = avancement.aFaire > 0 ? Math.round(((avancement.faits + avancement.enCours / 100) / avancement.aFaire) * 100) : 0;
 
@@ -109,8 +158,10 @@ export function Import() {
             {pages.tranche.map((l, rang) => (
               <button
                 key={l.id}
-                onClick={() => setSelection(l.id)}
-                className={clsx("rounded-2xl border bg-surface p-2.5 text-left transition-colors", selection === l.id ? "border-accent" : "border-filet hover:border-texte-3/40")}
+                onClick={(e) => sel.surClic(e, rang)}
+                onDoubleClick={(e) => sel.surDoubleClic(e, rang)}
+                onContextMenu={(e) => menuLigne(e, rang)}
+                className={clsx("rounded-2xl border border-filet bg-surface p-2.5 text-left transition-colors hover:border-texte-3/40", classeChoisi(sel.estChoisi(l.id), "carte"))}
               >
                 <div className="relative aspect-square overflow-hidden rounded-xl bg-surface-2" style={nomTransition("c", l.id, rang)}>
                   <Pochette ligne={l} />
@@ -143,7 +194,13 @@ export function Import() {
         ) : (
         <Table densite={vue.taille} entetes={["", "Fichier", "Titre", "Artiste", "Album", { libelle: "Année", largeur: "70px" }, { libelle: "Durée", droite: true, largeur: "70px" }, { libelle: "État", largeur: "140px" }]}>
           {pages.tranche.map((l, rang) => (
-            <tr key={l.id} onClick={() => setSelection(l.id)} className={`cursor-pointer hover:bg-surface-2 ${selection === l.id ? "bg-surface-2" : ""}`}>
+            <tr
+              key={l.id}
+              onClick={(e) => sel.surClic(e, rang)}
+              onDoubleClick={(e) => sel.surDoubleClic(e, rang)}
+              onContextMenu={(e) => menuLigne(e, rang)}
+              className={clsx("cursor-default", classeChoisi(sel.estChoisi(l.id), "ligne"))}
+            >
               <td style={{ width: coteVignette[vue.taille] + 24 }}>
                 <div className="overflow-hidden rounded-md bg-surface-2" style={{ width: coteVignette[vue.taille], height: coteVignette[vue.taille], ...nomTransition("c", l.id, rang) }}>
                   <Pochette ligne={l} />
@@ -193,6 +250,27 @@ export function Import() {
         )
       )}
       {lignes.length > 0 && <div className="mt-4">{pagination}</div>}
+      <BarreSelection nombre={sel.nombre} libelle={(n) => `${n} lignes sélectionnées`} onVider={sel.vider}>
+        <Selection
+          value=""
+          disabled={verrou}
+          onChange={(e) => e.target.value && changerGenre([...sel.choisis], e.target.value)}
+          className="w-44"
+        >
+          <option value="">Changer le genre…</option>
+          {genres.map((g) => (
+            <option key={g} value={g}>
+              {g}
+            </option>
+          ))}
+        </Selection>
+        <Bouton variante="trait" className="h-9" disabled={verrou} onClick={() => reessayer([...sel.choisis])}>
+          <RotateCcw size={14} /> Réessayer
+        </Bouton>
+        <Bouton variante="danger" className="h-9" disabled={verrou} onClick={() => enlever([...sel.choisis])}>
+          <Trash2 size={14} /> Retirer
+        </Bouton>
+      </BarreSelection>
       {ligneOuverte && <FicheLigne ligne={ligneOuverte} genres={genres} verrouillee={phase === "envoi"} onChange={(patch) => modifier(ligneOuverte.id, patch)} onFermer={() => setSelection(null)} />}
     </>
   );

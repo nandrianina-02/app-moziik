@@ -90,3 +90,21 @@ Les mises à jour s'installent depuis les Paramètres : le processus
 principal télécharge l'installeur de la version choisie, le lance et se
 ferme. Seule une adresse `releases/download/admin-v…` du dépôt est
 acceptée. Une nouvelle version se signale en bas de la barre latérale.
+
+## Souris et clavier
+
+Comme dans l'Explorateur Windows (`interactions.tsx`) :
+
+- clic : sélectionner ; Ctrl + clic : ajouter ; Maj + clic : une plage ;
+  Ctrl + A : tout ; Échap : désélectionner ;
+- double-clic ou Entrée : ouvrir (fiche d'un titre, d'un artiste, ligne
+  d'import ; Classements ouvre la page du site) ;
+- clic droit : les actions de l'élément, ou de toute la sélection ;
+- à partir de deux éléments, une barre d'actions groupées en bas de
+  l'écran (valider ou refuser des titres, badge d'artistes, suspension de
+  comptes, genre des lignes d'import…). Les actions de masse demandent
+  confirmation.
+
+Dans les champs, le clic droit ouvre le menu d'édition (processus
+principal) : correcteur orthographique en français, couper, copier,
+coller, tout sélectionner.

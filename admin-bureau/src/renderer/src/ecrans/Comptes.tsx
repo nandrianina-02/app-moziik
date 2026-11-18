@@ -1,9 +1,10 @@
 import { useEffect, useState } from "react";
-import { BadgeCheck, Ban, RefreshCw, RotateCcw, Search } from "lucide-react";
+import { BadgeCheck, BadgeX, Ban, Check, Mail, RefreshCw, RotateCcw, Search, Shield, User, Mic2 } from "lucide-react";
 import { api } from "../api";
 import { Avatar, Bouton, Chargement, EnTete, Erreur, Pagination, Pastille, Selection, Table, Vide, formatDate, formatNombre , BarreCollante } from "../composants";
 import { SelecteurVue, coteVignette, largeurCarte, nomTransition, useRaccourciVue, useVue } from "../vues";
 import clsx from "../clsx";
+import { BarreSelection, annoncer, classeChoisi, copier, ouvrirMenu, useSelection } from "../interactions";
 
 interface Compte {
   _id: string;
@@ -78,6 +79,62 @@ export function Comptes() {
 
   const [vue, changerVue] = useVue("comptes", { mode: "liste", taille: "moyenne" });
   useRaccourciVue(vue, changerVue);
+
+  // Clic : sélectionner ; clic droit : actions. Un compte n'a pas de fiche ici : pas de double-clic.
+  const comptes = reponse?.users ?? [];
+  const sel = useSelection(comptes.map((u) => u._id));
+
+  /** Une même modification sur plusieurs comptes, après confirmation. */
+  async function enLot(ids: string[], corps: Partial<Pick<Compte, "role" | "suspended" | "verifiedArtist">>, question: string) {
+    const cibles = comptes.filter((u) => ids.includes(u._id));
+    if (cibles.length > 1 && !window.confirm(question.replace("{n}", String(cibles.length)))) return;
+    for (const u of cibles) await modifier(u._id, corps);
+    annoncer(cibles.length > 1 ? `${cibles.length} comptes modifiés` : "Compte modifié");
+  }
+
+  function menuCompte(e: React.MouseEvent, rang: number) {
+    const ids = sel.surMenu(rang);
+    const cibles = comptes.filter((u) => ids.includes(u._id));
+    if (cibles.length === 0) return;
+    if (cibles.length === 1) {
+      const u = cibles[0];
+      const role = (r: Compte["role"], icone: typeof User) => ({
+        libelle: u.role === r ? `${ROLES[r]} (actuel)` : `Passer ${ROLES[r].toLowerCase()}`,
+        icone: u.role === r ? Check : icone,
+        desactive: u.role === r,
+        action: () => void enLot([u._id], { role: r }, ""),
+      });
+      return ouvrirMenu(
+        e,
+        [
+          role("member", User),
+          role("artist", Mic2),
+          role("admin", Shield),
+          "separateur",
+          u.role === "artist" &&
+            (u.verifiedArtist
+              ? { libelle: "Retirer le badge", icone: BadgeX, action: () => void enLot([u._id], { verifiedArtist: false }, "") }
+              : { libelle: "Vérifier l'artiste", icone: BadgeCheck, action: () => void enLot([u._id], { verifiedArtist: true }, "") }),
+          u.suspended
+            ? { libelle: "Réactiver", icone: RotateCcw, action: () => void enLot([u._id], { suspended: false }, "") }
+            : { libelle: "Suspendre", icone: Ban, danger: true, action: () => window.confirm(`Suspendre le compte de ${u.name} ?`) && void enLot([u._id], { suspended: true }, "") },
+          "separateur",
+          { libelle: "Copier l'e-mail", icone: Mail, action: () => void copier(u.email).then(() => annoncer("E-mail copié")) },
+        ],
+        u.name,
+      );
+    }
+    ouvrirMenu(
+      e,
+      [
+        { libelle: `Suspendre (${cibles.length})`, icone: Ban, danger: true, action: () => void enLot(ids, { suspended: true }, "Suspendre {n} comptes ? Ils ne pourront plus se connecter.") },
+        { libelle: `Réactiver (${cibles.length})`, icone: RotateCcw, action: () => void enLot(ids, { suspended: false }, "Réactiver {n} comptes ?") },
+        "separateur",
+        { libelle: `Copier les ${cibles.length} e-mails`, icone: Mail, action: () => void copier(cibles.map((u) => u.email).join("\n")).then(() => annoncer("E-mails copiés")) },
+      ],
+      `${cibles.length} comptes sélectionnés`,
+    );
+  }
   const pagination = reponse && <Pagination page={reponse.page} pages={reponse.pages} total={reponse.total} taille={TAILLE} onPage={setPage} />;
 
   return (
@@ -137,7 +194,12 @@ export function Comptes() {
           {vue.mode === "grille" ? (
             <div className="grid gap-4" style={{ gridTemplateColumns: `repeat(auto-fill, minmax(${largeurCarte[vue.taille] + 60}px, 1fr))` }}>
               {reponse.users.map((u, rang) => (
-                <div key={u._id} className={clsx("flex min-w-0 flex-col overflow-hidden rounded-2xl border border-filet bg-surface p-4", u.suspended && "opacity-60")}>
+                <div
+                  key={u._id}
+                  onClick={(e) => sel.surClic(e, rang)}
+                  onContextMenu={(e) => menuCompte(e, rang)}
+                  className={clsx("flex min-w-0 flex-col overflow-hidden rounded-2xl border border-filet bg-surface p-4", u.suspended && "opacity-60", classeChoisi(sel.estChoisi(u._id), "carte"))}
+                >
                   <div className="flex items-center gap-3">
                     <span className="shrink-0 rounded-full" style={nomTransition("c", u._id, rang)}>
                       <Avatar nom={u.name} image={u.avatarUrl} taille={vue.taille === "grande" ? 56 : vue.taille === "moyenne" ? 44 : 34} />
@@ -172,7 +234,12 @@ export function Comptes() {
           ) : (
             <Table densite={vue.taille} entetes={["Nom", "E-mail", { libelle: "Rôle", largeur: "140px" }, { libelle: "Inscrit", largeur: "120px" }, { libelle: "Premium", largeur: "100px" }, { libelle: "Actions", largeur: "290px" }]}>
               {reponse.users.map((u, rang) => (
-                <tr key={u._id} className={u.suspended ? "opacity-60" : undefined}>
+                <tr
+                  key={u._id}
+                  onClick={(e) => sel.surClic(e, rang)}
+                  onContextMenu={(e) => menuCompte(e, rang)}
+                  className={clsx(u.suspended && "opacity-60", classeChoisi(sel.estChoisi(u._id), "ligne"))}
+                >
                   <td>
                     <div className="flex items-center gap-3">
                       <span className="shrink-0 rounded-full" style={nomTransition("c", u._id, rang)}>
@@ -203,6 +270,17 @@ export function Comptes() {
             </Table>
           )}
           <div className="mt-4">{pagination}</div>
+          <BarreSelection nombre={sel.nombre} libelle={(n) => `${n} comptes sélectionnés`} onVider={sel.vider}>
+            <Bouton variante="danger" className="h-9" onClick={() => void enLot([...sel.choisis], { suspended: true }, "Suspendre {n} comptes ? Ils ne pourront plus se connecter.")}>
+              <Ban size={14} /> Suspendre
+            </Bouton>
+            <Bouton variante="trait" className="h-9" onClick={() => void enLot([...sel.choisis], { suspended: false }, "Réactiver {n} comptes ?")}>
+              <RotateCcw size={14} /> Réactiver
+            </Bouton>
+            <Bouton variante="trait" className="h-9" onClick={() => void copier(comptes.filter((u) => sel.choisis.has(u._id)).map((u) => u.email).join("\n")).then(() => annoncer("E-mails copiés"))}>
+              <Mail size={14} /> Copier les e-mails
+            </Bouton>
+          </BarreSelection>
         </>
       ) : null}
     </>

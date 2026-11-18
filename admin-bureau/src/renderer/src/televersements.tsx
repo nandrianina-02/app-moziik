@@ -126,6 +126,8 @@ interface Televersements {
   envoyerTout: () => Promise<void>;
   arreter: () => void;
   modifier: (id: string, patch: Partial<Ligne>) => void;
+  /** Retire des lignes de la liste (rien n'est supprimé du disque ni du site). */
+  retirer: (ids: string[]) => void;
   vider: () => void;
 }
 
@@ -391,6 +393,8 @@ export function FournisseurTeleversements({ children }: { children: ReactNode })
     arret.current = true;
   }, []);
 
+  const retirer = useCallback((ids: string[]) => setLignes((liste) => liste.filter((l) => !ids.includes(l.id) || l.statut === "envoi")), [setLignes]);
+
   const vider = useCallback(() => {
     if (phase !== "repos") return;
     setDossier(null);
@@ -417,8 +421,8 @@ export function FournisseurTeleversements({ children }: { children: ReactNode })
   }, [phase, lignes, lot]);
 
   const valeur = useMemo<Televersements>(
-    () => ({ dossier, lignes, genres, phase, erreur, avancement, choisir, envoyerTout, arreter, modifier, vider }),
-    [dossier, lignes, genres, phase, erreur, avancement, choisir, envoyerTout, arreter, modifier, vider],
+    () => ({ dossier, lignes, genres, phase, erreur, avancement, choisir, envoyerTout, arreter, modifier, retirer, vider }),
+    [dossier, lignes, genres, phase, erreur, avancement, choisir, envoyerTout, arreter, modifier, retirer, vider],
   );
 
   return <Contexte.Provider value={valeur}>{children}</Contexte.Provider>;

@@ -1,9 +1,10 @@
 import { useEffect, useMemo, useState } from "react";
-import { ExternalLink, Music, RefreshCw, Search } from "lucide-react";
+import { Check, Copy, ExternalLink, FolderOpen, Link2, Music, RefreshCw, Search, X } from "lucide-react";
 import { adresseSite, api } from "../api";
 import { Bouton, Champ, Chargement, EnTete, Erreur, Pagination, Pastille, Selection, Table, Vide, formatDate, formatDuree, formatNombre, usePages , BarreCollante } from "../composants";
 import { SelecteurVue, coteVignette, largeurCarte, nomTransition, useRaccourciVue, useVue } from "../vues";
 import clsx from "../clsx";
+import { BarreSelection, annoncer, classeChoisi, copier, ouvrirMenu, useSelection } from "../interactions";
 import { adresseImage } from "../session";
 
 interface Titre {
@@ -62,6 +63,71 @@ export function Catalogue({ rechercheInitiale = "", statutInitial = "" }: { rech
   const pages = usePages(visibles, 50, `${statut}|${recherche}`);
   const [vue, changerVue] = useVue("catalogue", { mode: "liste", taille: "moyenne" });
   useRaccourciVue(vue, changerVue);
+
+  // Clic : sélectionner ; double-clic ou Entrée : ouvrir la fiche ; clic droit : actions.
+  const sel = useSelection(
+    pages.tranche.map((t) => t._id),
+    (id) => setOuvert((titres ?? []).find((t) => t._id === id) ?? null),
+  );
+  const lienTitre = (id: string) => `${adresseSite()}/son/${id}`;
+  const enAttente = (t: Titre) => t.status === "draft" || t.status === "rejected";
+
+  /** Valider ou refuser des titres : la même décision que la modération du site. */
+  async function moderer(ids: string[], decision: "approve" | "reject") {
+    const cibles = (titres ?? []).filter((t) => ids.includes(t._id) && (decision === "reject" ? t.status !== "rejected" : enAttente(t)));
+    if (cibles.length === 0) return;
+    if (decision === "reject" && !window.confirm(`Refuser ${cibles.length > 1 ? `ces ${cibles.length} titres` : `« ${cibles[0].title} »`} ? Ils ne seront plus visibles du public.`)) return;
+    let faits = 0;
+    for (const t of cibles) {
+      try {
+        await api(`/api/admin/songs/${t._id}/moderate`, { corps: { decision } });
+        const statut: Titre["status"] = decision === "reject" ? "rejected" : t.releaseDate && new Date(t.releaseDate) > new Date() ? "scheduled" : "published";
+        setTitres((liste) => (liste ?? []).map((x) => (x._id === t._id ? { ...x, status: statut } : x)));
+        faits++;
+      } catch (e) {
+        setErreur(e instanceof Error ? e.message : "Décision refusée.");
+      }
+    }
+    annoncer(`${faits} titre${faits > 1 ? "s" : ""} ${decision === "approve" ? "validé" : "refusé"}${faits > 1 ? "s" : ""}`);
+  }
+
+  async function copierLiens(ids: string[]) {
+    if (await copier(ids.map(lienTitre).join("\n"))) annoncer(ids.length > 1 ? `${ids.length} liens copiés` : "Lien copié");
+  }
+
+  function menuTitre(e: React.MouseEvent, rang: number) {
+    const ids = sel.surMenu(rang);
+    const cibles = (titres ?? []).filter((t) => ids.includes(t._id));
+    if (cibles.length === 0) return;
+    const enAttenteSel = cibles.filter(enAttente).length;
+    if (cibles.length === 1) {
+      const t = cibles[0];
+      return ouvrirMenu(
+        e,
+        [
+          { libelle: "Ouvrir la fiche", icone: FolderOpen, raccourci: "Entrée", action: () => setOuvert(t) },
+          { libelle: "Écouter sur le site", icone: ExternalLink, action: () => void window.bureau.ouvrirExterne(lienTitre(t._id)) },
+          "separateur",
+          enAttente(t) && { libelle: "Valider", icone: Check, action: () => void moderer([t._id], "approve") },
+          t.status !== "rejected" && { libelle: "Refuser", icone: X, danger: true, action: () => void moderer([t._id], "reject") },
+          "separateur",
+          { libelle: "Copier le lien", icone: Link2, action: () => void copierLiens([t._id]) },
+          { libelle: "Copier le titre", icone: Copy, action: () => void copier(`${t.artist?.stageName ?? ""} - ${t.title}`).then(() => annoncer("Titre copié")) },
+        ],
+        t.title,
+      );
+    }
+    ouvrirMenu(
+      e,
+      [
+        enAttenteSel > 0 && { libelle: `Valider (${enAttenteSel})`, icone: Check, action: () => void moderer(ids, "approve") },
+        { libelle: `Refuser (${cibles.length})`, icone: X, danger: true, action: () => void moderer(ids, "reject") },
+        "separateur",
+        { libelle: `Copier les ${cibles.length} liens`, icone: Link2, action: () => void copierLiens(ids) },
+      ],
+      `${cibles.length} titres sélectionnés`,
+    );
+  }
   const pagination = <Pagination page={pages.page} pages={pages.pages} total={pages.total} taille={pages.taille} onPage={pages.setPage} />;
 
   return (
@@ -113,8 +179,10 @@ export function Catalogue({ rechercheInitiale = "", statutInitial = "" }: { rech
               {pages.tranche.map((t, rang) => (
                 <button
                   key={t._id}
-                  onClick={() => setOuvert(t)}
-                  className="group rounded-2xl border border-filet bg-surface p-2.5 text-left transition-colors hover:border-texte-3/40"
+                  onClick={(e) => sel.surClic(e, rang)}
+                  onDoubleClick={(e) => sel.surDoubleClic(e, rang)}
+                  onContextMenu={(e) => menuTitre(e, rang)}
+                  className={clsx("group rounded-2xl border border-filet bg-surface p-2.5 text-left transition-colors hover:border-texte-3/40", classeChoisi(sel.estChoisi(t._id), "carte"))}
                 >
                   <div className="relative aspect-square overflow-hidden rounded-xl bg-surface-2" style={nomTransition("c", t._id, rang)}>
                     {t.coverUrl ? (
@@ -148,7 +216,13 @@ export function Catalogue({ rechercheInitiale = "", statutInitial = "" }: { rech
           ) : (
             <Table densite={vue.taille} entetes={["", "Titre", "Artiste", "Genre", { libelle: "Sortie", largeur: "110px" }, { libelle: "Durée", droite: true, largeur: "70px" }, { libelle: "Écoutes", droite: true, largeur: "80px" }, { libelle: "État", largeur: "110px" }]}>
               {pages.tranche.map((t, rang) => (
-                <tr key={t._id} onClick={() => setOuvert(t)} className="cursor-pointer">
+                <tr
+                  key={t._id}
+                  onClick={(e) => sel.surClic(e, rang)}
+                  onDoubleClick={(e) => sel.surDoubleClic(e, rang)}
+                  onContextMenu={(e) => menuTitre(e, rang)}
+                  className={clsx("cursor-default", classeChoisi(sel.estChoisi(t._id), "ligne"))}
+                >
                   <td style={{ width: coteVignette[vue.taille] + 24 }}>
                     <div className="overflow-hidden rounded-md bg-surface-2" style={{ width: coteVignette[vue.taille], height: coteVignette[vue.taille], ...nomTransition("c", t._id, rang) }}>
                       {t.coverUrl && <img src={adresseImage(t.coverUrl) ?? undefined} alt="" loading="lazy" className="h-full w-full object-cover" />}
@@ -176,6 +250,19 @@ export function Catalogue({ rechercheInitiale = "", statutInitial = "" }: { rech
         </div>
       )}
       {titres && visibles.length > 0 && <div className="mt-4">{pagination}</div>}
+      <BarreSelection nombre={sel.nombre} libelle={(n) => `${n} titres sélectionnés`} onVider={sel.vider}>
+        {[...sel.choisis].some((id) => enAttente((titres ?? []).find((t) => t._id === id) ?? ({} as Titre))) && (
+          <Bouton className="h-9" onClick={() => void moderer([...sel.choisis], "approve")}>
+            <Check size={14} /> Valider
+          </Bouton>
+        )}
+        <Bouton variante="danger" className="h-9" onClick={() => void moderer([...sel.choisis], "reject")}>
+          <X size={14} /> Refuser
+        </Bouton>
+        <Bouton variante="trait" className="h-9" onClick={() => void copierLiens([...sel.choisis])}>
+          <Link2 size={14} /> Copier les liens
+        </Bouton>
+      </BarreSelection>
       {ouvert && (
         <FicheTitre
           titre={ouvert}

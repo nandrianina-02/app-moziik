@@ -1,4 +1,4 @@
-import { app, BrowserWindow, dialog, ipcMain, Menu, safeStorage, session, shell } from "electron";
+import { app, BrowserWindow, dialog, ipcMain, Menu, safeStorage, session, shell, type MenuItemConstructorOptions } from "electron";
 import { join } from "node:path";
 import { readFile, writeFile, readdir, stat } from "node:fs/promises";
 import { createWriteStream } from "node:fs";
@@ -95,6 +95,36 @@ function creerFenetre() {
   fenetre.webContents.setWindowOpenHandler(({ url }) => {
     if (/^https?:\/\//.test(url)) void shell.openExternal(url);
     return { action: "deny" };
+  });
+  // Electron n'a aucun menu au clic droit : sans celui-ci, impossible de
+  // coller une adresse dans un champ à la souris. Les listes ont leur propre
+  // menu, côté fenêtre, qui empêche celui-ci de s'ouvrir.
+  fenetre.webContents.on("context-menu", (_e, p) => {
+    if (!p.isEditable && !p.selectionText.trim()) return;
+    const f = p.editFlags;
+    const modele: MenuItemConstructorOptions[] = [
+      // Le correcteur orthographique (français) propose ses corrections en tête.
+      ...p.dictionarySuggestions.slice(0, 5).map((mot): MenuItemConstructorOptions => ({ label: mot, click: () => fenetre.webContents.replaceMisspelling(mot) })),
+      ...(p.misspelledWord
+        ? [
+            { label: "Ajouter au dictionnaire", click: () => fenetre.webContents.session.addWordToSpellCheckerDictionary(p.misspelledWord) },
+            { type: "separator" } as MenuItemConstructorOptions,
+          ]
+        : []),
+      ...(p.isEditable
+        ? ([
+            { label: "Annuler", role: "undo", enabled: f.canUndo },
+            { label: "Rétablir", role: "redo", enabled: f.canRedo },
+            { type: "separator" },
+            { label: "Couper", role: "cut", enabled: f.canCut },
+          ] as MenuItemConstructorOptions[])
+        : []),
+      { label: "Copier", role: "copy", enabled: f.canCopy },
+      ...(p.isEditable ? ([{ label: "Coller", role: "paste", enabled: f.canPaste }] as MenuItemConstructorOptions[]) : []),
+      { type: "separator" },
+      { label: "Tout sélectionner", role: "selectAll" },
+    ];
+    Menu.buildFromTemplate(modele).popup({ window: fenetre });
   });
   // La fenêtre retient sa fermeture pendant un téléversement (beforeunload) :
   // Electron ne demande rien de lui-même, on pose donc la question ici.
@@ -281,6 +311,12 @@ app.whenReady().then(() => {
   // zoom (Ctrl + +, Ctrl + −), qui doubleraient ceux du logiciel et
   // agrandiraient la page sans passer par les Paramètres.
   Menu.setApplicationMenu(null);
+  // Correcteur orthographique en français : annonces, réponses d'assistance, biographies.
+  try {
+    session.defaultSession.setSpellCheckerLanguages(["fr"]);
+  } catch {
+    // Dictionnaire français absent de ce poste : le correcteur reste sur sa langue par défaut.
+  }
   if (process.env.MOZIIK_ESSAI_RESEAU === "1") return void essaiReseau();
   creerFenetre();
   app.on("activate", () => {

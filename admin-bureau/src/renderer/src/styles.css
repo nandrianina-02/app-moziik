@@ -251,3 +251,34 @@ select option {
   scroll-margin-top: calc(var(--barre-outils, 0px) + 48px);
   scroll-margin-bottom: 96px;
 }
+
+/*
+ * Curseurs. Tailwind 4 rend aux boutons la flèche par défaut : on remet la
+ * main sur tout ce qui agit au clic, l'interdiction sur ce qui est
+ * désactivé, le curseur texte sur ce qui se copie. Les éléments de liste
+ * gardent la flèche, comme dans l'Explorateur : un clic les sélectionne,
+ * un double-clic les ouvre. En couche de base, pour qu'une classe
+ * (cursor-progress d'un bouton en cours) l'emporte toujours.
+ */
+@layer base {
+  button:not(:disabled),
+  [role="button"],
+  [role="menuitem"]:not(:disabled),
+  [role="switch"]:not(:disabled),
+  a[href],
+  select:not(:disabled),
+  summary {
+    cursor: pointer;
+  }
+  :disabled,
+  [aria-disabled="true"] {
+    cursor: not-allowed;
+  }
+  [data-rang],
+  button[data-rang]:not(:disabled) {
+    cursor: default;
+  }
+  [data-selectionnable] {
+    cursor: text;
+  }
+}

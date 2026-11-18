@@ -4,7 +4,7 @@ import { adresseSite, api } from "../api";
 import { Bouton, Champ, Chargement, EnTete, Erreur, Pagination, Pastille, Selection, Table, Vide, formatDate, formatDuree, formatNombre, usePages , BarreCollante } from "../composants";
 import { SelecteurVue, coteVignette, largeurCarte, nomTransition, useRaccourciVue, useVue } from "../vues";
 import clsx from "../clsx";
-import { BarreSelection, annoncer, classeChoisi, copier, ouvrirMenu, useSelection } from "../interactions";
+import { BarreSelection, annoncer, classeChoisi, confirmer, copier, ouvrirMenu, useSelection } from "../interactions";
 import { adresseImage } from "../session";
 
 interface Titre {
@@ -76,7 +76,13 @@ export function Catalogue({ rechercheInitiale = "", statutInitial = "" }: { rech
   async function moderer(ids: string[], decision: "approve" | "reject") {
     const cibles = (titres ?? []).filter((t) => ids.includes(t._id) && (decision === "reject" ? t.status !== "rejected" : enAttente(t)));
     if (cibles.length === 0) return;
-    if (decision === "reject" && !window.confirm(`Refuser ${cibles.length > 1 ? `ces ${cibles.length} titres` : `« ${cibles[0].title} »`} ? Ils ne seront plus visibles du public.`)) return;
+    const quoi = cibles.length > 1 ? `ces ${cibles.length} titres` : `« ${cibles[0].title} »`;
+    const ok = await confirmer(
+      decision === "reject"
+        ? { titre: `Refuser ${quoi} ?`, message: "Ils ne seront plus visibles du public. L'artiste voit le refus dans son espace.", confirmer: "Refuser", danger: true }
+        : { titre: `Valider ${quoi} ?`, message: "Ils seront publiés aussitôt, ou à leur date de sortie si elle est à venir.", confirmer: "Valider et publier" },
+    );
+    if (!ok) return;
     let faits = 0;
     for (const t of cibles) {
       try {
@@ -307,11 +313,18 @@ function FicheTitre({ titre, genres, onFermer, onModifie }: { titre: Titre; genr
       await api(`/api/songs/${titre._id}`, { methode: "PATCH", corps });
       return { title, genre, explicit, releaseDate: corps.releaseDate ?? titre.releaseDate };
     });
-  const moderer = (decision: "approve" | "reject") =>
-    executer(decision, async () => {
+  const moderer = async (decision: "approve" | "reject") => {
+    const ok = await confirmer(
+      decision === "reject"
+        ? { titre: `Refuser « ${titre.title} » ?`, message: "Le titre ne sera plus visible du public.", confirmer: "Refuser", danger: true }
+        : { titre: `Valider « ${titre.title} » ?`, message: "Il sera publié aussitôt, ou à sa date de sortie si elle est à venir.", confirmer: "Valider et publier" },
+    );
+    if (!ok) return;
+    return executer(decision, async () => {
       await api(`/api/admin/songs/${titre._id}/moderate`, { corps: { decision } });
       return { status: decision === "approve" ? ("published" as const) : ("rejected" as const) };
     });
+  };
 
   return (
     <div className="fixed inset-0 z-20 flex justify-end bg-black/30" onClick={onFermer}>

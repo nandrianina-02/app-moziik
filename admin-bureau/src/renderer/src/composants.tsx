@@ -20,6 +20,7 @@ export function Bouton({
       disabled={disabled || enCours}
       className={clsx(
         "inline-flex h-9 shrink-0 items-center gap-1.5 rounded-lg px-3.5 text-[13px] font-semibold whitespace-nowrap transition-colors disabled:cursor-not-allowed disabled:opacity-50 [&>svg]:shrink-0",
+        enCours && "cursor-progress",
         variante === "plein" && "bg-accent text-sur-accent hover:bg-accent-fort",
         variante === "trait" && "border border-filet bg-surface text-texte hover:bg-surface-2",
         variante === "danger" && "border border-danger/40 text-danger hover:bg-danger/10",

@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { Check, Copy, ExternalLink, RefreshCw, Trash2, X } from "lucide-react";
 import { adresseSite, api } from "../api";
 import { Bouton, Chargement, EnTete, Erreur, Pagination, Pastille, Table, Vide, formatDate, usePages , BarreCollante } from "../composants";
-import { BarreSelection, annoncer, classeChoisi, copier, ouvrirMenu, useSelection } from "../interactions";
+import { BarreSelection, annoncer, classeChoisi, confirmer, copier, ouvrirMenu, useSelection } from "../interactions";
 import clsx from "../clsx";
 
 interface Commentaire {
@@ -77,7 +77,13 @@ function Commentaires() {
 
   /** Suppression de plusieurs commentaires : définitive, donc confirmée. */
   async function supprimerLot(ids: string[]) {
-    if (ids.length > 1 && !window.confirm(`Supprimer définitivement ces ${ids.length} commentaires ?`)) return;
+    const ok = await confirmer({
+      titre: ids.length > 1 ? `Supprimer ces ${ids.length} commentaires ?` : "Supprimer ce commentaire ?",
+      message: "La suppression est définitive : le commentaire disparaît du titre, pour tout le monde.",
+      confirmer: "Supprimer",
+      danger: true,
+    });
+    if (!ok) return;
     for (const id of ids) await supprimer(id);
     sel.vider();
     annoncer(`${ids.length} commentaire${ids.length > 1 ? "s" : ""} supprimé${ids.length > 1 ? "s" : ""}`);
@@ -162,7 +168,7 @@ function Commentaires() {
               </td>
               <td className="px-3 py-2 text-texte-2 tabular-nums">{formatDate(c.createdAt)}</td>
               <td className="px-3 py-2 text-right">
-                <Bouton variante="danger" enCours={enCours === c._id} onClick={() => void supprimer(c._id)}>
+                <Bouton variante="danger" enCours={enCours === c._id} onClick={() => void supprimerLot([c._id])}>
                   Supprimer
                 </Bouton>
               </td>
@@ -197,7 +203,13 @@ function Evenements() {
 
   /** Publier ou refuser plusieurs évènements ; confirmation au-delà d'un seul. */
   async function deciderLot(ids: string[], decision: "approve" | "reject") {
-    if (ids.length > 1 && !window.confirm(`${decision === "approve" ? "Publier" : "Refuser"} ces ${ids.length} évènements ?`)) return;
+    const quoi = ids.length > 1 ? `ces ${ids.length} évènements` : `« ${(liste ?? []).find((x) => x._id === ids[0])?.title ?? "cet évènement"} »`;
+    const ok = await confirmer(
+      decision === "approve"
+        ? { titre: `Publier ${quoi} ?`, message: "Ils apparaîtront dans l'agenda public de Moziik.", confirmer: "Publier" }
+        : { titre: `Refuser ${quoi} ?`, message: "Ils ne seront pas publiés ; l'artiste voit le refus dans son espace.", confirmer: "Refuser", danger: true },
+    );
+    if (!ok) return;
     for (const id of ids) await decider(id, decision);
     sel.vider();
     annoncer(`${ids.length} évènement${ids.length > 1 ? "s" : ""} ${decision === "approve" ? "publié" : "refusé"}${ids.length > 1 ? "s" : ""}`);
@@ -261,10 +273,10 @@ function Evenements() {
               <td className="px-3 py-2 text-texte-2">{e.city ?? e.location ?? "—"}</td>
               <td className="px-3 py-2 text-right">
                 <div className="flex justify-end gap-2">
-                  <Bouton variante="trait" enCours={enCours === `${e._id}:approve`} onClick={() => void decider(e._id, "approve")}>
+                  <Bouton variante="trait" enCours={enCours === `${e._id}:approve`} onClick={() => void deciderLot([e._id], "approve")}>
                     Publier
                   </Bouton>
-                  <Bouton variante="danger" enCours={enCours === `${e._id}:reject`} onClick={() => void decider(e._id, "reject")}>
+                  <Bouton variante="danger" enCours={enCours === `${e._id}:reject`} onClick={() => void deciderLot([e._id], "reject")}>
                     Refuser
                   </Bouton>
                 </div>

@@ -6,6 +6,7 @@ import { Bascule, Bouton, Carte, Champ, EnTete, Selection } from "../composants"
 import { PAR_DEFAUT, ZOOMS, reglerPreferences, reinitialiserPreferences, usePreferences, type ChoixTheme } from "../preferences";
 import { reinitialiserVues } from "../vues";
 import { useTeleversements } from "../televersements";
+import { confirmer } from "../interactions";
 import { derniereVersion, plusRecente } from "../miseajour";
 import clsx from "../clsx";
 
@@ -64,12 +65,18 @@ export function Reglages() {
         action={
           <Bouton
             variante="trait"
-            onClick={() => {
-              if (window.confirm("Remettre tous les paramètres de ce poste à leur valeur d'origine ?")) {
+            onClick={() =>
+              void confirmer({
+                titre: "Revenir aux valeurs d'origine ?",
+                message: "Thème, taille de l'interface, page d'ouverture, réglages des téléversements et affichage des listes reprennent leur valeur par défaut, sur ce poste seulement.",
+                confirmer: "Réinitialiser",
+                danger: true,
+              }).then((ok) => {
+                if (!ok) return;
                 reinitialiserPreferences();
                 reinitialiserVues();
-              }
-            }}
+              })
+            }
           >
             <RotateCcw size={14} /> Valeurs d'origine
           </Bouton>
@@ -177,7 +184,14 @@ export function Reglages() {
           <p className="mb-3 text-[13px] text-texte-2">L'adresse du site Moziik auquel ce logiciel se connecte. La changer ferme la session : les comptes ne sont pas les mêmes d'un site à l'autre.</p>
           <div className="flex items-end gap-2">
             <Champ libelle="Adresse" value={saisi} onChange={(e) => setSaisi(e.target.value)} className="flex-1" />
-            <Bouton variante="trait" disabled={saisi.trim().replace(/\/+$/, "") === site} onClick={() => void changerSite(saisi)}>
+            <Bouton variante="trait" disabled={saisi.trim().replace(/\/+$/, "") === site} onClick={() =>
+                void confirmer({
+                  titre: "Changer de site administré ?",
+                  message: "La session se ferme : il faudra se connecter avec un compte administrateur de ce site.",
+                  confirmer: "Changer de site",
+                  danger: true,
+                }).then((ok) => ok && void changerSite(saisi))
+              }>
               Enregistrer
             </Bouton>
           </div>
@@ -241,7 +255,16 @@ function MisesAJour({ version }: { version: string }) {
 
   async function installer(lien: string) {
     // Fermer le logiciel couperait un envoi en cours au milieu d'un fichier.
-    if (phaseEnvoi !== "repos" && !window.confirm("Un téléversement est en cours : l'installation fermera le logiciel et l'interrompra. Continuer ?")) return;
+    const ok = await confirmer({
+      titre: "Installer la mise à jour ?",
+      message:
+        phaseEnvoi !== "repos"
+          ? "Un téléversement est en cours : l'installation fermera le logiciel et l'interrompra. Le titre en cours d'envoi ne sera pas publié."
+          : "Le logiciel télécharge l'installeur, le lance et se ferme. Réglages et session sont conservés.",
+      confirmer: "Installer",
+      danger: phaseEnvoi !== "repos",
+    });
+    if (!ok) return;
     setInstallation({ pourcent: 0 });
     const desabonner = window.bureau.miseAJour.surProgression((pourcent) => setInstallation({ pourcent }));
     try {

@@ -4,7 +4,7 @@ import { api } from "../api";
 import { Barres, Bouton, Chargement, EnTete, Erreur, Pagination, Pastille, Selection, Table, Vide, formatDuree, usePages , BarreCollante } from "../composants";
 import { SelecteurVue, coteVignette, largeurCarte, nomTransition, useRaccourciVue, useVue } from "../vues";
 import clsx from "../clsx";
-import { BarreSelection, annoncer, classeChoisi, ouvrirMenu, useSelection } from "../interactions";
+import { BarreSelection, annoncer, classeChoisi, confirmer, ouvrirMenu, useSelection } from "../interactions";
 import { adresseImage } from "../session";
 import { STATUTS, useTeleversements, type ArtisteOption, type Ligne, type Statut } from "../televersements";
 
@@ -50,7 +50,13 @@ export function Import() {
   function importerQuandMeme(ids: string[]) {
     for (const l of lignes.filter((x) => ids.includes(x.id) && x.statut === "doublon")) modifier(l.id, { importerQuandMeme: true });
   }
-  function enlever(ids: string[]) {
+  async function enlever(ids: string[]) {
+    const ok = await confirmer({
+      titre: ids.length > 1 ? `Retirer ces ${ids.length} lignes de la liste ?` : "Retirer cette ligne de la liste ?",
+      message: "Le fichier reste sur le disque et rien ne change sur le site ; il faudra rouvrir le dossier pour le retrouver ici.",
+      confirmer: "Retirer",
+    });
+    if (!ok) return;
     retirer(ids);
     sel.vider();
     annoncer(`${ids.length} ligne${ids.length > 1 ? "s" : ""} retirée${ids.length > 1 ? "s" : ""} de la liste`);
@@ -100,7 +106,13 @@ export function Import() {
                 <Square size={14} /> Arrêter après ce titre
               </Bouton>
             ) : (
-              <Bouton disabled={!compte.pret || phase !== "repos"} onClick={() => void envoyerTout()}>
+              <Bouton disabled={!compte.pret || phase !== "repos"} onClick={() =>
+                  void confirmer({
+                    titre: `Publier ${compte.pret ?? 0} titre${(compte.pret ?? 0) > 1 ? "s" : ""} ?`,
+                    message: "Les fichiers partent vers le stockage, puis les titres sont publiés sur Moziik avec leur artiste, leur genre et leur album. Vous pourrez changer de page pendant l'envoi.",
+                    confirmer: "Publier",
+                  }).then((ok) => ok && void envoyerTout())
+                }>
                 <Play size={14} /> Publier {compte.pret ?? 0} titre{(compte.pret ?? 0) > 1 ? "s" : ""}
               </Bouton>
             )}

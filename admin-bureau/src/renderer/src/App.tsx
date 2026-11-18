@@ -41,7 +41,7 @@ import { Comptes } from "./ecrans/Comptes";
 import { Reglages } from "./ecrans/Reglages";
 import { preferences, reglerPreferences, themeEffectif, usePreferences, zoomVoisin } from "./preferences";
 import { libelleVue, raccourciVue } from "./vues";
-import { HoteMenu, annoncer, brancherAnnonces } from "./interactions";
+import { HoteConfirmation, HoteMenu, annoncer, brancherAnnonces, confirmer } from "./interactions";
 import { Palette } from "./palette";
 import { derniereVersion, plusRecente } from "./miseajour";
 import { FournisseurTeleversements, useTeleversements } from "./televersements";
@@ -511,11 +511,18 @@ function Coquille() {
                   email={utilisateur.email}
                   image={utilisateur.avatarUrl}
                   aller={aller}
-                  fermer={() => {
-                    // Se déconnecter couperait l'envoi en cours au milieu d'un fichier.
-                    if (avancement.phase !== "repos" && !window.confirm("Un téléversement est en cours. Se déconnecter l'interrompt. Continuer ?")) return;
-                    void fermer();
-                  }}
+                  fermer={() =>
+                    void confirmer({
+                      titre: "Se déconnecter ?",
+                      // Se déconnecter couperait l'envoi en cours au milieu d'un fichier.
+                      message:
+                        avancement.phase !== "repos"
+                          ? "Un téléversement est en cours : se déconnecter l'interrompt, et le titre en cours d'envoi ne sera pas publié."
+                          : "Il faudra saisir de nouveau l'e-mail et le mot de passe pour rouvrir la session sur ce PC.",
+                      confirmer: "Se déconnecter",
+                      danger: avancement.phase !== "repos",
+                    }).then((ok) => ok && void fermer())
+                  }
                 />
               )}
             </div>
@@ -548,6 +555,7 @@ function Coquille() {
         </div>
       </div>
       <HoteMenu />
+      <HoteConfirmation />
       <Palette
         ouverte={palette}
         fermer={() => setPalette(false)}

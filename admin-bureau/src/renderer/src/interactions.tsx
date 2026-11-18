@@ -308,3 +308,98 @@ export function brancherAnnonces(f: ((texte: string) => void) | null) {
 export function annoncer(texte: string) {
   annoncerGlobal?.(texte);
 }
+
+// --- Confirmations --------------------------------------------------------------
+
+export interface DemandeConfirmation {
+  titre: string;
+  message?: ReactNode;
+  /** Libellé du bouton qui confirme : le verbe de l'action (« Suspendre »), jamais « OK ». */
+  confirmer?: string;
+  danger?: boolean;
+}
+
+let demanderGlobal: ((d: DemandeConfirmation) => Promise<boolean>) | null = null;
+
+/**
+ * Demande confirmation avant une action importante. Rend vrai si la
+ * personne confirme. Sans hôte monté (essai), on ne bloque rien.
+ */
+export function confirmer(d: DemandeConfirmation): Promise<boolean> {
+  return demanderGlobal ? demanderGlobal(d) : Promise.resolve(true);
+}
+
+/** L'hôte unique des confirmations, posé une fois dans la coquille. */
+export function HoteConfirmation() {
+  const [demande, setDemande] = useState<(DemandeConfirmation & { repondre: (v: boolean) => void }) | null>(null);
+  const annuler = useRef<HTMLButtonElement>(null);
+  const valider = useRef<HTMLButtonElement>(null);
+
+  useEffect(() => {
+    demanderGlobal = (d) =>
+      new Promise<boolean>((repondre) => {
+        setDemande({ ...d, repondre });
+      });
+    return () => {
+      demanderGlobal = null;
+    };
+  }, []);
+
+  const repondre = useCallback(
+    (v: boolean) => {
+      demande?.repondre(v);
+      setDemande(null);
+    },
+    [demande],
+  );
+
+  // Une action dangereuse met le focus sur « Annuler » : un Entrée machinal
+  // ne supprime ni ne suspend rien.
+  useEffect(() => {
+    if (!demande) return;
+    requestAnimationFrame(() => (demande.danger ? annuler : valider).current?.focus());
+    const touche = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        e.preventDefault();
+        e.stopPropagation();
+        repondre(false);
+      }
+    };
+    window.addEventListener("keydown", touche, true);
+    return () => window.removeEventListener("keydown", touche, true);
+  }, [demande, repondre]);
+
+  if (!demande) return null;
+  return (
+    <div className="animate-paraitre fixed inset-0 z-[70] grid place-items-center bg-black/50 p-6" onMouseDown={() => repondre(false)}>
+      <div
+        role="alertdialog"
+        aria-modal="true"
+        className="animate-monter w-full max-w-[440px] rounded-2xl border border-filet bg-surface p-6 shadow-2xl shadow-black/40"
+        onMouseDown={(e) => e.stopPropagation()}
+      >
+        <h2 className="font-titre text-[17px] font-semibold">{demande.titre}</h2>
+        {demande.message && <div className="mt-2 text-[13px] leading-relaxed text-texte-2">{demande.message}</div>}
+        <div className="mt-6 flex justify-end gap-2">
+          <button
+            ref={annuler}
+            onClick={() => repondre(false)}
+            className="h-9 rounded-lg px-3.5 text-[13px] font-semibold text-texte-2 outline-none hover:bg-surface-2 hover:text-texte focus-visible:ring-2 focus-visible:ring-accent/50"
+          >
+            Annuler
+          </button>
+          <button
+            ref={valider}
+            onClick={() => repondre(true)}
+            className={clsx(
+              "h-9 rounded-lg px-3.5 text-[13px] font-semibold outline-none focus-visible:ring-2 focus-visible:ring-accent/50",
+              demande.danger ? "bg-danger text-white hover:opacity-90" : "bg-accent text-sur-accent hover:bg-accent-fort",
+            )}
+          >
+            {demande.confirmer ?? "Confirmer"}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}

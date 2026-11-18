@@ -4,7 +4,7 @@ import { api } from "../api";
 import { Avatar, Bouton, Chargement, EnTete, Erreur, Pagination, Pastille, Selection, Table, Vide, formatDate, formatNombre , BarreCollante } from "../composants";
 import { SelecteurVue, coteVignette, largeurCarte, nomTransition, useRaccourciVue, useVue } from "../vues";
 import clsx from "../clsx";
-import { BarreSelection, annoncer, classeChoisi, copier, ouvrirMenu, useSelection } from "../interactions";
+import { BarreSelection, annoncer, classeChoisi, confirmer, copier, ouvrirMenu, useSelection } from "../interactions";
 
 interface Compte {
   _id: string;
@@ -64,14 +64,45 @@ export function Comptes({ rechercheInitiale = "" }: { rechercheInitiale?: string
       .catch((e: Error) => setErreur(e.message));
   }, [page, recherche, role, version]);
 
-  async function modifier(id: string, corps: Partial<Pick<Compte, "role" | "suspended" | "verifiedArtist">>) {
+  /**
+   * Toute modification d'un compte se confirme, avec ce qu'elle change
+   * vraiment. `dejaConfirme` sert aux lots, confirmés une fois pour tous.
+   */
+  async function modifier(id: string, corps: Partial<Pick<Compte, "role" | "suspended" | "verifiedArtist">>, dejaConfirme = false) {
+    const compte = reponse?.users.find((u) => u._id === id);
+    if (!dejaConfirme && compte) {
+      const nom = `« ${compte.name} »`;
+      const demande =
+        corps.role !== undefined
+          ? {
+              titre: `Passer ${nom} en ${ROLES[corps.role].toLowerCase()} ?`,
+              message:
+                corps.role === "admin"
+                  ? "Un administrateur a accès à toute l'administration : catalogue, comptes, annonces, paramètres du site."
+                  : compte.role === "admin"
+                    ? "Ce compte perdra l'accès à l'administration."
+                    : "Le rôle change ce que le compte peut faire sur Moziik.",
+              confirmer: "Changer le rôle",
+              danger: corps.role === "admin" || compte.role === "admin",
+            }
+          : corps.suspended !== undefined
+            ? corps.suspended
+              ? { titre: `Suspendre ${nom} ?`, message: "Le compte ne pourra plus se connecter tant qu'il n'est pas réactivé.", confirmer: "Suspendre", danger: true }
+              : { titre: `Réactiver ${nom} ?`, message: "Le compte pourra de nouveau se connecter.", confirmer: "Réactiver" }
+            : corps.verifiedArtist
+              ? { titre: `Vérifier ${nom} ?`, message: "Le badge vérifié apparaîtra sur le profil public.", confirmer: "Vérifier" }
+              : { titre: `Retirer le badge de ${nom} ?`, message: "Le profil ne sera plus marqué comme vérifié.", confirmer: "Retirer le badge", danger: true };
+      if (!(await confirmer(demande))) return false;
+    }
     setEnCours(id);
     setErreur(null);
     try {
       await api(`/api/admin/users/${id}`, { methode: "PATCH", corps });
       setReponse((r) => (r ? { ...r, users: r.users.map((u) => (u._id === id ? { ...u, ...corps } : u)) } : r));
+      return true;
     } catch (e) {
       setErreur(e instanceof Error ? e.message : "Modification refusée.");
+      return false;
     } finally {
       setEnCours(null);
     }
@@ -87,9 +118,17 @@ export function Comptes({ rechercheInitiale = "" }: { rechercheInitiale?: string
   /** Une même modification sur plusieurs comptes, après confirmation. */
   async function enLot(ids: string[], corps: Partial<Pick<Compte, "role" | "suspended" | "verifiedArtist">>, question: string) {
     const cibles = comptes.filter((u) => ids.includes(u._id));
-    if (cibles.length > 1 && !window.confirm(question.replace("{n}", String(cibles.length)))) return;
-    for (const u of cibles) await modifier(u._id, corps);
-    annoncer(cibles.length > 1 ? `${cibles.length} comptes modifiés` : "Compte modifié");
+    if (cibles.length === 0) return;
+    // Un seul compte : la confirmation détaillée de `modifier`. Plusieurs : une seule question pour le lot.
+    if (cibles.length === 1) {
+      if (await modifier(cibles[0]._id, corps)) annoncer("Compte modifié");
+      return;
+    }
+    const ok = await confirmer({ titre: question.replace("{n}", String(cibles.length)), confirmer: corps.suspended ? "Suspendre" : "Confirmer", danger: Boolean(corps.suspended) });
+    if (!ok) return;
+    let faits = 0;
+    for (const u of cibles) if (await modifier(u._id, corps, true)) faits++;
+    annoncer(`${faits} comptes modifiés`);
   }
 
   function menuCompte(e: React.MouseEvent, rang: number) {
@@ -117,7 +156,7 @@ export function Comptes({ rechercheInitiale = "" }: { rechercheInitiale?: string
               : { libelle: "Vérifier l'artiste", icone: BadgeCheck, action: () => void enLot([u._id], { verifiedArtist: true }, "") }),
           u.suspended
             ? { libelle: "Réactiver", icone: RotateCcw, action: () => void enLot([u._id], { suspended: false }, "") }
-            : { libelle: "Suspendre", icone: Ban, danger: true, action: () => window.confirm(`Suspendre le compte de ${u.name} ?`) && void enLot([u._id], { suspended: true }, "") },
+            : { libelle: "Suspendre", icone: Ban, danger: true, action: () => void enLot([u._id], { suspended: true }, "") },
           "separateur",
           { libelle: "Copier l'e-mail", icone: Mail, action: () => void copier(u.email).then(() => annoncer("E-mail copié")) },
         ],
@@ -289,7 +328,7 @@ export function Comptes({ rechercheInitiale = "" }: { rechercheInitiale?: string
   );
 }
 
-type Modifier = (id: string, corps: Partial<Pick<Compte, "role" | "suspended" | "verifiedArtist">>) => Promise<void>;
+type Modifier = (id: string, corps: Partial<Pick<Compte, "role" | "suspended" | "verifiedArtist">>) => Promise<boolean>;
 
 function ChoixRole({ compte, enCours, modifier, className = "w-32" }: { compte: Compte; enCours: boolean; modifier: Modifier; className?: string }) {
   return (

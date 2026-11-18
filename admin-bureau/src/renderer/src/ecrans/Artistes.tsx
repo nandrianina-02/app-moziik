@@ -6,7 +6,7 @@ import { televerser } from "../envoi";
 import { Bascule, Bouton, Champ, Chargement, EnTete, Erreur, Pagination, Pastille, Table, Tiroir, Vide, ZoneTexte, formatCompact, formatDate, formatNombre , BarreCollante } from "../composants";
 import { SelecteurVue, coteVignette, largeurCarte, nomTransition, useRaccourciVue, useVue } from "../vues";
 import clsx from "../clsx";
-import { BarreSelection, annoncer, classeChoisi, copier, ouvrirMenu, useSelection } from "../interactions";
+import { BarreSelection, annoncer, classeChoisi, confirmer, copier, ouvrirMenu, useSelection } from "../interactions";
 
 interface CompteArtiste {
   _id: string;
@@ -81,7 +81,13 @@ export function Artistes({ rechercheInitiale = "" }: { rechercheInitiale?: strin
   async function badge(ids: string[], verifie: boolean) {
     const cibles = comptes.filter((a) => ids.includes(a._id) && a.artistId && Boolean(a.verifiedArtist) !== verifie);
     if (cibles.length === 0) return;
-    if (cibles.length > 1 && !window.confirm(`${verifie ? "Vérifier" : "Retirer le badge de"} ${cibles.length} artistes ?`)) return;
+    const quoi = cibles.length > 1 ? `${cibles.length} artistes` : `« ${cibles[0].stageName ?? cibles[0].name} »`;
+    const ok = await confirmer(
+      verifie
+        ? { titre: `Vérifier ${quoi} ?`, message: "Le badge vérifié apparaîtra sur le profil public et dans les recherches.", confirmer: "Vérifier" }
+        : { titre: `Retirer le badge de ${quoi} ?`, message: "Le profil ne sera plus marqué comme vérifié.", confirmer: "Retirer le badge", danger: true },
+    );
+    if (!ok) return;
     let faits = 0;
     for (const a of cibles) {
       try {

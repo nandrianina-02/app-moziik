@@ -20,9 +20,12 @@ function formatDuration(seconds: number) {
 export function SongInfoCard({
   song,
   album,
+  large = false,
 }: {
   song: SongDetail;
   album: AlbumSummary | null;
+  /** Toute la largeur de la colonne principale : plus de colonnes, moins de hauteur. */
+  large?: boolean;
 }) {
   const rows: { icon: typeof CalendarDays; label: string; value: string }[] = [
     {
@@ -62,7 +65,7 @@ export function SongInfoCard({
       <h3 className="mb-3 flex items-center gap-1.5 text-sm font-medium">
         <Info size={15} className="text-accent" /> Informations
       </h3>
-      <dl className="grid grid-cols-2 gap-x-3 gap-y-3.5">
+      <dl className={large ? "grid grid-cols-2 gap-x-3 gap-y-3.5 sm:grid-cols-3 lg:grid-cols-4" : "grid grid-cols-2 gap-x-3 gap-y-3.5"}>
         {rows.map((row) => (
           <div key={row.label} className="min-w-0">
             <dt className="flex items-center gap-1.5 text-[11px] text-ink-muted">

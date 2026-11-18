@@ -486,9 +486,10 @@ function Coquille() {
             </div>
           </header>
 
-          <main className="min-h-0 flex-1 overflow-auto px-7 py-6" key={page}>
+          {/* Pas de marge haute sur la zone qui défile : une barre collante s'y colle à 0, au ras de l'en-tête. */}
+          <main className="min-h-0 flex-1 overflow-auto px-7 pb-6" key={page}>
             <GardeFou>
-            <div className="animate-paraitre mx-auto max-w-[1360px]">
+            <div className="animate-paraitre mx-auto max-w-[1360px] pt-6">
               {page === "tableau" && <TableauDeBord />}
               {page === "catalogue" && <Catalogue key={recherche.n} rechercheInitiale={recherche.q} statutInitial={recherche.statut} />}
               {page === "artistes" && <Artistes />}

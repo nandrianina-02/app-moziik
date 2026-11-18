@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Crown, Disc3, Globe2, Headphones, ListMusic, Mic2, Music, TrendingDown, TrendingUp, type LucideIcon } from "lucide-react";
 import { api, ErreurApi } from "../api";
-import { Carte, EnTete, Erreur, formatCompact, formatNombre } from "../composants";
+import { Carte, EnTete, Erreur, formatCompact, formatNombre , BarreCollante } from "../composants";
 import { CourbeAire } from "../graphiques";
 import { useCoquille } from "../App";
 import clsx from "../clsx";
@@ -88,23 +88,22 @@ export function Statistiques() {
 
   return (
     <>
-      <EnTete
-        titre="Statistiques"
-        texte="Les écoutes de toute la plateforme, achevées ou non."
-        action={
-          <div className="flex rounded-lg border border-filet bg-surface p-0.5">
-            {PERIODES.map((p) => (
-              <button
-                key={p}
-                onClick={() => setJours(p)}
-                className={clsx("rounded-md px-3 py-1.5 text-[12.5px] font-medium transition-colors", jours === p ? "bg-accent text-sur-accent" : "text-texte-2 hover:text-texte")}
-              >
-                {p === 365 ? "12 mois" : `${p} jours`}
-              </button>
-            ))}
-          </div>
-        }
-      />
+      <EnTete titre="Statistiques" texte="Les écoutes de toute la plateforme, achevées ou non." />
+      {/* La période commande toute la page : elle reste visible pendant le défilement. */}
+      <BarreCollante className="animate-monter decale-1">
+        <span className="text-[12.5px] font-medium text-texte-2">Période</span>
+        <div className="flex rounded-lg border border-filet bg-surface p-0.5">
+          {PERIODES.map((p) => (
+            <button
+              key={p}
+              onClick={() => setJours(p)}
+              className={clsx("rounded-md px-3 py-1.5 text-[12.5px] font-medium transition-colors", jours === p ? "bg-accent text-sur-accent" : "text-texte-2 hover:text-texte")}
+            >
+              {p === 365 ? "12 mois" : `${p} jours`}
+            </button>
+          ))}
+        </div>
+      </BarreCollante>
       <Erreur message={erreur} />
 
       <div className="mb-5 grid grid-cols-2 gap-5 xl:grid-cols-4">

@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { FolderOpen, Play, Square, X } from "lucide-react";
 import { api } from "../api";
-import { Barres, Bouton, Chargement, EnTete, Erreur, Pagination, Pastille, Selection, Table, Vide, formatDuree, usePages } from "../composants";
+import { Barres, Bouton, Chargement, EnTete, Erreur, Pagination, Pastille, Selection, Table, Vide, formatDuree, usePages , BarreCollante } from "../composants";
 import { SelecteurVue, coteVignette, largeurCarte, nomTransition, useRaccourciVue, useVue } from "../vues";
 import clsx from "../clsx";
 import { adresseImage } from "../session";
@@ -88,7 +88,7 @@ export function Import() {
       )}
 
       {lignes.length > 0 && (
-        <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
+        <BarreCollante className="justify-between">
           <p className="text-[13px] text-texte-2">
             {lignes.length} fichiers · {compte.pret ?? 0} prêts · {compte.incomplet ?? 0} à compléter · {compte.doublon ?? 0} doublons · {compte.termine ?? 0} publiés
             {compte.erreur ? ` · ${compte.erreur} en erreur` : ""}
@@ -97,7 +97,7 @@ export function Import() {
             <SelecteurVue vue={vue} onChange={changerVue} />
             {pagination}
           </div>
-        </div>
+        </BarreCollante>
       )}
       {phase === "analyse" && lignes.length === 0 ? (
         <Chargement texte="Lecture du dossier" />
@@ -106,13 +106,13 @@ export function Import() {
       ) : (
         vue.mode === "grille" ? (
           <div className="grid gap-4" style={{ gridTemplateColumns: `repeat(auto-fill, minmax(${largeurCarte[vue.taille]}px, 1fr))` }}>
-            {pages.tranche.map((l) => (
+            {pages.tranche.map((l, rang) => (
               <button
                 key={l.id}
                 onClick={() => setSelection(l.id)}
                 className={clsx("rounded-2xl border bg-surface p-2.5 text-left transition-colors", selection === l.id ? "border-accent" : "border-filet hover:border-texte-3/40")}
               >
-                <div className="relative aspect-square overflow-hidden rounded-xl bg-surface-2" style={nomTransition("c", l.id)}>
+                <div className="relative aspect-square overflow-hidden rounded-xl bg-surface-2" style={nomTransition("c", l.id, rang)}>
                   <Pochette ligne={l} />
                   {l.statut === "envoi" && (
                     <div className="absolute inset-x-0 bottom-0 bg-black/65 px-2.5 py-2 text-white">
@@ -127,7 +127,7 @@ export function Import() {
                   )}
                 </div>
                 <div className="mt-2.5 px-0.5">
-                  <div className="truncate text-[13px] font-semibold" style={nomTransition("t", l.id)}>
+                  <div className="truncate text-[13px] font-semibold">
                     {l.titre || l.fichier.nom}
                   </div>
                   <div className={clsx("truncate text-[12px]", l.artiste ? "text-texte-3" : "text-attention")}>{l.artiste?.stageName ?? (l.artisteNom || "artiste inconnu")}</div>
@@ -142,10 +142,10 @@ export function Import() {
           </div>
         ) : (
         <Table densite={vue.taille} entetes={["", "Fichier", "Titre", "Artiste", "Album", { libelle: "Année", largeur: "70px" }, { libelle: "Durée", droite: true, largeur: "70px" }, { libelle: "État", largeur: "140px" }]}>
-          {pages.tranche.map((l) => (
+          {pages.tranche.map((l, rang) => (
             <tr key={l.id} onClick={() => setSelection(l.id)} className={`cursor-pointer hover:bg-surface-2 ${selection === l.id ? "bg-surface-2" : ""}`}>
               <td style={{ width: coteVignette[vue.taille] + 24 }}>
-                <div className="overflow-hidden rounded-md bg-surface-2" style={{ width: coteVignette[vue.taille], height: coteVignette[vue.taille], ...nomTransition("c", l.id) }}>
+                <div className="overflow-hidden rounded-md bg-surface-2" style={{ width: coteVignette[vue.taille], height: coteVignette[vue.taille], ...nomTransition("c", l.id, rang) }}>
                   <Pochette ligne={l} />
                 </div>
               </td>
@@ -153,7 +153,7 @@ export function Import() {
                 {l.fichier.nom}
               </td>
               <td className="font-medium">
-                <span style={nomTransition("t", l.id)}>{l.titre || "—"}</span>
+                <span>{l.titre || "—"}</span>
               </td>
               <td>
                 {l.artiste ? (

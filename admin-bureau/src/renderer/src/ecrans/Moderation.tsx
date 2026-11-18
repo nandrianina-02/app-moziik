@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { ExternalLink, RefreshCw } from "lucide-react";
 import { adresseSite, api } from "../api";
-import { Bouton, Chargement, EnTete, Erreur, Pagination, Pastille, Table, Vide, formatDate, usePages } from "../composants";
+import { Bouton, Chargement, EnTete, Erreur, Pagination, Pastille, Table, Vide, formatDate, usePages , BarreCollante } from "../composants";
 
 interface Commentaire {
   _id: string;
@@ -35,7 +35,8 @@ export function Moderation() {
   return (
     <>
       <EnTete titre="Modération" />
-      <div className="animate-monter decale-1 mb-5 flex w-fit rounded-lg border border-filet bg-surface p-0.5">
+      <BarreCollante className="animate-monter decale-1">
+<div className="animate-monter decale-1 mb-5 flex w-fit rounded-lg border border-filet bg-surface p-0.5">
         {(["commentaires", "evenements"] as const).map((o) => (
           <button
             key={o}
@@ -46,6 +47,7 @@ export function Moderation() {
           </button>
         ))}
       </div>
+      </BarreCollante>
       {onglet === "commentaires" ? <Commentaires /> : <Evenements />}
     </>
   );

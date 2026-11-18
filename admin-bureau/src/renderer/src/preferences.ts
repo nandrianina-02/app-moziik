@@ -92,9 +92,12 @@ export function appliquerPreferences(p: Preferences = courantes) {
   const racine = document.documentElement;
   racine.classList.toggle("clair", themeEffectif(p) === "clair");
   racine.classList.toggle("sans-animation", !p.animations);
-  // zoom agit sur toute la mise en page, textes et marges ensemble, comme
-  // le zoom d'un navigateur : rien ne déborde à 125 %.
-  racine.style.zoom = String(p.zoom);
+  // Le zoom de Chromium agit sur toute la mise en page, textes et marges
+  // ensemble, sans fausser les positions comme la propriété CSS zoom le
+  // faisait pendant les transitions. Hors du logiciel (aperçu), repli CSS.
+  const pont = (window as unknown as { bureau?: { zoom?: (f: number) => void } }).bureau;
+  if (pont?.zoom) pont.zoom(p.zoom);
+  else racine.style.zoom = String(p.zoom);
 }
 
 // « Système » suit Windows en direct, sans relancer le logiciel.

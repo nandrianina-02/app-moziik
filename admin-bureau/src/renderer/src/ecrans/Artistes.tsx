@@ -3,7 +3,7 @@ import { BadgeCheck, Camera, Disc3, ExternalLink, Headphones, Heart, Music, Refr
 import { api, adresseSite } from "../api";
 import { adresseImage } from "../session";
 import { televerser } from "../envoi";
-import { Bascule, Bouton, Champ, Chargement, EnTete, Erreur, Pagination, Pastille, Table, Tiroir, Vide, ZoneTexte, formatCompact, formatDate, formatNombre } from "../composants";
+import { Bascule, Bouton, Champ, Chargement, EnTete, Erreur, Pagination, Pastille, Table, Tiroir, Vide, ZoneTexte, formatCompact, formatDate, formatNombre , BarreCollante } from "../composants";
 import { SelecteurVue, coteVignette, largeurCarte, nomTransition, useRaccourciVue, useVue } from "../vues";
 import clsx from "../clsx";
 
@@ -97,7 +97,7 @@ export function Artistes() {
         }
       />
 
-      <div className="animate-monter decale-1 mb-5 flex flex-wrap items-center gap-3">
+      <BarreCollante className="animate-monter decale-1">
         <div className="relative w-80">
           <Search size={15} className="pointer-events-none absolute top-1/2 left-3 -translate-y-1/2 text-texte-3" />
           <input
@@ -131,7 +131,7 @@ export function Artistes() {
           <SelecteurVue vue={vue} onChange={changerVue} />
           {reponse && <Pagination page={reponse.page} pages={reponse.pages} total={reponse.total} taille={TAILLE} onPage={setPage} />}
         </div>
-      </div>
+      </BarreCollante>
 
       <Erreur message={erreur} />
       {!reponse && !erreur ? (
@@ -141,7 +141,7 @@ export function Artistes() {
       ) : reponse ? (
         vue.mode === "grille" ? (
           <div className="grid gap-4" style={{ gridTemplateColumns: `repeat(auto-fill, minmax(${largeurCarte[vue.taille]}px, 1fr))` }}>
-            {reponse.users.map((a) => (
+            {reponse.users.map((a, rang) => (
               <button
                 key={a._id}
                 onClick={() => a.artistId && setOuvert(a)}
@@ -151,12 +151,12 @@ export function Artistes() {
                   a.suspended && "opacity-60",
                 )}
               >
-                <div className="relative aspect-square overflow-hidden rounded-xl bg-surface-2" style={nomTransition("c", a._id)}>
+                <div className="relative aspect-square overflow-hidden rounded-xl bg-surface-2" style={nomTransition("c", a._id, rang)}>
                   <PhotoArtiste a={a} grande={vue.taille !== "petite"} />
                   {a.suspended && <span className="absolute top-2 left-2 rounded-md bg-danger px-1.5 py-0.5 text-[10.5px] font-bold text-white">Suspendu</span>}
                 </div>
                 <div className="mt-3 flex items-center gap-1.5">
-                  <span className={clsx("truncate font-semibold", vue.taille === "petite" ? "text-[12.5px]" : "text-[13.5px]")} style={nomTransition("t", a._id)}>
+                  <span className={clsx("truncate font-semibold", vue.taille === "petite" ? "text-[12.5px]" : "text-[13.5px]")}>
                     {a.stageName ?? a.name}
                   </span>
                   {a.verifiedArtist && <BadgeCheck size={15} className="shrink-0 text-accent" />}
@@ -175,16 +175,16 @@ export function Artistes() {
           </div>
         ) : (
           <Table densite={vue.taille} entetes={["", "Artiste", "Compte", { libelle: "Titres", droite: true, largeur: "90px" }, { libelle: "Albums", droite: true, largeur: "90px" }, { libelle: "Inscrit", largeur: "120px" }, { libelle: "État", largeur: "110px" }]}>
-            {reponse.users.map((a) => (
+            {reponse.users.map((a, rang) => (
               <tr key={a._id} onClick={() => a.artistId && setOuvert(a)} className={clsx(a.artistId ? "cursor-pointer" : "cursor-not-allowed", a.suspended && "opacity-60")}>
                 <td style={{ width: coteVignette[vue.taille] + 24 }}>
-                  <div className="overflow-hidden rounded-full bg-surface-2" style={{ width: coteVignette[vue.taille], height: coteVignette[vue.taille], ...nomTransition("c", a._id) }}>
+                  <div className="overflow-hidden rounded-full bg-surface-2" style={{ width: coteVignette[vue.taille], height: coteVignette[vue.taille], ...nomTransition("c", a._id, rang) }}>
                     <PhotoArtiste a={a} grande={false} />
                   </div>
                 </td>
                 <td>
                   <span className="inline-flex items-center gap-1.5 font-semibold">
-                    <span style={nomTransition("t", a._id)}>{a.stageName ?? a.name}</span>
+                    <span>{a.stageName ?? a.name}</span>
                     {a.verifiedArtist && <BadgeCheck size={14} className="text-accent" />}
                   </span>
                 </td>

@@ -1,4 +1,4 @@
-import { contextBridge, ipcRenderer } from "electron";
+import { contextBridge, ipcRenderer, webFrame } from "electron";
 import { CANAUX, type Etiquettes, type FichierAudio, type Reglages } from "../partage/types";
 
 /** Le pont : ce que la fenêtre a le droit de demander au processus principal, et rien d'autre. */
@@ -17,6 +17,8 @@ const bureau = {
   },
   ouvrirExterne: (url: string): Promise<void> => ipcRenderer.invoke(CANAUX.ouvrirExterne, url),
   version: (): Promise<string> => ipcRenderer.invoke(CANAUX.version),
+  /** Taille de l'interface : le zoom de Chromium, pas la propriété CSS zoom, qui faussait les transitions. */
+  zoom: (facteur: number): void => webFrame.setZoomFactor(facteur),
   miseAJour: {
     /** Télécharge l'installeur puis le lance ; le logiciel se ferme pour lui laisser la place. */
     installer: (url: string): Promise<void> => ipcRenderer.invoke(CANAUX.installerMiseAJour, url),

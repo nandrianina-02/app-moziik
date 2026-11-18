@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { ArrowDown, ArrowUp, BadgeCheck, Disc3, Headphones, Mic2, Minus, Music, Sparkles, TrendingDown, TrendingUp, type LucideIcon } from "lucide-react";
 import { api } from "../api";
 import { adresseImage } from "../session";
-import { Chargement, EnTete, Erreur, Table, Vide, formatNombre } from "../composants";
+import { Chargement, EnTete, Erreur, Table, Vide, formatNombre , BarreCollante } from "../composants";
 import { SelecteurVue, coteVignette, largeurCarte, nomTransition, useRaccourciVue, useVue } from "../vues";
 import clsx from "../clsx";
 
@@ -68,7 +68,7 @@ export function Classements() {
     <>
       <EnTete titre="Classements" texte="Les écoutes complètes, comme les classements publics du site." />
 
-      <div className="animate-monter decale-1 mb-5 flex flex-wrap items-center gap-3">
+      <BarreCollante className="animate-monter decale-1">
         <div className="flex gap-1.5">
           {TYPES.map((t) => (
             <button
@@ -109,7 +109,7 @@ export function Classements() {
             </button>
           ))}
         </div>
-      </div>
+      </BarreCollante>
 
       <Erreur message={erreur} />
       {!reponse && !erreur ? (
@@ -131,9 +131,9 @@ export function Classements() {
           ) : (
             vue.mode === "grille" ? (
               <div className="grid gap-4" style={{ gridTemplateColumns: `repeat(auto-fill, minmax(${largeurCarte[vue.taille]}px, 1fr))` }}>
-                {reponse.ranking.map((l) => (
+                {reponse.ranking.map((l, rang) => (
                   <div key={l._id} className="rounded-2xl border border-filet bg-surface p-2.5">
-                    <div className={clsx("relative aspect-square overflow-hidden bg-surface-2", type === "artists" ? "rounded-full" : "rounded-xl")} style={nomTransition("c", l._id)}>
+                    <div className={clsx("relative aspect-square overflow-hidden bg-surface-2", type === "artists" ? "rounded-full" : "rounded-xl")} style={nomTransition("c", l._id, rang)}>
                       {l.coverUrl ? (
                         <img src={adresseImage(l.coverUrl) ?? undefined} alt="" loading="lazy" className="h-full w-full object-cover" />
                       ) : (
@@ -146,7 +146,7 @@ export function Classements() {
                       <span className={clsx("font-titre text-[18px] leading-none font-semibold tabular-nums", l.rank <= 3 ? "text-accent" : "text-texte-3")}>{l.rank}</span>
                       <div className="min-w-0 flex-1">
                         <div className="flex items-center gap-1 truncate text-[13px] font-semibold">
-                          <span className="truncate" style={nomTransition("t", l._id)}>
+                          <span className="truncate">
                             {l.title ?? l.stageName}
                           </span>
                           {l.verified && <BadgeCheck size={13} className="shrink-0 text-accent" />}
@@ -165,7 +165,7 @@ export function Classements() {
               </div>
             ) : (
             <Table densite={vue.taille} entetes={[{ libelle: "Rang", largeur: "80px" }, { libelle: "Évolution", largeur: "110px" }, type === "artists" ? "Artiste" : type === "albums" ? "Album" : "Titre", { libelle: "Écoutes", droite: true, largeur: "140px" }]}>
-              {reponse.ranking.map((l) => (
+              {reponse.ranking.map((l, rang) => (
                 <tr key={l._id}>
                   <td className={clsx("font-titre text-[16px] font-semibold tabular-nums", l.rank <= 3 ? "text-accent" : "text-texte-3")}>{l.rank}</td>
                   <td>
@@ -175,13 +175,13 @@ export function Classements() {
                     <div className="flex items-center gap-3">
                       <span
                         className={clsx("grid shrink-0 place-items-center overflow-hidden bg-surface-2 text-texte-3", type === "artists" ? "rounded-full" : "rounded-lg")}
-                        style={{ width: coteVignette[vue.taille], height: coteVignette[vue.taille], ...nomTransition("c", l._id) }}
+                        style={{ width: coteVignette[vue.taille], height: coteVignette[vue.taille], ...nomTransition("c", l._id, rang) }}
                       >
                         {l.coverUrl ? <img src={adresseImage(l.coverUrl) ?? undefined} alt="" className="h-full w-full object-cover" /> : <Music size={15} />}
                       </span>
                       <div className="min-w-0">
                         <div className="flex items-center gap-1.5 truncate font-semibold">
-                          <span style={nomTransition("t", l._id)}>{l.title ?? l.stageName}</span>
+                          <span>{l.title ?? l.stageName}</span>
                           {l.verified && <BadgeCheck size={14} className="text-accent" />}
                         </div>
                         {l.artistName && <div className="truncate text-[12px] text-texte-3">{l.artistName}</div>}

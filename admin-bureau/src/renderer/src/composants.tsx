@@ -1,6 +1,6 @@
 import clsx from "./clsx";
 import { ChevronLeft, ChevronRight, Loader2, X } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import type { ButtonHTMLAttributes, InputHTMLAttributes, ReactNode, SelectHTMLAttributes, TextareaHTMLAttributes } from "react";
 import { adresseImage } from "./session";
 
@@ -19,7 +19,7 @@ export function Bouton({
       type="button"
       disabled={disabled || enCours}
       className={clsx(
-        "inline-flex h-9 shrink-0 items-center gap-1.5 rounded-lg px-3.5 text-[13px] font-semibold whitespace-nowrap transition-colors disabled:cursor-not-allowed disabled:opacity-50",
+        "inline-flex h-9 shrink-0 items-center gap-1.5 rounded-lg px-3.5 text-[13px] font-semibold whitespace-nowrap transition-colors disabled:cursor-not-allowed disabled:opacity-50 [&>svg]:shrink-0",
         variante === "plein" && "bg-accent text-sur-accent hover:bg-accent-fort",
         variante === "trait" && "border border-filet bg-surface text-texte hover:bg-surface-2",
         variante === "danger" && "border border-danger/40 text-danger hover:bg-danger/10",
@@ -145,9 +145,11 @@ export function Table({
   densite?: "petite" | "moyenne" | "grande";
 }) {
   return (
-    <div className={clsx("animate-monter overflow-auto rounded-2xl border border-filet bg-surface", className)}>
+    // overflow: clip et non auto : un conteneur qui défile retiendrait l'en-tête
+    // collant chez lui, au lieu de le laisser suivre le défilement de la page.
+    <div className={clsx("animate-monter overflow-clip rounded-2xl border border-filet bg-surface", className)}>
       <table className="w-full border-collapse text-left text-[13px]">
-        <thead className="sticky top-0 z-10 bg-surface text-[11px] tracking-wide text-texte-3 uppercase">
+        <thead className="sticky z-10 bg-surface text-[11px] tracking-wide text-texte-3 uppercase shadow-[inset_0_-1px_0_var(--filet)]" style={{ top: "var(--barre-outils, 0px)" }}>
           <tr>
             {entetes.map((e, i) => {
               const c = typeof e === "string" ? { libelle: e } : e;
@@ -380,4 +382,45 @@ export function usePages<T>(liste: T[] | null | undefined, taille: number, cle?:
   const courante = Math.min(page, pages);
   const tranche = useMemo(() => (liste ?? []).slice((courante - 1) * taille, courante * taille), [liste, courante, taille]);
   return { page: courante, pages, total, taille, tranche, setPage };
+}
+
+/**
+ * Une barre d'outils collante (recherche, filtres, vues, pagination) : elle
+ * reste en haut de la zone de défilement, et publie sa hauteur dans la
+ * variable --barre-outils pour que l'en-tête des tables vienne se caler
+ * juste dessous. Un filet n'apparaît qu'une fois collée, quand le contenu
+ * passe dessous.
+ */
+export function BarreCollante({ children, className }: { children: ReactNode; className?: string }) {
+  const ref = useRef<HTMLDivElement>(null);
+  const [colle, setColle] = useState(false);
+  useLayoutEffect(() => {
+    const el = ref.current;
+    const zone = el?.closest("main");
+    if (!el || !zone) return;
+    const mesurer = () => zone.style.setProperty("--barre-outils", `${el.offsetHeight}px`);
+    const verifier = () => setColle(zone.scrollTop > 0 && el.getBoundingClientRect().top - zone.getBoundingClientRect().top < 1);
+    mesurer();
+    verifier();
+    const observateur = new ResizeObserver(mesurer);
+    observateur.observe(el);
+    zone.addEventListener("scroll", verifier, { passive: true });
+    return () => {
+      observateur.disconnect();
+      zone.removeEventListener("scroll", verifier);
+      zone.style.removeProperty("--barre-outils");
+    };
+  }, []);
+  return (
+    <div
+      ref={ref}
+      className={clsx(
+        "sticky top-0 z-20 -mx-7 mb-4 flex flex-wrap items-center gap-3 border-b bg-fond px-7 py-3 transition-[border-color,box-shadow] duration-200",
+        colle ? "border-filet shadow-[0_10px_18px_-16px_rgba(0,0,0,0.55)]" : "border-transparent",
+        className,
+      )}
+    >
+      {children}
+    </div>
+  );
 }

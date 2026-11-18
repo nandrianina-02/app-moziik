@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, type CSSProperties } from "react";
 import { flushSync } from "react-dom";
 import { Grid2x2, Grid3x3, LayoutGrid, LayoutList, Rows2, Rows3, Rows4, type LucideIcon } from "lucide-react";
 import clsx from "./clsx";
@@ -47,7 +47,14 @@ export function reinitialiserVues() {
 export function avecTransition(changement: () => void) {
   const doc = document as Document & { startViewTransition?: (f: () => void) => unknown };
   if (!doc.startViewTransition || document.documentElement.classList.contains("sans-animation")) return changement();
-  doc.startViewTransition(() => flushSync(changement));
+  // Pendant le passage, les animations d'entrée des blocs (une table qui
+  // réapparaît) sont suspendues : elles se superposaient au glissement.
+  const racine = document.documentElement;
+  racine.classList.add("vue-en-transition");
+  const transition = doc.startViewTransition(() => flushSync(changement)) as { finished?: Promise<void> } | undefined;
+  const fin = () => racine.classList.remove("vue-en-transition");
+  if (transition?.finished) transition.finished.then(fin, fin);
+  else fin();
 }
 
 export function useVue(page: string, defaut: Vue): [Vue, (v: Partial<Vue>) => void] {
@@ -68,7 +75,16 @@ export function useVue(page: string, defaut: Vue): [Vue, (v: Partial<Vue>) => vo
 }
 
 /** Nom de transition d'un élément : unique dans la page, stable d'une vue à l'autre. */
-export const nomTransition = (genre: "c" | "t", id: string) => ({ viewTransitionName: `vt-${genre}-${id.replace(/[^A-Za-z0-9_-]/g, "")}` });
+/**
+ * Nom de transition d'une pochette : unique dans la page, stable d'une vue
+ * à l'autre. Seules les premières de la page glissent (le haut de l'écran,
+ * ce qu'on regarde) : chaque élément nommé est photographié avant et après,
+ * et en nommer cinquante rendait le passage saccadé. Les autres, comme les
+ * textes, se fondent avec la page.
+ */
+export const RANG_MAX_TRANSITION = 24;
+export const nomTransition = (_genre: "c", id: string, rang: number): CSSProperties =>
+  rang < RANG_MAX_TRANSITION ? ({ viewTransitionName: `vt-c-${id.replace(/[^A-Za-z0-9_-]/g, "")}`, viewTransitionClass: "pochette" } as CSSProperties) : {};
 
 /** Largeur minimale d'une carte de grille, selon la taille choisie. */
 export const largeurCarte: Record<TailleVue, number> = { petite: 140, moyenne: 184, grande: 248 };

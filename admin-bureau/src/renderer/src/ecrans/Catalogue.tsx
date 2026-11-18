@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { ExternalLink, Music, RefreshCw, Search } from "lucide-react";
 import { adresseSite, api } from "../api";
-import { Bouton, Champ, Chargement, EnTete, Erreur, Pagination, Pastille, Selection, Table, Vide, formatDate, formatDuree, formatNombre, usePages } from "../composants";
+import { Bouton, Champ, Chargement, EnTete, Erreur, Pagination, Pastille, Selection, Table, Vide, formatDate, formatDuree, formatNombre, usePages , BarreCollante } from "../composants";
 import { SelecteurVue, coteVignette, largeurCarte, nomTransition, useRaccourciVue, useVue } from "../vues";
 import clsx from "../clsx";
 import { adresseImage } from "../session";
@@ -75,7 +75,7 @@ export function Catalogue({ rechercheInitiale = "", statutInitial = "" }: { rech
           </Bouton>
         }
       />
-      <div className="animate-monter decale-1 mb-5 flex flex-wrap items-center gap-3">
+      <BarreCollante className="animate-monter decale-1">
         <div className="relative w-80">
           <Search size={15} className="pointer-events-none absolute top-1/2 left-3 -translate-y-1/2 text-texte-3" />
           <input
@@ -100,7 +100,7 @@ export function Catalogue({ rechercheInitiale = "", statutInitial = "" }: { rech
           <SelecteurVue vue={vue} onChange={changerVue} />
           {titres && pagination}
         </div>
-      </div>
+      </BarreCollante>
       <Erreur message={erreur} />
       {!titres ? (
         <Chargement />
@@ -110,13 +110,13 @@ export function Catalogue({ rechercheInitiale = "", statutInitial = "" }: { rech
         <div>
           {vue.mode === "grille" ? (
             <div className="grid gap-4" style={{ gridTemplateColumns: `repeat(auto-fill, minmax(${largeurCarte[vue.taille]}px, 1fr))` }}>
-              {pages.tranche.map((t) => (
+              {pages.tranche.map((t, rang) => (
                 <button
                   key={t._id}
                   onClick={() => setOuvert(t)}
                   className="group rounded-2xl border border-filet bg-surface p-2.5 text-left transition-colors hover:border-texte-3/40"
                 >
-                  <div className="relative aspect-square overflow-hidden rounded-xl bg-surface-2" style={nomTransition("c", t._id)}>
+                  <div className="relative aspect-square overflow-hidden rounded-xl bg-surface-2" style={nomTransition("c", t._id, rang)}>
                     {t.coverUrl ? (
                       <img src={adresseImage(t.coverUrl) ?? undefined} alt="" loading="lazy" className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-[1.03]" />
                     ) : (
@@ -131,7 +131,7 @@ export function Catalogue({ rechercheInitiale = "", statutInitial = "" }: { rech
                     )}
                   </div>
                   <div className="mt-2.5 px-0.5">
-                    <div className={clsx("truncate font-semibold", vue.taille === "petite" ? "text-[12.5px]" : "text-[13.5px]")} style={nomTransition("t", t._id)}>
+                    <div className={clsx("truncate font-semibold", vue.taille === "petite" ? "text-[12.5px]" : "text-[13.5px]")}>
                       {t.title}
                     </div>
                     <div className="truncate text-[12px] text-texte-3">{t.artist?.stageName ?? "—"}</div>
@@ -147,15 +147,15 @@ export function Catalogue({ rechercheInitiale = "", statutInitial = "" }: { rech
             </div>
           ) : (
             <Table densite={vue.taille} entetes={["", "Titre", "Artiste", "Genre", { libelle: "Sortie", largeur: "110px" }, { libelle: "Durée", droite: true, largeur: "70px" }, { libelle: "Écoutes", droite: true, largeur: "80px" }, { libelle: "État", largeur: "110px" }]}>
-              {pages.tranche.map((t) => (
+              {pages.tranche.map((t, rang) => (
                 <tr key={t._id} onClick={() => setOuvert(t)} className="cursor-pointer">
                   <td style={{ width: coteVignette[vue.taille] + 24 }}>
-                    <div className="overflow-hidden rounded-md bg-surface-2" style={{ width: coteVignette[vue.taille], height: coteVignette[vue.taille], ...nomTransition("c", t._id) }}>
+                    <div className="overflow-hidden rounded-md bg-surface-2" style={{ width: coteVignette[vue.taille], height: coteVignette[vue.taille], ...nomTransition("c", t._id, rang) }}>
                       {t.coverUrl && <img src={adresseImage(t.coverUrl) ?? undefined} alt="" loading="lazy" className="h-full w-full object-cover" />}
                     </div>
                   </td>
                   <td className="font-medium">
-                    <span style={nomTransition("t", t._id)}>{t.title}</span>
+                    <span>{t.title}</span>
                     {t.explicit && <Pastille texte="explicite" />}
                   </td>
                   <td className="text-texte-2">

@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { BadgeCheck, Ban, RefreshCw, RotateCcw, Search } from "lucide-react";
 import { api } from "../api";
-import { Avatar, Bouton, Chargement, EnTete, Erreur, Pagination, Pastille, Selection, Table, Vide, formatDate, formatNombre } from "../composants";
+import { Avatar, Bouton, Chargement, EnTete, Erreur, Pagination, Pastille, Selection, Table, Vide, formatDate, formatNombre , BarreCollante } from "../composants";
 import { SelecteurVue, coteVignette, largeurCarte, nomTransition, useRaccourciVue, useVue } from "../vues";
 import clsx from "../clsx";
 
@@ -91,7 +91,7 @@ export function Comptes() {
           </Bouton>
         }
       />
-      <div className="animate-monter decale-1 mb-4 flex flex-wrap items-center gap-3">
+      <BarreCollante className="animate-monter decale-1">
         <div className="relative w-80">
           <Search size={15} className="pointer-events-none absolute top-1/2 left-3 -translate-y-1/2 text-texte-3" />
           <input
@@ -126,7 +126,7 @@ export function Comptes() {
           <SelecteurVue vue={vue} onChange={changerVue} />
           {pagination}
         </div>
-      </div>
+      </BarreCollante>
       <Erreur message={erreur} />
       {!reponse && !erreur ? (
         <Chargement />
@@ -136,15 +136,15 @@ export function Comptes() {
         <>
           {vue.mode === "grille" ? (
             <div className="grid gap-4" style={{ gridTemplateColumns: `repeat(auto-fill, minmax(${largeurCarte[vue.taille] + 60}px, 1fr))` }}>
-              {reponse.users.map((u) => (
-                <div key={u._id} className={clsx("flex flex-col rounded-2xl border border-filet bg-surface p-4", u.suspended && "opacity-60")}>
+              {reponse.users.map((u, rang) => (
+                <div key={u._id} className={clsx("flex min-w-0 flex-col overflow-hidden rounded-2xl border border-filet bg-surface p-4", u.suspended && "opacity-60")}>
                   <div className="flex items-center gap-3">
-                    <span className="shrink-0 rounded-full" style={nomTransition("c", u._id)}>
+                    <span className="shrink-0 rounded-full" style={nomTransition("c", u._id, rang)}>
                       <Avatar nom={u.name} image={u.avatarUrl} taille={vue.taille === "grande" ? 56 : vue.taille === "moyenne" ? 44 : 34} />
                     </span>
                     <div className="min-w-0">
                       <div className="flex items-center gap-1.5">
-                        <span className="truncate font-semibold" style={nomTransition("t", u._id)}>
+                        <span className="truncate font-semibold">
                           {u.name}
                         </span>
                         {u.verifiedArtist && <BadgeCheck size={14} className="shrink-0 text-accent" />}
@@ -161,23 +161,24 @@ export function Comptes() {
                       {u.suspended && <Pastille texte="suspendu" ton="danger" />}
                     </div>
                   )}
-                  <div className="mt-auto flex flex-wrap items-center gap-2 pt-3">
-                    <ChoixRole compte={u} enCours={enCours === u._id} modifier={modifier} />
-                    <Actions compte={u} enCours={enCours === u._id} modifier={modifier} />
+                  {/* Dans une carte, tout prend la largeur et passe à la ligne : côte à côte, les deux boutons débordaient. */}
+                  <div className="mt-auto space-y-2 pt-3">
+                    <ChoixRole compte={u} enCours={enCours === u._id} modifier={modifier} className="w-full" />
+                    <Actions compte={u} enCours={enCours === u._id} modifier={modifier} className="flex flex-wrap gap-2 [&>button]:min-w-0 [&>button]:flex-1 [&>button]:justify-center" />
                   </div>
                 </div>
               ))}
             </div>
           ) : (
             <Table densite={vue.taille} entetes={["Nom", "E-mail", { libelle: "Rôle", largeur: "140px" }, { libelle: "Inscrit", largeur: "120px" }, { libelle: "Premium", largeur: "100px" }, { libelle: "Actions", largeur: "290px" }]}>
-              {reponse.users.map((u) => (
+              {reponse.users.map((u, rang) => (
                 <tr key={u._id} className={u.suspended ? "opacity-60" : undefined}>
                   <td>
                     <div className="flex items-center gap-3">
-                      <span className="shrink-0 rounded-full" style={nomTransition("c", u._id)}>
+                      <span className="shrink-0 rounded-full" style={nomTransition("c", u._id, rang)}>
                         <Avatar nom={u.name} image={u.avatarUrl} taille={coteVignette[vue.taille] - 6} />
                       </span>
-                      <span className="truncate font-semibold" style={nomTransition("t", u._id)}>
+                      <span className="truncate font-semibold">
                         {u.name}
                       </span>
                       {u.verifiedArtist && <BadgeCheck size={15} className="shrink-0 text-accent" />}
@@ -210,9 +211,9 @@ export function Comptes() {
 
 type Modifier = (id: string, corps: Partial<Pick<Compte, "role" | "suspended" | "verifiedArtist">>) => Promise<void>;
 
-function ChoixRole({ compte, enCours, modifier }: { compte: Compte; enCours: boolean; modifier: Modifier }) {
+function ChoixRole({ compte, enCours, modifier, className = "w-32" }: { compte: Compte; enCours: boolean; modifier: Modifier; className?: string }) {
   return (
-    <Selection value={compte.role} disabled={enCours} onChange={(e) => void modifier(compte._id, { role: e.target.value as Compte["role"] })} className="w-32">
+    <Selection value={compte.role} disabled={enCours} onChange={(e) => void modifier(compte._id, { role: e.target.value as Compte["role"] })} className={className}>
       {(Object.keys(ROLES) as Compte["role"][]).map((r) => (
         <option key={r} value={r}>
           {ROLES[r]}
@@ -222,9 +223,9 @@ function ChoixRole({ compte, enCours, modifier }: { compte: Compte; enCours: boo
   );
 }
 
-function Actions({ compte, enCours, modifier }: { compte: Compte; enCours: boolean; modifier: Modifier }) {
+function Actions({ compte, enCours, modifier, className = "flex gap-2" }: { compte: Compte; enCours: boolean; modifier: Modifier; className?: string }) {
   return (
-    <div className="flex gap-2">
+    <div className={className}>
       {compte.role === "artist" && (
         <Bouton variante="trait" className="h-8" enCours={enCours} onClick={() => void modifier(compte._id, { verifiedArtist: !compte.verifiedArtist })}>
           <BadgeCheck size={14} /> {compte.verifiedArtist ? "Retirer le badge" : "Vérifier"}

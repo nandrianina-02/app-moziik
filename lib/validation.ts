@@ -732,6 +732,9 @@ export const adminSiteConfigPatchSchema = z.object({
   androidVersion: z.string().max(40).optional(),
   androidSizeMB: z.number().min(0).max(2000).optional(),
   androidNotes: z.string().max(1000).optional(),
+  // Le quota d'écoutes d'un visiteur sans compte : listé par la route, mais
+  // absent du schéma, donc retiré par zod avant d'arriver jusqu'à elle.
+  anonymousDailyPlays: z.number().int().min(0).max(1000).optional(),
   legalUpdatedAt: z.coerce.date().optional(),
   // Le protocole est verrouille cote schema : une URL `javascript:` saisie
   // en administration deviendrait sinon un lien executable pour tous les

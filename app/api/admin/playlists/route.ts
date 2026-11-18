@@ -11,7 +11,10 @@ export const GET = withApiErrors(async (req: Request) => {
   const search = searchParams.get("search");
 
   await connectDB();
-  const query = search ? { title: { $regex: search, $options: "i" } } : {};
+  // Échappée : « (ma playlist » ou « a+b » sont des recherches, pas des
+  // expressions régulières (une parenthèse seule faisait échouer la route).
+  const motif = search ? search.replace(/[.*+?^${}()|[\]\\]/g, "\\$&") : null;
+  const query = motif ? { title: { $regex: motif, $options: "i" } } : {};
 
   const playlists = await Playlist.find(query)
     .populate("owner", "name email")

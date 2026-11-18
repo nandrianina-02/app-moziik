@@ -47,6 +47,13 @@ export const PATCH = withApiErrors(async (req: Request) => {
     "legalWebsite",
     "legalUpdatedAt",
     "socialLinks",
+    // Absents jusqu'ici : le formulaire les envoyait, le schéma les acceptait,
+    // mais rien ne les recopiait, et la nouvelle version Android ne
+    // s'enregistrait jamais.
+    "androidApkUrl",
+    "androidVersion",
+    "androidSizeMB",
+    "androidNotes",
   ];
 
   // `frais` : cette route modifie l'objet rendu puis l'enregistre. Partir

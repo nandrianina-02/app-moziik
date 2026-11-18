@@ -1,27 +1,177 @@
-import { useEffect, useState } from "react";
-import { ExternalLink } from "lucide-react";
+import { useEffect, useState, type ReactNode } from "react";
+import { CheckCircle2, Download, ExternalLink, LayoutGrid, Loader2, Monitor, Moon, RefreshCcw, RotateCcw, Sun, type LucideIcon } from "lucide-react";
+import { api } from "../api";
 import { useSession } from "../session";
-import { Bascule, Bouton, Carte, Champ, EnTete } from "../composants";
-import { qualitesActives, reglerQualites } from "../televersements";
+import { Bascule, Bouton, Carte, Champ, EnTete, Selection } from "../composants";
+import { PAR_DEFAUT, ZOOMS, reglerPreferences, reinitialiserPreferences, usePreferences, type ChoixTheme } from "../preferences";
+import { reinitialiserVues } from "../vues";
+import clsx from "../clsx";
 
+const PAGES_DEMARRAGE: [string, string][] = [
+  ["tableau", "Tableau de bord"],
+  ["catalogue", "Musiques"],
+  ["artistes", "Artistes"],
+  ["classements", "Classements"],
+  ["statistiques", "Statistiques"],
+  ["comptes", "Utilisateurs"],
+  ["import", "Téléversements"],
+  ["moderation", "Modération"],
+  ["annonces", "Annonces"],
+];
+
+const ACTUALISATIONS: [number, string][] = [
+  [60, "Toutes les minutes"],
+  [120, "Toutes les 2 minutes"],
+  [300, "Toutes les 5 minutes"],
+  [0, "Jamais (bouton Actualiser seulement)"],
+];
+
+
+const THEMES: { cle: ChoixTheme; libelle: string; icone: LucideIcon }[] = [
+  { cle: "sombre", libelle: "Sombre", icone: Moon },
+  { cle: "clair", libelle: "Clair", icone: Sun },
+  { cle: "systeme", libelle: "Système", icone: Monitor },
+];
+
+/**
+ * Les paramètres de ce poste. Tout est enregistré localement et s'applique
+ * aussitôt : pas de bouton Enregistrer, sauf pour l'adresse du site, dont
+ * le changement ferme la session.
+ */
 export function Reglages() {
   const { site, changerSite, etat } = useSession();
+  const prefs = usePreferences();
   const [saisi, setSaisi] = useState(site);
   const [version, setVersion] = useState("");
+  const [genres, setGenres] = useState<string[]>([]);
+  const [vuesEffacees, setVuesEffacees] = useState(false);
   useEffect(() => {
     void window.bureau.version().then(setVersion);
+    api<{ genres?: string[] }>("/api/site-config")
+      .then((c) => setGenres(c.genres ?? []))
+      .catch(() => undefined);
   }, []);
   const utilisateur = etat.phase === "connecte" ? etat.utilisateur : null;
-  const [qualites, setQualites] = useState(qualitesActives);
 
   return (
     <>
-      <EnTete titre="Paramètres" />
-      <div className="grid max-w-[720px] gap-4">
-        <Carte titre="Site administré">
-          <p className="mb-3 text-[13px] text-texte-2">
-            L'adresse du site Moziik auquel ce logiciel se connecte. La changer ferme la session : les comptes ne sont pas les mêmes d'un site à l'autre.
-          </p>
+      <EnTete
+        titre="Paramètres"
+        texte="Propres à ce poste, appliqués aussitôt."
+        action={
+          <Bouton
+            variante="trait"
+            onClick={() => {
+              if (window.confirm("Remettre tous les paramètres de ce poste à leur valeur d'origine ?")) {
+                reinitialiserPreferences();
+                reinitialiserVues();
+              }
+            }}
+          >
+            <RotateCcw size={14} /> Valeurs d'origine
+          </Bouton>
+        }
+      />
+      <div className="grid grid-cols-1 gap-5 xl:grid-cols-2">
+        <Carte titre="Apparence" className="animate-monter decale-1">
+          <Ligne libelle="Thème" aide="« Système » suit le réglage de Windows, en direct.">
+            <div className="flex rounded-lg border border-filet bg-surface-2 p-0.5">
+              {THEMES.map((t) => (
+                <button
+                  key={t.cle}
+                  onClick={() => reglerPreferences({ theme: t.cle })}
+                  className={clsx(
+                    "flex items-center gap-1.5 rounded-md px-3 py-1.5 text-[12.5px] font-medium transition-colors",
+                    prefs.theme === t.cle ? "bg-accent text-sur-accent" : "text-texte-2 hover:text-texte",
+                  )}
+                >
+                  <t.icone size={14} /> {t.libelle}
+                </button>
+              ))}
+            </div>
+          </Ligne>
+          <Ligne libelle="Taille de l'interface" aide="Textes, icônes et marges ensemble. Raccourcis : Ctrl + + et Ctrl + −, Ctrl + 0 pour revenir à 100 %.">
+            <div className="flex rounded-lg border border-filet bg-surface-2 p-0.5">
+              {ZOOMS.map((z) => (
+                <button
+                  key={z}
+                  onClick={() => reglerPreferences({ zoom: z })}
+                  className={clsx("rounded-md px-3 py-1.5 text-[12.5px] font-medium tabular-nums transition-colors", prefs.zoom === z ? "bg-accent text-sur-accent" : "text-texte-2 hover:text-texte")}
+                >
+                  {Math.round(z * 100)} %
+                </button>
+              ))}
+            </div>
+          </Ligne>
+          <Bascule
+            libelle="Animations"
+            aide="Entrées des panneaux, passage d'une vue à l'autre, barres de chargement. Windows peut aussi les réduire pour tout le système."
+            valeur={prefs.animations}
+            onChange={(v) => reglerPreferences({ animations: v })}
+          />
+          <Ligne libelle="Affichage des listes" aide="Liste ou grille, et taille, retenues page par page. Raccourci : Ctrl + molette sur une liste, comme dans l'Explorateur Windows.">
+            <Bouton
+              variante="trait"
+              className="h-8"
+              onClick={() => {
+                reinitialiserVues();
+                setVuesEffacees(true);
+              }}
+            >
+              <LayoutGrid size={14} /> {vuesEffacees ? "Réinitialisé" : "Réinitialiser"}
+            </Bouton>
+          </Ligne>
+        </Carte>
+
+        <Carte titre="Démarrage et actualisation" className="animate-monter decale-2">
+          <Ligne libelle="Page d'ouverture" aide="Celle qui s'affiche au lancement du logiciel.">
+            <Selection value={prefs.pageDemarrage} onChange={(e) => reglerPreferences({ pageDemarrage: e.target.value })} className="w-52">
+              {PAGES_DEMARRAGE.map(([cle, libelle]) => (
+                <option key={cle} value={cle}>
+                  {libelle}
+                </option>
+              ))}
+            </Selection>
+          </Ligne>
+          <Ligne libelle="Actualisation des compteurs" aide="La cloche, les pastilles de la barre latérale et les chiffres du tableau de bord.">
+            <Selection value={prefs.actualisation} onChange={(e) => reglerPreferences({ actualisation: Number(e.target.value) })} className="w-52">
+              {ACTUALISATIONS.map(([s, libelle]) => (
+                <option key={s} value={s}>
+                  {libelle}
+                </option>
+              ))}
+            </Selection>
+          </Ligne>
+        </Carte>
+
+        <Carte titre="Téléversements" className="animate-monter decale-3">
+          <Bascule
+            libelle="Préparer les qualités d'écoute"
+            aide="64 kb/s (mono), 128 et 320 kb/s encodés avant publication, comme sur le site : les petits forfaits écoutent la version légère. Plus long ; sans cela, tout le monde reçoit le fichier d'origine."
+            valeur={prefs.qualites}
+            onChange={(v) => reglerPreferences({ qualites: v })}
+          />
+          <Ligne libelle="Genre par défaut" aide="Donné aux fichiers dont la balise est vide ou inconnue du site ; modifiable ligne par ligne avant l'envoi.">
+            <Selection value={prefs.genreDefaut} onChange={(e) => reglerPreferences({ genreDefaut: e.target.value })} className="w-52">
+              {[...new Set([prefs.genreDefaut, ...genres])].map((g) => (
+                <option key={g} value={g}>
+                  {g}
+                </option>
+              ))}
+            </Selection>
+          </Ligne>
+          <Bascule
+            libelle="Notification à la fin"
+            aide="Une notification Windows quand un envoi se termine, utile si vous travaillez dans une autre application."
+            valeur={prefs.notifications}
+            onChange={(v) => reglerPreferences({ notifications: v })}
+          />
+        </Carte>
+
+        <MisesAJour version={version} />
+
+        <Carte titre="Site administré" className="animate-monter decale-5">
+          <p className="mb-3 text-[13px] text-texte-2">L'adresse du site Moziik auquel ce logiciel se connecte. La changer ferme la session : les comptes ne sont pas les mêmes d'un site à l'autre.</p>
           <div className="flex items-end gap-2">
             <Champ libelle="Adresse" value={saisi} onChange={(e) => setSaisi(e.target.value)} className="flex-1" />
             <Bouton variante="trait" disabled={saisi.trim().replace(/\/+$/, "") === site} onClick={() => void changerSite(saisi)}>
@@ -29,36 +179,110 @@ export function Reglages() {
             </Bouton>
           </div>
         </Carte>
-        <Carte titre="Téléversements">
-          <Bascule
-            libelle="Préparer les qualités d'écoute"
-            aide="Chaque titre est encodé en 64 kb/s (mono), 128 et 320 kb/s avant publication, comme sur le site : les auditeurs aux forfaits limités écoutent la version légère. Plus long, mais sans cela tout le monde reçoit le fichier d'origine."
-            valeur={qualites}
-            onChange={(v) => {
-              reglerQualites(v);
-              setQualites(v);
-            }}
-          />
-        </Carte>
-        <Carte titre="Compte">
+
+        <Carte titre="Compte" className="animate-monter decale-6">
           <p className="text-[13px]">
             {utilisateur?.name} <span className="text-texte-3">({utilisateur?.email})</span>
           </p>
-          <p className="mt-1 text-[12px] text-texte-3">La session reste ouverte sur ce PC, chiffrée par Windows pour votre compte utilisateur. Déconnectez-vous depuis la barre latérale sur un PC partagé.</p>
-        </Carte>
-        <Carte titre="À propos">
-          <p className="text-[13px]">Moziik Admin {version}</p>
-          <p className="mt-1 text-[12px] text-texte-3">Construit par GitHub Actions. Les fonctions qui ne sont pas encore ici restent accessibles sur le site.</p>
+          <p className="mt-1 text-[12px] text-texte-3">La session reste ouverte sur ce PC, chiffrée par Windows pour votre compte utilisateur. Déconnectez-vous depuis le menu du compte sur un PC partagé.</p>
           <div className="mt-3 flex gap-3 text-[13px]">
             <button onClick={() => void window.bureau.ouvrirExterne(`${site}/admin`)} className="inline-flex items-center gap-1 text-accent hover:underline">
               Administration du site <ExternalLink size={13} />
             </button>
-            <button onClick={() => void window.bureau.ouvrirExterne("https://github.com/nandrianina-02/app-moziik/releases")} className="inline-flex items-center gap-1 text-accent hover:underline">
-              Versions <ExternalLink size={13} />
-            </button>
           </div>
         </Carte>
       </div>
+      {prefs.genreDefaut !== PAR_DEFAUT.genreDefaut && genres.length > 0 && !genres.includes(prefs.genreDefaut) && (
+        <p className="mt-4 text-[12px] text-attention">Le genre par défaut « {prefs.genreDefaut} » n'existe plus sur le site : choisissez-en un autre.</p>
+      )}
     </>
+  );
+}
+
+/** Une ligne de réglage : libellé et explication à gauche, commande à droite. */
+function Ligne({ libelle, aide, children }: { libelle: string; aide?: string; children: ReactNode }) {
+  return (
+    <div className="flex items-center justify-between gap-4 border-b border-filet py-3 last:border-b-0">
+      <div className="min-w-0">
+        <div className="text-[13px] font-medium">{libelle}</div>
+        {aide && <div className="mt-0.5 text-[12px] text-texte-3">{aide}</div>}
+      </div>
+      <div className="shrink-0">{children}</div>
+    </div>
+  );
+}
+
+const DEPOT = "nandrianina-02/app-moziik";
+
+/** Compare deux versions « 1.2.3 ». */
+function plusRecente(a: string, b: string) {
+  const pa = a.split(".").map(Number);
+  const pb = b.split(".").map(Number);
+  for (let i = 0; i < 3; i++) if ((pa[i] ?? 0) !== (pb[i] ?? 0)) return (pa[i] ?? 0) > (pb[i] ?? 0);
+  return false;
+}
+
+/**
+ * La dernière version publiée du logiciel. Les versions du logiciel portent
+ * l'étiquette admin-vX.Y.Z et ne sont jamais « latest » (l'application
+ * Android lit celle-là) : on parcourt donc la liste des versions.
+ */
+function MisesAJour({ version }: { version: string }) {
+  const [etat, setEtat] = useState<{ phase: "attente" } | { phase: "erreur" } | { phase: "pret"; derniere: string; lien: string } | null>(null);
+
+  async function verifier() {
+    setEtat({ phase: "attente" });
+    try {
+      const r = await fetch(`https://api.github.com/repos/${DEPOT}/releases?per_page=30`, { headers: { Accept: "application/vnd.github+json" } });
+      if (!r.ok) throw new Error();
+      const versions = ((await r.json()) as { tag_name: string; draft: boolean }[])
+        .filter((v) => !v.draft && /^admin-v\d+\.\d+\.\d+$/.test(v.tag_name))
+        .map((v) => v.tag_name.slice("admin-v".length))
+        .sort((a, b) => (plusRecente(a, b) ? -1 : 1));
+      const derniere = versions[0];
+      if (!derniere) throw new Error();
+      setEtat({ phase: "pret", derniere, lien: `https://github.com/${DEPOT}/releases/download/admin-v${derniere}/moziik-admin-setup.exe` });
+    } catch {
+      setEtat({ phase: "erreur" });
+    }
+  }
+
+  useEffect(() => {
+    if (version) void verifier();
+  }, [version]);
+
+  const nouvelle = etat?.phase === "pret" && plusRecente(etat.derniere, version);
+  return (
+    <Carte
+      titre="Mises à jour"
+      className="animate-monter decale-4"
+      action={
+        <Bouton variante="discret" className="h-8" onClick={() => void verifier()} disabled={etat?.phase === "attente"}>
+          <RefreshCcw size={14} /> Vérifier
+        </Bouton>
+      }
+    >
+      <div className="flex items-center gap-3">
+        {etat?.phase === "attente" ? (
+          <Loader2 size={18} className="animate-spin text-texte-3" />
+        ) : nouvelle ? (
+          <Download size={18} className="text-accent" />
+        ) : (
+          <CheckCircle2 size={18} className={etat?.phase === "pret" ? "text-succes" : "text-texte-3"} />
+        )}
+        <div className="min-w-0 flex-1">
+          <div className="text-[13px] font-medium">
+            {etat?.phase === "pret" ? (nouvelle ? `Version ${etat.derniere} disponible` : "Le logiciel est à jour") : etat?.phase === "erreur" ? "Vérification impossible" : "Vérification…"}
+          </div>
+          <div className="text-[12px] text-texte-3">Version installée : {version || "…"}</div>
+        </div>
+        {nouvelle && etat?.phase === "pret" && (
+          <Bouton onClick={() => void window.bureau.ouvrirExterne(etat.lien)}>
+            <Download size={14} /> Télécharger
+          </Bouton>
+        )}
+      </div>
+      <p className="mt-3 text-[12px] text-texte-3">L'installeur se lance par-dessus la version actuelle : réglages et session sont conservés.</p>
+    </Carte>
   );
 }

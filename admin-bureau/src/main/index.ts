@@ -1,4 +1,4 @@
-import { app, BrowserWindow, dialog, ipcMain, safeStorage, session, shell } from "electron";
+import { app, BrowserWindow, dialog, ipcMain, Menu, safeStorage, session, shell } from "electron";
 import { join } from "node:path";
 import { readFile, writeFile, readdir, stat } from "node:fs/promises";
 import { parseFile } from "music-metadata";
@@ -245,6 +245,10 @@ function attendreResultat(nom: string, charger: (f: BrowserWindow) => Promise<vo
 
 app.whenReady().then(() => {
   autoriserAppelsDeLaFenetre();
+  // Pas de menu : le menu caché d'Electron porte ses propres raccourcis de
+  // zoom (Ctrl + +, Ctrl + −), qui doubleraient ceux du logiciel et
+  // agrandiraient la page sans passer par les Paramètres.
+  Menu.setApplicationMenu(null);
   if (process.env.MOZIIK_ESSAI_RESEAU === "1") return void essaiReseau();
   creerFenetre();
   app.on("activate", () => {

@@ -196,3 +196,39 @@ select option {
   border-radius: 8px;
   border: 2px solid var(--fond);
 }
+
+/*
+ * Transitions de vue (liste <-> grille, changement de taille) : chaque
+ * pochette et chaque titre nommés glissent vers leur nouvelle place ; le
+ * reste de la page se fond. Court, sans rebond.
+ */
+::view-transition-group(*) {
+  animation-duration: 320ms;
+  animation-timing-function: cubic-bezier(0.2, 0.7, 0.2, 1);
+}
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation-duration: 200ms;
+}
+::view-transition-old(*),
+::view-transition-new(*) {
+  /* Une vignette qui change de taille garde ses proportions en glissant. */
+  height: 100%;
+  object-fit: cover;
+}
+
+/* Animations coupées dans les Paramètres : rien ne bouge, rien n'attend. */
+.sans-animation *,
+.sans-animation *::before,
+.sans-animation *::after {
+  animation: none !important;
+  transition: none !important;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  ::view-transition-group(*),
+  ::view-transition-old(*),
+  ::view-transition-new(*) {
+    animation: none !important;
+  }
+}

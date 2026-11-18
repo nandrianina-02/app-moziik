@@ -3,7 +3,8 @@ import { BadgeCheck, Camera, Disc3, ExternalLink, Headphones, Heart, Music, Refr
 import { api, adresseSite } from "../api";
 import { adresseImage } from "../session";
 import { televerser } from "../envoi";
-import { Bascule, Bouton, Champ, Chargement, EnTete, Erreur, Pagination, Tiroir, Vide, ZoneTexte, formatCompact, formatNombre } from "../composants";
+import { Bascule, Bouton, Champ, Chargement, EnTete, Erreur, Pagination, Pastille, Table, Tiroir, Vide, ZoneTexte, formatCompact, formatDate, formatNombre } from "../composants";
+import { SelecteurVue, coteVignette, largeurCarte, nomTransition, useRaccourciVue, useVue } from "../vues";
 import clsx from "../clsx";
 
 interface CompteArtiste {
@@ -61,6 +62,8 @@ export function Artistes() {
   const [erreur, setErreur] = useState<string | null>(null);
   const [ouvert, setOuvert] = useState<CompteArtiste | null>(null);
   const [version, setVersion] = useState(0);
+  const [vue, changerVue] = useVue("artistes", { mode: "grille", taille: "moyenne" });
+  useRaccourciVue(vue, changerVue);
 
   // La recherche part au site après une courte pause de frappe, pas à chaque touche.
   useEffect(() => {
@@ -124,7 +127,10 @@ export function Artistes() {
             </button>
           ))}
         </div>
-        {reponse && <Pagination className="ml-auto" page={reponse.page} pages={reponse.pages} total={reponse.total} taille={TAILLE} onPage={setPage} />}
+        <div className="ml-auto flex flex-wrap items-center gap-4">
+          <SelecteurVue vue={vue} onChange={changerVue} />
+          {reponse && <Pagination page={reponse.page} pages={reponse.pages} total={reponse.total} taille={TAILLE} onPage={setPage} />}
+        </div>
       </div>
 
       <Erreur message={erreur} />
@@ -133,42 +139,66 @@ export function Artistes() {
       ) : reponse && reponse.users.length === 0 ? (
         <Vide texte="Aucun artiste ne correspond." />
       ) : reponse ? (
-        <div className="grid grid-cols-[repeat(auto-fill,minmax(184px,1fr))] gap-4">
-          {reponse.users.map((a, i) => (
-            <button
-              key={a._id}
-              onClick={() => a.artistId && setOuvert(a)}
-              disabled={!a.artistId}
-              className={clsx(
-                "animate-monter group rounded-2xl border border-filet bg-surface p-3 text-left transition-colors hover:border-texte-3/40 disabled:cursor-not-allowed disabled:opacity-60",
-                i < 6 && `decale-${i + 1}`,
-                a.suspended && "opacity-60",
-              )}
-            >
-              <div className="relative aspect-square overflow-hidden rounded-xl bg-surface-2">
-                {a.artistCoverUrl || a.avatarUrl ? (
-                  <img src={adresseImage(a.artistCoverUrl ?? a.avatarUrl) ?? undefined} alt="" loading="lazy" className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-[1.03]" />
-                ) : (
-                  <span className="grid h-full w-full place-items-center font-titre text-[40px] font-semibold text-texte-3">{(a.stageName ?? a.name).charAt(0).toUpperCase()}</span>
+        vue.mode === "grille" ? (
+          <div className="grid gap-4" style={{ gridTemplateColumns: `repeat(auto-fill, minmax(${largeurCarte[vue.taille]}px, 1fr))` }}>
+            {reponse.users.map((a) => (
+              <button
+                key={a._id}
+                onClick={() => a.artistId && setOuvert(a)}
+                disabled={!a.artistId}
+                className={clsx(
+                  "group rounded-2xl border border-filet bg-surface p-3 text-left transition-colors hover:border-texte-3/40 disabled:cursor-not-allowed disabled:opacity-60",
+                  a.suspended && "opacity-60",
                 )}
-                {a.suspended && <span className="absolute top-2 left-2 rounded-md bg-danger px-1.5 py-0.5 text-[10.5px] font-bold text-white">Suspendu</span>}
-              </div>
-              <div className="mt-3 flex items-center gap-1.5">
-                <span className="truncate text-[13.5px] font-semibold">{a.stageName ?? a.name}</span>
-                {a.verifiedArtist && <BadgeCheck size={15} className="shrink-0 text-accent" />}
-              </div>
-              <div className="mt-0.5 flex items-center gap-3 text-[12px] text-texte-3">
-                <span className="inline-flex items-center gap-1">
-                  <Music size={12} /> {formatNombre(a.songsCount)}
-                </span>
-                <span className="inline-flex items-center gap-1">
-                  <Disc3 size={12} /> {formatNombre(a.albumsCount)}
-                </span>
-                {!a.artistId && <span>sans profil</span>}
-              </div>
-            </button>
-          ))}
-        </div>
+              >
+                <div className="relative aspect-square overflow-hidden rounded-xl bg-surface-2" style={nomTransition("c", a._id)}>
+                  <PhotoArtiste a={a} grande={vue.taille !== "petite"} />
+                  {a.suspended && <span className="absolute top-2 left-2 rounded-md bg-danger px-1.5 py-0.5 text-[10.5px] font-bold text-white">Suspendu</span>}
+                </div>
+                <div className="mt-3 flex items-center gap-1.5">
+                  <span className={clsx("truncate font-semibold", vue.taille === "petite" ? "text-[12.5px]" : "text-[13.5px]")} style={nomTransition("t", a._id)}>
+                    {a.stageName ?? a.name}
+                  </span>
+                  {a.verifiedArtist && <BadgeCheck size={15} className="shrink-0 text-accent" />}
+                </div>
+                <div className="mt-0.5 flex items-center gap-3 text-[12px] text-texte-3">
+                  <span className="inline-flex items-center gap-1">
+                    <Music size={12} /> {formatNombre(a.songsCount)}
+                  </span>
+                  <span className="inline-flex items-center gap-1">
+                    <Disc3 size={12} /> {formatNombre(a.albumsCount)}
+                  </span>
+                  {!a.artistId && <span>sans profil</span>}
+                </div>
+              </button>
+            ))}
+          </div>
+        ) : (
+          <Table densite={vue.taille} entetes={["", "Artiste", "Compte", { libelle: "Titres", droite: true, largeur: "90px" }, { libelle: "Albums", droite: true, largeur: "90px" }, { libelle: "Inscrit", largeur: "120px" }, { libelle: "État", largeur: "110px" }]}>
+            {reponse.users.map((a) => (
+              <tr key={a._id} onClick={() => a.artistId && setOuvert(a)} className={clsx(a.artistId ? "cursor-pointer" : "cursor-not-allowed", a.suspended && "opacity-60")}>
+                <td style={{ width: coteVignette[vue.taille] + 24 }}>
+                  <div className="overflow-hidden rounded-full bg-surface-2" style={{ width: coteVignette[vue.taille], height: coteVignette[vue.taille], ...nomTransition("c", a._id) }}>
+                    <PhotoArtiste a={a} grande={false} />
+                  </div>
+                </td>
+                <td>
+                  <span className="inline-flex items-center gap-1.5 font-semibold">
+                    <span style={nomTransition("t", a._id)}>{a.stageName ?? a.name}</span>
+                    {a.verifiedArtist && <BadgeCheck size={14} className="text-accent" />}
+                  </span>
+                </td>
+                <td className="text-texte-3" data-selectionnable>
+                  {a.email}
+                </td>
+                <td className="text-right tabular-nums">{formatNombre(a.songsCount)}</td>
+                <td className="text-right tabular-nums">{formatNombre(a.albumsCount)}</td>
+                <td className="text-texte-2 tabular-nums">{formatDate(a.createdAt)}</td>
+                <td>{a.suspended ? <Pastille texte="suspendu" ton="danger" /> : !a.artistId ? <Pastille texte="sans profil" /> : <Pastille texte="actif" ton="succes" />}</td>
+              </tr>
+            ))}
+          </Table>
+        )
       ) : null}
 
       {reponse && reponse.users.length > 0 && <Pagination className="mt-6" page={reponse.page} pages={reponse.pages} total={reponse.total} taille={TAILLE} onPage={setPage} />}
@@ -355,5 +385,15 @@ function Mesure({ icone: Icone, libelle, valeur }: { icone: typeof Music; libell
         <div className="font-titre text-[16px] font-semibold tabular-nums">{valeur}</div>
       </div>
     </div>
+  );
+}
+
+/** La photo du profil public, sinon celle du compte, sinon l'initiale. */
+function PhotoArtiste({ a, grande }: { a: CompteArtiste; grande: boolean }) {
+  const src = a.artistCoverUrl ?? a.avatarUrl;
+  return src ? (
+    <img src={adresseImage(src) ?? undefined} alt="" loading="lazy" className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-[1.03]" />
+  ) : (
+    <span className={clsx("grid h-full w-full place-items-center font-titre font-semibold text-texte-3", grande ? "text-[40px]" : "text-[13px]")}>{(a.stageName ?? a.name).charAt(0).toUpperCase()}</span>
   );
 }

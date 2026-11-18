@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { BadgeCheck, Ban, RefreshCw, RotateCcw, Search } from "lucide-react";
 import { api } from "../api";
 import { Avatar, Bouton, Chargement, EnTete, Erreur, Pagination, Pastille, Selection, Table, Vide, formatDate, formatNombre } from "../composants";
+import { SelecteurVue, coteVignette, largeurCarte, nomTransition, useRaccourciVue, useVue } from "../vues";
 import clsx from "../clsx";
 
 interface Compte {
@@ -75,6 +76,8 @@ export function Comptes() {
     }
   }
 
+  const [vue, changerVue] = useVue("comptes", { mode: "liste", taille: "moyenne" });
+  useRaccourciVue(vue, changerVue);
   const pagination = reponse && <Pagination page={reponse.page} pages={reponse.pages} total={reponse.total} taille={TAILLE} onPage={setPage} />;
 
   return (
@@ -119,7 +122,10 @@ export function Comptes() {
             </button>
           ))}
         </div>
-        <div className="ml-auto">{pagination}</div>
+        <div className="ml-auto flex flex-wrap items-center gap-4">
+          <SelecteurVue vue={vue} onChange={changerVue} />
+          {pagination}
+        </div>
       </div>
       <Erreur message={erreur} />
       {!reponse && !erreur ? (
@@ -128,49 +134,105 @@ export function Comptes() {
         <Vide texte="Aucun compte ne correspond." />
       ) : reponse ? (
         <>
-          <Table entetes={["Nom", "E-mail", { libelle: "Rôle", largeur: "140px" }, { libelle: "Inscrit", largeur: "120px" }, { libelle: "Premium", largeur: "100px" }, { libelle: "Actions", largeur: "290px" }]}>
-            {reponse.users.map((u) => (
-              <tr key={u._id} className={u.suspended ? "opacity-60" : undefined}>
-                <td>
+          {vue.mode === "grille" ? (
+            <div className="grid gap-4" style={{ gridTemplateColumns: `repeat(auto-fill, minmax(${largeurCarte[vue.taille] + 60}px, 1fr))` }}>
+              {reponse.users.map((u) => (
+                <div key={u._id} className={clsx("flex flex-col rounded-2xl border border-filet bg-surface p-4", u.suspended && "opacity-60")}>
                   <div className="flex items-center gap-3">
-                    <Avatar nom={u.name} image={u.avatarUrl} taille={32} />
-                    <span className="truncate font-semibold">{u.name}</span>
-                    {u.verifiedArtist && <BadgeCheck size={15} className="shrink-0 text-accent" />}
-                    {u.suspended && <Pastille texte="suspendu" ton="danger" />}
+                    <span className="shrink-0 rounded-full" style={nomTransition("c", u._id)}>
+                      <Avatar nom={u.name} image={u.avatarUrl} taille={vue.taille === "grande" ? 56 : vue.taille === "moyenne" ? 44 : 34} />
+                    </span>
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-1.5">
+                        <span className="truncate font-semibold" style={nomTransition("t", u._id)}>
+                          {u.name}
+                        </span>
+                        {u.verifiedArtist && <BadgeCheck size={14} className="shrink-0 text-accent" />}
+                      </div>
+                      <div className="truncate text-[12px] text-texte-3" data-selectionnable>
+                        {u.email}
+                      </div>
+                    </div>
                   </div>
-                </td>
-                <td className="text-texte-2" data-selectionnable>
-                  {u.email}
-                </td>
-                <td>
-                  <Selection value={u.role} disabled={enCours === u._id} onChange={(e) => void modifier(u._id, { role: e.target.value as Compte["role"] })}>
-                    {(Object.keys(ROLES) as Compte["role"][]).map((r) => (
-                      <option key={r} value={r}>
-                        {ROLES[r]}
-                      </option>
-                    ))}
-                  </Selection>
-                </td>
-                <td className="text-texte-2 tabular-nums">{formatDate(u.createdAt)}</td>
-                <td>{u.premium?.actif ? <Pastille texte={u.premium.offert ? "offert" : "actif"} ton="succes" /> : <span className="text-texte-3">—</span>}</td>
-                <td>
-                  <div className="flex justify-end gap-2">
-                    {u.role === "artist" && (
-                      <Bouton variante="trait" className="h-8" enCours={enCours === u._id} onClick={() => void modifier(u._id, { verifiedArtist: !u.verifiedArtist })}>
-                        <BadgeCheck size={14} /> {u.verifiedArtist ? "Retirer le badge" : "Vérifier"}
-                      </Bouton>
-                    )}
-                    <Bouton variante={u.suspended ? "trait" : "danger"} className="h-8" enCours={enCours === u._id} onClick={() => void modifier(u._id, { suspended: !u.suspended })}>
-                      {u.suspended ? <RotateCcw size={14} /> : <Ban size={14} />} {u.suspended ? "Réactiver" : "Suspendre"}
-                    </Bouton>
+                  {vue.taille !== "petite" && (
+                    <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1 text-[12px] text-texte-3">
+                      <span>Inscrit le {formatDate(u.createdAt)}</span>
+                      {u.premium?.actif && <Pastille texte={u.premium.offert ? "premium offert" : "premium"} ton="succes" />}
+                      {u.suspended && <Pastille texte="suspendu" ton="danger" />}
+                    </div>
+                  )}
+                  <div className="mt-auto flex flex-wrap items-center gap-2 pt-3">
+                    <ChoixRole compte={u} enCours={enCours === u._id} modifier={modifier} />
+                    <Actions compte={u} enCours={enCours === u._id} modifier={modifier} />
                   </div>
-                </td>
-              </tr>
-            ))}
-          </Table>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <Table densite={vue.taille} entetes={["Nom", "E-mail", { libelle: "Rôle", largeur: "140px" }, { libelle: "Inscrit", largeur: "120px" }, { libelle: "Premium", largeur: "100px" }, { libelle: "Actions", largeur: "290px" }]}>
+              {reponse.users.map((u) => (
+                <tr key={u._id} className={u.suspended ? "opacity-60" : undefined}>
+                  <td>
+                    <div className="flex items-center gap-3">
+                      <span className="shrink-0 rounded-full" style={nomTransition("c", u._id)}>
+                        <Avatar nom={u.name} image={u.avatarUrl} taille={coteVignette[vue.taille] - 6} />
+                      </span>
+                      <span className="truncate font-semibold" style={nomTransition("t", u._id)}>
+                        {u.name}
+                      </span>
+                      {u.verifiedArtist && <BadgeCheck size={15} className="shrink-0 text-accent" />}
+                      {u.suspended && <Pastille texte="suspendu" ton="danger" />}
+                    </div>
+                  </td>
+                  <td className="text-texte-2" data-selectionnable>
+                    {u.email}
+                  </td>
+                  <td>
+                    <ChoixRole compte={u} enCours={enCours === u._id} modifier={modifier} />
+                  </td>
+                  <td className="text-texte-2 tabular-nums">{formatDate(u.createdAt)}</td>
+                  <td>{u.premium?.actif ? <Pastille texte={u.premium.offert ? "offert" : "actif"} ton="succes" /> : <span className="text-texte-3">—</span>}</td>
+                  <td>
+                    <div className="flex justify-end">
+                      <Actions compte={u} enCours={enCours === u._id} modifier={modifier} />
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </Table>
+          )}
           <div className="mt-4">{pagination}</div>
         </>
       ) : null}
     </>
+  );
+}
+
+type Modifier = (id: string, corps: Partial<Pick<Compte, "role" | "suspended" | "verifiedArtist">>) => Promise<void>;
+
+function ChoixRole({ compte, enCours, modifier }: { compte: Compte; enCours: boolean; modifier: Modifier }) {
+  return (
+    <Selection value={compte.role} disabled={enCours} onChange={(e) => void modifier(compte._id, { role: e.target.value as Compte["role"] })} className="w-32">
+      {(Object.keys(ROLES) as Compte["role"][]).map((r) => (
+        <option key={r} value={r}>
+          {ROLES[r]}
+        </option>
+      ))}
+    </Selection>
+  );
+}
+
+function Actions({ compte, enCours, modifier }: { compte: Compte; enCours: boolean; modifier: Modifier }) {
+  return (
+    <div className="flex gap-2">
+      {compte.role === "artist" && (
+        <Bouton variante="trait" className="h-8" enCours={enCours} onClick={() => void modifier(compte._id, { verifiedArtist: !compte.verifiedArtist })}>
+          <BadgeCheck size={14} /> {compte.verifiedArtist ? "Retirer le badge" : "Vérifier"}
+        </Bouton>
+      )}
+      <Bouton variante={compte.suspended ? "trait" : "danger"} className="h-8" enCours={enCours} onClick={() => void modifier(compte._id, { suspended: !compte.suspended })}>
+        {compte.suspended ? <RotateCcw size={14} /> : <Ban size={14} />} {compte.suspended ? "Réactiver" : "Suspendre"}
+      </Bouton>
+    </div>
   );
 }

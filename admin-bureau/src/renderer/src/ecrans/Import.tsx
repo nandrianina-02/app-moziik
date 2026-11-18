@@ -2,6 +2,8 @@ import { useEffect, useMemo, useState } from "react";
 import { FolderOpen, Play, Square, X } from "lucide-react";
 import { api } from "../api";
 import { Barres, Bouton, Chargement, EnTete, Erreur, Pagination, Pastille, Selection, Table, Vide, formatDuree, usePages } from "../composants";
+import { SelecteurVue, coteVignette, largeurCarte, nomTransition, useRaccourciVue, useVue } from "../vues";
+import clsx from "../clsx";
 import { adresseImage } from "../session";
 import { STATUTS, useTeleversements, type ArtisteOption, type Ligne, type Statut } from "../televersements";
 
@@ -24,6 +26,8 @@ export function Import() {
   // Un dossier peut compter des centaines de fichiers : 50 par page, et la
   // page ne bouge pas pendant l'envoi (les statuts changent, pas la liste).
   const pages = usePages(lignes, 50, dossier ?? "");
+  const [vue, changerVue] = useVue("import", { mode: "liste", taille: "moyenne" });
+  useRaccourciVue(vue, changerVue);
   const pagination = <Pagination page={pages.page} pages={pages.pages} total={pages.total} taille={pages.taille} onPage={pages.setPage} />;
   const global = avancement.aFaire > 0 ? Math.round(((avancement.faits + avancement.enCours / 100) / avancement.aFaire) * 100) : 0;
 
@@ -89,7 +93,10 @@ export function Import() {
             {lignes.length} fichiers · {compte.pret ?? 0} prêts · {compte.incomplet ?? 0} à compléter · {compte.doublon ?? 0} doublons · {compte.termine ?? 0} publiés
             {compte.erreur ? ` · ${compte.erreur} en erreur` : ""}
           </p>
-          {pagination}
+          <div className="flex flex-wrap items-center gap-4">
+            <SelecteurVue vue={vue} onChange={changerVue} />
+            {pagination}
+          </div>
         </div>
       )}
       {phase === "analyse" && lignes.length === 0 ? (
@@ -97,22 +104,57 @@ export function Import() {
       ) : lignes.length === 0 ? (
         <Vide texte="Aucun dossier choisi." />
       ) : (
-        <Table entetes={["", "Fichier", "Titre", "Artiste", "Album", { libelle: "Année", largeur: "70px" }, { libelle: "Durée", droite: true, largeur: "70px" }, { libelle: "État", largeur: "140px" }]}>
+        vue.mode === "grille" ? (
+          <div className="grid gap-4" style={{ gridTemplateColumns: `repeat(auto-fill, minmax(${largeurCarte[vue.taille]}px, 1fr))` }}>
+            {pages.tranche.map((l) => (
+              <button
+                key={l.id}
+                onClick={() => setSelection(l.id)}
+                className={clsx("rounded-2xl border bg-surface p-2.5 text-left transition-colors", selection === l.id ? "border-accent" : "border-filet hover:border-texte-3/40")}
+              >
+                <div className="relative aspect-square overflow-hidden rounded-xl bg-surface-2" style={nomTransition("c", l.id)}>
+                  <Pochette ligne={l} />
+                  {l.statut === "envoi" && (
+                    <div className="absolute inset-x-0 bottom-0 bg-black/65 px-2.5 py-2 text-white">
+                      <div className="mb-1 flex justify-between text-[11px]">
+                        <span>{l.etape ?? "Envoi"}</span>
+                        <span className="tabular-nums">{l.progression} %</span>
+                      </div>
+                      <div className="h-1 overflow-hidden rounded-full bg-white/25">
+                        <div className="h-full bg-accent transition-[width]" style={{ width: `${l.progression}%` }} />
+                      </div>
+                    </div>
+                  )}
+                </div>
+                <div className="mt-2.5 px-0.5">
+                  <div className="truncate text-[13px] font-semibold" style={nomTransition("t", l.id)}>
+                    {l.titre || l.fichier.nom}
+                  </div>
+                  <div className={clsx("truncate text-[12px]", l.artiste ? "text-texte-3" : "text-attention")}>{l.artiste?.stageName ?? (l.artisteNom || "artiste inconnu")}</div>
+                  {l.statut !== "envoi" && (
+                    <div className="mt-1.5" title={l.erreur ?? l.note}>
+                      <Pastille texte={l.statut === "termine" && l.note ? "Publié*" : STATUTS[l.statut].libelle} ton={l.statut === "termine" && l.note ? "attention" : STATUTS[l.statut].ton} />
+                    </div>
+                  )}
+                </div>
+              </button>
+            ))}
+          </div>
+        ) : (
+        <Table densite={vue.taille} entetes={["", "Fichier", "Titre", "Artiste", "Album", { libelle: "Année", largeur: "70px" }, { libelle: "Durée", droite: true, largeur: "70px" }, { libelle: "État", largeur: "140px" }]}>
           {pages.tranche.map((l) => (
             <tr key={l.id} onClick={() => setSelection(l.id)} className={`cursor-pointer hover:bg-surface-2 ${selection === l.id ? "bg-surface-2" : ""}`}>
-              <td className="w-10">
-                {l.etiquettes?.pochette ? (
-                  <img src={`data:${l.etiquettes.pochette.mime};base64,${l.etiquettes.pochette.base64}`} alt="" className="h-9 w-9 rounded-md object-cover" />
-                ) : l.artiste?.coverUrl ? (
-                  <img src={adresseImage(l.artiste.coverUrl) ?? undefined} alt="" className="h-9 w-9 rounded-full object-cover" />
-                ) : (
-                  <div className="h-9 w-9 rounded-md bg-surface-2" />
-                )}
+              <td style={{ width: coteVignette[vue.taille] + 24 }}>
+                <div className="overflow-hidden rounded-md bg-surface-2" style={{ width: coteVignette[vue.taille], height: coteVignette[vue.taille], ...nomTransition("c", l.id) }}>
+                  <Pochette ligne={l} />
+                </div>
               </td>
               <td className="max-w-[220px] truncate text-texte-3" title={l.fichier.nom}>
                 {l.fichier.nom}
               </td>
-              <td className="font-medium">{l.titre || "—"}</td>
+              <td className="font-medium">
+                <span style={nomTransition("t", l.id)}>{l.titre || "—"}</span>
+              </td>
               <td>
                 {l.artiste ? (
                   <span>{l.artiste.stageName}</span>
@@ -148,6 +190,7 @@ export function Import() {
             </tr>
           ))}
         </Table>
+        )
       )}
       {lignes.length > 0 && <div className="mt-4">{pagination}</div>}
       {ligneOuverte && <FicheLigne ligne={ligneOuverte} genres={genres} verrouillee={phase === "envoi"} onChange={(patch) => modifier(ligneOuverte.id, patch)} onFermer={() => setSelection(null)} />}
@@ -286,3 +329,10 @@ function FicheLigne({ ligne, genres, verrouillee, onChange, onFermer }: { ligne:
 }
 
 /** Un album déjà présent chez l'artiste, retrouvé par son titre ; sinon aucun (le titre sera un single). */
+
+/** La pochette d'un fichier : celle des balises, sinon la photo de l'artiste rapproché. */
+function Pochette({ ligne }: { ligne: Ligne }) {
+  if (ligne.etiquettes?.pochette) return <img src={`data:${ligne.etiquettes.pochette.mime};base64,${ligne.etiquettes.pochette.base64}`} alt="" className="h-full w-full object-cover" />;
+  if (ligne.artiste?.coverUrl) return <img src={adresseImage(ligne.artiste.coverUrl) ?? undefined} alt="" className="h-full w-full object-cover" />;
+  return null;
+}

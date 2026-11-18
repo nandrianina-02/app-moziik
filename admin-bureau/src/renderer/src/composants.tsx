@@ -132,7 +132,18 @@ export function Carte({ titre, action, children, className, corps = "p-5" }: { t
 }
 
 /** Une table de données : filets horizontaux, colonnes alignées, lignes denses. */
-export function Table({ entetes, children, className }: { entetes: (string | { libelle: string; droite?: boolean; largeur?: string })[]; children: ReactNode; className?: string }) {
+export function Table({
+  entetes,
+  children,
+  className,
+  densite = "moyenne",
+}: {
+  entetes: (string | { libelle: string; droite?: boolean; largeur?: string })[];
+  children: ReactNode;
+  className?: string;
+  /** Hauteur des lignes : la taille choisie dans le sélecteur de vue. */
+  densite?: "petite" | "moyenne" | "grande";
+}) {
   return (
     <div className={clsx("animate-monter overflow-auto rounded-2xl border border-filet bg-surface", className)}>
       <table className="w-full border-collapse text-left text-[13px]">
@@ -148,7 +159,16 @@ export function Table({ entetes, children, className }: { entetes: (string | { l
             })}
           </tr>
         </thead>
-        <tbody className="divide-y divide-filet [&>tr]:transition-colors [&>tr:hover]:bg-surface-2/60 [&_td]:px-4 [&_td]:py-2">{children}</tbody>
+        <tbody
+          className={clsx(
+            "divide-y divide-filet [&_td]:px-4 [&>tr]:transition-colors [&>tr:hover]:bg-surface-2/60",
+            densite === "petite" && "[&_td]:py-1",
+            densite === "moyenne" && "[&_td]:py-2",
+            densite === "grande" && "[&_td]:py-3",
+          )}
+        >
+          {children}
+        </tbody>
       </table>
     </div>
   );

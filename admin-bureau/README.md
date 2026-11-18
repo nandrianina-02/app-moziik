@@ -61,3 +61,20 @@ L'intégration continue lance le logiciel construit dans Electron
 (`MOZIIK_ESSAI_RESEAU=1`) : appels au site et au stockage depuis une page
 locale, puis encodage d'un son d'essai par le vrai worker. Un échec bloque
 la publication de l'installeur.
+
+## Affichage et raccourcis
+
+Musiques, Artistes, Classements, Utilisateurs et Téléversements s'affichent
+en liste ou en grille, chacune en trois tailles, retenues page par page
+(`vues.tsx`). Le changement passe par l'API View Transitions de Chromium :
+pochettes et titres portent un nom de transition et glissent vers leur
+nouvelle place.
+
+- Ctrl + molette sur une liste : les six affichages à la suite, comme dans
+  l'Explorateur Windows. Ailleurs, la taille de l'interface.
+- Ctrl + +, Ctrl + −, Ctrl + 0 : taille de l'interface (80 à 150 %).
+
+Le menu d'Electron est retiré : ses propres raccourcis de zoom doublaient
+ceux-ci. Les préférences du poste (`preferences.ts`) : thème (dont
+« Système »), taille, animations, page d'ouverture, actualisation des
+compteurs, qualités d'écoute, genre par défaut, notification de fin.

@@ -98,4 +98,4 @@ export function useSession(): Session {
 }
 
 /** Une adresse d'image du site (/media/…), absolue. */
-export const adresseImage = (chemin: string | null | undefined) => (chemin ? (chemin.startsWith("http") ? chemin : `${adresseSite()}${chemin}`) : null);
+export const adresseImage = (chemin: string | null | undefined) => (chemin ? (/^(https?:|data:|blob:)/.test(chemin) ? chemin : `${adresseSite()}${chemin}`) : null);

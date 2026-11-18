@@ -36,7 +36,8 @@ import { Annonces } from "./ecrans/Annonces";
 import { Moderation } from "./ecrans/Moderation";
 import { Comptes } from "./ecrans/Comptes";
 import { Reglages } from "./ecrans/Reglages";
-import { appliquerTheme, themeEnregistre, type Theme } from "./theme";
+import { preferences, reglerPreferences, themeEffectif, usePreferences, zoomVoisin } from "./preferences";
+import { libelleVue, raccourciVue } from "./vues";
 import { FournisseurTeleversements, useTeleversements } from "./televersements";
 import logo from "./assets/icon-mark.png";
 import clsx from "./clsx";
@@ -250,10 +251,11 @@ function useFermeture(ouvert: boolean, fermer: () => void) {
 
 function Coquille() {
   const { etat, fermer } = useSession();
-  const [page, setPage] = useState<Page>("tableau");
+  const [page, setPage] = useState<Page>(() => preferences().pageDemarrage as Page);
   const [recherche, setRecherche] = useState<{ q: string; statut?: "draft"; n: number }>({ q: "", n: 0 });
   const [replie, setReplie] = useState(false);
-  const [theme, setTheme] = useState<Theme>(themeEnregistre);
+  const prefs = usePreferences();
+  const theme = themeEffectif(prefs);
   const [version, setVersion] = useState("");
   const [stats, setStats] = useState<Stats | null>(null);
   const [erreurStats, setErreurStats] = useState<string | null>(null);
@@ -280,12 +282,54 @@ function Coquille() {
       .catch(() => undefined);
   }, []);
 
+  // Raccourcis : Ctrl + molette change l'affichage de la liste de la page
+  // (comme l'Explorateur Windows), ou la taille de l'interface s'il n'y a
+  // pas de liste ; Ctrl + +, Ctrl + − et Ctrl + 0 règlent la taille.
+  const [annonce, setAnnonce] = useState<{ texte: string; n: number } | null>(null);
+  useEffect(() => {
+    let dernier = 0;
+    const montrer = (texte: string) => setAnnonce((a) => ({ texte, n: (a?.n ?? 0) + 1 }));
+    const zoom = (sens: 1 | -1 | 0) => montrer(`Taille de l'interface : ${Math.round(zoomVoisin(sens) * 100)} %`);
+    const molette = (e: WheelEvent) => {
+      if (!e.ctrlKey) return;
+      e.preventDefault();
+      // Un pavé tactile envoie des dizaines d'événements par geste : un cran à la fois.
+      const maintenant = performance.now();
+      if (maintenant - dernier < 200) return;
+      dernier = maintenant;
+      const sens = e.deltaY < 0 ? 1 : -1;
+      const vue = raccourciVue(sens);
+      if (vue) montrer(libelleVue(vue));
+      else zoom(sens);
+    };
+    const touche = (e: KeyboardEvent) => {
+      if (!e.ctrlKey || e.altKey) return;
+      if (e.key === "+" || e.key === "=") zoom(1);
+      else if (e.key === "-") zoom(-1);
+      else if (e.key === "0") zoom(0);
+      else return;
+      e.preventDefault();
+    };
+    window.addEventListener("wheel", molette, { passive: false });
+    window.addEventListener("keydown", touche);
+    return () => {
+      window.removeEventListener("wheel", molette);
+      window.removeEventListener("keydown", touche);
+    };
+  }, []);
+  useEffect(() => {
+    if (!annonce) return;
+    const t = setTimeout(() => setAnnonce(null), 1400);
+    return () => clearTimeout(t);
+  }, [annonce]);
+
   // Les compteurs restent à jour pendant qu'on travaille, sans marteler la base.
   useEffect(() => {
     rafraichir();
-    const minuterie = setInterval(rafraichir, 120_000);
+    if (prefs.actualisation <= 0) return;
+    const minuterie = setInterval(rafraichir, prefs.actualisation * 1000);
     return () => clearInterval(minuterie);
-  }, [rafraichir]);
+  }, [rafraichir, prefs.actualisation]);
 
   const taches: Tache[] = [
     { libelle: "Titres en attente de validation", nombre: stats?.pendingSongs ?? 0, ouvrir: () => aller("catalogue", "", "draft") },
@@ -297,10 +341,10 @@ function Coquille() {
     { libelle: "Sélections à valider", nombre: aTraiter["/admin/selections"] ?? 0, ouvrir: () => ouvrirSurLeSite("/admin/selections") },
   ];
 
+  // Le bouton de l'en-tête choisit explicitement l'autre thème, même si
+  // les Paramètres suivaient Windows.
   function basculerTheme() {
-    const suivant: Theme = theme === "sombre" ? "clair" : "sombre";
-    appliquerTheme(suivant);
-    setTheme(suivant);
+    reglerPreferences({ theme: theme === "sombre" ? "clair" : "sombre" });
   }
 
   return (
@@ -434,6 +478,13 @@ function Coquille() {
           </main>
         </div>
       </div>
+      {annonce && (
+        <div className="pointer-events-none fixed inset-x-0 bottom-6 z-50 flex justify-center" aria-live="polite">
+          <div key={annonce.n} className="animate-monter rounded-xl border border-filet bg-surface px-4 py-2 text-[13px] font-semibold shadow-2xl shadow-black/30 first-letter:uppercase">
+            {annonce.texte}
+          </div>
+        </div>
+      )}
     </ContexteCoquille.Provider>
   );
 }

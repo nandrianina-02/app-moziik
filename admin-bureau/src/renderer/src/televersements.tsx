@@ -2,6 +2,7 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useRef, use
 import { api, ErreurApi } from "./api";
 import { televerser } from "./envoi";
 import { decoder, encoderVersions, type Qualite } from "./encodage";
+import { preferences } from "./preferences";
 import type { Etiquettes, FichierAudio } from "../../partage/types";
 
 /*
@@ -45,22 +46,6 @@ export interface Ligne {
   songId?: string;
 }
 
-const CLE_QUALITES = "moziik-admin:qualites";
-/** Préparer les qualités 64, 128 et 320 kb/s à l'envoi (oui par défaut, comme le site). */
-export function qualitesActives(): boolean {
-  try {
-    return localStorage.getItem(CLE_QUALITES) !== "non";
-  } catch {
-    return true;
-  }
-}
-export function reglerQualites(actives: boolean) {
-  try {
-    localStorage.setItem(CLE_QUALITES, actives ? "oui" : "non");
-  } catch {
-    // Stockage indisponible : le réglage vaut pour la session.
-  }
-}
 
 const TYPES_AUDIO: [RegExp, string][] = [
   [/\.(m4a|aac)$/i, "audio/mp4"],
@@ -83,7 +68,8 @@ export const STATUTS: Record<Statut, { libelle: string; ton: "neutre" | "succes"
   erreur: { libelle: "Erreur", ton: "danger" },
 };
 
-const GENRE_PAR_DEFAUT = "Afrobeat";
+// Le genre d'un fichier sans balise utilisable : réglable dans les Paramètres.
+const genreParDefaut = () => preferences().genreDefaut || "Afrobeat";
 
 /** Le titre d'après le nom du fichier quand la balise manque : « Artiste - Titre (Clip officiel).mp3 ». */
 function titreDuNom(nom: string): { artiste: string | null; titre: string } {
@@ -208,7 +194,7 @@ export function FournisseurTeleversements({ children }: { children: ReactNode })
       artisteNom: "",
       artiste: null,
       album: "",
-      genre: GENRE_PAR_DEFAUT,
+      genre: genreParDefaut(),
       annee: "",
       doublon: null,
       importerQuandMeme: false,
@@ -229,7 +215,7 @@ export function FournisseurTeleversements({ children }: { children: ReactNode })
           artisteNom: (duNom.artiste ?? e.artiste ?? "").trim(),
           album: e.album ?? "",
           annee: e.annee ? String(e.annee) : "",
-          genre: e.genre && genres.includes(e.genre) ? e.genre : GENRE_PAR_DEFAUT,
+          genre: e.genre && genres.includes(e.genre) ? e.genre : genreParDefaut(),
           statut: "inspection",
         };
       } catch (err) {
@@ -308,7 +294,7 @@ export function FournisseurTeleversements({ children }: { children: ReactNode })
 
         // La source, telle quelle : c'est d'elle que le site repart pour
         // refaire les qualités ou changer la découpe.
-        const qualites = qualitesActives();
+        const qualites = preferences().qualites;
         const partSource = qualites ? 30 : 95;
         modifier(l.id, { etape: "Source" });
         const brut = await window.bureau.lireFichier(l.fichier.chemin);
@@ -389,13 +375,15 @@ export function FournisseurTeleversements({ children }: { children: ReactNode })
     const publies = lotFinal.filter((l) => l.statut === "termine").length;
     const echecs = lotFinal.filter((l) => l.statut === "erreur").length;
     // Prévenir qui travaille ailleurs : sur une autre page, ou dans une autre application.
-    try {
-      new Notification("Téléversement terminé", {
-        body: `${publies} titre${publies > 1 ? "s" : ""} publié${publies > 1 ? "s" : ""}${echecs ? `, ${echecs} en erreur` : ""}${arret.current ? " (arrêté)" : ""}.`,
-        silent: true,
-      });
-    } catch {
-      // Notifications indisponibles : l'avancement reste visible dans le logiciel.
+    if (preferences().notifications) {
+      try {
+        new Notification("Téléversement terminé", {
+          body: `${publies} titre${publies > 1 ? "s" : ""} publié${publies > 1 ? "s" : ""}${echecs ? `, ${echecs} en erreur` : ""}${arret.current ? " (arrêté)" : ""}.`,
+          silent: true,
+        });
+      } catch {
+        // Notifications indisponibles : l'avancement reste visible dans le logiciel.
+      }
     }
   }, [envoyerLigne]);
 

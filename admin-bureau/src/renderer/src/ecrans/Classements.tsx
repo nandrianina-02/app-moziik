@@ -3,6 +3,7 @@ import { ArrowDown, ArrowUp, BadgeCheck, Disc3, Headphones, Mic2, Minus, Music, 
 import { api } from "../api";
 import { adresseImage } from "../session";
 import { Chargement, EnTete, Erreur, Table, Vide, formatNombre } from "../composants";
+import { SelecteurVue, coteVignette, largeurCarte, nomTransition, useRaccourciVue, useVue } from "../vues";
 import clsx from "../clsx";
 
 type Type = "songs" | "artists" | "albums";
@@ -52,6 +53,8 @@ export function Classements() {
   const [univers, setUnivers] = useState<Univers>("general");
   const [reponse, setReponse] = useState<Reponse | null>(null);
   const [erreur, setErreur] = useState<string | null>(null);
+  const [vue, changerVue] = useVue("classements", { mode: "liste", taille: "moyenne" });
+  useRaccourciVue(vue, changerVue);
 
   useEffect(() => {
     setReponse(null);
@@ -92,7 +95,10 @@ export function Classements() {
             </button>
           ))}
         </div>
-        <div className="ml-auto flex rounded-lg border border-filet bg-surface p-0.5">
+        <div className="ml-auto">
+          <SelecteurVue vue={vue} onChange={changerVue} />
+        </div>
+        <div className="flex rounded-lg border border-filet bg-surface p-0.5">
           {(["general", "christian"] as Univers[]).map((u) => (
             <button
               key={u}
@@ -123,7 +129,42 @@ export function Classements() {
           {reponse.ranking.length === 0 ? (
             <Vide texte="Aucune écoute complète sur cette période." />
           ) : (
-            <Table entetes={[{ libelle: "Rang", largeur: "80px" }, { libelle: "Évolution", largeur: "110px" }, type === "artists" ? "Artiste" : type === "albums" ? "Album" : "Titre", { libelle: "Écoutes", droite: true, largeur: "140px" }]}>
+            vue.mode === "grille" ? (
+              <div className="grid gap-4" style={{ gridTemplateColumns: `repeat(auto-fill, minmax(${largeurCarte[vue.taille]}px, 1fr))` }}>
+                {reponse.ranking.map((l) => (
+                  <div key={l._id} className="rounded-2xl border border-filet bg-surface p-2.5">
+                    <div className={clsx("relative aspect-square overflow-hidden bg-surface-2", type === "artists" ? "rounded-full" : "rounded-xl")} style={nomTransition("c", l._id)}>
+                      {l.coverUrl ? (
+                        <img src={adresseImage(l.coverUrl) ?? undefined} alt="" loading="lazy" className="h-full w-full object-cover" />
+                      ) : (
+                        <span className="grid h-full w-full place-items-center text-texte-3">
+                          <Music size={26} />
+                        </span>
+                      )}
+                    </div>
+                    <div className="mt-2.5 flex items-start gap-2 px-0.5">
+                      <span className={clsx("font-titre text-[18px] leading-none font-semibold tabular-nums", l.rank <= 3 ? "text-accent" : "text-texte-3")}>{l.rank}</span>
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-1 truncate text-[13px] font-semibold">
+                          <span className="truncate" style={nomTransition("t", l._id)}>
+                            {l.title ?? l.stageName}
+                          </span>
+                          {l.verified && <BadgeCheck size={13} className="shrink-0 text-accent" />}
+                        </div>
+                        {l.artistName && <div className="truncate text-[12px] text-texte-3">{l.artistName}</div>}
+                        {vue.taille !== "petite" && (
+                          <div className="mt-1 flex items-center justify-between text-[11.5px] text-texte-3">
+                            <Evolution valeur={l.evolution} />
+                            <span className="tabular-nums">{formatNombre(l.plays)}</span>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+            <Table densite={vue.taille} entetes={[{ libelle: "Rang", largeur: "80px" }, { libelle: "Évolution", largeur: "110px" }, type === "artists" ? "Artiste" : type === "albums" ? "Album" : "Titre", { libelle: "Écoutes", droite: true, largeur: "140px" }]}>
               {reponse.ranking.map((l) => (
                 <tr key={l._id}>
                   <td className={clsx("font-titre text-[16px] font-semibold tabular-nums", l.rank <= 3 ? "text-accent" : "text-texte-3")}>{l.rank}</td>
@@ -132,16 +173,15 @@ export function Classements() {
                   </td>
                   <td>
                     <div className="flex items-center gap-3">
-                      {l.coverUrl ? (
-                        <img src={adresseImage(l.coverUrl) ?? undefined} alt="" className={clsx("h-10 w-10 object-cover", type === "artists" ? "rounded-full" : "rounded-lg")} />
-                      ) : (
-                        <span className="grid h-10 w-10 place-items-center rounded-lg bg-surface-2 text-texte-3">
-                          <Music size={15} />
-                        </span>
-                      )}
+                      <span
+                        className={clsx("grid shrink-0 place-items-center overflow-hidden bg-surface-2 text-texte-3", type === "artists" ? "rounded-full" : "rounded-lg")}
+                        style={{ width: coteVignette[vue.taille], height: coteVignette[vue.taille], ...nomTransition("c", l._id) }}
+                      >
+                        {l.coverUrl ? <img src={adresseImage(l.coverUrl) ?? undefined} alt="" className="h-full w-full object-cover" /> : <Music size={15} />}
+                      </span>
                       <div className="min-w-0">
                         <div className="flex items-center gap-1.5 truncate font-semibold">
-                          {l.title ?? l.stageName}
+                          <span style={nomTransition("t", l._id)}>{l.title ?? l.stageName}</span>
                           {l.verified && <BadgeCheck size={14} className="text-accent" />}
                         </div>
                         {l.artistName && <div className="truncate text-[12px] text-texte-3">{l.artistName}</div>}
@@ -152,6 +192,7 @@ export function Classements() {
                 </tr>
               ))}
             </Table>
+            )
           )}
         </>
       ) : null}

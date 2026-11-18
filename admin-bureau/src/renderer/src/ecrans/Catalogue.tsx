@@ -1,7 +1,9 @@
 import { useEffect, useMemo, useState } from "react";
-import { ExternalLink, RefreshCw, Search } from "lucide-react";
+import { ExternalLink, Music, RefreshCw, Search } from "lucide-react";
 import { adresseSite, api } from "../api";
-import { Bouton, Champ, Chargement, EnTete, Erreur, Pagination, Pastille, Selection, Table, Vide, formatDate, formatDuree, usePages } from "../composants";
+import { Bouton, Champ, Chargement, EnTete, Erreur, Pagination, Pastille, Selection, Table, Vide, formatDate, formatDuree, formatNombre, usePages } from "../composants";
+import { SelecteurVue, coteVignette, largeurCarte, nomTransition, useRaccourciVue, useVue } from "../vues";
+import clsx from "../clsx";
 import { adresseImage } from "../session";
 
 interface Titre {
@@ -58,6 +60,8 @@ export function Catalogue({ rechercheInitiale = "", statutInitial = "" }: { rech
   // Le site rend tout le catalogue d'un coup ; l'afficher en entier ferait
   // une table de plusieurs milliers de lignes.
   const pages = usePages(visibles, 50, `${statut}|${recherche}`);
+  const [vue, changerVue] = useVue("catalogue", { mode: "liste", taille: "moyenne" });
+  useRaccourciVue(vue, changerVue);
   const pagination = <Pagination page={pages.page} pages={pages.pages} total={pages.total} taille={pages.taille} onPage={pages.setPage} />;
 
   return (
@@ -92,7 +96,10 @@ export function Catalogue({ rechercheInitiale = "", statutInitial = "" }: { rech
             </button>
           ))}
         </div>
-        {titres && <div className="ml-auto">{pagination}</div>}
+        <div className="ml-auto flex flex-wrap items-center gap-4">
+          <SelecteurVue vue={vue} onChange={changerVue} />
+          {titres && pagination}
+        </div>
       </div>
       <Erreur message={erreur} />
       {!titres ? (
@@ -100,30 +107,73 @@ export function Catalogue({ rechercheInitiale = "", statutInitial = "" }: { rech
       ) : visibles.length === 0 ? (
         <Vide texte="Aucun titre." />
       ) : (
-        <Table entetes={["", "Titre", "Artiste", "Genre", { libelle: "Sortie", largeur: "110px" }, { libelle: "Durée", droite: true, largeur: "70px" }, { libelle: "Écoutes", droite: true, largeur: "80px" }, { libelle: "État", largeur: "100px" }]}>
-          {pages.tranche.map((t) => (
-            <tr key={t._id} onClick={() => setOuvert(t)} className="cursor-pointer hover:bg-surface-2">
-              <td className="w-10 px-2 py-1.5">
-                {t.coverUrl ? <img src={adresseImage(t.coverUrl) ?? undefined} alt="" className="h-8 w-8 rounded object-cover" /> : <div className="h-8 w-8 rounded bg-surface-2" />}
-              </td>
-              <td className="px-3 py-1.5 font-medium">
-                {t.title}
-                {t.explicit && <Pastille texte="explicite" />}
-              </td>
-              <td className="px-3 py-1.5 text-texte-2">
-                {t.artist?.stageName ?? "—"}
-                {t.featuring && t.featuring.length > 0 && <span className="text-texte-3"> ft. {t.featuring.map((f) => f.artist?.stageName).filter(Boolean).join(", ")}</span>}
-              </td>
-              <td className="px-3 py-1.5 text-texte-2">{t.genre}</td>
-              <td className="px-3 py-1.5 text-texte-2 tabular-nums">{formatDate(t.releaseDate)}</td>
-              <td className="px-3 py-1.5 text-right text-texte-2 tabular-nums">{formatDuree(t.duration)}</td>
-              <td className="px-3 py-1.5 text-right text-texte-2 tabular-nums">{t.playsCount ?? 0}</td>
-              <td className="px-3 py-1.5">
-                <Pastille texte={STATUTS[t.status]?.libelle ?? t.status} ton={STATUTS[t.status]?.ton ?? "neutre"} />
-              </td>
-            </tr>
-          ))}
-        </Table>
+        <div>
+          {vue.mode === "grille" ? (
+            <div className="grid gap-4" style={{ gridTemplateColumns: `repeat(auto-fill, minmax(${largeurCarte[vue.taille]}px, 1fr))` }}>
+              {pages.tranche.map((t) => (
+                <button
+                  key={t._id}
+                  onClick={() => setOuvert(t)}
+                  className="group rounded-2xl border border-filet bg-surface p-2.5 text-left transition-colors hover:border-texte-3/40"
+                >
+                  <div className="relative aspect-square overflow-hidden rounded-xl bg-surface-2" style={nomTransition("c", t._id)}>
+                    {t.coverUrl ? (
+                      <img src={adresseImage(t.coverUrl) ?? undefined} alt="" loading="lazy" className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-[1.03]" />
+                    ) : (
+                      <span className="grid h-full w-full place-items-center text-texte-3">
+                        <Music size={vue.taille === "petite" ? 22 : 30} />
+                      </span>
+                    )}
+                    {t.status !== "published" && (
+                      <span className="absolute top-2 left-2">
+                        <Pastille texte={STATUTS[t.status]?.libelle ?? t.status} ton={STATUTS[t.status]?.ton ?? "neutre"} />
+                      </span>
+                    )}
+                  </div>
+                  <div className="mt-2.5 px-0.5">
+                    <div className={clsx("truncate font-semibold", vue.taille === "petite" ? "text-[12.5px]" : "text-[13.5px]")} style={nomTransition("t", t._id)}>
+                      {t.title}
+                    </div>
+                    <div className="truncate text-[12px] text-texte-3">{t.artist?.stageName ?? "—"}</div>
+                    {vue.taille !== "petite" && (
+                      <div className="mt-1 flex justify-between text-[11.5px] text-texte-3 tabular-nums">
+                        <span>{t.genre}</span>
+                        <span>{formatNombre(t.playsCount ?? 0)} écoutes</span>
+                      </div>
+                    )}
+                  </div>
+                </button>
+              ))}
+            </div>
+          ) : (
+            <Table densite={vue.taille} entetes={["", "Titre", "Artiste", "Genre", { libelle: "Sortie", largeur: "110px" }, { libelle: "Durée", droite: true, largeur: "70px" }, { libelle: "Écoutes", droite: true, largeur: "80px" }, { libelle: "État", largeur: "110px" }]}>
+              {pages.tranche.map((t) => (
+                <tr key={t._id} onClick={() => setOuvert(t)} className="cursor-pointer">
+                  <td style={{ width: coteVignette[vue.taille] + 24 }}>
+                    <div className="overflow-hidden rounded-md bg-surface-2" style={{ width: coteVignette[vue.taille], height: coteVignette[vue.taille], ...nomTransition("c", t._id) }}>
+                      {t.coverUrl && <img src={adresseImage(t.coverUrl) ?? undefined} alt="" loading="lazy" className="h-full w-full object-cover" />}
+                    </div>
+                  </td>
+                  <td className="font-medium">
+                    <span style={nomTransition("t", t._id)}>{t.title}</span>
+                    {t.explicit && <Pastille texte="explicite" />}
+                  </td>
+                  <td className="text-texte-2">
+                    {t.artist?.stageName ?? "—"}
+                    {t.featuring && t.featuring.length > 0 && <span className="text-texte-3"> ft. {t.featuring.map((f) => f.artist?.stageName).filter(Boolean).join(", ")}</span>}
+                  </td>
+                  <td className="text-texte-2">{t.genre}</td>
+                  <td className="text-texte-2 tabular-nums">{formatDate(t.releaseDate)}</td>
+                  <td className="text-right text-texte-2 tabular-nums">{formatDuree(t.duration)}</td>
+                  <td className="text-right text-texte-2 tabular-nums">{formatNombre(t.playsCount ?? 0)}</td>
+                  <td>
+                    <Pastille texte={STATUTS[t.status]?.libelle ?? t.status} ton={STATUTS[t.status]?.ton ?? "neutre"} />
+                  </td>
+                </tr>
+              ))}
+            </Table>
+          )}
+        </div>
       )}
       {titres && visibles.length > 0 && <div className="mt-4">{pagination}</div>}
       {ouvert && (

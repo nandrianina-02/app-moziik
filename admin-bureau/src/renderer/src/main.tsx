@@ -1,13 +1,13 @@
 import React from "react";
 import { createRoot } from "react-dom/client";
 import { App } from "./App";
-import { appliquerTheme, themeEnregistre } from "./theme";
+import { appliquerPreferences } from "./preferences";
 import { essaiEncodage } from "./essai";
 import "./styles.css";
 
 // Avant le premier rendu : sans quoi l'interface clignote en sombre au
-// lancement chez qui a choisi le thème clair.
-appliquerTheme(themeEnregistre());
+// lancement chez qui a choisi le thème clair, ou change de taille.
+appliquerPreferences();
 
 // Mode d'essai de l'intégration continue (voir essaiReseau dans le
 // processus principal) : pas d'interface, seulement le résultat dans le titre.

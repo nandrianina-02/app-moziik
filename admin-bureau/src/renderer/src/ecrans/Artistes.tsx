@@ -54,11 +54,11 @@ type Filtre = "" | "yes" | "no";
  * d'albums. La fiche se modifie par /api/admin/artists/{id}, la même route
  * que l'éditeur de l'administration web.
  */
-export function Artistes() {
+export function Artistes({ rechercheInitiale = "" }: { rechercheInitiale?: string }) {
   const [reponse, setReponse] = useState<Reponse | null>(null);
   const [page, setPage] = useState(1);
-  const [saisie, setSaisie] = useState("");
-  const [recherche, setRecherche] = useState("");
+  const [saisie, setSaisie] = useState(rechercheInitiale);
+  const [recherche, setRecherche] = useState(rechercheInitiale);
   const [filtre, setFiltre] = useState<Filtre>("");
   const [erreur, setErreur] = useState<string | null>(null);
   const [ouvert, setOuvert] = useState<CompteArtiste | null>(null);
@@ -208,7 +208,8 @@ export function Artistes() {
             {reponse.users.map((a, rang) => (
               <button
                 key={a._id}
-                onClick={(e) => sel.surClic(e, rang)}
+                data-rang={rang}
+                  onClick={(e) => sel.surClic(e, rang)}
                 onDoubleClick={(e) => sel.surDoubleClic(e, rang)}
                 onContextMenu={(e) => menuArtiste(e, rang)}
                 className={clsx(
@@ -244,7 +245,8 @@ export function Artistes() {
             {reponse.users.map((a, rang) => (
               <tr
                 key={a._id}
-                onClick={(e) => sel.surClic(e, rang)}
+                data-rang={rang}
+                  onClick={(e) => sel.surClic(e, rang)}
                 onDoubleClick={(e) => sel.surDoubleClic(e, rang)}
                 onContextMenu={(e) => menuArtiste(e, rang)}
                 className={clsx("cursor-default", a.suspended && "opacity-60", classeChoisi(sel.estChoisi(a._id), "ligne"))}

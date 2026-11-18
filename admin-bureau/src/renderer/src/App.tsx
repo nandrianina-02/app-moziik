@@ -22,6 +22,7 @@ import {
   Sun,
   Trophy,
   Users,
+  WifiOff,
   type LucideIcon,
 } from "lucide-react";
 import { FournisseurSession, useSession } from "./session";
@@ -40,7 +41,8 @@ import { Comptes } from "./ecrans/Comptes";
 import { Reglages } from "./ecrans/Reglages";
 import { preferences, reglerPreferences, themeEffectif, usePreferences, zoomVoisin } from "./preferences";
 import { libelleVue, raccourciVue } from "./vues";
-import { HoteMenu, brancherAnnonces } from "./interactions";
+import { HoteMenu, annoncer, brancherAnnonces } from "./interactions";
+import { Palette } from "./palette";
 import { derniereVersion, plusRecente } from "./miseajour";
 import { FournisseurTeleversements, useTeleversements } from "./televersements";
 import logo from "./assets/icon-mark.png";
@@ -265,7 +267,8 @@ function Coquille() {
   const [erreurStats, setErreurStats] = useState<string | null>(null);
   const [aTraiter, setATraiter] = useState<ATraiter>({});
   const utilisateur = etat.phase === "connecte" ? etat.utilisateur : null;
-  const { avancement } = useTeleversements();
+  const { avancement, choisir } = useTeleversements();
+  const [palette, setPalette] = useState(false);
 
   // Une nouvelle version se signale en bas de la barre latérale : vérifiée au
   // lancement, puis toutes les six heures pour un logiciel resté ouvert.
@@ -287,7 +290,8 @@ function Coquille() {
 
   const aller = useCallback((p: Page, q?: string, statut?: "draft") => {
     setPage(p);
-    if (q !== undefined || statut) setRecherche((r) => ({ q: q ?? "", statut, n: r.n + 1 }));
+    // Sans recherche transmise, la page s'ouvre vierge : la dernière recherche ne la suit pas.
+    setRecherche((r) => ({ q: q ?? "", statut, n: r.n + 1 }));
   }, []);
 
   const rafraichir = useCallback(() => {
@@ -324,7 +328,8 @@ function Coquille() {
     };
     const touche = (e: KeyboardEvent) => {
       if (!e.ctrlKey || e.altKey) return;
-      if (e.key === "+" || e.key === "=") zoom(1);
+      if (e.key === "k" || e.key === "K") setPalette(true);
+      else if (e.key === "+" || e.key === "=") zoom(1);
       else if (e.key === "-") zoom(-1);
       else if (e.key === "0") zoom(0);
       else return;
@@ -344,6 +349,24 @@ function Coquille() {
     const t = setTimeout(() => setAnnonce(null), 1400);
     return () => clearTimeout(t);
   }, [annonce]);
+
+  // Hors connexion, un bandeau le dit plutôt que de laisser les pages
+  // échouer sans explication ; au retour du réseau, les compteurs se relisent.
+  const [enLigne, setEnLigne] = useState(() => navigator.onLine);
+  useEffect(() => {
+    const hors = () => setEnLigne(false);
+    const retour = () => {
+      setEnLigne(true);
+      rafraichir();
+      annoncer("Connexion rétablie");
+    };
+    window.addEventListener("offline", hors);
+    window.addEventListener("online", retour);
+    return () => {
+      window.removeEventListener("offline", hors);
+      window.removeEventListener("online", retour);
+    };
+  }, [rafraichir]);
 
   // Les compteurs restent à jour pendant qu'on travaille, sans marteler la base.
   useEffect(() => {
@@ -444,7 +467,14 @@ function Coquille() {
             >
               {replie ? <PanelLeftOpen size={19} /> : <PanelLeftClose size={19} />}
             </button>
-            <RechercheGlobale onChercher={(q) => aller("catalogue", q)} />
+            <button
+              onClick={() => setPalette(true)}
+              className="flex h-10 w-full max-w-[460px] items-center gap-2.5 rounded-xl border border-filet bg-surface-2 px-3.5 text-left text-[13px] text-texte-3 transition-colors hover:border-texte-3/50"
+            >
+              <Search size={16} />
+              <span className="flex-1 truncate">Rechercher une musique, un artiste, une page…</span>
+              <kbd className="rounded-md border border-filet bg-surface px-1.5 py-0.5 text-[11px] font-semibold">Ctrl K</kbd>
+            </button>
             {avancement.phase !== "repos" && page !== "import" && (
               <button
                 onClick={() => aller("import")}
@@ -492,17 +522,23 @@ function Coquille() {
           </header>
 
           {/* Pas de marge haute sur la zone qui défile : une barre collante s'y colle à 0, au ras de l'en-tête. */}
+          {!enLigne && (
+            <div className="animate-paraitre flex items-center gap-2.5 border-b border-attention/30 bg-attention/10 px-7 py-2 text-[12.5px] text-attention">
+              <WifiOff size={15} className="shrink-0" />
+              Hors connexion : les données affichées peuvent dater, et les envois sont en pause. Reconnexion automatique dès le retour du réseau.
+            </div>
+          )}
           <main className="min-h-0 flex-1 overflow-auto px-7 pb-6" key={page}>
             <GardeFou>
             <div className="animate-paraitre mx-auto max-w-[1360px] pt-6">
               {page === "tableau" && <TableauDeBord />}
               {page === "catalogue" && <Catalogue key={recherche.n} rechercheInitiale={recherche.q} statutInitial={recherche.statut} />}
-              {page === "artistes" && <Artistes />}
+              {page === "artistes" && <Artistes key={recherche.n} rechercheInitiale={recherche.q} />}
               {page === "classements" && <Classements />}
               {page === "statistiques" && <Statistiques />}
               {page === "annonces" && <Annonces />}
               {page === "assistance" && <Assistance />}
-              {page === "comptes" && <Comptes />}
+              {page === "comptes" && <Comptes key={recherche.n} rechercheInitiale={recherche.q} />}
               {page === "import" && <Import />}
               {page === "moderation" && <Moderation />}
               {page === "reglages" && <Reglages />}
@@ -512,6 +548,19 @@ function Coquille() {
         </div>
       </div>
       <HoteMenu />
+      <Palette
+        ouverte={palette}
+        fermer={() => setPalette(false)}
+        pages={NAVIGATION}
+        aller={(p, q) => aller(p as Page, q)}
+        theme={theme}
+        basculerTheme={basculerTheme}
+        rafraichir={rafraichir}
+        choisirDossier={() => {
+          aller("import");
+          void choisir();
+        }}
+      />
       {annonce && (
         <div className="pointer-events-none fixed inset-x-0 bottom-6 z-50 flex justify-center" aria-live="polite">
           <div key={annonce.n} className="animate-monter rounded-xl border border-filet bg-surface px-4 py-2 text-[13px] font-semibold shadow-2xl shadow-black/30 first-letter:uppercase">
@@ -578,27 +627,6 @@ function EntreeNav({
         </span>
       ) : null}
     </button>
-  );
-}
-
-function RechercheGlobale({ onChercher }: { onChercher: (q: string) => void }) {
-  const [q, setQ] = useState("");
-  return (
-    <form
-      onSubmit={(e) => {
-        e.preventDefault();
-        onChercher(q.trim());
-      }}
-      className="relative w-full max-w-[460px]"
-    >
-      <Search size={16} className="pointer-events-none absolute top-1/2 left-3.5 -translate-y-1/2 text-texte-3" />
-      <input
-        value={q}
-        onChange={(e) => setQ(e.target.value)}
-        placeholder="Rechercher une musique, un artiste…"
-        className="h-10 w-full rounded-xl border border-filet bg-surface-2 pr-3 pl-10 text-[13px] outline-none placeholder:text-texte-3 focus:border-accent"
-      />
-    </form>
   );
 }
 

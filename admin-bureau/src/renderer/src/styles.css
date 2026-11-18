@@ -244,3 +244,10 @@ select option {
     animation: none !important;
   }
 }
+
+/* Un élément atteint au clavier ne se cache ni sous la barre collante et
+   l'en-tête de table, ni sous la barre d'actions groupées. */
+[data-rang] {
+  scroll-margin-top: calc(var(--barre-outils, 0px) + 48px);
+  scroll-margin-bottom: 96px;
+}

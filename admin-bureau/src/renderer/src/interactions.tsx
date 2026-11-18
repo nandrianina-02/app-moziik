@@ -21,7 +21,7 @@ export interface ElementMenu {
   /** Indication affichée à droite (« Entrée », « Ctrl + C »). */
   raccourci?: string;
 }
-export type EntreeMenu = ElementMenu | "separateur" | null | false;
+export type EntreeMenu = ElementMenu | "separateur" | null | false | undefined | "";
 
 type Ouvrir = (x: number, y: number, titre: string | undefined, entrees: ElementMenu[][]) => void;
 let ouvrirGlobal: Ouvrir | null = null;
@@ -167,7 +167,10 @@ function surCommande(e: MouseEvent) {
  */
 export function useSelection(ids: string[], ouvrir?: (id: string) => void) {
   const [choisis, setChoisis] = useState<Set<string>>(() => new Set());
+  // Le pivot d'une plage (Maj) et la position courante (flèches, Entrée) :
+  // distincts, comme dans l'Explorateur, où Maj + flèche étend depuis le pivot.
   const ancre = useRef<number | null>(null);
+  const curseur = useRef<number | null>(null);
   const cle = ids.join("|");
 
   useEffect(() => {
@@ -182,6 +185,7 @@ export function useSelection(ids: string[], ouvrir?: (id: string) => void) {
     (e: MouseEvent, index: number) => {
       if (surCommande(e)) return;
       const id = ids[index];
+      curseur.current = index;
       if (e.shiftKey && ancre.current !== null) {
         const [a, b] = [Math.min(ancre.current, index), Math.max(ancre.current, index)];
         const plage = ids.slice(a, b + 1);
@@ -215,6 +219,7 @@ export function useSelection(ids: string[], ouvrir?: (id: string) => void) {
       const id = ids[index];
       if (choisis.has(id)) return [...choisis];
       ancre.current = index;
+      curseur.current = index;
       setChoisis(new Set([id]));
       return [id];
     },
@@ -231,9 +236,26 @@ export function useSelection(ids: string[], ouvrir?: (id: string) => void) {
         e.preventDefault();
         setChoisis(new Set(ids));
       } else if (e.key === "Escape") setChoisis(new Set());
-      else if (e.key === "Enter" && ancre.current !== null && ouvrir) {
-        const id = ids[ancre.current];
+      else if (e.key === "Enter" && curseur.current !== null && ouvrir) {
+        const id = ids[curseur.current];
         if (id && choisis.has(id)) ouvrir(id);
+      } else if ((e.key === "ArrowDown" || e.key === "ArrowUp" || e.key === "Home" || e.key === "End") && ids.length > 0) {
+        // Les flèches suivent l'ordre de la liste, en liste comme en grille ;
+        // Début et Fin vont aux extrémités ; Maj étend depuis le pivot.
+        e.preventDefault();
+        const depuis = curseur.current ?? -1;
+        const suivant =
+          e.key === "Home" ? 0 : e.key === "End" ? ids.length - 1 : Math.min(ids.length - 1, Math.max(0, depuis + (e.key === "ArrowDown" ? 1 : -1)));
+        curseur.current = suivant;
+        if (e.shiftKey && ancre.current !== null) {
+          const [a, b] = [Math.min(ancre.current, suivant), Math.max(ancre.current, suivant)];
+          setChoisis(new Set(ids.slice(a, b + 1)));
+        } else {
+          ancre.current = suivant;
+          setChoisis(new Set([ids[suivant]]));
+        }
+        // Le défilement suit : l'élément choisi reste à l'écran, sous la barre collante.
+        requestAnimationFrame(() => document.querySelector(`main [data-rang="${suivant}"]`)?.scrollIntoView({ block: "nearest" }));
       }
     };
     window.addEventListener("keydown", touche);

@@ -158,7 +158,8 @@ export function Import() {
             {pages.tranche.map((l, rang) => (
               <button
                 key={l.id}
-                onClick={(e) => sel.surClic(e, rang)}
+                data-rang={rang}
+                  onClick={(e) => sel.surClic(e, rang)}
                 onDoubleClick={(e) => sel.surDoubleClic(e, rang)}
                 onContextMenu={(e) => menuLigne(e, rang)}
                 className={clsx("rounded-2xl border border-filet bg-surface p-2.5 text-left transition-colors hover:border-texte-3/40", classeChoisi(sel.estChoisi(l.id), "carte"))}
@@ -196,7 +197,8 @@ export function Import() {
           {pages.tranche.map((l, rang) => (
             <tr
               key={l.id}
-              onClick={(e) => sel.surClic(e, rang)}
+              data-rang={rang}
+                  onClick={(e) => sel.surClic(e, rang)}
               onDoubleClick={(e) => sel.surDoubleClic(e, rang)}
               onContextMenu={(e) => menuLigne(e, rang)}
               className={clsx("cursor-default", classeChoisi(sel.estChoisi(l.id), "ligne"))}

@@ -35,11 +35,11 @@ type FiltreRole = "" | Compte["role"];
  * filtre et la pagination passent par le site (/api/admin/users) : ils
  * portent sur tous les comptes, pas seulement sur la page affichée.
  */
-export function Comptes() {
+export function Comptes({ rechercheInitiale = "" }: { rechercheInitiale?: string }) {
   const [reponse, setReponse] = useState<Reponse | null>(null);
   const [page, setPage] = useState(1);
-  const [saisie, setSaisie] = useState("");
-  const [recherche, setRecherche] = useState("");
+  const [saisie, setSaisie] = useState(rechercheInitiale);
+  const [recherche, setRecherche] = useState(rechercheInitiale);
   const [role, setRole] = useState<FiltreRole>("");
   const [version, setVersion] = useState(0);
   const [erreur, setErreur] = useState<string | null>(null);
@@ -196,6 +196,7 @@ export function Comptes() {
               {reponse.users.map((u, rang) => (
                 <div
                   key={u._id}
+                  data-rang={rang}
                   onClick={(e) => sel.surClic(e, rang)}
                   onContextMenu={(e) => menuCompte(e, rang)}
                   className={clsx("flex min-w-0 flex-col overflow-hidden rounded-2xl border border-filet bg-surface p-4", u.suspended && "opacity-60", classeChoisi(sel.estChoisi(u._id), "carte"))}
@@ -236,6 +237,7 @@ export function Comptes() {
               {reponse.users.map((u, rang) => (
                 <tr
                   key={u._id}
+                  data-rang={rang}
                   onClick={(e) => sel.surClic(e, rang)}
                   onContextMenu={(e) => menuCompte(e, rang)}
                   className={clsx(u.suspended && "opacity-60", classeChoisi(sel.estChoisi(u._id), "ligne"))}

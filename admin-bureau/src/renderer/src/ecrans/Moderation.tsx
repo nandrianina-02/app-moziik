@@ -1,7 +1,9 @@
 import { useEffect, useState } from "react";
-import { ExternalLink, RefreshCw } from "lucide-react";
+import { Check, Copy, ExternalLink, RefreshCw, Trash2, X } from "lucide-react";
 import { adresseSite, api } from "../api";
 import { Bouton, Chargement, EnTete, Erreur, Pagination, Pastille, Table, Vide, formatDate, usePages , BarreCollante } from "../composants";
+import { BarreSelection, annoncer, classeChoisi, copier, ouvrirMenu, useSelection } from "../interactions";
+import clsx from "../clsx";
 
 interface Commentaire {
   _id: string;
@@ -71,6 +73,38 @@ function Commentaires() {
   };
   useEffect(charger, [tous]);
   const pages = usePages(liste, 20, String(tous));
+  const sel = useSelection(pages.tranche.map((c) => c._id));
+
+  /** Suppression de plusieurs commentaires : définitive, donc confirmée. */
+  async function supprimerLot(ids: string[]) {
+    if (ids.length > 1 && !window.confirm(`Supprimer définitivement ces ${ids.length} commentaires ?`)) return;
+    for (const id of ids) await supprimer(id);
+    sel.vider();
+    annoncer(`${ids.length} commentaire${ids.length > 1 ? "s" : ""} supprimé${ids.length > 1 ? "s" : ""}`);
+  }
+
+  function menuCommentaire(e: React.MouseEvent, rang: number) {
+    const ids = sel.surMenu(rang);
+    const cibles = (liste ?? []).filter((c) => ids.includes(c._id));
+    if (cibles.length === 0) return;
+    const c = cibles[0];
+    ouvrirMenu(
+      e,
+      cibles.length === 1
+        ? [
+            c.song?._id && { libelle: "Ouvrir le titre sur le site", icone: ExternalLink, action: () => void window.bureau.ouvrirExterne(`${adresseSite()}/son/${c.song!._id}`) },
+            { libelle: "Copier le texte", icone: Copy, action: () => void copier(c.text).then(() => annoncer("Texte copié")) },
+            "separateur",
+            { libelle: "Supprimer", icone: Trash2, danger: true, action: () => void supprimerLot([c._id]) },
+          ]
+        : [
+            { libelle: `Copier les ${cibles.length} textes`, icone: Copy, action: () => void copier(cibles.map((x) => x.text).join("\n\n")).then(() => annoncer("Textes copiés")) },
+            "separateur",
+            { libelle: `Supprimer (${cibles.length})`, icone: Trash2, danger: true, action: () => void supprimerLot(ids) },
+          ],
+      cibles.length === 1 ? c.user?.name ?? "Commentaire" : `${cibles.length} commentaires sélectionnés`,
+    );
+  }
 
   async function supprimer(id: string) {
     setEnCours(id);
@@ -106,8 +140,14 @@ function Commentaires() {
         <Vide texte={tous ? "Aucun commentaire." : "Aucun commentaire signalé."} />
       ) : (
         <Table entetes={["Commentaire", { libelle: "Auteur", largeur: "160px" }, { libelle: "Titre", largeur: "200px" }, { libelle: "Date", largeur: "110px" }, { libelle: "", largeur: "110px" }]}>
-          {pages.tranche.map((c) => (
-            <tr key={c._id} className="align-top">
+          {pages.tranche.map((c, rang) => (
+            <tr
+              key={c._id}
+              data-rang={rang}
+              onClick={(ev) => sel.surClic(ev, rang)}
+              onContextMenu={(ev) => menuCommentaire(ev, rang)}
+              className={clsx("align-top", classeChoisi(sel.estChoisi(c._id), "ligne"))}
+            >
               <td className="px-3 py-2" data-selectionnable>
                 {c.flagged && <Pastille texte="signalé" ton="danger" />} <span className="whitespace-pre-line">{c.text}</span>
               </td>
@@ -131,6 +171,11 @@ function Commentaires() {
         </Table>
       )}
       {liste && <Pagination className="mt-4" page={pages.page} pages={pages.pages} total={pages.total} taille={pages.taille} onPage={pages.setPage} />}
+      <BarreSelection nombre={sel.nombre} libelle={(n) => `${n} commentaires sélectionnés`} onVider={sel.vider}>
+        <Bouton variante="danger" className="h-9" onClick={() => void supprimerLot([...sel.choisis])}>
+          <Trash2 size={14} /> Supprimer
+        </Bouton>
+      </BarreSelection>
     </>
   );
 }
@@ -148,6 +193,31 @@ function Evenements() {
   };
   useEffect(charger, []);
   const pages = usePages(liste, 20);
+  const sel = useSelection(pages.tranche.map((e) => e._id));
+
+  /** Publier ou refuser plusieurs évènements ; confirmation au-delà d'un seul. */
+  async function deciderLot(ids: string[], decision: "approve" | "reject") {
+    if (ids.length > 1 && !window.confirm(`${decision === "approve" ? "Publier" : "Refuser"} ces ${ids.length} évènements ?`)) return;
+    for (const id of ids) await decider(id, decision);
+    sel.vider();
+    annoncer(`${ids.length} évènement${ids.length > 1 ? "s" : ""} ${decision === "approve" ? "publié" : "refusé"}${ids.length > 1 ? "s" : ""}`);
+  }
+
+  function menuEvenement(ev: React.MouseEvent, rang: number) {
+    const ids = sel.surMenu(rang);
+    const cibles = (liste ?? []).filter((x) => ids.includes(x._id));
+    if (cibles.length === 0) return;
+    ouvrirMenu(
+      ev,
+      [
+        cibles.length === 1 && { libelle: "Voir sur le site", icone: ExternalLink, action: () => void window.bureau.ouvrirExterne(`${adresseSite()}/evenements/${cibles[0]._id}`) },
+        "separateur",
+        { libelle: cibles.length > 1 ? `Publier (${cibles.length})` : "Publier", icone: Check, action: () => void deciderLot(ids, "approve") },
+        { libelle: cibles.length > 1 ? `Refuser (${cibles.length})` : "Refuser", icone: X, danger: true, action: () => void deciderLot(ids, "reject") },
+      ],
+      cibles.length === 1 ? cibles[0].title : `${cibles.length} évènements sélectionnés`,
+    );
+  }
 
   async function decider(id: string, decision: "approve" | "reject") {
     setEnCours(`${id}:${decision}`);
@@ -172,8 +242,14 @@ function Evenements() {
         <Vide texte="Aucun évènement en attente." />
       ) : (
         <Table entetes={["Évènement", { libelle: "Organisateur", largeur: "180px" }, { libelle: "Date", largeur: "110px" }, { libelle: "Lieu", largeur: "160px" }, { libelle: "", largeur: "190px" }]}>
-          {pages.tranche.map((e) => (
-            <tr key={e._id}>
+          {pages.tranche.map((e, rang) => (
+            <tr
+              key={e._id}
+              data-rang={rang}
+              onClick={(ev) => sel.surClic(ev, rang)}
+              onContextMenu={(ev) => menuEvenement(ev, rang)}
+              className={classeChoisi(sel.estChoisi(e._id), "ligne")}
+            >
               <td className="px-3 py-2 font-medium">
                 {e.title}
                 <button onClick={() => void window.bureau.ouvrirExterne(`${adresseSite()}/evenements/${e._id}`)} className="ml-1 align-middle text-texte-3 hover:text-accent">
@@ -198,6 +274,14 @@ function Evenements() {
         </Table>
       )}
       {liste && <Pagination className="mt-4" page={pages.page} pages={pages.pages} total={pages.total} taille={pages.taille} onPage={pages.setPage} />}
+      <BarreSelection nombre={sel.nombre} libelle={(n) => `${n} évènements sélectionnés`} onVider={sel.vider}>
+        <Bouton className="h-9" onClick={() => void deciderLot([...sel.choisis], "approve")}>
+          <Check size={14} /> Publier
+        </Bouton>
+        <Bouton variante="danger" className="h-9" onClick={() => void deciderLot([...sel.choisis], "reject")}>
+          <X size={14} /> Refuser
+        </Bouton>
+      </BarreSelection>
     </>
   );
 }

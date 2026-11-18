@@ -179,6 +179,7 @@ export function Catalogue({ rechercheInitiale = "", statutInitial = "" }: { rech
               {pages.tranche.map((t, rang) => (
                 <button
                   key={t._id}
+                  data-rang={rang}
                   onClick={(e) => sel.surClic(e, rang)}
                   onDoubleClick={(e) => sel.surDoubleClic(e, rang)}
                   onContextMenu={(e) => menuTitre(e, rang)}
@@ -218,6 +219,7 @@ export function Catalogue({ rechercheInitiale = "", statutInitial = "" }: { rech
               {pages.tranche.map((t, rang) => (
                 <tr
                   key={t._id}
+                  data-rang={rang}
                   onClick={(e) => sel.surClic(e, rang)}
                   onDoubleClick={(e) => sel.surDoubleClic(e, rang)}
                   onContextMenu={(e) => menuTitre(e, rang)}

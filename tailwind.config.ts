@@ -25,6 +25,10 @@ const config: Config = {
         // palier laisse masquer les commandes secondaires là, sans
         // pénaliser un 375 px qui a la place de les afficher.
         xs: "360px",
+        // Fenêtre basse (portable 1366×768, navigateur avec barres) : la barre
+        // latérale y resserre ses liens et laisse au menu du compte ce qu'il
+        // contient déjà.
+        court: { raw: "(max-height: 960px)" },
       },
       colors: {
         // Chaque token pointe vers une variable CSS définie dans

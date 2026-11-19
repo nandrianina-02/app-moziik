@@ -44,10 +44,19 @@ export function useClampedMenuPosition(anchor: MenuAnchor) {
 
   // Appelée par React au moment exact où le noeud est attaché au DOM,
   // quel que soit le rendu où cela survient.
+  // Le contenu peut grandir après l'ouverture (liste d'appareils chargée,
+  // bloc d'autorisation ajouté) : sans nouvelle mesure, le menu ouvert près
+  // du bas de l'écran débordait sous la fenêtre.
+  const observateur = useRef<ResizeObserver | null>(null);
   const setRef = useCallback(
     (node: HTMLDivElement | null) => {
+      observateur.current?.disconnect();
       ref.current = node;
-      if (node) place();
+      if (node) {
+        place();
+        observateur.current = new ResizeObserver(() => place());
+        observateur.current.observe(node);
+      }
     },
     [place]
   );

@@ -28,7 +28,7 @@ export function Sidebar() {
       <Tooltip key={link.href} label={link.label} show={collapsed}>
         <Link
           href={link.href}
-          className={`group relative flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm transition-all duration-200 ${
+          className={`group relative flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm transition-all duration-200 court:py-1.5 ${
             collapsed ? "justify-center px-0" : ""
           } ${
             isActive
@@ -112,8 +112,12 @@ export function Sidebar() {
 
         <SidebarBibliotheque collapsed={collapsed} />
 
-        <div className={`my-4 h-px shrink-0 bg-border ${collapsed ? "mx-1" : ""}`} />
-        <nav className="flex shrink-0 flex-col gap-1">{accountLinks.map(renderLink)}</nav>
+        {/* Premium et Compte sont aussi dans le menu du compte, en haut à
+            droite. Sur une fenêtre basse, les garder ici faisait défiler toute
+            la colonne : Accueil, Recherche et Bibliothèque sortaient de la vue
+            et la bibliothèque n'affichait plus qu'une ligne et demie. */}
+        <div className={`my-4 h-px shrink-0 bg-border court:hidden ${collapsed ? "mx-1" : ""}`} />
+        <nav className="flex shrink-0 flex-col gap-1 court:hidden">{accountLinks.map(renderLink)}</nav>
 
         {roleLinks.length > 0 && (
           <>

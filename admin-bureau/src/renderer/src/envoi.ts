@@ -5,7 +5,7 @@ import { api, ErreurApi } from "./api";
  * ouvre l'envoi avec sa clé et rend une adresse à jeton où les morceaux
  * partent directement. Rend l'identifiant du fichier.
  */
-export async function televerser(contenu: Blob, nom: string, type: string, dossier: "songs" | "covers" | "avatars" | "site-assets", duree: number | undefined, surProgression: (p: number) => void): Promise<string> {
+export async function televerser(contenu: Blob, nom: string, type: string, dossier: "songs" | "covers" | "avatars" | "site-assets" | "videos", duree: number | undefined, surProgression: (p: number) => void): Promise<string> {
   const ouverture = await api<{ mode: string; fichierId: string; adresseEnvoi: string; tailleMorceau: number }>("/api/fichiers/envoi", {
     corps: { nom, type, taille: contenu.size, dossier, ...(duree ? { duree } : {}) },
   });

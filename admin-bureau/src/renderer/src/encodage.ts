@@ -37,6 +37,17 @@ export async function decoder(source: Blob): Promise<Float32Array[]> {
   return canaux;
 }
 
+/**
+ * Ne garde que la partie découpée, comme lib/encodageAudio.ts du site : les
+ * qualités d'écoute portent la découpe, la source reste entière (le site
+ * repart d'elle pour changer la découpe plus tard). Une copie, pas une vue :
+ * chaque canal part ensuite au worker avec son propre tampon.
+ */
+export function decouper(canaux: Float32Array[], debut: number | null, fin: number | null): Float32Array[] {
+  if (debut === null && fin === null) return canaux;
+  return canaux.map((c) => c.slice(Math.max(0, Math.round((debut ?? 0) * FREQUENCE)), fin === null ? c.length : Math.min(c.length, Math.round(fin * FREQUENCE))));
+}
+
 /** Encode les trois qualités hors du fil principal. `surProgression` reçoit une valeur entre 0 et 1. */
 export function encoderVersions(canaux: Float32Array[], surProgression?: (valeur: number) => void): Promise<Record<Qualite, Blob>> {
   return new Promise((resoudre, rejeter) => {

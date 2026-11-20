@@ -32,6 +32,29 @@ export interface Etiquettes {
   duree: number | null;
   debit: number | null;
   pochette: PochetteLue | null;
+  /*
+   * Ce que le formulaire de publication du site remplit aussi depuis le
+   * fichier (lib/audioMetadata.ts) : tout est facultatif.
+   */
+  /** Tous les interprètes déclarés, artiste principal compris. */
+  artistes?: string[];
+  producteur?: string | null;
+  tonalite?: string | null;
+  isrc?: string | null;
+  copyright?: string | null;
+  /** Valeur brute : souvent un code ISO (« fra », « eng »). */
+  langue?: string | null;
+  /** En LRC quand le fichier porte des paroles synchronisées. */
+  paroles?: string | null;
+  parolesSynchronisees?: boolean;
+  description?: string | null;
+  /** AAAA-MM-JJ ; une année seule vaut le 1er janvier. */
+  dateSortie?: string | null;
+  genresSecondaires?: string[];
+  /** Regroupement, ambiance, mots-clés : matière à tags. */
+  motsCles?: string[];
+  /** Seulement quand une balise le dit sans ambiguïté. */
+  explicite?: boolean | null;
 }
 
 export interface Reglages {
@@ -45,6 +68,12 @@ export const SITE_PAR_DEFAUT = "https://app-moziik.vercel.app";
 export const CANAUX = {
   choisirDossier: "dossier:choisir",
   listerAudio: "dossier:lister-audio",
+  choisirFichiers: "fichiers:choisir",
+  resoudreChemins: "fichiers:resoudre",
+  choisirImage: "image:choisir",
+  lireImage: "image:lire",
+  choisirVideo: "video:choisir",
+  decrireVideo: "video:decrire",
   lireEtiquettes: "fichier:etiquettes",
   lireFichier: "fichier:lire",
   reglagesLire: "reglages:lire",

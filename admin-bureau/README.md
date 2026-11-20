@@ -43,14 +43,34 @@ l'application ; le jeton d'accès ne vit qu'en mémoire.
 
 ## Import
 
-1. Lecture des balises de chaque fichier (`music-metadata`, processus principal).
-2. Rapprochement par le site (`/api/import/inspect`) : artiste reconnu, doublon.
-3. Corrections dans le panneau de droite ; création d'un artiste absent
-   (`/api/admin/users`, rôle artiste, adresse `@moziik.app`).
+Trois façons d'ajouter, qui s'additionnent à la liste (un fichier déjà
+présent est ignoré) : « Ajouter des fichiers », « Ajouter un dossier »
+(sous-dossiers compris), ou glisser fichiers et dossiers n'importe où dans
+la fenêtre, depuis n'importe quelle page. Le chemin d'un fichier glissé
+vient de `webUtils.getPathForFile` (preload) ; une zone marquée
+`data-depot` (pochette, clip) garde ce qu'on y lâche.
+
+1. Lecture des balises (`music-metadata`, processus principal), reprise de
+   `lib/audioMetadata.ts` : invités, producteur, tonalité, ISRC, copyright,
+   langue, paroles (SYLT converti en LRC), description, date complète,
+   mots-clés, mention explicite. Rapprochement des valeurs par
+   `metadonnees.ts`, copie de `lib/metadataMapping.ts`.
+2. Rapprochement par le site (`/api/import/inspect`) : artiste reconnu,
+   doublon ; puis les invités « (feat. X) », rattachés à leur profil.
+3. La fiche d'une ligne (`FicheTeleversement.tsx`) reprend tous les champs
+   de `/son/nouveau` et ses outils : pochette remplaçable, écoute locale,
+   doublon revérifié (`/api/songs/duplicate`), artiste et invités
+   (recherche dans les deux univers, création), album existant ou nouveau,
+   date de sortie (une date à venir programme la sortie), brouillon,
+   explicite, description, tags, paroles, crédits, tempo mesuré
+   (`bpm.ts`), découpe, clip vidéo, et l'assistance IA du site
+   (`/api/ai/song-metadata`, si la fonction « publication » est ouverte).
+   Plusieurs lignes se modifient ensemble (`ModificationGroupee.tsx`).
 4. Envoi vers Karaks Storage par `/api/fichiers/envoi` : la source telle
-   quelle, puis les trois qualités d'écoute (64 kb/s mono, 128 et 320 kb/s)
-   encodées dans un worker, comme le site (`encodage.ts`, copie de
-   `lib/encodageAudio.ts`). Désactivable dans Paramètres.
+   quelle et entière, puis les trois qualités d'écoute (64 kb/s mono, 128
+   et 320 kb/s), découpe appliquée, encodées dans un worker comme le site
+   (`encodage.ts`, copie de `lib/encodageAudio.ts`). Désactivable dans
+   Paramètres. Le clip part dans le dossier « videos ».
 5. Album retrouvé chez l'artiste, ou créé (`/api/albums` avec `artistId`,
    réservé à l'administration), puis publication par `/api/songs`.
 

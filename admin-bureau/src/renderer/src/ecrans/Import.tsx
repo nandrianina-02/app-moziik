@@ -1,12 +1,14 @@
-import { useEffect, useMemo, useState } from "react";
-import { FolderOpen, Pencil, Play, RotateCcw, Square, Tag, Trash2, Upload, X } from "lucide-react";
-import { api } from "../api";
-import { Barres, Bouton, Chargement, EnTete, Erreur, Pagination, Pastille, Selection, Table, Vide, formatDuree, usePages , BarreCollante } from "../composants";
+import { useMemo, useState } from "react";
+import { FileClock, FilePlus2, FolderOpen, Gauge, PenLine, Pencil, Play, RotateCcw, Square, Tag, Trash2, Upload, X } from "lucide-react";
+import { Barres, Bouton, Chargement, EnTete, Erreur, Pagination, Pastille, Selection, Table, formatDuree, usePages , BarreCollante } from "../composants";
 import { SelecteurVue, coteVignette, largeurCarte, nomTransition, useRaccourciVue, useVue } from "../vues";
 import clsx from "../clsx";
 import { BarreSelection, annoncer, classeChoisi, confirmer, ouvrirMenu, useSelection } from "../interactions";
 import { adresseImage } from "../session";
-import { STATUTS, useTeleversements, type ArtisteOption, type Ligne, type Statut } from "../televersements";
+import { STATUTS, pochetteDe, useTeleversements, type Ligne, type Statut } from "../televersements";
+import { estimerTempo } from "../bpm";
+import { FicheTeleversement } from "./FicheTeleversement";
+import { ModificationGroupee } from "./ModificationGroupee";
 
 /*
  * La vue des téléversements. L'état et les envois vivent dans
@@ -15,8 +17,11 @@ import { STATUTS, useTeleversements, type ArtisteOption, type Ligne, type Statut
  */
 
 export function Import() {
-  const { dossier, lignes, genres, phase, erreur, avancement, choisir, envoyerTout, arreter, modifier, retirer, vider } = useTeleversements();
+  const { dossier, lignes, genres, fonctionsIA, phase, erreur, avancement, choisir, choisirFichiers, envoyerTout, arreter, modifier, modifierPlusieurs, retirer, vider } = useTeleversements();
   const [selection, setSelection] = useState<string | null>(null);
+  // La modification groupée : les lignes visées, tant que le panneau est ouvert.
+  const [groupe, setGroupe] = useState<string[] | null>(null);
+  const [mesure, setMesure] = useState<string | null>(null);
 
   const compte = useMemo(() => {
     const c: Partial<Record<Statut, number>> = {};
@@ -47,6 +52,31 @@ export function Import() {
     for (const l of cibles) modifier(l.id, { statut: "pret", erreur: undefined, progression: 0 });
     annoncer(`${cibles.length} ligne${cibles.length > 1 ? "s" : ""} à renvoyer`);
   }
+  /** Le tempo mesuré dans chaque fichier qui n'en a pas, l'un après l'autre (lib/bpm.ts du site). */
+  async function mesurerTempo(ids: string[]) {
+    const cibles = lignes.filter((l) => ids.includes(l.id) && !l.bpm && l.statut !== "envoi" && l.statut !== "termine");
+    if (cibles.length === 0) return annoncer("Ces lignes ont déjà un tempo");
+    let trouves = 0;
+    for (const [i, l] of cibles.entries()) {
+      setMesure(`Tempo ${i + 1}/${cibles.length}`);
+      try {
+        const r = await estimerTempo(new Blob([await window.bureau.lireFichier(l.fichier.chemin)]));
+        // Un résultat ambigu (moitié ou double) n'est pas posé d'office, comme sur le site.
+        if (r && !r.ambigu) {
+          modifier(l.id, { bpm: String(r.bpm), bpmSource: "analyse" });
+          trouves++;
+        }
+      } catch {
+        // Un fichier que le décodeur ne lit pas garde un tempo vide.
+      }
+    }
+    setMesure(null);
+    annoncer(`Tempo mesuré pour ${trouves} titre${trouves > 1 ? "s" : ""} sur ${cibles.length}`);
+  }
+  function basculerBrouillon(ids: string[], brouillon: boolean) {
+    modifierPlusieurs(ids, { brouillon });
+    annoncer(brouillon ? `${ids.length} titre${ids.length > 1 ? "s" : ""} en brouillon` : `${ids.length} titre${ids.length > 1 ? "s" : ""} à publier directement`);
+  }
   function importerQuandMeme(ids: string[]) {
     for (const l of lignes.filter((x) => ids.includes(x.id) && x.statut === "doublon")) modifier(l.id, { importerQuandMeme: true });
   }
@@ -72,9 +102,13 @@ export function Import() {
     ouvrirMenu(
       e,
       [
-        cibles.length === 1 && { libelle: "Corriger", icone: Pencil, raccourci: "Entrée", action: () => setSelection(cibles[0].id) },
+        cibles.length === 1 && { libelle: "Ouvrir la fiche", icone: Pencil, raccourci: "Entrée", action: () => setSelection(cibles[0].id) },
+        { libelle: cibles.length > 1 ? `Modifier ensemble (${cibles.length})` : "Modifier plusieurs champs", icone: PenLine, desactive: verrou, action: () => setGroupe(ids) },
         doublons > 0 && { libelle: `Importer quand même${cibles.length > 1 ? ` (${doublons})` : ""}`, icone: Upload, desactive: verrou, action: () => importerQuandMeme(ids) },
         erreurs > 0 && { libelle: `Réessayer${cibles.length > 1 ? ` (${erreurs})` : ""}`, icone: RotateCcw, desactive: verrou, action: () => reessayer(ids) },
+        "separateur",
+        { libelle: cibles.every((l) => l.brouillon) ? "Publier directement" : "Enregistrer comme brouillon", icone: FileClock, desactive: verrou, action: () => basculerBrouillon(ids, !cibles.every((l) => l.brouillon)) },
+        { libelle: "Mesurer le tempo", icone: Gauge, desactive: verrou || mesure !== null, action: () => void mesurerTempo(ids) },
         "separateur",
         ...genresMenu,
         "separateur",
@@ -90,16 +124,19 @@ export function Import() {
     <>
       <EnTete
         titre="Téléversements"
-        texte={dossier ?? "Choisissez un dossier : ses fichiers audio sont lus, rapprochés du catalogue, puis publiés."}
+        texte={dossier ? `Dernier ajout : ${dossier}` : "Ajoutez des fichiers, un dossier, ou glissez-les dans la fenêtre : ils sont lus, rapprochés du catalogue, puis publiés."}
         action={
           <>
             {dossier && phase === "repos" && (
-              <Bouton variante="discret" onClick={vider} title="Fermer ce dossier">
-                <X size={14} /> Fermer
+              <Bouton variante="discret" onClick={vider} title="Vider la liste (rien n'est supprimé du disque ni du site)">
+                <X size={14} /> Vider la liste
               </Bouton>
             )}
-            <Bouton variante="trait" disabled={phase !== "repos"} onClick={() => void choisir()}>
-              <FolderOpen size={14} /> Choisir un dossier
+            <Bouton variante="trait" disabled={phase !== "repos"} onClick={() => void choisirFichiers()} title="Ajouter des fichiers audio à la liste">
+              <FilePlus2 size={14} /> Ajouter des fichiers
+            </Bouton>
+            <Bouton variante="trait" disabled={phase !== "repos"} onClick={() => void choisir()} title="Ajouter tous les fichiers audio d'un dossier et de ses sous-dossiers">
+              <FolderOpen size={14} /> Ajouter un dossier
             </Bouton>
             {phase === "envoi" ? (
               <Bouton variante="danger" onClick={arreter}>
@@ -163,7 +200,7 @@ export function Import() {
       {phase === "analyse" && lignes.length === 0 ? (
         <Chargement texte="Lecture du dossier" />
       ) : lignes.length === 0 ? (
-        <Vide texte="Aucun dossier choisi." />
+        <ZoneDepotVide onFichiers={() => void choisirFichiers()} onDossier={() => void choisir()} />
       ) : (
         vue.mode === "grille" ? (
           <div className="grid gap-4" style={{ gridTemplateColumns: `repeat(auto-fill, minmax(${largeurCarte[vue.taille]}px, 1fr))` }}>
@@ -205,7 +242,7 @@ export function Import() {
             ))}
           </div>
         ) : (
-        <Table densite={vue.taille} entetes={["", "Fichier", "Titre", "Artiste", "Album", { libelle: "Année", largeur: "70px" }, { libelle: "Durée", droite: true, largeur: "70px" }, { libelle: "État", largeur: "140px" }]}>
+        <Table densite={vue.taille} entetes={["", "Fichier", "Titre", "Artiste", "Album", { libelle: "Sortie", largeur: "70px" }, { libelle: "Durée", droite: true, largeur: "70px" }, { libelle: "État", largeur: "140px" }]}>
           {pages.tranche.map((l, rang) => (
             <tr
               key={l.id}
@@ -236,7 +273,7 @@ export function Import() {
                 )}
               </td>
               <td className="text-texte-2">{l.album || "—"}</td>
-              <td className="text-texte-2 tabular-nums">{l.annee || "—"}</td>
+              <td className="text-texte-2 tabular-nums" title={l.dateSortie ? `Sortie le ${l.dateSortie}` : "Sortie maintenant"}>{l.dateSortie ? l.dateSortie.slice(0, 4) : "—"}</td>
               <td className="text-right text-texte-2 tabular-nums">{l.etiquettes?.duree ? formatDuree(l.etiquettes.duree) : "—"}</td>
               <td>
                 {l.statut === "envoi" ? (
@@ -278,6 +315,12 @@ export function Import() {
             </option>
           ))}
         </Selection>
+        <Bouton variante="trait" className="h-9" disabled={verrou} onClick={() => setGroupe([...sel.choisis])}>
+          <PenLine size={14} /> Modifier ensemble
+        </Bouton>
+        <Bouton variante="trait" className="h-9" disabled={verrou || mesure !== null} enCours={mesure !== null} onClick={() => void mesurerTempo([...sel.choisis])} title="Mesurer le tempo des fichiers qui n'en ont pas">
+          <Gauge size={14} /> {mesure ?? "Tempo"}
+        </Bouton>
         <Bouton variante="trait" className="h-9" disabled={verrou} onClick={() => reessayer([...sel.choisis])}>
           <RotateCcw size={14} /> Réessayer
         </Bouton>
@@ -285,146 +328,52 @@ export function Import() {
           <Trash2 size={14} /> Retirer
         </Bouton>
       </BarreSelection>
-      {ligneOuverte && <FicheLigne ligne={ligneOuverte} genres={genres} verrouillee={phase === "envoi"} onChange={(patch) => modifier(ligneOuverte.id, patch)} onFermer={() => setSelection(null)} />}
+      {ligneOuverte && <FicheTeleversement key={ligneOuverte.id} ligne={ligneOuverte} genres={genres} fonctionsIA={fonctionsIA} verrouillee={phase === "envoi" || ligneOuverte.statut === "termine"} onChange={(patch) => modifier(ligneOuverte.id, patch)} onFermer={() => setSelection(null)} />}
+      {groupe && (
+        <ModificationGroupee
+          nombre={groupe.length}
+          genres={genres}
+          onAppliquer={(patch) => {
+            modifierPlusieurs(groupe, patch);
+            annoncer(`${groupe.length} ligne${groupe.length > 1 ? "s" : ""} modifiée${groupe.length > 1 ? "s" : ""}`);
+            setGroupe(null);
+          }}
+          onFermer={() => setGroupe(null)}
+        />
+      )}
     </>
   );
 }
 
-/** Le panneau d'une ligne : ce que l'administration corrige avant l'envoi. */
-function FicheLigne({ ligne, genres, verrouillee, onChange, onFermer }: { ligne: Ligne; genres: string[]; verrouillee: boolean; onChange: (p: Partial<Ligne>) => void; onFermer: () => void }) {
-  const [recherche, setRecherche] = useState(ligne.artisteNom);
-  const [propositions, setPropositions] = useState<ArtisteOption[]>([]);
-  const [creation, setCreation] = useState(false);
-  const [erreur, setErreur] = useState<string | null>(null);
-
-  useEffect(() => {
-    const q = recherche.trim();
-    if (q.length < 2) return setPropositions([]);
-    const minuterie = setTimeout(() => {
-      api<{ artists: ArtisteOption[] }>(`/api/artists?search=${encodeURIComponent(q)}`)
-        .then((r) => setPropositions(r.artists))
-        .catch(() => setPropositions([]));
-    }, 250);
-    return () => clearTimeout(minuterie);
-  }, [recherche]);
-
-  /** Un artiste absent du catalogue : un compte artiste vérifié, comme le fait le site, avec une adresse que personne ne lit. */
-  async function creerArtiste() {
-    const nom = recherche.trim();
-    if (nom.length < 2) return;
-    setCreation(true);
-    setErreur(null);
-    try {
-      const slug = nom.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase().replace(/[^a-z0-9]+/g, "");
-      const { artist } = await api<{ artist: { _id: string; stageName: string } }>("/api/admin/users", {
-        corps: { name: nom, email: `${slug}-${Date.now().toString(36)}@moziik.app`, role: "artist" },
-      });
-      onChange({ artiste: { _id: artist._id, stageName: artist.stageName, verified: true }, artisteNom: nom });
-    } catch (e) {
-      setErreur(e instanceof Error ? e.message : "Création impossible.");
-    } finally {
-      setCreation(false);
-    }
-  }
-
+/**
+ * La liste vide : les trois manières d'ajouter, dont le glisser-déposer,
+ * reçu par la coquille partout dans la fenêtre (le cadre pointillé n'est
+ * qu'une invitation).
+ */
+function ZoneDepotVide({ onFichiers, onDossier }: { onFichiers: () => void; onDossier: () => void }) {
   return (
-    <div className="fixed inset-0 z-20 flex justify-end bg-black/30" onClick={onFermer}>
-      <aside className="animate-monter h-full w-[440px] overflow-auto border-l border-filet bg-surface p-5" onClick={(e) => e.stopPropagation()}>
-        <div className="mb-1 truncate text-[12px] text-texte-3" title={ligne.fichier.chemin}>
-          {ligne.fichier.nom}
-        </div>
-        {ligne.erreur && <Erreur message={ligne.erreur} />}
-        {ligne.doublon && (
-          <p className="mb-3 rounded-lg border border-attention/40 bg-attention/10 px-3 py-2 text-[13px]">
-            {ligne.doublon.certain ? "Ce titre existe déjà chez cet artiste" : `Un titre du même nom existe chez ${ligne.doublon.artistName}`} : « {ligne.doublon.title} ».
-            {ligne.doublon.certain && (
-              <label className="mt-1 flex items-center gap-2">
-                <input type="checkbox" checked={ligne.importerQuandMeme} disabled={verrouillee} onChange={(e) => onChange({ importerQuandMeme: e.target.checked })} className="accent-[var(--accent)]" />
-                Importer quand même
-              </label>
-            )}
-          </p>
-        )}
-        <div className="space-y-3">
-          <label className="block">
-            <span className="mb-1 block text-[12px] font-medium text-texte-2">Titre</span>
-            <input value={ligne.titre} disabled={verrouillee} onChange={(e) => onChange({ titre: e.target.value })} className="h-9 w-full rounded-lg border border-filet bg-surface-2 px-3 text-[13px] outline-none focus:border-accent" />
-          </label>
-          <div>
-            <span className="mb-1 block text-[12px] font-medium text-texte-2">Artiste</span>
-            {ligne.artiste ? (
-              <div className="flex items-center justify-between rounded-lg border border-filet px-3 py-2 text-[13px]">
-                <span>
-                  {ligne.artiste.stageName} {ligne.artiste.verified && <Pastille texte="vérifié" ton="succes" />}
-                </span>
-                {!verrouillee && (
-                  <button onClick={() => onChange({ artiste: null })} className="text-[12px] text-texte-2 hover:text-texte">
-                    changer
-                  </button>
-                )}
-              </div>
-            ) : (
-              <>
-                <input value={recherche} disabled={verrouillee} onChange={(e) => setRecherche(e.target.value)} placeholder="Nom d'artiste" className="h-9 w-full rounded-lg border border-filet bg-surface-2 px-3 text-[13px] outline-none focus:border-accent" />
-                <ul className="mt-1 divide-y divide-filet rounded-lg border border-filet">
-                  {propositions.map((a) => (
-                    <li key={a._id}>
-                      <button onClick={() => onChange({ artiste: a, artisteNom: a.stageName })} className="flex w-full items-center gap-2 px-2.5 py-1.5 text-left text-[13px] hover:bg-surface-2">
-                        {a.coverUrl ? <img src={adresseImage(a.coverUrl) ?? undefined} alt="" className="h-6 w-6 rounded-full object-cover" /> : <span className="h-6 w-6 rounded-full bg-surface-2" />}
-                        {a.stageName}
-                      </button>
-                    </li>
-                  ))}
-                  {recherche.trim().length >= 2 && !propositions.some((a) => a.stageName.toLowerCase() === recherche.trim().toLowerCase()) && (
-                    <li>
-                      <button onClick={() => void creerArtiste()} disabled={creation} className="w-full px-2.5 py-1.5 text-left text-[13px] text-accent hover:bg-surface-2">
-                        {creation ? "Création…" : `Créer l'artiste « ${recherche.trim()} »`}
-                      </button>
-                    </li>
-                  )}
-                </ul>
-              </>
-            )}
-          </div>
-          <Selection libelle="Genre" value={ligne.genre} disabled={verrouillee} onChange={(e) => onChange({ genre: e.target.value })}>
-            {!genres.includes(ligne.genre) && <option value={ligne.genre}>{ligne.genre}</option>}
-            {genres.map((g) => (
-              <option key={g} value={g}>
-                {g}
-              </option>
-            ))}
-          </Selection>
-          <div className="grid grid-cols-2 gap-3">
-            <label className="block">
-              <span className="mb-1 block text-[12px] font-medium text-texte-2">Album (existant)</span>
-              <input value={ligne.album} disabled={verrouillee} onChange={(e) => onChange({ album: e.target.value })} placeholder="Single si vide" className="h-9 w-full rounded-lg border border-filet bg-surface-2 px-3 text-[13px] outline-none focus:border-accent" />
-            </label>
-            <label className="block">
-              <span className="mb-1 block text-[12px] font-medium text-texte-2">Année de sortie</span>
-              <input value={ligne.annee} disabled={verrouillee} onChange={(e) => onChange({ annee: e.target.value.replace(/\D/g, "").slice(0, 4) })} placeholder="Sans : aujourd'hui" className="h-9 w-full rounded-lg border border-filet bg-surface-2 px-3 text-[13px] outline-none focus:border-accent" />
-            </label>
-          </div>
-          {!ligne.etiquettes?.pochette && !ligne.artiste?.coverUrl && <p className="text-[12px] text-attention">Aucune pochette dans le fichier et l'artiste n'a pas de photo : le titre ne peut pas être publié sans image.</p>}
-          <Erreur message={erreur} />
-          {ligne.songId && (
-            <Bouton variante="trait" onClick={() => void window.bureau.ouvrirExterne(`${adresseImage("")}`.replace(/\/$/, "") + `/son/${ligne.songId}`)}>
-              Voir sur le site
-            </Bouton>
-          )}
-          <Bouton variante="discret" onClick={onFermer}>
-            Fermer
-          </Bouton>
-        </div>
-      </aside>
+    <div className="animate-monter flex flex-col items-center rounded-2xl border-2 border-dashed border-filet px-8 py-16 text-center">
+      <Upload size={30} className="text-texte-3" />
+      <div className="mt-4 font-titre text-[17px] font-semibold">Glissez ici des fichiers audio ou des dossiers</div>
+      <p className="mt-1.5 max-w-[460px] text-[13px] text-texte-2">
+        MP3, M4A, FLAC, WAV, OGG, OPUS ou WMA. Les balises, la pochette et la durée sont lues, l'artiste est rapproché du catalogue et les doublons sont signalés avant tout envoi.
+      </p>
+      <div className="mt-5 flex flex-wrap justify-center gap-2">
+        <Bouton onClick={onFichiers}>
+          <FilePlus2 size={14} /> Ajouter des fichiers
+        </Bouton>
+        <Bouton variante="trait" onClick={onDossier}>
+          <FolderOpen size={14} /> Ajouter un dossier
+        </Bouton>
+      </div>
     </div>
   );
 }
 
-/** Un album déjà présent chez l'artiste, retrouvé par son titre ; sinon aucun (le titre sera un single). */
-
 /** La pochette d'un fichier : celle des balises, sinon la photo de l'artiste rapproché. */
 function Pochette({ ligne }: { ligne: Ligne }) {
-  if (ligne.etiquettes?.pochette) return <img src={`data:${ligne.etiquettes.pochette.mime};base64,${ligne.etiquettes.pochette.base64}`} alt="" className="h-full w-full object-cover" />;
+  const image = pochetteDe(ligne);
+  if (image) return <img src={`data:${image.mime};base64,${image.base64}`} alt="" className="h-full w-full object-cover" />;
   if (ligne.artiste?.coverUrl) return <img src={adresseImage(ligne.artiste.coverUrl) ?? undefined} alt="" className="h-full w-full object-cover" />;
   return null;
 }

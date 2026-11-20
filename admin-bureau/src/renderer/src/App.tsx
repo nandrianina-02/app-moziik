@@ -21,6 +21,7 @@ import {
   ShieldCheck,
   Sun,
   Trophy,
+  Upload,
   Users,
   WifiOff,
   ChartNoAxesCombined,
@@ -380,7 +381,7 @@ function Coquille() {
   const [erreurStats, setErreurStats] = useState<string | null>(null);
   const [aTraiter, setATraiter] = useState<ATraiter>({});
   const utilisateur = etat.phase === "connecte" ? etat.utilisateur : null;
-  const { avancement, choisir } = useTeleversements();
+  const { avancement, choisir, deposer } = useTeleversements();
   // Ce qui attend sur chaque page, à côté de son entrée dans la barre latérale.
   const compteurDe = (cle: Page): number | undefined =>
     ({
@@ -475,6 +476,67 @@ function Coquille() {
     const t = setTimeout(() => setAnnonce(null), 1400);
     return () => clearTimeout(t);
   }, [annonce]);
+
+  /*
+   * Glisser-déposer : des fichiers audio ou des dossiers lâchés n'importe où
+   * dans la fenêtre rejoignent les téléversements, et la page s'ouvre. Une
+   * zone qui attend autre chose (une pochette, marquée data-depot) garde ce
+   * qu'on y lâche. Le compteur suit les entrées et sorties imbriquées :
+   * dragleave se déclenche à chaque enfant survolé.
+   */
+  const [survol, setSurvol] = useState(false);
+  useEffect(() => {
+    let profondeur = 0;
+    const avecFichiers = (e: DragEvent) => Boolean(e.dataTransfer?.types.includes("Files"));
+    const dansUneZone = (e: DragEvent) => Boolean((e.target as HTMLElement | null)?.closest?.("[data-depot]"));
+    const entree = (e: DragEvent) => {
+      if (!avecFichiers(e)) return;
+      profondeur++;
+      setSurvol(!dansUneZone(e));
+    };
+    const dessus = (e: DragEvent) => {
+      if (!avecFichiers(e)) return;
+      // Sans preventDefault, Chromium refuse le dépôt.
+      e.preventDefault();
+      if (e.dataTransfer) e.dataTransfer.dropEffect = "copy";
+      setSurvol(!dansUneZone(e));
+    };
+    const sortie = (e: DragEvent) => {
+      if (!avecFichiers(e)) return;
+      profondeur = Math.max(0, profondeur - 1);
+      if (profondeur === 0) setSurvol(false);
+    };
+    const depot = (e: DragEvent) => {
+      if (!avecFichiers(e)) return;
+      e.preventDefault();
+      profondeur = 0;
+      setSurvol(false);
+      if (dansUneZone(e)) return;
+      const chemins = [...(e.dataTransfer?.files ?? [])].map((f) => window.bureau.cheminDe(f)).filter(Boolean);
+      if (chemins.length === 0) return;
+      aller("import");
+      void deposer(chemins);
+    };
+    // Une zone qui reçoit le dépôt arrête sa propagation : la remise à zéro se fait donc à la descente (capture), avant elle.
+    const fin = () => {
+      profondeur = 0;
+      setSurvol(false);
+    };
+    window.addEventListener("dragenter", entree);
+    window.addEventListener("dragover", dessus);
+    window.addEventListener("dragleave", sortie);
+    window.addEventListener("drop", fin, true);
+    window.addEventListener("dragend", fin, true);
+    window.addEventListener("drop", depot);
+    return () => {
+      window.removeEventListener("dragenter", entree);
+      window.removeEventListener("dragover", dessus);
+      window.removeEventListener("dragleave", sortie);
+      window.removeEventListener("drop", fin, true);
+      window.removeEventListener("dragend", fin, true);
+      window.removeEventListener("drop", depot);
+    };
+  }, [aller, deposer]);
 
   // Hors connexion, un bandeau le dit plutôt que de laisser les pages
   // échouer sans explication ; au retour du réseau, les compteurs se relisent.
@@ -664,6 +726,16 @@ function Coquille() {
           </div>
         </div>
       </div>
+      {survol && (
+        // Un voile sur toute la fenêtre pendant le survol : il dit ce que fera le dépôt. Il ne capte rien (pointer-events-none).
+        <div className="animate-paraitre pointer-events-none fixed inset-0 z-50 grid place-items-center bg-fond/80 p-10">
+          <div className="flex flex-col items-center gap-3 rounded-2xl border-2 border-dashed border-accent bg-surface px-14 py-10 text-center">
+            <Upload size={30} className="text-accent" />
+            <div className="font-titre text-[18px] font-semibold">Déposer pour téléverser</div>
+            <p className="max-w-[340px] text-[13px] text-texte-2">Fichiers audio ou dossiers entiers : ils rejoignent la liste des téléversements, qui s'ouvre.</p>
+          </div>
+        </div>
+      )}
       <HoteMenu />
       <HoteConfirmation />
       <Palette

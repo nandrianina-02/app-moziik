@@ -1,9 +1,22 @@
-import { contextBridge, ipcRenderer, webFrame } from "electron";
-import { CANAUX, type Etiquettes, type FichierAudio, type Reglages } from "../partage/types";
+import { contextBridge, ipcRenderer, webFrame, webUtils } from "electron";
+import { CANAUX, type Etiquettes, type FichierAudio, type PochetteLue, type Reglages } from "../partage/types";
 
 /** Le pont : ce que la fenêtre a le droit de demander au processus principal, et rien d'autre. */
 const bureau = {
   choisirDossier: (): Promise<string | null> => ipcRenderer.invoke(CANAUX.choisirDossier),
+  /** Plusieurs fichiers audio d'un coup, par la boîte de dialogue de Windows. */
+  choisirFichiers: (): Promise<FichierAudio[]> => ipcRenderer.invoke(CANAUX.choisirFichiers),
+  /** Fichiers et dossiers glissés : les dossiers sont parcourus, seuls les fichiers audio restent. */
+  resoudreChemins: (chemins: string[]): Promise<FichierAudio[]> => ipcRenderer.invoke(CANAUX.resoudreChemins, chemins),
+  /**
+   * Le chemin sur le disque d'un fichier glissé dans la fenêtre. Depuis
+   * Electron 32, File.path n'existe plus : c'est webUtils qui le donne.
+   */
+  cheminDe: (fichier: File): string => webUtils.getPathForFile(fichier),
+  choisirImage: (): Promise<PochetteLue | null> => ipcRenderer.invoke(CANAUX.choisirImage),
+  lireImage: (chemin: string): Promise<PochetteLue> => ipcRenderer.invoke(CANAUX.lireImage, chemin),
+  choisirVideo: (): Promise<FichierAudio | null> => ipcRenderer.invoke(CANAUX.choisirVideo),
+  decrireVideo: (chemin: string): Promise<FichierAudio> => ipcRenderer.invoke(CANAUX.decrireVideo, chemin),
   listerAudio: (dossier: string): Promise<FichierAudio[]> => ipcRenderer.invoke(CANAUX.listerAudio, dossier),
   lireEtiquettes: (chemin: string): Promise<Etiquettes> => ipcRenderer.invoke(CANAUX.lireEtiquettes, chemin),
   lireFichier: (chemin: string): Promise<ArrayBuffer> => ipcRenderer.invoke(CANAUX.lireFichier, chemin),

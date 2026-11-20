@@ -1,10 +1,10 @@
 import { app, BrowserWindow, dialog, ipcMain, Menu, safeStorage, session, shell, type MenuItemConstructorOptions } from "electron";
-import { join } from "node:path";
+import { basename, extname, join } from "node:path";
 import { readFile, writeFile, readdir, stat } from "node:fs/promises";
 import { createWriteStream } from "node:fs";
 import { spawn } from "node:child_process";
 import { parseFile } from "music-metadata";
-import { CANAUX, PREFIXE_MISE_A_JOUR, SITE_PAR_DEFAUT, type Etiquettes, type FichierAudio, type Reglages } from "../partage/types";
+import { CANAUX, PREFIXE_MISE_A_JOUR, SITE_PAR_DEFAUT, type Etiquettes, type FichierAudio, type PochetteLue, type Reglages } from "../partage/types";
 
 /*
  * Processus principal : la fenêtre, et ce que la fenêtre ne peut pas faire
@@ -54,10 +54,130 @@ async function listerAudio(dossier: string, profondeur = 0): Promise<FichierAudi
   return resultat;
 }
 
+/**
+ * Ce qu'on a glissé ou choisi : des fichiers et des dossiers mêlés. Un
+ * dossier est parcouru ; seuls les fichiers audio sont gardés, une fois
+ * chacun, dans l'ordre reçu.
+ */
+async function resoudreChemins(chemins: string[]): Promise<FichierAudio[]> {
+  const vus = new Set<string>();
+  const resultat: FichierAudio[] = [];
+  for (const chemin of chemins) {
+    let infos;
+    try {
+      infos = await stat(chemin);
+    } catch {
+      continue;
+    }
+    const trouves = infos.isDirectory()
+      ? await listerAudio(chemin)
+      : EXTENSIONS_AUDIO.has(extname(chemin).toLowerCase())
+        ? [{ chemin, nom: basename(chemin), taille: infos.size }]
+        : [];
+    for (const f of trouves) {
+      if (vus.has(f.chemin)) continue;
+      vus.add(f.chemin);
+      resultat.push(f);
+    }
+  }
+  return resultat;
+}
+
+const TYPES_IMAGE: Record<string, string> = { ".jpg": "image/jpeg", ".jpeg": "image/jpeg", ".png": "image/png", ".webp": "image/webp" };
+const IMAGE_MAX = 12 * 1024 * 1024;
+
+/** Une image choisie ou glissée pour une pochette : rien d'autre qu'une image, et pas démesurée. */
+async function lireImage(chemin: string): Promise<PochetteLue> {
+  const mime = TYPES_IMAGE[extname(String(chemin)).toLowerCase()];
+  if (!mime) throw new Error("Seules les images JPEG, PNG ou WebP sont acceptées.");
+  const octets = await readFile(chemin);
+  if (octets.byteLength > IMAGE_MAX) throw new Error("Image trop lourde (12 Mo au plus).");
+  return { mime, base64: octets.toString("base64") };
+}
+
+/*
+ * Lecture des balises reprise de lib/audioMetadata.ts du site (formulaire
+ * de publication) : une correction d'un côté se reporte de l'autre.
+ */
+type Natif = Record<string, { id: string; value: unknown }[]> | undefined;
+const premiereChaine = (valeurs?: (string | undefined)[]) => valeurs?.map((v) => v?.trim()).find((v): v is string => !!v) ?? null;
+const premierNombre = (v: unknown) => (typeof v === "number" && Number.isFinite(v) ? v : typeof v === "string" && Number.isFinite(parseInt(v, 10)) ? parseInt(v, 10) : undefined);
+
+function horodatageLrc(ms: number) {
+  const total = Math.max(0, ms) / 1000;
+  const m = Math.floor(total / 60);
+  return `[${String(m).padStart(2, "0")}:${(total - m * 60).toFixed(2).padStart(5, "0")}]`;
+}
+
+/** Paroles en LRC dès qu'elles sont synchronisées en millisecondes ; le texte brut sinon. */
+function lireParoles(tags: { text?: string; syncText?: { text: string; timestamp?: number }[]; timeStampFormat?: number }[] | undefined) {
+  for (const tag of tags ?? []) {
+    const lignes = (tag.syncText ?? []).filter((l) => typeof l.timestamp === "number" && l.text);
+    if (lignes.length > 0 && tag.timeStampFormat === 2) {
+      return { texte: lignes.map((l) => horodatageLrc(l.timestamp as number) + l.text.replace(/[\r\n]+/g, " ").trim()).join("\n"), synchronisees: true };
+    }
+  }
+  return { texte: premiereChaine((tags ?? []).map((t) => t.text)), synchronisees: false };
+}
+
+/** « Explicite » : chaque conteneur le range ailleurs ; seule une valeur nette compte. */
+function lireExplicite(natif: Natif): boolean | null {
+  for (const balises of Object.values(natif ?? {})) {
+    for (const b of balises) {
+      if (!/RTNG|ITUNESADVISORY|ADVISORY|EXPLICIT/.test(b.id.toUpperCase())) continue;
+      const brut = typeof b.value === "object" && b.value !== null && "value" in b.value ? (b.value as { value: unknown }).value : b.value;
+      const v = String(brut).trim().toLowerCase();
+      if (["1", "true", "yes", "explicit"].includes(v)) return true;
+      if (["0", "2", "false", "no", "clean"].includes(v)) return false;
+    }
+  }
+  return null;
+}
+
+/** Le producteur d'une trame de crédits ID3v2.3 (IPLS), que music-metadata ne reporte pas dans `common`. */
+function intervenant(natif: Natif, role: string): string | null {
+  for (const balises of Object.values(natif ?? {})) {
+    for (const b of balises) {
+      if (!/^(IPLS|TIPL|TMCL)$/.test(b.id.toUpperCase())) continue;
+      const valeur = b.value as Record<string, unknown> | null;
+      if (!valeur || typeof valeur !== "object") continue;
+      const trouve = Object.entries(valeur).find(([cle]) => cle.toLowerCase() === role);
+      if (!trouve) continue;
+      const premier = (Array.isArray(trouve[1]) ? trouve[1] : [trouve[1]]).map((n) => String(n).trim()).find(Boolean);
+      if (premier) return premier;
+    }
+  }
+  return null;
+}
+
+/** AAAA, AAAA-MM ou AAAA-MM-JJ → AAAA-MM-JJ ; une date absurde est écartée. */
+function dateDeSortie(valeur?: string | number): string | null {
+  const brut = typeof valeur === "number" ? String(valeur) : valeur?.trim();
+  const m = brut?.match(/^([0-9]{4})(?:-([0-9]{2}))?(?:-([0-9]{2}))?/);
+  if (!m) return null;
+  const annee = Number(m[1]);
+  if (annee < 1900 || annee > new Date().getFullYear() + 5) return null;
+  return `${m[1]}-${m[2] ?? "01"}-${m[3] ?? "01"}`;
+}
+
+const EXTENSIONS_VIDEO = new Set([".mp4", ".mov", ".webm", ".m4v"]);
+
+/** Un clip choisi ou glissé : seulement une vidéo, et pas plus que ce que le site accepte. */
+async function decrireVideo(chemin: string): Promise<FichierAudio> {
+  if (!EXTENSIONS_VIDEO.has(extname(String(chemin)).toLowerCase())) throw new Error("Le clip doit être une vidéo MP4, MOV, WebM ou M4V.");
+  const infos = await stat(chemin);
+  if (infos.size > 1024 * 1024 * 1024) throw new Error("Clip trop lourd (1 Go au plus).");
+  return { chemin, nom: basename(chemin), taille: infos.size };
+}
+
 async function lireEtiquettes(chemin: string): Promise<Etiquettes> {
   const m = await parseFile(chemin, { skipCovers: false, duration: true });
   const c = m.common;
-  const image = c.picture?.[0];
+  const natif = m.native as unknown as Natif;
+  // Plusieurs images (face, dos, livret) : la plus lourde, à défaut de la plus définie, puis la face avant.
+  const image = [...(c.picture ?? [])].sort((a, b) => b.data.byteLength - a.data.byteLength || Number(/front/i.test(b.type ?? "")) - Number(/front/i.test(a.type ?? "")))[0];
+  const paroles = lireParoles(c.lyrics as Parameters<typeof lireParoles>[0]);
+  const genres = (c.genre ?? []).map((g) => g.trim()).filter(Boolean);
   return {
     titre: c.title ?? null,
     artiste: c.artist ?? c.albumartist ?? null,
@@ -70,6 +190,19 @@ async function lireEtiquettes(chemin: string): Promise<Etiquettes> {
     duree: m.format.duration ? Math.round(m.format.duration) : null,
     debit: m.format.bitrate ? Math.round(m.format.bitrate / 1000) : null,
     pochette: image ? { mime: image.format, base64: Buffer.from(image.data).toString("base64") } : null,
+    artistes: (c.artists ?? []).map((a) => a.trim()).filter(Boolean),
+    producteur: premiereChaine(c.producer) ?? intervenant(natif, "producer"),
+    tonalite: c.key?.trim() || null,
+    isrc: premiereChaine(c.isrc),
+    copyright: c.copyright?.trim() || null,
+    langue: c.language?.trim() || null,
+    paroles: paroles.texte,
+    parolesSynchronisees: paroles.synchronisees,
+    description: premiereChaine(c.description) ?? premiereChaine((c.comment ?? []).map((x) => x.text)) ?? (c.longDescription?.trim() || null),
+    dateSortie: dateDeSortie(c.releasedate) ?? dateDeSortie(c.date) ?? dateDeSortie(c.originaldate) ?? dateDeSortie(premierNombre(c.year)),
+    genresSecondaires: genres.slice(1),
+    motsCles: [...(c.keywords ?? []), c.grouping, c.mood].map((v) => v?.trim()).filter((v): v is string => !!v),
+    explicite: lireExplicite(natif),
   };
 }
 
@@ -91,6 +224,11 @@ function creerFenetre() {
     },
   });
   fenetre.once("ready-to-show", () => fenetre.show());
+  // Un fichier lâché à côté d'une zone de dépôt ouvrirait ce fichier à la place
+  // du logiciel : la fenêtre ne quitte jamais sa page.
+  fenetre.webContents.on("will-navigate", (e, url) => {
+    if (url !== fenetre.webContents.getURL()) e.preventDefault();
+  });
   // Un lien vers l'extérieur s'ouvre dans le navigateur, jamais dans une fenêtre de l'app.
   fenetre.webContents.setWindowOpenHandler(({ url }) => {
     if (/^https?:\/\//.test(url)) void shell.openExternal(url);
@@ -180,6 +318,35 @@ ipcMain.handle(CANAUX.choisirDossier, async () => {
   const r = await dialog.showOpenDialog({ properties: ["openDirectory"], title: "Choisir un dossier de musique" });
   return r.canceled ? null : (r.filePaths[0] ?? null);
 });
+ipcMain.handle(CANAUX.choisirFichiers, async () => {
+  const r = await dialog.showOpenDialog({
+    properties: ["openFile", "multiSelections"],
+    title: "Choisir des fichiers audio",
+    filters: [{ name: "Audio", extensions: [...EXTENSIONS_AUDIO].map((e) => e.slice(1)) }],
+  });
+  return r.canceled ? [] : resoudreChemins(r.filePaths);
+});
+ipcMain.handle(CANAUX.resoudreChemins, (_e, chemins: string[]) => resoudreChemins(Array.isArray(chemins) ? chemins.filter((c) => typeof c === "string") : []));
+ipcMain.handle(CANAUX.choisirImage, async () => {
+  const r = await dialog.showOpenDialog({
+    properties: ["openFile"],
+    title: "Choisir une image",
+    filters: [{ name: "Images", extensions: ["jpg", "jpeg", "png", "webp"] }],
+  });
+  return r.canceled || !r.filePaths[0] ? null : lireImage(r.filePaths[0]);
+});
+ipcMain.handle(CANAUX.lireImage, (_e, chemin: string) => lireImage(chemin));
+// Le clip d'un titre : le site accepte MP4, MOV, WebM et M4V (envoiRegles.ts, dossier « videos »).
+ipcMain.handle(CANAUX.choisirVideo, async () => {
+  const r = await dialog.showOpenDialog({
+    properties: ["openFile"],
+    title: "Choisir le clip vidéo",
+    filters: [{ name: "Vidéo", extensions: ["mp4", "mov", "webm", "m4v"] }],
+  });
+  const chemin = r.canceled ? null : r.filePaths[0];
+  return chemin ? decrireVideo(chemin) : null;
+});
+ipcMain.handle(CANAUX.decrireVideo, (_e, chemin: string) => decrireVideo(chemin));
 ipcMain.handle(CANAUX.listerAudio, (_e, dossier: string) => listerAudio(dossier));
 ipcMain.handle(CANAUX.lireEtiquettes, (_e, chemin: string) => lireEtiquettes(chemin));
 ipcMain.handle(CANAUX.lireFichier, async (_e, chemin: string) => {

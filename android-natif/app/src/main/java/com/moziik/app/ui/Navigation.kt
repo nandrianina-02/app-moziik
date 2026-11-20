@@ -85,10 +85,35 @@ class Navigation(
         return true
     }
 
+    /*
+     * `launchSingleTop` ne compare que le gabarit de la route : un album
+     * ouvert depuis un autre album prenait sa place, et Retour sautait la
+     * fiche d'où l'on venait. On ne réutilise donc la fiche du dessus que si
+     * c'est exactement la même (deux appuis rapides) ; toute autre s'empile.
+     */
     private fun aller(route: String) {
         onAvantNavigation()
-        controleur.navigate(route) { launchSingleTop = true }
+        if (routeActuelle() == normaliser(route)) return
+        controleur.navigate(route)
     }
+
+    /** La route concrète de l'écran du dessus, gabarit rempli par ses arguments. */
+    private fun routeActuelle(): String? {
+        val entree = controleur.currentBackStackEntry ?: return null
+        val gabarit = entree.destination.route ?: return null
+        val arguments = entree.arguments
+        return normaliser(PARAMETRE.replace(gabarit) { m -> arguments?.getString(m.groupValues[1]).orEmpty() })
+    }
+}
+
+private val PARAMETRE = Regex("\\{([^}]+)\\}")
+
+/** Décodée, sans les paramètres facultatifs vides : « playlist/x?jeton= » vaut « playlist/x ». */
+private fun normaliser(route: String): String {
+    val decodee = Uri.decode(route)
+    val chemin = decodee.substringBefore('?')
+    val requete = decodee.substringAfter('?', "").split('&').filter { it.isNotEmpty() && !it.endsWith("=") }.sorted()
+    return if (requete.isEmpty()) chemin else "$chemin?${requete.joinToString("&")}"
 }
 
 val LocalNavigation = staticCompositionLocalOf<Navigation> { error("Navigation absente : l'écran doit être dans la coquille.") }

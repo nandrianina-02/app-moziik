@@ -54,10 +54,23 @@ class Notifications(private val api: MoziikApi) {
         _nonLues.value = liste.count { !it.read }
     }
 
-    /** Relit la première page ; une panne garde la dernière liste connue. */
+    /**
+     * Relit la première page ; une panne garde la dernière liste connue.
+     * Les pages plus anciennes déjà chargées restent à la suite : sinon la
+     * relecture de chaque minute, ou le retour d'une fiche, ramenait la liste
+     * à vingt avis et faisait perdre la place de qui était descendu plus bas.
+     */
     suspend fun actualiser(): Result<Unit> = appel { api.notifications(null) }.map {
-        publier(it.notifications)
-        _encore.value = it.hasMore
+        val page = it.notifications
+        val frontiere = page.lastOrNull()?.createdAt
+        val anciennes = if (it.hasMore && frontiere != null) {
+            _liste.value.orEmpty().filter { a -> (a.createdAt ?: "") < frontiere && page.none { n -> n.id == a.id } }
+        } else {
+            emptyList()
+        }
+        publier(page + anciennes)
+        // Avec des pages anciennes gardées, « encore » est celui de la dernière d'entre elles.
+        if (anciennes.isEmpty()) _encore.value = it.hasMore
     }
 
     /** La page suivante, à partir de la plus ancienne déjà chargée. */

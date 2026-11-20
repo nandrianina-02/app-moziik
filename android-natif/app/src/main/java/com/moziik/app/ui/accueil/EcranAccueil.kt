@@ -136,7 +136,7 @@ fun EcranAccueil() {
     val lancement = rememberLancement()
     val contexte = LocalContext.current
     val p = LocalPalette.current
-    val vus = remember { mutableSetOf<Any>() }
+    val vus = com.moziik.app.ui.composants.rememberVus()
     var filtre by rememberSaveable { mutableStateOf(FiltreAccueil.TOUT) }
     val prenom = (session as? EtatSession.Connecte)?.utilisateur?.name?.trim()?.split(Regex("\\s+"))?.firstOrNull()
     val nav = navigation()

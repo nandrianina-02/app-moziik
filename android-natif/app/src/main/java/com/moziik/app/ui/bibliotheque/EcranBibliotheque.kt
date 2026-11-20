@@ -152,7 +152,7 @@ fun EcranBibliotheque(onConnexion: () -> Unit) {
     var onglet by rememberSaveable { mutableStateOf(if (c.horsLigne.horsReseau.value) Onglet.TELECHARGEMENTS else Onglet.TOUT) }
     val p = LocalPalette.current
     val nav = navigation()
-    val vus = androidx.compose.runtime.remember { mutableSetOf<Any>() }
+    val vus = com.moziik.app.ui.composants.rememberVus()
 
     val podcasts = albums.elements.orEmpty().filter { it.type == "podcast" }
     val disques = albums.elements.orEmpty().filter { it.type != "podcast" }

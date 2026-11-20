@@ -85,13 +85,19 @@ fun EcranBilan(onRetour: () -> Unit) {
     val maintenant = remember { Calendar.getInstance() }
     val anneeCourante = maintenant.get(Calendar.YEAR)
     var annee by rememberSaveable { mutableIntStateOf(anneeDuBilan(anneeCourante, maintenant.get(Calendar.MONTH) + 1)) }
-    var bilan by remember { mutableStateOf<Bilan?>(null) }
+    // Gardé au retour d'une fiche ouverte depuis le bilan : il ne se recharge pas, la page reste à sa place.
+    var bilan by com.moziik.app.ui.composants.rememberMemoire<Bilan?>("bilan") { null }
+    var anneeChargee by com.moziik.app.ui.composants.rememberMemoire("bilan-annee") { 0 }
     var erreur by remember { mutableStateOf<String?>(null) }
     LaunchedEffect(annee) {
+        if (bilan != null && anneeChargee == annee) return@LaunchedEffect
         bilan = null
         erreur = null
         appel { c.reseau.api.bilan(annee) }
-            .onSuccess { bilan = it }
+            .onSuccess {
+                bilan = it
+                anneeChargee = annee
+            }
             .onFailure { e -> erreur = if (e is ErreurApi && e.statut == 404) "Le bilan n'est pas encore disponible. Réessaie un peu plus tard." else messageErreur(e) }
     }
     PageReglage("Ton année", onRetour) {

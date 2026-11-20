@@ -28,6 +28,7 @@ import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
+import com.moziik.app.ui.composants.rememberMemoire
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
@@ -166,14 +167,16 @@ fun EcranConversation(id: String, onRetour: () -> Unit) {
     val moi = (session as? EtatSession.Connecte)?.utilisateur?.id
     val cycle = LocalLifecycleOwner.current
 
-    var conversation by remember { mutableStateOf<Conversation?>(null) }
-    var messages by remember { mutableStateOf<List<MessageFil>>(emptyList()) }
-    var lecteurs by remember { mutableStateOf<List<LectureMembre>>(emptyList()) }
+    // Le fil chargé survit à une fiche ouverte depuis la conversation (titre partagé, profil) :
+    // au retour, les anciens messages déjà remontés et la position de lecture sont là.
+    var conversation by rememberMemoire<Conversation?>("conversation") { null }
+    var messages by rememberMemoire<List<MessageFil>>("messages") { emptyList() }
+    var lecteurs by rememberMemoire<List<LectureMembre>>("lecteurs") { emptyList() }
     var ecrivent by remember { mutableStateOf<List<String>>(emptyList()) }
-    var encore by remember { mutableStateOf(false) }
+    var encore by rememberMemoire("encore") { false }
     var chargementAnciens by remember { mutableStateOf(false) }
     var erreur by remember { mutableStateOf<String?>(null) }
-    var pret by remember { mutableStateOf(false) }
+    var pret by rememberMemoire("pret") { false }
 
     var texte by rememberSaveable { mutableStateOf("") }
     var reponseA by remember { mutableStateOf<MessageFil?>(null) }
@@ -192,8 +195,8 @@ fun EcranConversation(id: String, onRetour: () -> Unit) {
 
     // L'assistant d'écoute a son propre fil, créé au premier usage (H12) : on l'ouvre par l'identifiant « assistant ».
     val assistant = id == ASSISTANT
-    var fil by remember { mutableStateOf(if (assistant) null else id) }
-    var disponible by remember { mutableStateOf(true) }
+    var fil by rememberMemoire("fil") { if (assistant) null else id }
+    var disponible by rememberMemoire("disponible") { true }
     val nav = navigation()
     val lancement = rememberLancement()
     // La carte d'une réponse de l'assistant : un titre ou une radio se lancent, le reste s'ouvre.
@@ -207,6 +210,9 @@ fun EcranConversation(id: String, onRetour: () -> Unit) {
 
     // Premier chargement, puis rafraîchissement tant que le fil est à l'écran.
     LaunchedEffect(id) {
+        // Déjà chargé (retour d'une fiche) : le rafraîchissement ci-dessous rattrape ce qui manque,
+        // sans remplacer le fil par sa dernière page.
+        if (pret) return@LaunchedEffect
         try {
             if (assistant) {
                 val f = c.ia.filAssistant()

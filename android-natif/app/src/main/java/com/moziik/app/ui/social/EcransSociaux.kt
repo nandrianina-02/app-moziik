@@ -202,8 +202,9 @@ fun EcranAmis(onRetour: () -> Unit) {
     val portee = rememberCoroutineScope()
     val session by c.session.etat.collectAsStateWithLifecycle()
     val lecture by c.lecteur.etat.collectAsStateWithLifecycle()
-    var activite by remember { mutableStateOf<List<ActiviteAmi>?>(null) }
-    var social by remember { mutableStateOf<EtatSocial?>(null) }
+    // Gardés au retour d'un profil ouvert depuis la liste : elle reste où on l'avait laissée.
+    var activite by com.moziik.app.ui.composants.rememberMemoire<List<ActiviteAmi>?>("activite") { null }
+    var social by com.moziik.app.ui.composants.rememberMemoire<EtatSocial?>("social") { null }
     var echec by remember { mutableStateOf(false) }
     var essai by remember { mutableIntStateOf(0) }
     val liste = rememberLazyListState()

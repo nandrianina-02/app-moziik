@@ -128,7 +128,7 @@ fun EcranRecherche(termeDemande: String?, onTermeConsomme: () -> Unit) {
     LaunchedEffect(liste) {
         snapshotFlow { liste.isScrollInProgress }.collect { if (it) clavier?.hide() }
     }
-    val vus = remember { mutableSetOf<Any>() }
+    val vus = com.moziik.app.ui.composants.rememberVus()
     val actif = terme.trim().length >= 2
 
     Column(Modifier.fillMaxSize()) {

@@ -44,7 +44,8 @@ fun Modifier.apparition(rang: Int = 0): Modifier = composed {
  */
 @androidx.compose.runtime.Composable
 fun Modifier.apparitionUneFois(cle: Any, rang: Int, vus: MutableSet<Any>): Modifier {
-    val premiere = remember(cle) { vus.add(cle) }
+    // Par le texte de la clé : c'est ce que `rememberVus` sait garder.
+    val premiere = remember(cle) { vus.add(cle.toString()) }
     return if (premiere) apparition(rang) else this
 }
 

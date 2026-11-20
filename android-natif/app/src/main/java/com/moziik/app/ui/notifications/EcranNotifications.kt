@@ -123,7 +123,7 @@ fun EcranNotifications(onRetour: () -> Unit) {
     var suiteEnCours by remember { mutableStateOf(false) }
     var aSupprimer by remember { mutableStateOf<Avis?>(null) }
     var vidage by remember { mutableStateOf(false) }
-    val vus = remember { mutableSetOf<Any>() }
+    val vus = com.moziik.app.ui.composants.rememberVus()
     val etatListe = rememberLazyListState()
 
     LaunchedEffect(Unit) {

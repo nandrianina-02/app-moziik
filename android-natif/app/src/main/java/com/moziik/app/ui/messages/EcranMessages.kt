@@ -97,7 +97,8 @@ fun EcranMessages(onConnexion: () -> Unit, onOuvrir: (String) -> Unit) {
         Invitation(onConnexion)
         return
     }
-    var conversations by remember { mutableStateOf<List<Conversation>?>(null) }
+    // Gardée au retour d'une conversation : la liste reste où on l'avait laissée.
+    var conversations by com.moziik.app.ui.composants.rememberMemoire<List<Conversation>?>("conversations") { null }
     var erreur by remember { mutableStateOf<String?>(null) }
     var nouvelle by rememberSaveable { mutableStateOf(false) }
     var groupe by rememberSaveable { mutableStateOf(false) }

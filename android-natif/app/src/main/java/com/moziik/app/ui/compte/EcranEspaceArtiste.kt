@@ -79,7 +79,8 @@ private fun chiffre(n: Int): String = entiers.format(n)
 fun EcranEspaceArtiste(onRetour: () -> Unit) {
     val c = conteneur()
     var jours by rememberSaveable { mutableIntStateOf(30) }
-    var stats by remember { mutableStateOf<StatistiquesArtiste?>(null) }
+    // Gardés au retour d'une fiche : la page reste à sa place pendant que les chiffres se relisent.
+    var stats by com.moziik.app.ui.composants.rememberMemoire<StatistiquesArtiste?>("stats") { null }
     var erreur by remember { mutableStateOf<String?>(null) }
     var chargement by remember { mutableStateOf(true) }
     LaunchedEffect(jours) {

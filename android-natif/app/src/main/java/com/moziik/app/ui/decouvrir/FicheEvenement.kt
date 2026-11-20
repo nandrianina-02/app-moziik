@@ -112,7 +112,7 @@ private fun CorpsEvenement(donnees: DonneesEvenement, onRetour: () -> Unit) {
     val portee = rememberCoroutineScope()
     val session by c.session.etat.collectAsStateWithLifecycle()
     val e = donnees.evenement
-    val vus = remember { mutableSetOf<Any>() }
+    val vus = com.moziik.app.ui.composants.rememberVus()
     val date = remember(e.date) { instant(e.date) }
     val fin = remember(e.endDate) { e.endDate?.let(::instant) }
     val maintenant = remember { System.currentTimeMillis() }

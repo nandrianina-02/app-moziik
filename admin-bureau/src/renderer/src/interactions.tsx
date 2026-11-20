@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState, type MouseEvent, type ReactNode } from "react";
 import { X, type LucideIcon } from "lucide-react";
 import clsx from "./clsx";
+import { usePageActive } from "./page";
 
 /*
  * Les gestes de souris, comme dans l'Explorateur Windows :
@@ -167,6 +168,7 @@ function surCommande(e: MouseEvent) {
  */
 export function useSelection(ids: string[], ouvrir?: (id: string) => void) {
   const [choisis, setChoisis] = useState<Set<string>>(() => new Set());
+  const pageActive = usePageActive();
   // Le pivot d'une plage (Maj) et la position courante (flèches, Entrée) :
   // distincts, comme dans l'Explorateur, où Maj + flèche étend depuis le pivot.
   const ancre = useRef<number | null>(null);
@@ -229,6 +231,8 @@ export function useSelection(ids: string[], ouvrir?: (id: string) => void) {
   const vider = useCallback(() => setChoisis(new Set()), []);
 
   useEffect(() => {
+    // Une page quittée reste montée : son clavier se tait tant qu'elle est masquée.
+    if (!pageActive) return;
     const touche = (e: KeyboardEvent) => {
       const cible = e.target as HTMLElement;
       if (cible.closest("input, textarea, select, [contenteditable]")) return;
@@ -255,12 +259,12 @@ export function useSelection(ids: string[], ouvrir?: (id: string) => void) {
           setChoisis(new Set([ids[suivant]]));
         }
         // Le défilement suit : l'élément choisi reste à l'écran, sous la barre collante.
-        requestAnimationFrame(() => document.querySelector(`main [data-rang="${suivant}"]`)?.scrollIntoView({ block: "nearest" }));
+        requestAnimationFrame(() => document.querySelector(`main[data-actif] [data-rang="${suivant}"]`)?.scrollIntoView({ block: "nearest" }));
       }
     };
     window.addEventListener("keydown", touche);
     return () => window.removeEventListener("keydown", touche);
-  }, [cle, choisis, ouvrir]);
+  }, [cle, choisis, ouvrir, pageActive]);
 
   return { choisis, estChoisi: (id: string) => choisis.has(id), nombre: choisis.size, surClic, surDoubleClic, surMenu, vider };
 }

@@ -29,6 +29,7 @@ import { adresseSite, api, telechargerAuthentifie } from "../api";
 import { BarreCollante, Barres, Bouton, Chargement, EnTete, Erreur, Pagination, Pastille, Table, Tiroir, Vide, formatNombre } from "../composants";
 import { annoncer, classeChoisi, confirmer, ouvrirMenu, useSelection } from "../interactions";
 import { arreter } from "../lecture";
+import { usePageActive } from "../page";
 import { adresseImage } from "../session";
 import clsx from "../clsx";
 import { analyserParoles, formaterTemps, ligneActive, lireTemps, versLRC, type LigneEditable } from "../paroles";
@@ -755,7 +756,14 @@ function Atelier({ titre, onFermer }: { titre: Titre; onFermer: (aEnregistre: bo
     actions.current = { mode, enregistrer, setMode };
   });
 
+  // L'atelier quitté reste ouvert, masqué : ses raccourcis (Ctrl + S, Espace…) se taisent jusqu'au retour.
+  const pageActive = usePageActive();
+  // Quitter la page coupait le son en fermant l'atelier ; masqué, il se met en pause.
   useEffect(() => {
+    if (!pageActive) audioRef.current?.pause();
+  }, [pageActive]);
+  useEffect(() => {
+    if (!pageActive) return;
     const touche = (e: KeyboardEvent) => {
       // Une confirmation ou un menu ouvert a la main sur le clavier.
       if (document.querySelector('[role="alertdialog"], [role="menu"]')) return;
@@ -808,7 +816,7 @@ function Atelier({ titre, onFermer }: { titre: Titre; onFermer: (aEnregistre: bo
     };
     window.addEventListener("keydown", touche, true);
     return () => window.removeEventListener("keydown", touche, true);
-  }, [basculerLecture, deplacer, marquer, defaire, placer, decaler, ecouterDepuis]);
+  }, [basculerLecture, deplacer, marquer, defaire, placer, decaler, ecouterDepuis, pageActive]);
 
   /* ------------------------------------------------------------ rendu -- */
 

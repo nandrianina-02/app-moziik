@@ -3,6 +3,7 @@ import { ChevronLeft, ChevronRight, Loader2, X } from "lucide-react";
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import type { ButtonHTMLAttributes, InputHTMLAttributes, ReactNode, SelectHTMLAttributes, TextareaHTMLAttributes } from "react";
 import { adresseImage } from "./session";
+import { usePageActive } from "./page";
 
 /** Les briques communes : boutons, champs, panneaux, états. */
 
@@ -220,13 +221,23 @@ export function formatRelatif(iso: string | number | Date) {
   return "à l'instant";
 }
 
-/** Une fenêtre modale : Échap ou un clic à côté la ferment. */
-export function Dialogue({ titre, children, onFermer }: { titre: string; children: ReactNode; onFermer: () => void }) {
+/**
+ * Échap ferme la fenêtre ou le panneau, seulement sur la page affichée :
+ * un panneau resté ouvert dans une page quittée l'attend au retour.
+ */
+function useEchap(fermer: () => void) {
+  const active = usePageActive();
   useEffect(() => {
-    const touche = (e: KeyboardEvent) => e.key === "Escape" && onFermer();
+    if (!active) return;
+    const touche = (e: KeyboardEvent) => e.key === "Escape" && fermer();
     document.addEventListener("keydown", touche);
     return () => document.removeEventListener("keydown", touche);
-  }, [onFermer]);
+  }, [fermer, active]);
+}
+
+/** Une fenêtre modale : Échap ou un clic à côté la ferment. */
+export function Dialogue({ titre, children, onFermer }: { titre: string; children: ReactNode; onFermer: () => void }) {
+  useEchap(onFermer);
   return (
     <div className="animate-paraitre fixed inset-0 z-40 grid place-items-center bg-black/50 p-6" onMouseDown={onFermer}>
       <div className="animate-monter w-[440px] rounded-2xl border border-filet bg-surface p-6 shadow-2xl shadow-black/40" onMouseDown={(e) => e.stopPropagation()}>
@@ -245,11 +256,7 @@ export function Dialogue({ titre, children, onFermer }: { titre: string; childre
 
 /** Un panneau latéral, pour éditer une fiche sans quitter la liste. */
 export function Tiroir({ titre, sousTitre, children, pied, onFermer, largeur = 460 }: { titre: string; sousTitre?: string; children: ReactNode; pied?: ReactNode; onFermer: () => void; largeur?: number }) {
-  useEffect(() => {
-    const touche = (e: KeyboardEvent) => e.key === "Escape" && onFermer();
-    document.addEventListener("keydown", touche);
-    return () => document.removeEventListener("keydown", touche);
-  }, [onFermer]);
+  useEchap(onFermer);
   return (
     <div className="animate-paraitre fixed inset-0 z-40 flex justify-end bg-black/45" onMouseDown={onFermer}>
       <aside className="animate-monter flex h-full flex-col border-l border-filet bg-surface" style={{ width: largeur }} onMouseDown={(e) => e.stopPropagation()}>

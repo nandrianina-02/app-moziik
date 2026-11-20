@@ -78,6 +78,7 @@ import { HoteConfirmation, HoteMenu, annoncer, brancherAnnonces, confirmer } fro
 import { Palette } from "./palette";
 import { derniereVersion, plusRecente } from "./miseajour";
 import { FournisseurTeleversements, useTeleversements } from "./televersements";
+import { FournisseurPage } from "./page";
 import logo from "./assets/icon-mark.png";
 import clsx from "./clsx";
 
@@ -367,7 +368,10 @@ function useFermeture(ouvert: boolean, fermer: () => void) {
 function Coquille() {
   const { etat, fermer } = useSession();
   const [page, setPage] = useState<Page>(() => preferences().pageDemarrage as Page);
-  const [recherche, setRecherche] = useState<{ q: string; statut?: "draft"; n: number }>({ q: "", n: 0 });
+  // Les pages déjà ouvertes, gardées montées : on y revient là où on les avait laissées.
+  const [visitees, setVisitees] = useState<Page[]>(() => [preferences().pageDemarrage as Page]);
+  // Une recherche ou un filtre transmis à une page (palette, cloche) : elle repart de là.
+  const [demandes, setDemandes] = useState<Partial<Record<Page, Demande>>>({});
   const [replie, setReplie] = useState(false);
   const prefs = usePreferences();
   const theme = themeEffectif(prefs);
@@ -410,8 +414,10 @@ function Coquille() {
 
   const aller = useCallback((p: Page, q?: string, statut?: "draft") => {
     setPage(p);
-    // Sans recherche transmise, la page s'ouvre vierge : la dernière recherche ne la suit pas.
-    setRecherche((r) => ({ q: q ?? "", statut, n: r.n + 1 }));
+    setVisitees((v) => (v.includes(p) ? v : [...v, p]));
+    // Sans recherche ni filtre transmis, la page est rendue telle qu'on l'a quittée ;
+    // avec, elle repart de la demande (« Titres en attente », recherche de la palette).
+    if (q || statut) setDemandes((d) => ({ ...d, [p]: { q: q ?? "", statut, n: (d[p]?.n ?? 0) + 1 } }));
   }, []);
 
   const rafraichir = useCallback(() => {
@@ -649,40 +655,13 @@ function Coquille() {
               Hors connexion : les données affichées peuvent dater, et les envois sont en pause. Reconnexion automatique dès le retour du réseau.
             </div>
           )}
-          <main className="min-h-0 flex-1 overflow-auto px-7 pb-6" key={page}>
-            <GardeFou>
-            <div className="animate-paraitre mx-auto max-w-[1360px] pt-6">
-              {page === "tableau" && <TableauDeBord />}
-              {page === "catalogue" && <Catalogue key={recherche.n} rechercheInitiale={recherche.q} statutInitial={recherche.statut} />}
-              {page === "artistes" && <Artistes key={recherche.n} rechercheInitiale={recherche.q} />}
-              {page === "classements" && <Classements />}
-              {page === "statistiques" && <Statistiques />}
-              {page === "annonces" && <Annonces />}
-              {page === "assistance" && <Assistance />}
-              {page === "paroles" && <Paroles />}
-              {page === "accueil" && <Accueil />}
-              {page === "aide" && <Aide />}
-              {page === "site" && <ParametresSite />}
-              {page === "selections" && <Selections />}
-              {page === "taches" && <Taches />}
-              {page === "ia" && <IA />}
-              {page === "analyses" && <Analyses />}
-              {page === "univers" && <Univers />}
-              {page === "albums" && <Albums />}
-              {page === "playlists" && <Playlists />}
-              {page === "badges" && <Badges />}
-              {page === "escalades" && <Escalades />}
-              {page === "doublons" && <Doublons />}
-              {page === "annees" && <Annees />}
-              {page === "genres" && <Genres />}
-              {page === "bpm" && <Bpm />}
-              {page === "comptes" && <Comptes key={recherche.n} rechercheInitiale={recherche.q} />}
-              {page === "import" && <Import />}
-              {page === "moderation" && <Moderation />}
-              {page === "reglages" && <Reglages />}
-            </div>
-            </GardeFou>
-          </main>
+          <div className="relative min-h-0 flex-1">
+            {visitees.map((cle) => (
+              <ZonePage key={cle} active={cle === page}>
+                {ecran(cle, demandes[cle])}
+              </ZonePage>
+            ))}
+          </div>
         </div>
       </div>
       <HoteMenu />
@@ -862,6 +841,76 @@ function ElementMenu({ icone: Icone, children, onClick, danger }: { icone: Lucid
     <button onClick={onClick} className={clsx("flex w-full items-center gap-3 px-4 py-2 text-left text-[13px] hover:bg-surface-2", danger ? "text-danger" : "text-texte")}>
       <Icone size={15} /> {children}
     </button>
+  );
+}
+
+interface Demande {
+  q: string;
+  statut?: "draft";
+  n: number;
+}
+
+/** L'écran d'une page ; une demande transmise le remonte (clé) avec sa recherche ou son filtre. */
+function ecran(cle: Page, d: Demande | undefined): ReactNode {
+  const q = d?.q ?? "";
+  const n = d?.n ?? 0;
+  switch (cle) {
+    case "tableau": return <TableauDeBord />;
+    case "catalogue": return <Catalogue key={n} rechercheInitiale={q} statutInitial={d?.statut} />;
+    case "artistes": return <Artistes key={n} rechercheInitiale={q} />;
+    case "comptes": return <Comptes key={n} rechercheInitiale={q} />;
+    case "classements": return <Classements />;
+    case "statistiques": return <Statistiques />;
+    case "annonces": return <Annonces />;
+    case "assistance": return <Assistance />;
+    case "paroles": return <Paroles />;
+    case "accueil": return <Accueil />;
+    case "aide": return <Aide />;
+    case "site": return <ParametresSite />;
+    case "selections": return <Selections />;
+    case "taches": return <Taches />;
+    case "ia": return <IA />;
+    case "analyses": return <Analyses />;
+    case "univers": return <Univers />;
+    case "albums": return <Albums />;
+    case "playlists": return <Playlists />;
+    case "badges": return <Badges />;
+    case "escalades": return <Escalades />;
+    case "doublons": return <Doublons />;
+    case "annees": return <Annees />;
+    case "genres": return <Genres />;
+    case "bpm": return <Bpm />;
+    case "import": return <Import />;
+    case "moderation": return <Moderation />;
+    case "reglages": return <Reglages />;
+    default: return null;
+  }
+}
+
+/**
+ * La zone qui défile d'une page. Masquée par `visibility` et non retirée :
+ * elle garde sa position de défilement, ses champs, ses panneaux ouverts, et
+ * ses animations d'entrée ne se rejouent pas (un `display: none` les
+ * relancerait au retour). `inert` la sort du clavier et de la tabulation.
+ */
+function ZonePage({ active, children }: { active: boolean; children: ReactNode }) {
+  const ref = useRef<HTMLElement>(null);
+  useEffect(() => {
+    if (ref.current) ref.current.inert = !active;
+  }, [active]);
+  return (
+    <main
+      ref={ref}
+      data-actif={active || undefined}
+      aria-hidden={!active || undefined}
+      className={clsx("absolute inset-0 overflow-auto px-7 pb-6", !active && "invisible")}
+    >
+      <FournisseurPage value={active}>
+        <GardeFou>
+          <div className="animate-paraitre mx-auto max-w-[1360px] pt-6">{children}</div>
+        </GardeFou>
+      </FournisseurPage>
+    </main>
   );
 }
 

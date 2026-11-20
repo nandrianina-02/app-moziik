@@ -95,6 +95,21 @@ principal télécharge l'installeur de la version choisie, le lance et se
 ferme. Seule une adresse `releases/download/admin-v…` du dépôt est
 acceptée. Une nouvelle version se signale en bas de la barre latérale.
 
+## Retour sur une page
+
+Une page ouverte reste montée, masquée, quand on en quitte (`ZonePage`
+dans `App.tsx`, `page.tsx`) : au retour, défilement, page de pagination,
+recherche, filtres, sélection et panneau ouvert sont là où on les avait
+laissés. Masquer passe par `visibility` et `inert`, pas par `display: none`,
+qui ferait perdre la position et rejouerait les animations d'entrée.
+
+Une page masquée se tait : raccourcis (`useSelection`, Ctrl + molette,
+Échap, atelier des paroles), relectures périodiques (Assistance) et son de
+l'atelier attendent le retour. `usePageActive()` le dit à un composant ;
+`useAuRetour()` relit ce qui a pu changer (compteurs du tableau de bord,
+conversations de l'assistance). Seule une recherche ou un filtre transmis
+(palette, cloche) fait repartir une page de cette demande.
+
 ## Souris et clavier
 
 Comme dans l'Explorateur Windows (`interactions.tsx`) :

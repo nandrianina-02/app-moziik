@@ -4,6 +4,7 @@ import { api } from "../api";
 import { Avatar, Bouton, Chargement, EnTete, Erreur, Pastille, formatRelatif } from "../composants";
 import clsx from "../clsx";
 import { annoncer, copier, ouvrirMenu } from "../interactions";
+import { useAuRetour, usePageActive } from "../page";
 
 interface Fil {
   _id: string;
@@ -57,10 +58,16 @@ export function Assistance() {
 
   useEffect(() => {
     charger();
-    // La liste se rafraîchit d'elle-même : un nouveau message remonte sans clic.
+  }, [charger]);
+  // La liste se rafraîchit d'elle-même tant qu'elle est à l'écran : un nouveau
+  // message remonte sans clic. Masquée, elle attend, puis se relit au retour.
+  const active = usePageActive();
+  useAuRetour(() => charger(true));
+  useEffect(() => {
+    if (!active) return;
     const minuterie = setInterval(() => charger(true), 30_000);
     return () => clearInterval(minuterie);
-  }, [charger]);
+  }, [charger, active]);
 
   const visibles = useMemo(() => {
     const q = recherche.trim().toLowerCase();
@@ -212,7 +219,11 @@ function Conversation({ fil, onChange }: { fil: Fil; onChange: () => void }) {
 
   // Premier chargement, puis seulement ce qui est arrivé depuis le dernier
   // message affiché (paramètre `after`), toutes les 8 secondes.
+  // Page masquée : le fil ne se relit plus ; au retour, il rattrape ce qui est arrivé entre-temps.
+  const pageActive = usePageActive();
+  const filCharge = useRef<string | null>(null);
   useEffect(() => {
+    if (!pageActive) return;
     let actif = true;
     const lire = async (tout: boolean) => {
       try {
@@ -226,14 +237,16 @@ function Conversation({ fil, onChange }: { fil: Fil; onChange: () => void }) {
         if (actif) setErreur(e instanceof Error ? e.message : "Conversation illisible.");
       }
     };
-    void lire(true);
+    const premier = filCharge.current !== fil._id;
+    filCharge.current = fil._id;
+    void lire(premier);
     const minuterie = setInterval(() => void lire(false), 8_000);
     return () => {
       actif = false;
       clearInterval(minuterie);
     };
     // onChange relit seulement la liste : inutile de relancer la conversation pour lui.
-  }, [fil._id]);
+  }, [fil._id, pageActive]);
 
   useEffect(() => {
     bas.current?.scrollIntoView({ block: "end" });

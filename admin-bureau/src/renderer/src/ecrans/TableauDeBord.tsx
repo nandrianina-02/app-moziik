@@ -22,6 +22,7 @@ import { useSession, adresseImage } from "../session";
 import { Avatar, Bouton, Carte, Champ, Dialogue, Erreur, Pastille, TEINTES, formatCompact, formatNombre, formatRelatif } from "../composants";
 import { Anneau, CourbeAire, MiniCourbe } from "../graphiques";
 import { Egaliseur, useCoquille, type Page } from "../App";
+import { useAuRetour } from "../page";
 import clsx from "../clsx";
 
 type Univers = "general" | "christian";
@@ -58,7 +59,9 @@ interface CompteRecent {
  */
 export function TableauDeBord() {
   const { etat } = useSession();
-  const { aller, stats, erreurStats } = useCoquille();
+  const { aller, stats, erreurStats, rafraichir } = useCoquille();
+  // La page reste montée quand on la quitte : au retour, les compteurs se relisent sans bruit.
+  useAuRetour(rafraichir);
   const [ecoutes30, setEcoutes30] = useState<Ecoutes | null | "absent">(null);
   const [creerArtiste, setCreerArtiste] = useState(false);
   const prenom = etat.phase === "connecte" ? etat.utilisateur.name.trim().split(/\s+/)[0] : "";

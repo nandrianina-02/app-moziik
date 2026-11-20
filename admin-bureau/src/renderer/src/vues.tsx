@@ -2,6 +2,7 @@ import { useEffect, useState, type CSSProperties } from "react";
 import { flushSync } from "react-dom";
 import { Grid2x2, Grid3x3, LayoutGrid, LayoutList, Rows2, Rows3, Rows4, type LucideIcon } from "lucide-react";
 import clsx from "./clsx";
+import { usePageActive } from "./page";
 
 /*
  * Les vues des listes : en liste ou en grille, chacune en trois tailles.
@@ -165,15 +166,19 @@ export function raccourciVue(sens: 1 | -1): Vue | null {
 
 /** Inscrit la liste de la page courante comme cible de Ctrl + molette. */
 export function useRaccourciVue(vue: Vue, changer: (v: Partial<Vue>) => void) {
+  // Les pages quittées restent montées : seule celle à l'écran prend le raccourci.
+  const active = usePageActive();
   useEffect(() => {
-    raccourciActif = (sens) => {
+    if (!active) return;
+    const cible = (sens: 1 | -1) => {
       const i = ORDRE_VUES.findIndex((v) => v.mode === vue.mode && v.taille === vue.taille);
       const suivante = ORDRE_VUES[Math.min(ORDRE_VUES.length - 1, Math.max(0, i + sens))];
       if (suivante.mode !== vue.mode || suivante.taille !== vue.taille) changer(suivante);
       return suivante;
     };
+    raccourciActif = cible;
     return () => {
-      raccourciActif = null;
+      if (raccourciActif === cible) raccourciActif = null;
     };
-  }, [vue, changer]);
+  }, [vue, changer, active]);
 }

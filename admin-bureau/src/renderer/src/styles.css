@@ -223,10 +223,23 @@ select option {
   height: 100%;
   object-fit: cover;
 }
-/* Pas d'entrée animée pendant un changement de vue : elle s'y superposait. */
+/*
+ * Pas d'entrée animée pendant un changement de vue : elle s'y superposait.
+ * Durée nulle plutôt que `animation: none` : retirer puis rendre le nom de
+ * l'animation la relance, et toute la page rejouait son entrée à la fin.
+ */
 .vue-en-transition .animate-monter,
 .vue-en-transition .animate-paraitre {
-  animation: none !important;
+  animation-duration: 0s !important;
+  animation-delay: 0s !important;
+}
+/*
+ * Les pages quittées restent montées (masquées) : leurs pochettes ne
+ * prennent pas part aux transitions. Un même titre affiché dans deux pages
+ * porterait deux fois le même nom, et le navigateur annulerait la transition.
+ */
+main:not([data-actif]) * {
+  view-transition-name: none !important;
 }
 
 /* Animations coupées dans les Paramètres : rien ne bouge, rien n'attend. */

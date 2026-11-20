@@ -1,11 +1,12 @@
 import { useEffect, useMemo, useState } from "react";
-import { Check, Copy, ExternalLink, FolderOpen, Link2, Music, RefreshCw, Search, X } from "lucide-react";
+import { Check, Copy, ExternalLink, FolderOpen, Link2, Music, RefreshCw, Search, Trash2, X } from "lucide-react";
 import { adresseSite, api } from "../api";
-import { Bouton, Champ, Chargement, EnTete, Erreur, Pagination, Pastille, Selection, Table, Vide, formatDate, formatDuree, formatNombre, usePages , BarreCollante } from "../composants";
+import { Bouton, Chargement, EnTete, Erreur, Pagination, Pastille, Selection, Table, Vide, formatDate, formatDuree, formatNombre, usePages , BarreCollante } from "../composants";
 import { SelecteurVue, coteVignette, largeurCarte, nomTransition, useRaccourciVue, useVue } from "../vues";
 import clsx from "../clsx";
 import { BarreSelection, annoncer, classeChoisi, confirmer, copier, ouvrirMenu, useSelection } from "../interactions";
 import { adresseImage } from "../session";
+import { EditionTitre } from "./EditionTitre";
 
 interface Titre {
   _id: string;
@@ -31,12 +32,14 @@ const STATUTS: Record<Titre["status"], { libelle: string; ton: "neutre" | "succe
 
 /**
  * Le catalogue : tous les titres, filtrés par état, cherchés par titre ou
- * artiste, et corrigés en place (titre, genre, date, explicite). Les
- * titres en attente se valident ou se refusent d'ici.
+ * artiste. La fiche d'un titre (EditionTitre) reprend toute la page de
+ * modification du site ; les titres en attente se valident ou se refusent
+ * d'ici, seuls ou en groupe.
  */
 export function Catalogue({ rechercheInitiale = "", statutInitial = "" }: { rechercheInitiale?: string; statutInitial?: "" | "draft" }) {
   const [titres, setTitres] = useState<Titre[] | null>(null);
   const [genres, setGenres] = useState<string[]>([]);
+  const [fonctionsIA, setFonctionsIA] = useState<string[]>([]);
   const [statut, setStatut] = useState<"" | Titre["status"]>(statutInitial);
   const [recherche, setRecherche] = useState(rechercheInitiale);
   const [erreur, setErreur] = useState<string | null>(null);
@@ -50,7 +53,12 @@ export function Catalogue({ rechercheInitiale = "", statutInitial = "" }: { rech
   };
   useEffect(charger, [statut]);
   useEffect(() => {
-    api<{ genres?: string[] }>("/api/site-config").then((c) => setGenres(c.genres ?? [])).catch(() => undefined);
+    api<{ genres?: string[]; aiFeatures?: string[] }>("/api/site-config")
+      .then((c) => {
+        setGenres(c.genres ?? []);
+        setFonctionsIA(c.aiFeatures ?? []);
+      })
+      .catch(() => undefined);
   }, []);
 
   const visibles = useMemo(() => {
@@ -97,6 +105,32 @@ export function Catalogue({ rechercheInitiale = "", statutInitial = "" }: { rech
     annoncer(`${faits} titre${faits > 1 ? "s" : ""} ${decision === "approve" ? "validé" : "refusé"}${faits > 1 ? "s" : ""}`);
   }
 
+  /** Supprimer des titres : définitif (fichiers, statistiques, places dans les playlists). */
+  async function supprimer(ids: string[]) {
+    const cibles = (titres ?? []).filter((t) => ids.includes(t._id));
+    if (cibles.length === 0) return;
+    const quoi = cibles.length > 1 ? `ces ${cibles.length} titres` : `« ${cibles[0].title} »`;
+    const ok = await confirmer({
+      titre: `Supprimer ${quoi} ?`,
+      message: "Ils disparaissent du catalogue, des playlists et des statistiques, et leurs fichiers sont retirés du stockage. C'est définitif ; pour seulement les retirer du public, refusez-les.",
+      confirmer: "Supprimer définitivement",
+      danger: true,
+    });
+    if (!ok) return;
+    let faits = 0;
+    for (const t of cibles) {
+      try {
+        await api(`/api/songs/${t._id}`, { methode: "DELETE" });
+        setTitres((liste) => (liste ?? []).filter((x) => x._id !== t._id));
+        faits++;
+      } catch (e) {
+        setErreur(e instanceof Error ? e.message : "Suppression refusée.");
+      }
+    }
+    sel.vider();
+    annoncer(`${faits} titre${faits > 1 ? "s" : ""} supprimé${faits > 1 ? "s" : ""}`);
+  }
+
   async function copierLiens(ids: string[]) {
     if (await copier(ids.map(lienTitre).join("\n"))) annoncer(ids.length > 1 ? `${ids.length} liens copiés` : "Lien copié");
   }
@@ -119,6 +153,8 @@ export function Catalogue({ rechercheInitiale = "", statutInitial = "" }: { rech
           "separateur",
           { libelle: "Copier le lien", icone: Link2, action: () => void copierLiens([t._id]) },
           { libelle: "Copier le titre", icone: Copy, action: () => void copier(`${t.artist?.stageName ?? ""} - ${t.title}`).then(() => annoncer("Titre copié")) },
+          "separateur",
+          { libelle: "Supprimer", icone: Trash2, danger: true, action: () => void supprimer([t._id]) },
         ],
         t.title,
       );
@@ -130,6 +166,8 @@ export function Catalogue({ rechercheInitiale = "", statutInitial = "" }: { rech
         { libelle: `Refuser (${cibles.length})`, icone: X, danger: true, action: () => void moderer(ids, "reject") },
         "separateur",
         { libelle: `Copier les ${cibles.length} liens`, icone: Link2, action: () => void copierLiens(ids) },
+        "separateur",
+        { libelle: `Supprimer (${cibles.length})`, icone: Trash2, danger: true, action: () => void supprimer(ids) },
       ],
       `${cibles.length} titres sélectionnés`,
     );
@@ -270,110 +308,24 @@ export function Catalogue({ rechercheInitiale = "", statutInitial = "" }: { rech
         <Bouton variante="trait" className="h-9" onClick={() => void copierLiens([...sel.choisis])}>
           <Link2 size={14} /> Copier les liens
         </Bouton>
+        <Bouton variante="danger" className="h-9" onClick={() => void supprimer([...sel.choisis])}>
+          <Trash2 size={14} /> Supprimer
+        </Bouton>
       </BarreSelection>
       {ouvert && (
-        <FicheTitre
-          titre={ouvert}
+        <EditionTitre
+          key={ouvert._id}
+          id={ouvert._id}
           genres={genres}
+          fonctionsIA={fonctionsIA}
           onFermer={() => setOuvert(null)}
-          onModifie={(maj) => {
-            setTitres((liste) => (liste ?? []).map((t) => (t._id === maj._id ? { ...t, ...maj } : t)));
+          onModifie={(maj) => setTitres((liste) => (liste ?? []).map((t) => (t._id === maj._id ? { ...t, ...maj } : t)))}
+          onSupprime={(id) => {
+            setTitres((liste) => (liste ?? []).filter((t) => t._id !== id));
             setOuvert(null);
           }}
         />
       )}
     </>
-  );
-}
-
-function FicheTitre({ titre, genres, onFermer, onModifie }: { titre: Titre; genres: string[]; onFermer: () => void; onModifie: (t: Partial<Titre> & { _id: string }) => void }) {
-  const [title, setTitle] = useState(titre.title);
-  const [genre, setGenre] = useState(titre.genre);
-  const [sortie, setSortie] = useState(titre.releaseDate ? titre.releaseDate.slice(0, 10) : "");
-  const [explicit, setExplicit] = useState(Boolean(titre.explicit));
-  const [enCours, setEnCours] = useState<string | null>(null);
-  const [erreur, setErreur] = useState<string | null>(null);
-
-  async function executer(cle: string, action: () => Promise<Partial<Titre>>) {
-    setEnCours(cle);
-    setErreur(null);
-    try {
-      const maj = await action();
-      onModifie({ _id: titre._id, ...maj });
-    } catch (e) {
-      setErreur(e instanceof Error ? e.message : "L'action a échoué.");
-    } finally {
-      setEnCours(null);
-    }
-  }
-
-  const enregistrer = () =>
-    executer("enregistrer", async () => {
-      const corps = { title, genre, explicit, ...(sortie ? { releaseDate: new Date(`${sortie}T00:00:00+03:00`).toISOString() } : {}) };
-      await api(`/api/songs/${titre._id}`, { methode: "PATCH", corps });
-      return { title, genre, explicit, releaseDate: corps.releaseDate ?? titre.releaseDate };
-    });
-  const moderer = async (decision: "approve" | "reject") => {
-    const ok = await confirmer(
-      decision === "reject"
-        ? { titre: `Refuser « ${titre.title} » ?`, message: "Le titre ne sera plus visible du public.", confirmer: "Refuser", danger: true }
-        : { titre: `Valider « ${titre.title} » ?`, message: "Il sera publié aussitôt, ou à sa date de sortie si elle est à venir.", confirmer: "Valider et publier" },
-    );
-    if (!ok) return;
-    return executer(decision, async () => {
-      await api(`/api/admin/songs/${titre._id}/moderate`, { corps: { decision } });
-      return { status: decision === "approve" ? ("published" as const) : ("rejected" as const) };
-    });
-  };
-
-  return (
-    <div className="fixed inset-0 z-20 flex justify-end bg-black/30" onClick={onFermer}>
-      <aside className="animate-monter h-full w-[420px] overflow-auto border-l border-filet bg-surface p-5" onClick={(e) => e.stopPropagation()}>
-        <div className="mb-4 flex items-start gap-3">
-          {titre.coverUrl && <img src={adresseImage(titre.coverUrl) ?? undefined} alt="" className="h-16 w-16 rounded-md object-cover" />}
-          <div className="min-w-0">
-            <div className="truncate text-[15px] font-semibold">{titre.title}</div>
-            <div className="text-[13px] text-texte-2">{titre.artist?.stageName}</div>
-            <button onClick={() => void window.bureau.ouvrirExterne(`${adresseSite()}/son/${titre._id}`)} className="mt-1 inline-flex items-center gap-1 text-[12px] text-accent hover:underline">
-              Voir sur le site <ExternalLink size={12} />
-            </button>
-          </div>
-        </div>
-        <div className="space-y-3">
-          <Champ libelle="Titre" value={title} onChange={(e) => setTitle(e.target.value)} />
-          <Selection libelle="Genre" value={genre} onChange={(e) => setGenre(e.target.value)}>
-            {!genres.includes(genre) && <option value={genre}>{genre}</option>}
-            {genres.map((g) => (
-              <option key={g} value={g}>
-                {g}
-              </option>
-            ))}
-          </Selection>
-          <Champ libelle="Date de sortie" type="date" value={sortie} onChange={(e) => setSortie(e.target.value)} aide="Sert aux Nouveautés, à la Nostalgie et aux suites automatiques." />
-          <label className="flex items-center gap-2 text-[13px]">
-            <input type="checkbox" checked={explicit} onChange={(e) => setExplicit(e.target.checked)} className="accent-[var(--accent)]" /> Contenu explicite
-          </label>
-          <Erreur message={erreur} />
-          <div className="flex flex-wrap gap-2 pt-1">
-            <Bouton enCours={enCours === "enregistrer"} onClick={enregistrer}>
-              Enregistrer
-            </Bouton>
-            {titre.status !== "published" && (
-              <Bouton variante="trait" enCours={enCours === "approve"} onClick={() => moderer("approve")}>
-                Publier
-              </Bouton>
-            )}
-            {titre.status !== "rejected" && (
-              <Bouton variante="danger" enCours={enCours === "reject"} onClick={() => moderer("reject")}>
-                Refuser
-              </Bouton>
-            )}
-            <Bouton variante="discret" onClick={onFermer}>
-              Fermer
-            </Bouton>
-          </div>
-        </div>
-      </aside>
-    </div>
   );
 }

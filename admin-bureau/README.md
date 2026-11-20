@@ -79,6 +79,26 @@ continuent quand on change de page. Un titre publié sans album ou sans
 qualités (format que le décodeur ne lit pas) est marqué « Publié* », la
 raison en infobulle.
 
+## Modifier un titre du catalogue
+
+La fiche d'un titre (`EditionTitre.tsx`, ouverte depuis Musiques) reprend
+la page `/son/[id]/modifier` du site sur les mêmes routes (GET et PATCH
+`/api/songs/[id]`) : tous les champs, artiste et invités, album existant,
+single ou nouveau, pochette, fichier audio remplacé, découpe, clip ajouté
+ou retiré, tempo mesuré, assistance IA, doublon revérifié ; plus la
+validation, le refus, la remise en attente et la suppression. Les champs
+et outils sont partagés avec la fiche de téléversement (`champsTitre.tsx`).
+
+Deux règles du site :
+
+- une date de sortie envoyée fait passer le titre en « publié » ou
+  « programmé » : elle n'est modifiable que pour un titre déjà publié ou
+  programmé, et n'est envoyée que si elle a changé ;
+- changer la découpe d'un titre qui a ses qualités d'écoute exige de les
+  renvoyer (sinon 409) : elles sont encodées de nouveau ici, depuis la
+  source relue en `?brut=1`, avant l'enregistrement. Si l'encodage échoue,
+  `audioVariantes: null` laisse le site lire la source.
+
 ## Essais
 
 L'intégration continue lance le logiciel construit dans Electron
